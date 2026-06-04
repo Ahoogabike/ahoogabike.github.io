@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MAX Bike Traceability</title>
+<style>
+:root{
+  --bg:#f2f1ed;--surface:#ffffff;--surface2:#f0efe9;--border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);
+  --text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#1a4fa0;--accent-bg:#e6f0fb;--accent-text:#0c3a78;
+  --success:#2d6e2d;--success-bg:#eaf3de;--warn:#7a4e0a;--warn-bg:#faeeda;--danger:#8b1f1f;--danger-bg:#fcebeb;
+  --purple:#3c3489;--purple-bg:#eeedfe;--teal:#0f6e56;--teal-bg:#e1f5ee;--radius:10px;--radius-sm:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Georgia',serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh}
+#app{display:flex;flex-direction:column;min-height:100vh}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;height:56px;position:sticky;top:0;z-index:100}
+.logo{font-size:18px;font-weight:bold;letter-spacing:-0.5px;margin-right:32px}
+.logo span{color:var(--accent)}
+nav{display:flex;gap:2px;flex:1}
+.nav-btn{background:none;border:none;cursor:pointer;padding:6px 14px;border-radius:var(--radius-sm);font-size:13px;color:var(--text2);font-family:inherit;transition:all .15s}
+.nav-btn:hover{background:var(--surface2);color:var(--text)}
+.nav-btn.active{background:var(--accent-bg);color:var(--accent-text);font-weight:600}
+.header-right{display:flex;align-items:center;gap:8px}
+.status-dot{width:8px;height:8px;border-radius:50%;background:#ccc}
+.status-dot.connected{background:#4caf50}
+.status-label{font-size:12px;color:var(--text3)}
+main{flex:1;padding:24px;max-width:1100px;margin:0 auto;width:100%}
+.view{display:none}.view.active{display:block}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:var(--radius-sm);font-size:13px;font-family:inherit;font-weight:600;cursor:pointer;border:none;transition:all .15s}
+.btn-primary{background:var(--accent);color:#fff}.btn-primary:hover{background:#163d80}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}.btn-secondary:hover{background:#e8e7e1}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:11px;color:var(--text2);margin-bottom:5px;letter-spacing:.03em;text-transform:uppercase}
+.field input{width:100%;padding:8px 11px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:14px;font-family:inherit;background:var(--surface);color:var(--text);outline:none;transition:border-color .15s}
+.field input:focus{border-color:var(--accent)}
+.alert{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-top:10px}
+.alert-success{background:var(--success-bg);color:var(--success)}
+.alert-danger{background:var(--danger-bg);color:var(--danger)}
+.alert-warn{background:var(--warn-bg);color:var(--warn)}
+.alert-info{background:var(--accent-bg);color:var(--accent-text)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px 28px;max-width:620px}
+.card h2{font-size:16px;font-weight:600;margin-bottom:20px}
+.divider{border:none;border-top:1px solid var(--border);margin:22px 0}
+.search-row{display:flex;gap:10px;align-items:flex-end;margin-bottom:10px}
+.search-row .field{flex:1;margin-bottom:0}
+.search-row input{font-size:18px;padding:12px 14px;letter-spacing:.04em}
+.toggle{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text2);margin-bottom:6px;cursor:pointer;user-select:none}
+.toggle input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+.hint{font-size:12px;color:var(--text3);margin-bottom:18px}
+.result{margin-top:24px}
+.bike-head{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;margin-bottom:18px}
+.bike-serial{font-size:24px;font-weight:bold;letter-spacing:.02em}
+.bike-product{font-size:15px;color:var(--text2);margin-top:2px}
+.meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-top:18px}
+.meta{background:var(--surface2);border-radius:var(--radius-sm);padding:10px 14px}
+.meta .k{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:3px}
+.meta .v{font-size:14px;font-weight:600}
+.badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge.sbc{background:var(--purple-bg);color:var(--purple)}
+.badge.int{background:var(--teal-bg);color:var(--teal)}
+.badge.bom{background:var(--accent-bg);color:var(--accent-text);font-size:13px;padding:4px 12px}
+.parts-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);margin:0 2px 10px;display:flex;justify-content:space-between;align-items:center}
+.parts-title .sub{font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3);font-size:12px;cursor:pointer}
+.parts-title .sub:hover{color:var(--accent)}
+table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);padding:10px 14px;border-bottom:1px solid var(--border);background:var(--surface2)}
+td{padding:9px 14px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.qty{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;width:80px}
+td.lot{color:var(--text2);font-size:12px;white-space:nowrap}
+td.via{color:var(--text3);font-size:12px}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--accent-bg);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-3px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.recents{margin-top:26px}
+.chip{display:inline-block;background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:4px 12px;font-size:12px;margin:0 6px 6px 0;cursor:pointer}
+.chip:hover{background:var(--accent-bg);border-color:var(--accent)}
+.progress{font-size:12px;color:var(--text3);margin-top:8px}
+</style>
+</head>
+<body>
+<div id="app">
+<header>
+  <div class="logo">MAX <span>Traceability</span></div>
+  <nav>
+    <button class="nav-btn active" onclick="showView('lookup')">Serial Lookup</button>
+    <button class="nav-btn" onclick="showView('settings')">Settings</button>
+  </nav>
+  <div class="header-right">
+    <span class="status-dot" id="status-dot"></span>
+    <span class="status-label" id="status-label">Not connected</span>
+  </div>
+</header>
+<main>
+
+  <div class="view active" id="view-lookup">
+    <div class="search-row">
+      <div class="field">
+        <label>Lot / Serial Number</label>
+        <input type="text" id="serial-input" placeholder="e.g. MAYA0000221" autocomplete="off"
+               onkeydown="if(event.key==='Enter')doLookup()">
+      </div>
+      <button class="btn btn-primary" id="lookup-btn" onclick="doLookup()">Trace bike</button>
+    </div>
+    <label class="toggle"><input type="checkbox" id="explode-toggle" checked> Explode sub-assemblies down to final parts</label>
+    <div class="hint">Reads the Manufacturing Order that produced this bike, then explodes <strong>every</strong> sub-assembly — including the frame pre-assembly and frame sub-assembly — all the way down to its final purchased/raw parts, following actual production lots where available and the BoM definition where not. Live from Odoo.</div>
+    <div id="lookup-alert"></div>
+    <div class="progress" id="progress"></div>
+    <div class="result" id="result"></div>
+    <div class="recents" id="recents"></div>
+  </div>
+
+  <div class="view" id="view-settings">
+    <div class="card">
+      <h2>Odoo Connection</h2>
+      <div class="field"><label>Odoo URL</label><input type="text" id="cfg-url" value="https://ahooga.odoo.com"></div>
+      <div class="field"><label>Database</label><input type="text" id="cfg-db" value="logicasoft-aho-18-0-21599177"></div>
+      <div class="field"><label>Your Odoo email</label><input type="text" id="cfg-user" placeholder="yourname@ahooga.bike"></div>
+      <div class="field"><label>Password or API Key</label><input type="password" id="cfg-key" placeholder="Your Odoo login password or API key"></div>
+      <div id="conn-alert"></div>
+      <div style="display:flex;gap:10px;margin-top:18px">
+        <button class="btn btn-primary" onclick="testConnection()">Test Connection</button>
+        <button class="btn btn-secondary" onclick="saveSettings(true)">Save</button>
+      </div>
+      <hr class="divider">
+      <div style="font-size:12px;color:var(--text3);line-height:1.6">
+        Talks to Odoo over XML-RPC through your existing Cloudflare Worker proxy
+        (<code>ahooga-planner-proxy</code>). Serve it from a page the worker allows (same as your planner),
+        or run locally with an <code>/odoo</code> proxy. Credentials stay in this browser only.
+      </div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<script>
+let cfg={url:'https://ahooga.odoo.com',db:'logicasoft-aho-18-0-21599177',user:'',key:''};
+let odooConnected=false,odooUid=null,recents=[],lastResult=null;
+
+function $(id){return document.getElementById(id);}
+function setVal(id,v){const e=$(id);if(e)e.value=v;}
+function getVal(id){return ($(id)||{}).value||'';}
+function showAlert(id,msg,type){const el=$(id);if(!el)return;el.innerHTML=`<div class="alert alert-${type}">${msg}</div>`;}
+function clearAlert(id){const el=$(id);if(el)el.innerHTML='';}
+
+function loadCfg(){
+  try{const c=localStorage.getItem('trace_cfg');if(c)cfg=JSON.parse(c);
+      const r=localStorage.getItem('trace_recents');if(r)recents=JSON.parse(r);}catch(e){}
+  setVal('cfg-url',cfg.url||'https://ahooga.odoo.com');setVal('cfg-db',cfg.db||'logicasoft-aho-18-0-21599177');
+  setVal('cfg-user',cfg.user||'');setVal('cfg-key',cfg.key||'');renderRecents();
+}
+function saveSettings(notify){
+  cfg.url=getVal('cfg-url').replace(/\/+$/,'');cfg.db=getVal('cfg-db');cfg.user=getVal('cfg-user');cfg.key=getVal('cfg-key');
+  localStorage.setItem('trace_cfg',JSON.stringify(cfg));odooUid=null;
+  if(notify)showAlert('conn-alert','Saved.','success');
+}
+function showView(v){
+  document.querySelectorAll('.view').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  $('view-'+v).classList.add('active');
+  [...document.querySelectorAll('.nav-btn')].find(b=>b.getAttribute('onclick').includes("'"+v+"'")).classList.add('active');
+}
+
+const CF_WORKER_URL='https://ahooga-planner-proxy.massimiliano-d74.workers.dev';
+function proxyUrl(path){
+  if(location.hostname==='localhost'||location.hostname==='127.0.0.1')return `/odoo/${encodeURIComponent(cfg.url+path)}`;
+  return `${CF_WORKER_URL}/odoo/${encodeURIComponent(cfg.url+path)}`;
+}
+async function xmlrpcCall(path,body){
+  const r=await fetch(proxyUrl(path),{method:'POST',headers:{'Content-Type':'application/xml'},body});return await r.text();
+}
+function buildXmlrpc(method,params){
+  const enc=v=>{
+    if(typeof v==='string')return `<value><string>${v.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</string></value>`;
+    if(typeof v==='number')return Number.isInteger(v)?`<value><int>${v}</int></value>`:`<value><double>${v}</double></value>`;
+    if(typeof v==='boolean')return `<value><boolean>${v?1:0}</boolean></value>`;
+    if(Array.isArray(v))return `<value><array><data>${v.map(enc).join('')}</data></array></value>`;
+    if(typeof v==='object'&&v!==null){const m=Object.entries(v).map(([k,val])=>`<member><name>${k}</name>${enc(val)}</member>`).join('');return `<value><struct>${m}</struct></value>`;}
+    return `<value><string>${v}</string></value>`;
+  };
+  return `<?xml version="1.0"?><methodCall><methodName>${method}</methodName><params>${params.map(p=>`<param>${enc(p)}</param>`).join('')}</params></methodCall>`;
+}
+function parseNode(n){
+  if(!n)return null;const tag=n.tagName;
+  if(tag==='value'){const c=n.firstElementChild;return c?parseNode(c):(n.textContent||'');}
+  switch(tag){
+    case 'string':return n.textContent;
+    case 'int':case 'i4':case 'i8':return parseInt(n.textContent);
+    case 'double':return parseFloat(n.textContent);
+    case 'boolean':return n.textContent.trim()==='1';
+    case 'nil':return null;
+    case 'array':{const d=n.querySelector(':scope > data');return d?[...d.children].map(parseNode):[];}
+    case 'struct':{const o={};for(const m of n.children){const nn=m.querySelector(':scope > name'),v=m.querySelector(':scope > value');if(nn&&v)o[nn.textContent]=parseNode(v);}return o;}
+    default:return n.textContent;
+  }
+}
+function parseXmlrpc(text){
+  const doc=new DOMParser().parseFromString(text,'text/xml');
+  if(doc.querySelector('fault')){const f=doc.querySelector('faultString');throw new Error(f?f.textContent.substring(0,300):'XML-RPC fault');}
+  const p=doc.querySelector('methodResponse > params > param > value');return p?parseNode(p):null;
+}
+function parseInt1(text){const m=text.match(/<int>(\d+)<\/int>/);return m?parseInt(m[1]):null;}
+async function odooAuth(){
+  if(!cfg.user||!cfg.key)throw new Error('Set your email and password/API key in Settings.');
+  const text=await xmlrpcCall('/xmlrpc/2/common',buildXmlrpc('authenticate',[cfg.db,cfg.user,cfg.key,{}]));
+  const uid=parseInt1(text);if(uid&&uid>0){odooUid=uid;return true;}
+  const f=text.match(/<faultString>(.*?)<\/faultString>/s);throw new Error('Authentication failed: '+(f?f[1].substring(0,200):text.substring(0,160)));
+}
+async function odooCall(model,method,args,kwargs={}){
+  if(!odooUid)await odooAuth();
+  const text=await xmlrpcCall('/xmlrpc/2/object',buildXmlrpc('execute_kw',[cfg.db,odooUid,cfg.key,model,method,args,{...kwargs}]));
+  if(text.includes('<fault>')){const f=text.match(/<faultString>(.*?)<\/faultString>/s);throw new Error(f?f[1].substring(0,300):'XML-RPC fault');}
+  return parseXmlrpc(text);
+}
+function setConn(ok){odooConnected=ok;$('status-dot').className='status-dot'+(ok?' connected':'');$('status-label').textContent=ok?'Connected':'Not connected';}
+async function testConnection(){
+  saveSettings(false);clearAlert('conn-alert');showAlert('conn-alert','<span class="spinner"></span> Testing…','info');
+  try{odooUid=null;await odooAuth();setConn(true);showAlert('conn-alert','✓ Connected (uid '+odooUid+')','success');}
+  catch(e){setConn(false);showAlert('conn-alert','✗ '+e.message,'danger');}
+}
+
+const m2o=v=>Array.isArray(v)?v[1]:(v||'');
+const m2oId=v=>Array.isArray(v)?v[0]:null;
+const MAX_DEPTH=7;
+// --- Explosion rules -------------------------------------------------
+// EVERY sub-assembly is exploded all the way down to final/purchased parts,
+// including the frame (pre-)assembly and frame sub-assembly. Nothing is kept
+// whole. To keep something as a single line later, add a pattern here, e.g.
+// const KEEP_WHOLE=[/\bframe\s*-?\s*(assembly|assy)\b/i];
+const KEEP_WHOLE=[];
+const isKeepWhole=n=>KEEP_WHOLE.some(re=>re.test(String(n||'')));
+// When a consumed sub-assembly has no producing MO/lot to follow, fall back
+// to exploding it by its BoM definition so we still reach final parts.
+const USE_BOM_FALLBACK=true;
+let _moCache={}, _bomCache={}, _calls=0;
+
+function setProgress(t){$('progress').textContent=t||'';}
+
+// done-qty / lot fields differ across versions: detect once
+let _lineFields=null;
+async function readMoveLines(moveIds){
+  if(!moveIds.length)return [];
+  if(_lineFields){ return odooCall('stock.move.line','search_read',[[['move_id','in',moveIds]]],{fields:_lineFields}); }
+  try{ const r=await odooCall('stock.move.line','search_read',[[['move_id','in',moveIds]]],{fields:['move_id','product_id','lot_id','quantity']}); _lineFields=['move_id','product_id','lot_id','quantity']; return r; }
+  catch(e){ const r=await odooCall('stock.move.line','search_read',[[['move_id','in',moveIds]]],{fields:['move_id','product_id','lot_id','qty_done']}); _lineFields=['move_id','product_id','lot_id','qty_done']; return r; }
+}
+const lineQty=l=>(l.quantity!=null?l.quantity:(l.qty_done!=null?l.qty_done:0))||0;
+
+async function findProducingMO(lotId){
+  if(lotId in _moCache)return _moCache[lotId];
+  _calls++;
+  let res=await odooCall('mrp.production','search_read',[[['lot_producing_id','=',lotId]]],{fields:['id'],limit:1});
+  let pid=res.length?res[0].id:null;
+  if(!pid){
+    const ml=await odooCall('stock.move.line','search_read',[[['lot_id','=',lotId],['production_id','!=',false]]],{fields:['production_id'],limit:1});
+    if(ml.length)pid=m2oId(ml[0].production_id);
+  }
+  _moCache[lotId]=pid;return pid;
+}
+
+// find the BoM for a product (variant first, then template-level)
+async function bomFor(productId){
+  if(productId in _bomCache)return _bomCache[productId];
+  _calls++;
+  let r=[];
+  try{ r=await odooCall('mrp.bom','search_read',[[['product_id','=',productId]]],{fields:['id','product_qty','bom_line_ids'],limit:5}); }catch(e){}
+  if(!r.length){
+    try{
+      const p=await odooCall('product.product','read',[[productId]],{fields:['product_tmpl_id']});
+      const tid=p.length?m2oId(p[0].product_tmpl_id):null;
+      if(tid)r=await odooCall('mrp.bom','search_read',[[['product_tmpl_id','=',tid],['product_id','=',false]]],{fields:['id','product_qty','bom_line_ids'],limit:5});
+    }catch(e){}
+  }
+  const bom=r.length?r[0]:null;_bomCache[productId]=bom;return bom;
+}
+
+// explode a product by its BoM DEFINITION (used when there is no producing
+// MO/lot to follow). Quantities are scaled from the BoM's own quantities.
+async function explodeByBom(productId,parentQty,depth,path,visited){
+  if(depth>=MAX_DEPTH)return null;
+  const bom=await bomFor(productId);
+  if(!bom||!bom.bom_line_ids||!bom.bom_line_ids.length)return null;
+  const key='bom:'+bom.id; if(visited.has(key))return null; visited.add(key);
+  const lines=await odooCall('mrp.bom.line','read',[bom.bom_line_ids],{fields:['product_id','product_qty']});
+  const base=bom.product_qty||1; const out=[];
+  for(const ln of lines){
+    const pid=m2oId(ln.product_id), pname=m2o(ln.product_id);
+    const q=parentQty*((ln.product_qty||0)/base);
+    if(isKeepWhole(pname)){ out.push({product:pname,qty:q,lot:'',via:path.join(' › ')}); continue; }
+    const child=await explodeByBom(pid,q,depth+1,path.concat(pname),visited);
+    if(child&&child.length)out.push(...child);
+    else out.push({product:pname,qty:q,lot:'',via:path.join(' › ')+' (via BoM)'});
+  }
+  return out;
+}
+
+// recursively explode one production into leaf (final) parts
+async function explodeProduction(prodId,depth,path,visited){
+  const pr=await odooCall('mrp.production','read',[[prodId]],{fields:['move_raw_ids']});
+  const rawIds=(pr[0].move_raw_ids)||[];
+  if(!rawIds.length)return [];
+  const lines=await readMoveLines(rawIds);
+  const leaves=[];
+  for(const l of lines){
+    const qty=lineQty(l);
+    if(qty<=0)continue;
+    const prodName=m2o(l.product_id);
+    const pid=m2oId(l.product_id);
+    const lotId=m2oId(l.lot_id);
+    // KEEP the frame assembly whole — do not explode it.
+    if(isKeepWhole(prodName)){
+      leaves.push({product:prodName,qty,lot:l.lot_id?m2o(l.lot_id):'',via:path.join(' › ')});
+      continue;
+    }
+    let subPid=null;
+    if(lotId && depth<MAX_DEPTH){ subPid=await findProducingMO(lotId); }
+    if(subPid && !visited.has(subPid)){
+      visited.add(subPid);
+      setProgress(`Exploding ${prodName}… (${_calls} lookups)`);
+      const childLeaves=await explodeProduction(subPid,depth+1,path.concat(prodName),visited);
+      if(childLeaves.length){ leaves.push(...childLeaves); }
+      else { leaves.push({product:prodName,qty,lot:l.lot_id?m2o(l.lot_id):'',via:path.join(' › ')}); }
+    } else if(USE_BOM_FALLBACK && depth<MAX_DEPTH){
+      // no producing MO to follow → explode by BoM definition to reach final parts
+      setProgress(`Exploding ${prodName} via BoM… (${_calls} lookups)`);
+      const byBom=await explodeByBom(pid,qty,depth+1,path.concat(prodName),visited);
+      if(byBom && byBom.length){ leaves.push(...byBom); }
+      else { leaves.push({product:prodName,qty,lot:l.lot_id?m2o(l.lot_id):'',via:path.join(' › ')}); }
+    } else {
+      leaves.push({product:prodName,qty,lot:l.lot_id?m2o(l.lot_id):'',via:path.join(' › ')});
+    }
+  }
+  return leaves;
+}
+
+async function lookupSerial(raw,explode){
+  _moCache={}; _calls=0; _lineFields=null;
+  const serial=raw.trim();
+  let lots=await odooCall('stock.lot','search_read',[[['name','=',serial]]],{fields:['id','name','product_id'],limit:5});
+  if(!lots.length)lots=await odooCall('stock.lot','search_read',[[['name','ilike',serial]]],{fields:['id','name','product_id'],limit:5});
+  if(!lots.length)return {error:`No lot/serial matching "${serial}" found in Odoo.`};
+  const lot=lots[0];
+  let prods=await odooCall('mrp.production','search_read',[[['lot_producing_id','=',lot.id]]],
+            {fields:['id','name','product_id','bom_id','state','date_finished','origin'],limit:5});
+  if(!prods.length){
+    const mls=await odooCall('stock.move.line','search_read',[[['lot_id','=',lot.id],['production_id','!=',false]]],{fields:['production_id'],limit:5});
+    if(mls.length){const pid=m2oId(mls[0].production_id);if(pid)prods=await odooCall('mrp.production','read',[[pid]],{fields:['id','name','product_id','bom_id','state','date_finished','origin']});}
+  }
+  if(!prods.length)return {lot,noProd:true};
+  const prod=prods[0];
+
+  // direct components
+  const pr=await odooCall('mrp.production','read',[[prod.id]],{fields:['move_raw_ids']});
+  const rawIds=(pr[0].move_raw_ids)||[];
+  const dlines=await readMoveLines(rawIds);
+  const directMap={};
+  dlines.forEach(l=>{const q=lineQty(l);if(q<=0)return;const k=m2o(l.product_id)+'|'+(l.lot_id?m2o(l.lot_id):'');
+    if(!directMap[k])directMap[k]={product:m2o(l.product_id),qty:0,lot:l.lot_id?m2o(l.lot_id):''};directMap[k].qty+=q;});
+  const direct=Object.values(directMap).sort((a,b)=>a.product.localeCompare(b.product));
+
+  let leaves=null;
+  if(explode){
+    setProgress('Exploding sub-assemblies…');
+    const raw=await explodeProduction(prod.id,0,[],new Set([prod.id]));
+    const map={};
+    raw.forEach(c=>{const k=c.product+'|'+c.lot;if(!map[k])map[k]={product:c.product,qty:0,lot:c.lot,via:c.via};map[k].qty+=c.qty;});
+    leaves=Object.values(map).sort((a,b)=>a.product.localeCompare(b.product));
+    setProgress('');
+  }
+  return {lot,prod,direct,leaves};
+}
+
+async function doLookup(){
+  const raw=getVal('serial-input');if(!raw.trim())return;
+  const explode=$('explode-toggle').checked;
+  clearAlert('lookup-alert');$('result').innerHTML='';setProgress('');
+  const btn=$('lookup-btn');btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Tracing…';
+  try{
+    const res=await lookupSerial(raw,explode);setConn(true);lastResult=res;
+    renderResult(raw.trim(),res,explode);
+    if(!res.error)addRecent(raw.trim());
+  }catch(e){ if(/auth/i.test(e.message))setConn(false); showAlert('lookup-alert','✗ '+e.message,'danger'); }
+  finally{ btn.disabled=false; btn.textContent='Trace bike'; setProgress(''); }
+}
+
+function renderResult(serial,res,explode){
+  if(res.error){showAlert('lookup-alert',res.error,'warn');return;}
+  const r=$('result');
+  if(res.noProd){
+    r.innerHTML=`<div class="bike-head"><div class="bike-serial">${esc(res.lot.name)}</div>
+      <div class="bike-product">${esc(m2o(res.lot.product_id))}</div>
+      <div class="alert alert-warn" style="margin-top:16px">No Manufacturing Order produced this serial — likely received via purchase (no BoM consumed).</div></div>`;
+    return;
+  }
+  const p=res.prod, sbc=/\/SBC\//i.test(p.name||'');
+  const list = explode ? (res.leaves||[]) : (res.direct||[]);
+  const showVia = explode;
+  const rows = list.length ? list.map(c=>`
+    <tr><td>${esc(c.product)}</td>
+        <td class="qty">${fmt(c.qty)}</td>
+        <td class="lot">${c.lot?esc(c.lot):'<span style="color:var(--text3)">—</span>'}</td>
+        ${showVia?`<td class="via">${c.via?esc(c.via):'<span style="color:var(--text3)">direct</span>'}</td>`:''}</tr>`).join('')
+    : `<tr><td colspan="${showVia?4:3}" style="color:var(--text3)">No components recorded.</td></tr>`;
+  const title = explode ? `Final parts consumed (${list.length})` : `Direct components (${list.length})`;
+  const toggleLink = explode
+    ? `<span class="sub" onclick="rerender(false)">show direct components</span>`
+    : `<span class="sub" onclick="rerender(true)">explode to final parts</span>`;
+  r.innerHTML=`
+    <div class="bike-head">
+      <div class="bike-serial">${esc(res.lot.name)}</div>
+      <div class="bike-product">${esc(m2o(p.product_id))}</div>
+      <div class="meta-grid">
+        <div class="meta"><div class="k">BoM used</div><div class="v"><span class="badge bom">${esc(m2o(p.bom_id)||'—')}</span></div></div>
+        <div class="meta"><div class="k">Source order</div><div class="v">${esc(p.name||'—')} <span class="badge ${sbc?'sbc':'int'}">${sbc?'Subcontracted':'Internal'}</span></div></div>
+        <div class="meta"><div class="k">Status</div><div class="v">${esc(p.state||'—')}</div></div>
+        <div class="meta"><div class="k">Finished</div><div class="v">${esc((p.date_finished||'').substring(0,10)||'—')}</div></div>
+      </div>
+    </div>
+    <div class="parts-title"><span>${title}</span>${toggleLink}</div>
+    <table><thead><tr><th>Component</th><th class="qty">Qty</th><th>Lot/serial</th>${showVia?'<th>From sub-assembly</th>':''}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function rerender(explode){
+  $('explode-toggle').checked=explode;
+  if(explode && (!lastResult || !lastResult.leaves)){ await doLookup(); return; }
+  renderResult(getVal('serial-input').trim(),lastResult,explode);
+}
+
+function addRecent(s){recents=[s,...recents.filter(x=>x!==s)].slice(0,8);localStorage.setItem('trace_recents',JSON.stringify(recents));renderRecents();}
+function renderRecents(){
+  const el=$('recents');if(!el)return;if(!recents.length){el.innerHTML='';return;}
+  el.innerHTML=`<div class="parts-title"><span>Recent lookups</span></div>`+recents.map(s=>`<span class="chip" onclick="setVal('serial-input','${esc(s)}');doLookup()">${esc(s)}</span>`).join('');
+}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmt(n){const x=Number(n);return Number.isInteger(x)?String(x):x.toFixed(2);}
+loadCfg();
+</script>
+</body>
+</html>

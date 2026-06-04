@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ahooga Parts Stock</title>
+<style>
+:root{--bg:#f2f1ed;--surface:#fff;--surface2:#f0efe9;--border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);--text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#1a4fa0;--accent-bg:#e6f0fb;--success:#2d6e2d;--success-bg:#eaf3de;--warn:#7a4e0a;--warn-bg:#faeeda;--danger:#8b1f1f;--danger-bg:#fcebeb;--purple:#3c3489;--purple-bg:#eeedfe;--teal:#0f6e56;--teal-bg:#e1f5ee;--radius:10px;--radius-sm:6px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Georgia,serif;background:var(--bg);color:var(--text);font-size:14px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:52px;gap:12px;position:sticky;top:0;z-index:100}
+.logo{font-size:17px;font-weight:bold}.logo span{color:var(--accent)}
+.nav-btn{padding:5px 12px;border-radius:var(--radius-sm);font-size:13px;font-family:inherit;font-weight:600;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--text2)}
+.nav-btn.active{background:var(--accent-bg);color:var(--accent);border-color:rgba(26,79,160,0.2)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--text3);border:1px solid var(--border2)}
+.pill.ok{background:var(--success-bg);color:var(--success)}
+.pill.err{background:var(--danger-bg);color:var(--danger)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;font-weight:600;cursor:pointer;border:none}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+main{padding:20px;max-width:1700px;margin:0 auto}
+.view{display:none}.view.active{display:block}
+.settings-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:480px}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
+.field label{font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text2);font-weight:600}
+.field input{padding:8px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none}
+.field input:focus{border-color:var(--accent)}
+.hint{font-size:11px;color:var(--text3);margin-top:3px}
+.explain{background:var(--accent-bg);border:1px solid rgba(26,79,160,0.15);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--accent);line-height:1.55}
+.explain code{background:rgba(26,79,160,0.1);padding:1px 6px;border-radius:4px;font-family:monospace;font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px}
+.kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:4px}
+.kpi-value{font-size:21px;font-weight:700}
+.toolbar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.toolbar select,.toolbar input[type=text]{padding:6px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface);color:var(--text);outline:none}
+.toolbar select:focus,.toolbar input:focus{border-color:var(--accent)}
+.sep{width:1px;height:24px;background:var(--border2);margin:0 2px}
+.toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none}
+.toggle input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
+.col-toggle{position:relative;display:inline-block}
+.col-menu{display:none;position:absolute;top:100%;left:0;background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:8px;z-index:60;min-width:240px;max-height:340px;overflow:auto;box-shadow:0 4px 16px rgba(0,0,0,0.12)}
+.col-menu.open{display:block}
+.col-menu label{display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:13px;cursor:pointer;border-radius:4px}
+.col-menu label:hover{background:var(--surface2)}
+.col-menu .menu-hd{font-size:11px;font-weight:600;color:var(--text3);padding:2px 8px 6px;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center}
+.col-menu .menu-hd a{color:var(--accent);cursor:pointer;text-transform:none;font-weight:600}
+.col-menu .cnt{margin-left:auto;color:var(--text3);font-size:11px}
+.adj-inp{width:62px;padding:3px 5px;border:1px solid var(--border2);border-radius:4px;font-family:inherit;font-size:12px;text-align:right;background:var(--surface);color:var(--text)}
+.adj-inp:focus{border-color:var(--accent);outline:none}
+.adj-inp.set{border-color:var(--accent);background:var(--accent-bg);font-weight:600}
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse}
+th{background:var(--surface2);padding:8px 11px;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text2);font-weight:600;text-align:left;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;position:sticky;top:0;z-index:10;white-space:nowrap}
+th:hover{background:#e5e4de}
+th.sorted{color:var(--accent)}
+th.num{text-align:right}
+td{padding:7px 11px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface2)}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.theo{font-weight:700}
+.neg{color:var(--danger)}
+.match{color:var(--success);font-weight:600}
+.vv-pos{color:var(--teal);font-weight:600}
+.diff-warn{color:var(--warn);font-weight:600}
+.diff-danger{color:var(--danger);font-weight:700}
+.col-recv{background:rgba(15,110,86,0.04)}
+.col-theo{background:rgba(26,79,160,0.05)}
+.col-real{background:rgba(60,52,137,0.05)}
+.col-and{background:rgba(60,52,137,0.05)}
+.col-loui{background:rgba(26,79,160,0.05)}
+.col-vv{background:rgba(15,110,86,0.06)}
+.col-type{background:rgba(122,78,10,0.05)}
+tr.grp th{background:var(--surface2);color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:0.03em;text-align:center;border-bottom:1px solid var(--border);padding:5px 8px;cursor:default}
+tr.grp th.col-type{color:var(--warn)}
+tr.grp th:hover{background:var(--surface2)}
+.badge{display:inline-flex;align-items:center;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:var(--surface2);color:var(--text2);border:1px solid var(--border2);white-space:nowrap}
+.alert{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:12px}
+.alert-info{background:var(--accent-bg);color:var(--accent)}
+.alert-warn{background:var(--warn-bg);color:var(--warn)}
+.alert-success{background:var(--success-bg);color:var(--success)}
+.alert-danger{background:var(--danger-bg);color:var(--danger)}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--accent-bg);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media print{header,.toolbar,.kpis,.explain{display:none!important}body{background:#fff}.table-wrap{border:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>Parts Stock</span></div>
+  <button class="nav-btn active" id="nav-stock" onclick="showTab('stock')">📦 Part Stock</button>
+  <button class="nav-btn" id="nav-summary" onclick="showTab('summary')">⚠ Summary &lt; 150 VV</button>
+  <button class="nav-btn" id="nav-settings" onclick="showTab('settings')">⚙ Connection</button>
+  <div class="header-right">
+    <span class="pill" id="conn-pill">Not connected</span>
+    <button class="btn btn-secondary" onclick="loadData()">↻ Refresh</button>
+    <button class="btn btn-secondary" onclick="window.print()">🖨 Print</button>
+    <button class="btn btn-primary" onclick="exportCSV()">⬇ CSV</button>
+  </div>
+</header>
+
+<main>
+  <div id="alert-box"></div>
+
+  <!-- STOCK TAB -->
+  <div class="view active" id="view-stock">
+    <div class="explain">
+      <strong>Theoretical vs. real stock, per part.</strong> Scope: only parts that belong to a <strong>MAX bike BoM</strong> — every component reached by exploding the bike Bills of Material (all sub-assembly levels), the same parts the Traceability app reaches.<br>
+      <code>Theoretical = Received − Consumed in production − Sold after-sales</code> is the total quantity that should physically exist. <strong>Received</strong> is Odoo PO receipts plus any value you type in the <strong>± Adj</strong> column (for parts received without a PO or before Odoo started) — adjustments are saved to the shared cloud store (Cloudflare KV) so they persist across devices and teammates. On-hand is split into the <strong>AND</strong> warehouses (all combined) and <strong>LOUI</strong>, the locations Odoo can see — neither includes the <strong>VV</strong> assembly stock. So <code>Theoretical at VV = Theoretical − (AND + LOUI)</code> estimates how many units sit at VV (invisible to Odoo). A <strong>negative</strong> VV value means Odoo already shows more than the theoretical total — a data gap (scrap, manual adjustments, miscounts), not real VV stock. Manufactured <strong>sub-assemblies</strong> are tagged and read negative because they are built in-house, not purchased.
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="kpi-label">Bikes produced</div><div class="kpi-value" id="k-bikes" style="color:var(--danger)">—</div></div>
+      <div class="kpi"><div class="kpi-label">BoM parts</div><div class="kpi-value" id="k-parts">—</div></div>
+      <div class="kpi"><div class="kpi-label">Total received</div><div class="kpi-value" id="k-recv" style="color:var(--teal)">—</div></div>
+      <div class="kpi"><div class="kpi-label">Consumed (prod.)</div><div class="kpi-value" id="k-cons" style="color:var(--accent)">—</div></div>
+      <div class="kpi"><div class="kpi-label">After-sales</div><div class="kpi-value" id="k-sav" style="color:var(--warn)">—</div></div>
+      <div class="kpi"><div class="kpi-label">AND stock</div><div class="kpi-value" id="k-and" style="color:var(--purple)">—</div></div>
+      <div class="kpi"><div class="kpi-label">LOUI stock</div><div class="kpi-value" id="k-loui" style="color:var(--accent)">—</div></div>
+      <div class="kpi"><div class="kpi-label">Est. at VV</div><div class="kpi-value" id="k-vv" style="color:var(--teal)">—</div></div>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" id="f-search" placeholder="🔍 Search part name, part number…" style="min-width:280px;flex:1" oninput="render()"/>
+      <select id="f-cat" onchange="render()"><option value="">All categories</option></select>
+      <select id="f-show" onchange="render()">
+        <option value="all">All parts</option>
+        <option value="vvpos">Expected at VV (&gt; 0)</option>
+        <option value="vvneg">Negative VV (data gap)</option>
+        <option value="negstock">Negative Odoo stock</option>
+        <option value="negtheo">Negative theoretical</option>
+      </select>
+      <div class="col-toggle">
+        <button class="btn btn-secondary" id="bom-btn" onclick="toggleBomMenu('main',event)">🧩 BoM filter</button>
+        <div class="col-menu" id="bom-menu"><div class="menu-hd">Load parts first</div></div>
+      </div>
+      <div class="sep"></div>
+      <label class="toggle"><input type="checkbox" id="f-hidesub" onchange="render()"> Hide in-house sub-assemblies</label>
+      <label class="toggle"><input type="checkbox" id="f-hidezero" onchange="render()"> Hide fully-zero rows</label>
+      <div class="sep"></div>
+      <span id="adj-count" style="font-size:12px;color:var(--text3)"></span>
+      <span id="adj-status" style="font-size:12px"></span>
+      <button class="btn btn-secondary" id="adj-clear" onclick="clearAllAdj()" style="display:none">⟲ Clear adjustments</button>
+      <div class="sep"></div>
+      <span id="row-count" style="font-size:12px;color:var(--text3)"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table id="main-table">
+        <thead>
+          <tr class="grp">
+            <th colspan="3"></th>
+            <th colspan="2">Received</th>
+            <th class="col-type" colspan="7">Consumed in production — total, then by bike type (BoM × bikes produced)</th>
+            <th></th>
+            <th colspan="4">Stock &amp; VV</th>
+          </tr>
+          <tr>
+            <th onclick="setSort('partNo')"   id="sh-partNo">Part #</th>
+            <th onclick="setSort('partName')" id="sh-partName">Part Name</th>
+            <th onclick="setSort('category')" id="sh-category">Category</th>
+            <th class="num col-recv" onclick="setSort('received')" id="sh-received" title="Effective received = PO received + manual adjustment. Feeds the theoretical stock.">Received</th>
+            <th class="num col-recv" onclick="setSort('recvAdj')" id="sh-recvAdj" title="Manual adjustment: units received that Odoo POs miss (no PO, or pre-Odoo receipts). Added to PO received. Saved in this browser.">± Adj</th>
+            <th class="num" onclick="setSort('consumed')" id="sh-consumed" title="Components consumed by completed Manufacturing Orders (actual moves)">Consumed<br><span style="font-weight:400;font-size:9px">production</span></th>
+            <th class="num col-type" onclick="setSort('AMN')" id="sh-AMN" title="Estimated units of this part used per A-MAX Nexus produced (full BoM explosion) × A-MAX Nexus bikes produced">A-MAX<br>Nexus</th>
+            <th class="num col-type" onclick="setSort('AMA')" id="sh-AMA" title="A-MAX Alfine: per-bike BoM usage × bikes produced">A-MAX<br>Alfine</th>
+            <th class="num col-type" onclick="setSort('EMN')" id="sh-EMN" title="E-MAX Nexus: per-bike BoM usage × bikes produced">E-MAX<br>Nexus</th>
+            <th class="num col-type" onclick="setSort('EMA')" id="sh-EMA" title="E-MAX Alfine: per-bike BoM usage × bikes produced">E-MAX<br>Alfine</th>
+            <th class="num col-type" onclick="setSort('AMD')" id="sh-AMD" title="A-MAX Derailleur: per-bike BoM usage × bikes produced">A-MAX<br>Deraill.</th>
+            <th class="num col-type" onclick="setSort('EMD')" id="sh-EMD" title="E-MAX Derailleur: per-bike BoM usage × bikes produced">E-MAX<br>Deraill.</th>
+            <th class="num" onclick="setSort('sav')" id="sh-sav" title="Quantity delivered on after-sales (component) sales orders">After-sales</th>
+            <th class="num col-theo" onclick="setSort('theo')" id="sh-theo" title="Received − Consumed − After-sales">Theoretical</th>
+            <th class="num col-and" onclick="setSort('andQty')" id="sh-andQty" title="On-hand across all AND warehouses combined">AND<br><span style="font-weight:400;font-size:9px">on-hand</span></th>
+            <th class="num col-loui" onclick="setSort('louiQty')" id="sh-louiQty" title="On-hand in the LOUI warehouse">LOUI<br><span style="font-weight:400;font-size:9px">on-hand</span></th>
+            <th class="num col-vv" onclick="setSort('vv')" id="sh-vv" title="Theoretical − (AND + LOUI) = units expected at VV (invisible to Odoo)">Theoretical<br><span style="font-weight:400;font-size:9px">at VV</span></th>
+          </tr>
+        </thead>
+        <tbody id="t-body">
+          <tr><td colspan="17" style="text-align:center;padding:32px;color:var(--text3)">Go to <strong>⚙ Connection</strong> to connect and load parts.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SUMMARY TAB -->
+  <div class="view" id="view-summary">
+    <div class="explain">
+      <strong>Reorder shortlist.</strong> Parts whose <strong>Theoretical at VV is below 150</strong> — i.e. little or no buffer expected at the VV assembly stock (or a negative data gap). Sorted lowest first. Use this as the quick "what's running low / needs attention" view.
+    </div>
+    <div class="toolbar">
+      <input type="text" id="sum-search" placeholder="🔍 Search part name, part number…" style="min-width:280px;flex:1" oninput="renderSummary()"/>
+      <select id="sum-cat" onchange="renderSummary()"><option value="">All categories</option></select>
+      <div class="col-toggle">
+        <button class="btn btn-secondary" id="sum-bom-btn" onclick="toggleBomMenu('sum',event)">🧩 BoM filter</button>
+        <div class="col-menu" id="sum-bom-menu"><div class="menu-hd">Load parts first</div></div>
+      </div>
+      <div class="sep"></div>
+      <label class="toggle"><input type="checkbox" id="sum-hidesub" onchange="renderSummary()"> Hide in-house sub-assemblies</label>
+      <div class="sep"></div>
+      <span id="sum-count" style="font-size:12px;color:var(--text3)"></span>
+      <button class="btn btn-primary" onclick="exportSummaryCSV()">⬇ Export</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Part #</th><th>Part Name</th><th>Category</th>
+          <th class="num col-recv">Received</th>
+          <th class="num">Consumed</th>
+          <th class="num">After-sales</th>
+          <th class="num col-theo">Theoretical</th>
+          <th class="num col-and">AND</th>
+          <th class="num col-loui">LOUI</th>
+          <th class="num col-vv">Theoretical at VV</th>
+        </tr></thead>
+        <tbody id="sum-tbody"><tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text3)">Connect and load parts first.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div class="view" id="view-settings">
+    <div class="settings-card">
+      <h2 style="font-size:15px;font-weight:700;margin-bottom:16px">Odoo Connection</h2>
+      <input type="hidden" id="cfg-url" value="https://ahooga.odoo.com"/>
+      <input type="hidden" id="cfg-db"  value="logicasoft-aho-18-0-21599177"/>
+      <div class="field">
+        <label>Your Odoo email</label>
+        <input type="text" id="cfg-user" placeholder="yourname@ahooga.bike"/>
+      </div>
+      <div class="field">
+        <label>API Key</label>
+        <input type="password" id="cfg-key" placeholder="your-api-key"/>
+        <div class="hint">Odoo → My Profile → Account Security → New API Key</div>
+      </div>
+      <button class="btn btn-primary" onclick="connectAndLoad()" style="margin-top:4px">▶ Connect &amp; Load parts</button>
+      <div id="conn-detail" style="font-size:12px;color:var(--text3);margin-top:10px"></div>
+      <div style="font-size:12px;color:var(--text3);margin-top:16px;line-height:1.6;border-top:1px solid var(--border);padding-top:14px">
+        Talks to Odoo over XML-RPC through the same <code>ahooga-planner-proxy</code> Cloudflare Worker used by your other apps. Credentials are shared with the PO Tracker / SAV apps (stored in this browser only) and load automatically if already saved.
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── CONFIG (shared with the other Ahooga apps) ───────────────
+const ODOO_URL='https://ahooga.odoo.com';
+const ODOO_DB ='logicasoft-aho-18-0-21599177';
+const CF_WORKER='https://ahooga-planner-proxy.massimiliano-d74.workers.dev';
+let odooUid=null;
+let rows=[];                 // computed part rows
+let totalBikes=0;            // total MAX bikes produced (serial lots)
+let bomMenu=[];              // [{key,label,count}] bike BoM groups for the filter
+const ADJ_LS='ahooga_ps_recv_adj';            // local cache
+const KV_KEY='partstock_recv_adj';            // Cloudflare KV key (shared store via the Worker)
+let recvAdj={};              // productId -> manual received adjustment
+let adjSaveTimer=null;       // debounce for remote save
+let adjRemoteState='';       // '', 'saving', 'saved', 'local'
+try{const a=localStorage.getItem(ADJ_LS);if(a)recvAdj=JSON.parse(a)||{};}catch(e){recvAdj={};}
+function saveAdj(){try{localStorage.setItem(ADJ_LS,JSON.stringify(recvAdj));}catch(e){}}
+let sortKey='partName'; let sortDir=1;
+
+// ── PROXY / XML-RPC ──────────────────────────────────────────
+function proxyUrl(path){
+  return (location.hostname==='localhost'||location.hostname==='127.0.0.1')
+    ? `/odoo/${encodeURIComponent(ODOO_URL+path)}`
+    : `${CF_WORKER}/odoo/${encodeURIComponent(ODOO_URL+path)}`;
+}
+function v(x){
+  if(x===null||x===undefined) return '<value><boolean>0</boolean></value>';
+  if(typeof x==='boolean') return `<value><boolean>${x?1:0}</boolean></value>`;
+  if(typeof x==='number'&&Number.isInteger(x)) return `<value><int>${x}</int></value>`;
+  if(typeof x==='number') return `<value><double>${x}</double></value>`;
+  if(Array.isArray(x)) return `<value><array><data>${x.map(v).join('')}</data></array></value>`;
+  if(typeof x==='object'){const m=Object.entries(x).map(([k,vv])=>`<member><name>${k}</name>${v(vv)}</member>`).join('');return `<value><struct>${m}</struct></value>`;}
+  return `<value><string>${String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</string></value>`;
+}
+function parseXml(xml){
+  const doc=new DOMParser().parseFromString(xml,'text/xml');
+  if(doc.querySelector('fault')) throw new Error('Odoo error: '+(doc.querySelector('faultString')?.textContent?.substring(0,160)||'fault'));
+  function pv(n){
+    if(!n) return null;
+    const c=n.firstElementChild;
+    if(!c) return n.textContent;
+    switch(c.tagName){
+      case 'int':case 'i4':case 'i8': return parseInt(c.textContent);
+      case 'double': return parseFloat(c.textContent);
+      case 'boolean': return c.textContent==='1';
+      case 'string': return c.textContent;
+      case 'nil': return null;
+      case 'array': return Array.from(c.querySelector('data')?.children||[]).map(pv);
+      case 'struct':{const o={};c.querySelectorAll(':scope>member').forEach(m=>{o[m.querySelector('name').textContent]=pv(m.querySelector('value'))});return o;}
+      default: return c.textContent;
+    }
+  }
+  return pv(doc.querySelector('methodResponse>params>param>value'));
+}
+function arr(x){return Array.isArray(x)?x:[null,x?String(x):''];}
+async function odoo(model,method,args,kwargs={}){
+  const user=document.getElementById('cfg-user').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  if(!odooUid){
+    const b=`<?xml version="1.0"?><methodCall><methodName>authenticate</methodName><params>${[v(ODOO_DB),v(user),v(key),v({})].map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+    const r=await fetch(proxyUrl('/xmlrpc/2/common'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+    odooUid=parseXml(await r.text());
+    if(!odooUid||typeof odooUid!=='number') throw new Error('Authentication failed — check email and API key');
+  }
+  const params=[v(ODOO_DB),v(odooUid),v(key),v(model),v(method),v(args),v(kwargs)];
+  const b=`<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>${params.map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+  const r=await fetch(proxyUrl('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+  return parseXml(await r.text());
+}
+
+// ── HELPERS ──────────────────────────────────────────────────
+function alert_(msg,type){document.getElementById('alert-box').innerHTML=`<div class="alert alert-${type}">${msg}</div>`;if(type==='success')setTimeout(()=>{const b=document.getElementById('alert-box');if(b&&b.querySelector('.alert-success'))b.innerHTML='';},5000);}
+function gNum(g,f){const x=g[f];return typeof x==='number'?x:(parseFloat(x)||0);}
+function fmt(n){if(n===null||n===undefined)return '—';const x=Number(n);return (Number.isInteger(x)?x:x.toFixed(2)).toLocaleString();}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function showTab(t){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+t).classList.add('active');
+  document.getElementById('nav-'+t).classList.add('active');
+  if(t==='summary') renderSummary();
+}
+
+// ── CONNECT ──────────────────────────────────────────────────
+async function connectAndLoad(){
+  const user=document.getElementById('cfg-user').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  if(!user||!key){alert_('Enter email and API key.','warn');return;}
+  odooUid=null;
+  document.getElementById('conn-detail').textContent='Connecting…';
+  try{
+    await odoo('res.users','search_read',[[['id','=',1]]],{fields:['name'],limit:1});
+    document.getElementById('conn-pill').textContent='✓ Connected';
+    document.getElementById('conn-pill').className='pill ok';
+    document.getElementById('conn-detail').textContent='✓ Connected — loading parts…';
+    try{const c=localStorage.getItem('mxp_cfg');const cfg=c?JSON.parse(c):{};cfg.user=user;cfg.key=key;localStorage.setItem('mxp_cfg',JSON.stringify(cfg));}catch(e){}
+    showTab('stock');
+    await loadData();
+  }catch(e){
+    document.getElementById('conn-pill').textContent='✗ Failed';
+    document.getElementById('conn-pill').className='pill err';
+    document.getElementById('conn-detail').textContent='✗ '+e.message;
+  }
+}
+
+// ── BIKE FAMILIES ────────────────────────────────────────────
+// Six families, ignoring rack/colour. Classified from the bike's template name.
+const FAMILIES=[
+  {key:'AMN',label:'A-MAX Nexus',     plat:'A-MAX',drive:'NEXUS'},
+  {key:'AMA',label:'A-MAX Alfine',    plat:'A-MAX',drive:'ALFINE'},
+  {key:'EMN',label:'E-MAX Nexus',     plat:'E-MAX',drive:'NEXUS'},
+  {key:'EMA',label:'E-MAX Alfine',    plat:'E-MAX',drive:'ALFINE'},
+  {key:'AMD',label:'A-MAX Derailleur',plat:'A-MAX',drive:'DERAIL'},
+  {key:'EMD',label:'E-MAX Derailleur',plat:'E-MAX',drive:'DERAIL'},
+];
+const FAM_KEYS=FAMILIES.map(f=>f.key);
+function bikeFamilyKey(name){
+  const s=String(name||'').toUpperCase().replace(/É/g,'E');
+  const plat = s.includes('E-MAX')||s.includes('EMAX') ? 'E-MAX'
+             : (s.includes('A-MAX')||s.includes('AMAX') ? 'A-MAX' : null);
+  let drive=null;
+  if(s.includes('NEXUS')) drive='NEXUS';
+  else if(s.includes('ALFINE')) drive='ALFINE';
+  else if(s.includes('DERAIL')) drive='DERAIL';
+  if(!plat||!drive) return null;
+  const f=FAMILIES.find(x=>x.plat===plat&&x.drive===drive);
+  return f?f.key:null;
+}
+
+// ── BOM EXPLOSION ────────────────────────────────────────────
+// Build the full MAX bike BoM graph with quantities: every component (all levels),
+// plus per-template BoM lines so we can compute per-bike usage of each part.
+const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o;};
+
+async function collectBomGraph(){
+  const bikeBomsRaw=await odoo('mrp.bom','search_read',
+    [[['product_tmpl_id.name','ilike','MAX']]],
+    {fields:['id','product_tmpl_id','product_qty','bom_line_ids'],limit:2000});
+  if(!bikeBomsRaw.length) return {partIds:new Set(),subIds:new Set(),bomByTmpl:{},prodToTmpl:{},bikeBoms:[],bikeBomCount:0};
+
+  const bomByTmpl={};   // tmplId -> {productQty, lines:[{pid,qty}]}
+  const prodToTmpl={};  // productId -> tmplId
+  const partIds=new Set();
+  const bikeBoms=[];    // [{tmplId,name}]
+  const seenTmpl=new Set();
+
+  let queue=[];
+  for(const b of bikeBomsRaw){
+    const t=arr(b.product_tmpl_id);
+    if(!seenTmpl.has(t[0])){
+      bikeBoms.push({tmplId:t[0],name:t[1]});
+      queue.push({tmplId:t[0],productQty:b.product_qty||1,lineIds:b.bom_line_ids||[]});
+      seenTmpl.add(t[0]);
+    }
+  }
+
+  let level=0;
+  while(queue.length && level<15){
+    level++;
+    alert_(`<span class="spinner"></span> Step 1/5 — Exploding MAX bike BoMs (level ${level}, ${partIds.size} parts so far)…`,'info');
+
+    // read all lines of this wave
+    const allLineIds=queue.flatMap(q=>q.lineIds);
+    const lineById={};
+    for(const c of chunk(allLineIds,1000)){
+      const ls=await odoo('mrp.bom.line','read',[c],{fields:['product_id','product_qty']});
+      for(const l of ls) lineById[l.id]=l;
+    }
+    // attach lines to their template; collect component product ids
+    const nextProductIds=new Set();
+    for(const q of queue){
+      const lns=q.lineIds.map(id=>lineById[id]).filter(Boolean)
+        .map(l=>({pid:arr(l.product_id)[0],qty:l.product_qty||0})).filter(x=>x.pid);
+      bomByTmpl[q.tmplId]={productQty:q.productQty,lines:lns};
+      for(const ln of lns){partIds.add(ln.pid);nextProductIds.add(ln.pid);}
+    }
+    // resolve templates for new products
+    const newPids=[...nextProductIds].filter(pid=>!(pid in prodToTmpl));
+    const prods=[];
+    for(const c of chunk(newPids,300)) prods.push(...await odoo('product.product','read',[c],{fields:['product_tmpl_id']}));
+    for(const p of prods) prodToTmpl[p.id]=arr(p.product_tmpl_id)[0];
+    // find sub-assembly BoMs for new templates
+    const tmplIds=[...new Set(prods.map(p=>arr(p.product_tmpl_id)[0]).filter(Boolean))].filter(t=>!seenTmpl.has(t));
+    const subBoms=[];
+    for(const c of chunk(tmplIds,200)) subBoms.push(...await odoo('mrp.bom','search_read',[[['product_tmpl_id','in',c]]],{fields:['id','product_tmpl_id','product_qty','bom_line_ids'],limit:5000}));
+    const nextQueue=[];
+    for(const sb of subBoms){
+      const t=arr(sb.product_tmpl_id)[0];
+      if(t&&!seenTmpl.has(t)){seenTmpl.add(t);nextQueue.push({tmplId:t,productQty:sb.product_qty||1,lineIds:sb.bom_line_ids||[]});}
+    }
+    queue=nextQueue;
+  }
+  const subIds=new Set();
+  for(const pid of partIds){const t=prodToTmpl[pid];if(t&&bomByTmpl[t])subIds.add(pid);}
+  return {partIds,subIds,bomByTmpl,prodToTmpl,bikeBoms,bikeBomCount:bikeBoms.length};
+}
+
+// Per-bike usage of every part for one finished unit of `tmplId` (full explosion,
+// counting sub-assemblies AND their children). Returns { productId: qtyPerBike }.
+function explodeUsage(tmplId,bomByTmpl,prodToTmpl){
+  const acc={};
+  (function rec(tid,factor,depth,seen){
+    const bom=bomByTmpl[tid];
+    if(!bom||depth>15) return;
+    const base=bom.productQty||1;
+    for(const ln of bom.lines){
+      const perUnit=(ln.qty/base)*factor;
+      acc[ln.pid]=(acc[ln.pid]||0)+perUnit;
+      const ct=prodToTmpl[ln.pid];
+      if(ct&&bomByTmpl[ct]&&!seen.has(ct)) rec(ct,perUnit,depth+1,new Set(seen).add(ct));
+    }
+  })(tmplId,1,0,new Set([tmplId]));
+  return acc;
+}
+
+// Count bikes produced per product template, from serial lots in Bikes categories.
+async function loadProductionCounts(){
+  const cats=await odoo('product.category','search_read',[[['complete_name','ilike','MAX']]],{fields:['id','complete_name'],limit:50});
+  const bikeCatIds=cats.filter(c=>String(c.complete_name||'').startsWith('Bikes')).map(c=>c.id);
+  if(!bikeCatIds.length) return {countByTmpl:{},nameByTmpl:{},total:0};
+  const lots=await odoo('stock.lot','search_read',
+    [[['product_id.categ_id','in',bikeCatIds],['product_id.active','in',[true,false]]]],
+    {fields:['product_id'],limit:30000});
+  const prodIds=[...new Set(lots.map(l=>arr(l.product_id)[0]).filter(Boolean))];
+  const prodTmpl={};
+  for(const c of chunk(prodIds,300)){const ps=await odoo('product.product','read',[c],{fields:['product_tmpl_id']});for(const p of ps)prodTmpl[p.id]=arr(p.product_tmpl_id)[0];}
+  const countByTmpl={};
+  for(const l of lots){const pid=arr(l.product_id)[0];const t=prodTmpl[pid];if(t)countByTmpl[t]=(countByTmpl[t]||0)+1;}
+  // template names (for family classification)
+  const tmplIds=Object.keys(countByTmpl).map(Number);
+  const nameByTmpl={};
+  for(const c of chunk(tmplIds,300)){const ts=await odoo('product.template','read',[c],{fields:['display_name']});for(const t of ts)nameByTmpl[t.id]=t.display_name;}
+  const total=Object.values(countByTmpl).reduce((a,b)=>a+b,0);
+  return {countByTmpl,nameByTmpl,total};
+}
+
+// ── LOAD + MERGE THE THREE DATA SOURCES ──────────────────────
+async function loadData(){
+  const user=document.getElementById('cfg-user').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  if(!user||!key){showTab('settings');return;}
+
+  try{
+    const nameMap={};                         // productId -> display name (best effort)
+    const remember=(p)=>{const a=arr(p);if(a[0]&&a[1]&&!nameMap[a[0]])nameMap[a[0]]=a[1];};
+
+    // 0 ── shared manual adjustments (Cloudflare KV) — load before building rows
+    await loadAdjRemote();
+
+    // 1 ── BOM UNIVERSE: components of every MAX bike (incl. sub-assemblies), with quantities
+    alert_('<span class="spinner"></span> Step 1/5 — Exploding MAX bike BoMs…','info');
+    const {partIds,subIds,bomByTmpl,prodToTmpl,bikeBoms,bikeBomCount}=await collectBomGraph();
+    const ids=[...partIds];
+    if(!ids.length){
+      alert_('No MAX bike BoMs found in Odoo — nothing to count. Check that bike BoMs exist and their product names contain "MAX".','warn');
+      document.getElementById('t-body').innerHTML='<tr><td colspan="17" style="text-align:center;padding:32px;color:var(--text3)">No MAX bike BoM components found.</td></tr>';
+      return;
+    }
+    const idChunks=chunk(ids,300);
+
+    // 2 ── RECEIVED  (PO Tracker logic: qty_received on confirmed PO lines) — BoM parts only
+    alert_('<span class="spinner"></span> Step 2/5 — Received quantities (purchase orders)…','info');
+    const recvMap={};
+    for(const c of idChunks){
+      const recvG=await odoo('purchase.order.line','read_group',
+        [[['product_id','in',c],['order_id.state','in',['purchase','done','cancel']]],
+         ['qty_received','product_qty'],['product_id']],{lazy:false});
+      for(const g of recvG){const p=arr(g.product_id);if(!p[0])continue;remember(p);
+        recvMap[p[0]]={received:gNum(g,'qty_received'),ordered:gNum(g,'product_qty')};}
+    }
+
+    // 3 ── CONSUMED IN PRODUCTION  (Traceability logic: MO raw-material moves, done)
+    alert_('<span class="spinner"></span> Step 3/5 — Consumption by manufacturing orders…','info');
+    const consMap={};
+    for(const c of idChunks){
+      let consG=null;
+      try{
+        consG=await odoo('stock.move','read_group',
+          [[['product_id','in',c],['raw_material_production_id','!=',false],['state','=','done']],
+           ['quantity'],['product_id']],{lazy:false});
+      }catch(e){ consG=null; }
+      if(consG){
+        for(const g of consG){const p=arr(g.product_id);if(!p[0])continue;remember(p);
+          consMap[p[0]]=(consMap[p[0]]||0)+gNum(g,'quantity');}
+      }else{
+        const moves=await odoo('stock.move','search_read',
+          [[['product_id','in',c],['raw_material_production_id','!=',false],['state','=','done']]],
+          {fields:['product_id','quantity'],limit:100000});
+        for(const m of moves){const p=arr(m.product_id);if(!p[0])continue;remember(p);
+          consMap[p[0]]=(consMap[p[0]]||0)+(parseFloat(m.quantity)||0);}
+      }
+    }
+
+    // 4 ── AFTER-SALES  (SAV logic: qty_delivered on component sales orders)
+    alert_('<span class="spinner"></span> Step 4/5 — After-sales deliveries…','info');
+    const savMap={};
+    for(const c of idChunks){
+      const savG=await odoo('sale.order.line','read_group',
+        [[['product_id','in',c],['order_id.state','in',['sale','done']]],
+         ['qty_delivered'],['product_id']],{lazy:false});
+      for(const g of savG){const p=arr(g.product_id);if(!p[0])continue;remember(p);
+        savMap[p[0]]=(savMap[p[0]]||0)+gNum(g,'qty_delivered');}
+    }
+
+    // 5 ── ON-HAND PER LOCATION + product info
+    // Split Odoo on-hand by LOCATION (exact), bucketing internal locations by the
+    // first segment of their full path (e.g. "LOUISE/Stock" -> "LOUISE", "AND/Stock" -> "AND").
+    // Matching the path prefix (not a loose substring) avoids false hits like ".../Standard".
+    // Edit these tokens if your locations are named differently.
+    const AND_TOKENS=['AND'];
+    const LOUI_TOKENS=['LOUI','LOUISE'];
+    const locs=await odoo('stock.location','search_read',
+      [[['usage','=','internal']]],{fields:['id','complete_name'],limit:10000});
+    const andLocIds=[], louiLocIds=[], andLocNames=[], louiLocNames=[];
+    for(const l of locs){
+      const prefix=String(l.complete_name||'').split('/')[0].toUpperCase().trim();
+      if(LOUI_TOKENS.some(t=>prefix.includes(t))){louiLocIds.push(l.id);louiLocNames.push(l.complete_name);}
+      else if(AND_TOKENS.some(t=>prefix.includes(t))){andLocIds.push(l.id);andLocNames.push(l.complete_name);}
+    }
+    console.log('[PartStock] AND locations:',andLocNames);
+    console.log('[PartStock] LOUI locations:',louiLocNames);
+
+    const andMap={}, louiMap={};
+    async function fillLoc(locIds,target){
+      if(!locIds.length) return;
+      for(const c of idChunks){
+        const g=await odoo('stock.quant','read_group',
+          [[['product_id','in',c],['location_id','in',locIds]],['quantity'],['product_id']],{lazy:false});
+        for(const row of g){const p=arr(row.product_id);if(!p[0])continue;target[p[0]]=(target[p[0]]||0)+gNum(row,'quantity');}
+      }
+    }
+
+    const info={};
+    let done=0;
+    for(const c of idChunks){
+      done+=c.length;
+      alert_(`<span class="spinner"></span> Step 5/5 — Product details… (${Math.min(done,ids.length)}/${ids.length})`,'info');
+      const prods=await odoo('product.product','read',[c],
+        {fields:['display_name','default_code','categ_id','type']});
+      for(const p of prods) info[p.id]=p;
+    }
+    alert_(`<span class="spinner"></span> Step 5/5 — On-hand by location: AND (${andLocIds.length} loc) + LOUI (${louiLocIds.length} loc)…`,'info');
+    await fillLoc(andLocIds,andMap);
+    await fillLoc(louiLocIds,louiMap);
+
+    // ── PER-BIKE-TYPE CONSUMPTION (BoM explosion × bikes produced) ──
+    alert_('<span class="spinner"></span> Counting bikes produced & splitting consumption by type…','info');
+    const {countByTmpl,nameByTmpl,total}=await loadProductionCounts();
+    totalBikes=total;
+    // famConsumed[famKey][productId] = estimated units consumed for that family
+    const famConsumed={}; FAM_KEYS.forEach(k=>famConsumed[k]={});
+    const usageCache={};
+    for(const [tmplIdStr,n] of Object.entries(countByTmpl)){
+      const tmplId=Number(tmplIdStr);
+      const fam=bikeFamilyKey(nameByTmpl[tmplId]);
+      if(!fam) continue;                          // not one of the six families
+      if(!bomByTmpl[tmplId]) continue;            // no BoM to explode for this template
+      let usage=usageCache[tmplId];
+      if(!usage){ usage=explodeUsage(tmplId,bomByTmpl,prodToTmpl); usageCache[tmplId]=usage; }
+      const target=famConsumed[fam];
+      for(const pid in usage){ target[pid]=(target[pid]||0)+usage[pid]*n; }
+    }
+
+    // ── BoM MEMBERSHIP (which bike BoMs each part belongs to) — from the BoM
+    // tree itself, independent of whether any bike was produced.
+    const famParts={};                            // famKey -> Set(productId)
+    for(const bb of bikeBoms){
+      const fam=bikeFamilyKey(bb.name)||'OTHER';
+      let usage=usageCache[bb.tmplId];
+      if(!usage){ usage=explodeUsage(bb.tmplId,bomByTmpl,prodToTmpl); usageCache[bb.tmplId]=usage; }
+      if(!famParts[fam]) famParts[fam]=new Set();
+      for(const pid in usage) famParts[fam].add(Number(pid));
+    }
+    const ALL_FAM=[...FAM_KEYS,'OTHER'];
+    bomMenu=ALL_FAM.filter(k=>famParts[k]&&famParts[k].size).map(k=>({
+      key:k,
+      label:k==='OTHER'?'Other / unclassified BoMs':(FAMILIES.find(f=>f.key===k)||{}).label,
+      count:famParts[k].size
+    }));
+
+    // ── BUILD ROWS (one per BoM component)
+    rows=ids.map(id=>{
+      const pi=info[id]||{};
+      const display=pi.display_name||nameMap[id]||('#'+id);
+      const partNo=pi.default_code||(display.match(/^\[([^\]]+)\]/)?.[1])||'';
+      const partName=display.replace(/^\[[^\]]+\]\s*/,'');
+      const receivedPO=recvMap[id]?recvMap[id].received:0;
+      const adj=Number(recvAdj[id])||0;
+      const received=receivedPO+adj;
+      const consumed=consMap[id]||0;
+      const sav=savMap[id]||0;
+      const theo=received-consumed-sav;
+      const andQty=andMap[id]||0;
+      const louiQty=louiMap[id]||0;
+      const odoo=andQty+louiQty;
+      const vv=theo-odoo;
+      const row={
+        id,partNo,partName,
+        category:arr(pi.categ_id)[1]||'—',
+        receivedPO,recvAdj:adj,received,consumed,sav,theo,andQty,louiQty,odoo,vv,
+        isSub:subIds.has(id),
+        bomFams:ALL_FAM.filter(k=>famParts[k]&&famParts[k].has(id))
+      };
+      FAM_KEYS.forEach(k=>{ row[k]=famConsumed[k][id]||0; });
+      return row;
+    });
+
+    populateCats();
+    buildBomMenu();
+    render();
+    renderSummary();
+
+    const ts=new Date().toLocaleTimeString();
+    document.getElementById('conn-pill').textContent=`${rows.length} BoM parts · ${ts}`;
+    document.getElementById('conn-pill').className='pill ok';
+    const andNames=andLocNames.join(', ')||'none';
+    const louiNames=louiLocNames.join(', ')||'none';
+    alert_(`✓ Loaded ${rows.length} parts from ${bikeBomCount} MAX bike BoM(s); ${totalBikes.toLocaleString()} bikes produced. AND locations: ${andNames}. LOUI locations: ${louiNames}. If a location is missing or wrong, tell me its exact name.`,'success');
+  }catch(e){
+    alert_('Error: '+e.message,'danger');
+    console.error(e);
+  }
+}
+
+// ── FILTERS / SORT / RENDER ──────────────────────────────────
+function populateCats(){
+  const cats=[...new Set(rows.map(r=>r.category).filter(c=>c&&c!=='—'))].sort();
+  ['f-cat','sum-cat'].forEach(id=>{
+    const sel=document.getElementById(id);if(!sel)return;
+    const cv=sel.value;
+    sel.innerHTML='<option value="">All categories</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    if(cv)sel.value=cv;
+  });
+}
+function setSort(k){if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=(k==='partName'||k==='partNo'||k==='category')?1:-1;}render();}
+
+// ── MANUAL RECEIVED ADJUSTMENTS ──────────────────────────────
+// Persisted to Cloudflare KV through the Worker (shared across devices/users),
+// and cached in this browser's localStorage as an offline fallback.
+function kvUrl(){return `${CF_WORKER}/kv/${encodeURIComponent(KV_KEY)}`;}
+async function loadAdjRemote(){
+  try{
+    const r=await fetch(kvUrl(),{method:'GET'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const txt=(await r.text()||'').trim();
+    if(txt){ const obj=JSON.parse(txt); if(obj&&typeof obj==='object'){ recvAdj=obj; saveAdj(); } }
+    setAdjStatus('saved');
+  }catch(e){ console.warn('[PartStock] KV load failed:',e.message); setAdjStatus(Object.keys(recvAdj).length?'local':''); }
+}
+function scheduleRemoteSave(){
+  clearTimeout(adjSaveTimer);
+  setAdjStatus('saving');
+  adjSaveTimer=setTimeout(saveAdjRemote,700);
+}
+async function saveAdjRemote(){
+  try{
+    const r=await fetch(kvUrl(),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(recvAdj)});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    setAdjStatus('saved');
+  }catch(e){
+    console.warn('[PartStock] KV save failed:',e.message);
+    setAdjStatus('error');
+  }
+}
+function setAdjStatus(state){
+  adjRemoteState=state;
+  const el=document.getElementById('adj-status');if(!el)return;
+  const map={
+    saving:['● Saving to cloud…','var(--text3)'],
+    saved:['✓ Saved to cloud','var(--success)'],
+    local:['● Saved in this browser only','var(--warn)'],
+    error:['✗ Cloud save failed — kept locally','var(--danger)'],
+    '':['','var(--text3)']
+  };
+  const [txt,col]=map[state]||map[''];
+  el.textContent=txt; el.style.color=col;
+}
+function recomputeRow(r){
+  r.received=r.receivedPO+(r.recvAdj||0);
+  r.theo=r.received-r.consumed-r.sav;
+  r.vv=r.theo-r.odoo;
+}
+function setAdj(id,val){
+  const r=rows.find(x=>x.id===id);if(!r)return;
+  const n=parseFloat(val);
+  if(!val||isNaN(n)||n===0){ r.recvAdj=0; delete recvAdj[id]; }
+  else { r.recvAdj=n; recvAdj[id]=n; }
+  saveAdj();
+  scheduleRemoteSave();
+  recomputeRow(r);
+  render();
+  renderSummary();
+}
+function clearAllAdj(){
+  if(!Object.keys(recvAdj).length) return;
+  if(!confirm('Clear all manual received adjustments (also on Odoo)?')) return;
+  recvAdj={}; saveAdj(); scheduleRemoteSave();
+  rows.forEach(r=>{r.recvAdj=0;recomputeRow(r);});
+  render(); renderSummary();
+}
+function updateAdjIndicator(){
+  const n=rows.filter(r=>r.recvAdj).length;
+  const el=document.getElementById('adj-count');
+  const btn=document.getElementById('adj-clear');
+  if(el) el.textContent=n?`${n} manual adjustment${n>1?'s':''}`:'';
+  if(btn) btn.style.display=n?'':'none';
+}
+
+// ── BoM FILTER (multi-select dropdown) — shared by Stock + Summary tabs ──
+const BOM_SCOPES={
+  main:{menu:'bom-menu',btn:'bom-btn',after:()=>render()},
+  sum: {menu:'sum-bom-menu',btn:'sum-bom-btn',after:()=>renderSummary()}
+};
+function buildBomMenu(){ Object.keys(BOM_SCOPES).forEach(buildOneBomMenu); }
+function buildOneBomMenu(sc){
+  const cfg=BOM_SCOPES[sc]; const m=document.getElementById(cfg.menu); if(!m)return;
+  if(!bomMenu.length){m.innerHTML='<div class="menu-hd">No bike BoMs found</div>';return;}
+  m.innerHTML=
+    `<div class="menu-hd"><span>Show only parts in…</span><a onclick="clearBomFilter('${sc}')">clear</a></div>`+
+    bomMenu.map(b=>`<label><input type="checkbox" value="${b.key}" onchange="onBomFilterChange('${sc}')"> ${esc(b.label)} <span class="cnt">${b.count}</span></label>`).join('');
+  updateBomBtn(sc);
+}
+function selectedBoms(sc){const cfg=BOM_SCOPES[sc]||BOM_SCOPES.main;return [...document.querySelectorAll('#'+cfg.menu+' input[type=checkbox]:checked')].map(cb=>cb.value);}
+function onBomFilterChange(sc){updateBomBtn(sc);BOM_SCOPES[sc].after();}
+function clearBomFilter(sc){document.querySelectorAll('#'+BOM_SCOPES[sc].menu+' input[type=checkbox]').forEach(cb=>cb.checked=false);updateBomBtn(sc);BOM_SCOPES[sc].after();}
+function updateBomBtn(sc){
+  const cfg=BOM_SCOPES[sc]; const n=selectedBoms(sc).length;
+  const btn=document.getElementById(cfg.btn);if(!btn)return;
+  btn.textContent=n?`🧩 BoM filter (${n})`:'🧩 BoM filter';
+  btn.classList.toggle('btn-primary',n>0);
+  btn.classList.toggle('btn-secondary',n===0);
+}
+function toggleBomMenu(sc,e){if(e)e.stopPropagation();document.getElementById(BOM_SCOPES[sc].menu).classList.toggle('open');}
+document.addEventListener('click',e=>{if(!e.target.closest('.col-toggle')){document.getElementById('bom-menu')?.classList.remove('open');document.getElementById('sum-bom-menu')?.classList.remove('open');}});
+
+const EPS=0.001;
+// VV = theoretical − Odoo on-hand. Positive = stock expected at VV (fine);
+// negative = Odoo already exceeds theoretical → data gap (flag it).
+function vvClass(x){if(x===null)return '';if(x<-EPS)return 'diff-danger';if(Math.abs(x)<EPS)return '';return 'vv-pos';}
+
+function getFiltered(){
+  const search=(document.getElementById('f-search').value||'').toLowerCase();
+  const cat=document.getElementById('f-cat').value||'';
+  const show=document.getElementById('f-show').value||'all';
+  const hideSub=document.getElementById('f-hidesub').checked;
+  const hideZero=document.getElementById('f-hidezero').checked;
+  const boms=selectedBoms('main');
+
+  let data=rows.filter(r=>{
+    if(boms.length&&!boms.some(k=>r.bomFams.includes(k)))return false;
+    if(cat&&r.category!==cat)return false;
+    if(hideSub&&r.isSub)return false;
+    if(hideZero&&r.received===0&&r.consumed===0&&r.sav===0&&Math.abs(r.odoo)<EPS)return false;
+    if(show==='vvpos'&&!(r.vv!==null&&r.vv>EPS))return false;
+    if(show==='vvneg'&&!(r.vv!==null&&r.vv<-EPS))return false;
+    if(show==='negstock'&&!(r.odoo<0))return false;
+    if(show==='negtheo'&&!(r.theo<0))return false;
+    if(search&&![r.partNo,r.partName,r.category].join(' ').toLowerCase().includes(search))return false;
+    return true;
+  });
+  data.sort((a,b)=>{
+    let av=a[sortKey],bv=b[sortKey];
+    if(av===null||av===undefined)av=typeof bv==='string'?'zzz':-Infinity;
+    if(bv===null||bv===undefined)bv=typeof av==='string'?'zzz':-Infinity;
+    if(typeof av==='string')return sortDir*av.localeCompare(bv);
+    return sortDir*(av-bv);
+  });
+  return data;
+}
+
+function render(){
+  if(!rows.length)return;
+  const data=getFiltered();
+
+  // KPIs (over the full dataset, not the filtered view)
+  document.getElementById('k-bikes').textContent=totalBikes.toLocaleString();
+  document.getElementById('k-parts').textContent=rows.length.toLocaleString();
+  document.getElementById('k-recv').textContent=Math.round(rows.reduce((s,r)=>s+r.received,0)).toLocaleString();
+  document.getElementById('k-cons').textContent=Math.round(rows.reduce((s,r)=>s+r.consumed,0)).toLocaleString();
+  document.getElementById('k-sav').textContent=Math.round(rows.reduce((s,r)=>s+r.sav,0)).toLocaleString();
+  document.getElementById('k-and').textContent=Math.round(rows.reduce((s,r)=>s+(r.andQty||0),0)).toLocaleString();
+  document.getElementById('k-loui').textContent=Math.round(rows.reduce((s,r)=>s+(r.louiQty||0),0)).toLocaleString();
+  document.getElementById('k-vv').textContent=Math.round(rows.reduce((s,r)=>s+(r.vv||0),0)).toLocaleString();
+
+  // sort indicators
+  ['partNo','partName','category','received','recvAdj','consumed',...FAM_KEYS,'sav','theo','andQty','louiQty','vv'].forEach(k=>{
+    const el=document.getElementById('sh-'+k);if(!el)return;
+    el.classList.toggle('sorted',sortKey===k);
+    el.querySelectorAll('.arr').forEach(n=>n.remove());
+    if(sortKey===k){const s=document.createElement('span');s.className='arr';s.textContent=sortDir===1?' ↑':' ↓';el.appendChild(s);}
+  });
+
+  document.getElementById('row-count').textContent=`${data.length} of ${rows.length} parts`;
+  updateAdjIndicator();
+
+  const tb=document.getElementById('t-body');
+  if(!data.length){tb.innerHTML='<tr><td colspan="17" style="text-align:center;padding:28px;color:var(--text3)">No parts match the current filters.</td></tr>';return;}
+
+  tb.innerHTML=data.map(r=>`<tr>
+    <td style="font-family:monospace;font-size:11px;color:var(--text3)">${esc(r.partNo)||'—'}</td>
+    <td style="min-width:220px;white-space:normal;line-height:1.3;font-weight:500">${esc(r.partName)}${r.isSub?' <span class="badge" title="Built in-house: this component has its own BoM">sub-assembly</span>':''}</td>
+    <td style="font-size:12px;color:var(--text2)">${esc(r.category)}</td>
+    <td class="num col-recv" title="${r.recvAdj?('PO '+fmt(r.receivedPO)+(r.recvAdj>0?' + ':' − ')+fmt(Math.abs(r.recvAdj))+' adj'):'PO received'}">${r.received?fmt(r.received):'—'}${r.recvAdj?`<div style="font-size:10px;color:var(--text3)">PO ${fmt(r.receivedPO)}</div>`:''}</td>
+    <td class="num col-recv"><input type="number" step="any" class="adj-inp${r.recvAdj?' set':''}" value="${r.recvAdj||''}" placeholder="0" onchange="setAdj(${r.id},this.value)"></td>
+    <td class="num">${r.consumed?fmt(r.consumed):'—'}</td>
+    ${FAM_KEYS.map(k=>`<td class="num col-type" style="color:var(--text2)">${r[k]?fmt(Math.round(r[k])):'<span style="color:var(--text3)">—</span>'}</td>`).join('')}
+    <td class="num">${r.sav?fmt(r.sav):'—'}</td>
+    <td class="num col-theo theo ${r.theo<0?'neg':''}">${fmt(r.theo)}</td>
+    <td class="num col-and ${r.andQty<0?'neg':''}">${r.andQty?fmt(r.andQty):(r.andQty===0?'0':'—')}</td>
+    <td class="num col-loui ${r.louiQty<0?'neg':''}">${r.louiQty?fmt(r.louiQty):(r.louiQty===0?'0':'—')}</td>
+    <td class="num col-vv ${vvClass(r.vv)}">${r.vv===null?'—':(r.vv>0?'+':'')+fmt(r.vv)}</td>
+  </tr>`).join('');
+}
+
+// ── SUMMARY TAB (parts with Theoretical at VV < 150) ─────────
+const VV_THRESHOLD=150;
+function getSummaryData(){
+  const search=(document.getElementById('sum-search')?.value||'').toLowerCase();
+  const cat=document.getElementById('sum-cat')?.value||'';
+  const hideSub=document.getElementById('sum-hidesub')?.checked;
+  const boms=selectedBoms('sum');
+  return rows.filter(r=>{
+    if(r.vv===null||r.vv>=VV_THRESHOLD) return false;
+    if(boms.length&&!boms.some(k=>r.bomFams.includes(k))) return false;
+    if(hideSub&&r.isSub) return false;
+    if(cat&&r.category!==cat) return false;
+    if(search&&![r.partNo,r.partName,r.category].join(' ').toLowerCase().includes(search)) return false;
+    return true;
+  }).sort((a,b)=>a.vv-b.vv);   // lowest (most negative) first
+}
+function renderSummary(){
+  const tb=document.getElementById('sum-tbody');
+  if(!tb) return;
+  if(!rows.length){tb.innerHTML='<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text3)">Connect and load parts first.</td></tr>';return;}
+  const data=getSummaryData();
+  const cnt=document.getElementById('sum-count');
+  if(cnt) cnt.textContent=`${data.length} parts below ${VV_THRESHOLD} at VV`;
+  if(!data.length){tb.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--text3)">No parts below ${VV_THRESHOLD} at VV.</td></tr>`;return;}
+  tb.innerHTML=data.map(r=>`<tr>
+    <td style="font-family:monospace;font-size:11px;color:var(--text3)">${esc(r.partNo)||'—'}</td>
+    <td style="min-width:220px;white-space:normal;line-height:1.3;font-weight:500">${esc(r.partName)}${r.isSub?' <span class="badge">sub-assembly</span>':''}</td>
+    <td style="font-size:12px;color:var(--text2)">${esc(r.category)}</td>
+    <td class="num col-recv">${r.received?fmt(r.received):'—'}</td>
+    <td class="num">${r.consumed?fmt(r.consumed):'—'}</td>
+    <td class="num">${r.sav?fmt(r.sav):'—'}</td>
+    <td class="num col-theo theo ${r.theo<0?'neg':''}">${fmt(r.theo)}</td>
+    <td class="num col-and ${r.andQty<0?'neg':''}">${r.andQty?fmt(r.andQty):'0'}</td>
+    <td class="num col-loui ${r.louiQty<0?'neg':''}">${r.louiQty?fmt(r.louiQty):'0'}</td>
+    <td class="num col-vv ${vvClass(r.vv)}">${(r.vv>0?'+':'')+fmt(r.vv)}</td>
+  </tr>`).join('');
+}
+
+// ── CSV EXPORT ───────────────────────────────────────────────
+function exportCSV(){
+  if(!rows.length){alert_('Load data first.','warn');return;}
+  const data=getFiltered();
+  const hdr=['Part #','Part Name','Category','Received (PO)','Received adj.','Received (effective)','Consumed (production)',
+    ...FAMILIES.map(f=>'Consumed '+f.label),
+    'After-sales','Theoretical stock','AND on-hand','LOUI on-hand','Theoretical at VV (Theo - AND - LOUI)'];
+  const csv=[hdr,...data.map(r=>[r.partNo,r.partName,r.category,r.receivedPO,r.recvAdj||0,r.received,r.consumed,
+    ...FAM_KEYS.map(k=>Math.round(r[k]||0)),
+    r.sav,r.theo,r.andQty,r.louiQty,r.vv===null?'':r.vv])]
+    .map(row=>row.map(c=>{const s=String(c??'');return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='parts-stock-'+new Date().toISOString().split('T')[0]+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+function exportSummaryCSV(){
+  if(!rows.length){alert_('Load data first.','warn');return;}
+  const data=getSummaryData();
+  const hdr=['Part #','Part Name','Category','Received','Consumed','After-sales','Theoretical','AND','LOUI','Theoretical at VV'];
+  const csv=[hdr,...data.map(r=>[r.partNo,r.partName,r.category,r.received,r.consumed,r.sav,r.theo,r.andQty,r.louiQty,r.vv])]
+    .map(row=>row.map(c=>{const s=String(c??'');return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='vv-summary-under150-'+new Date().toISOString().split('T')[0]+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+// ── INIT (reuse saved credentials, auto-connect) ─────────────
+try{
+  const c=localStorage.getItem('mxp_cfg');
+  if(c){const cfg=JSON.parse(c);if(cfg.user)document.getElementById('cfg-user').value=cfg.user;if(cfg.key)document.getElementById('cfg-key').value=cfg.key;}
+}catch(e){}
+window.addEventListener('load',()=>{
+  try{
+    const c=localStorage.getItem('mxp_cfg');
+    if(c){const cfg=JSON.parse(c);
+      if(cfg.user&&cfg.key){
+        document.getElementById('cfg-user').value=cfg.user;
+        document.getElementById('cfg-key').value=cfg.key;
+        setTimeout(()=>connectAndLoad(),300);
+      }
+    }
+  }catch(e){}
+});
+</script>
+</body>
+</html>

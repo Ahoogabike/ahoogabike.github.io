@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ahooga SAV — After Sales Dashboard</title>
+<style>
+:root{--bg:#f2f1ed;--surface:#fff;--surface2:#f0efe9;--border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);--text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#1a4fa0;--accent-bg:#e6f0fb;--success:#2d6e2d;--success-bg:#eaf3de;--warn:#7a4e0a;--warn-bg:#faeeda;--danger:#8b1f1f;--danger-bg:#fcebeb;--radius:10px;--radius-sm:6px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Georgia,serif;background:var(--bg);color:var(--text);font-size:14px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:52px;gap:12px;position:sticky;top:0;z-index:100}
+.logo{font-size:17px;font-weight:bold}.logo span{color:var(--accent)}
+.nav-btn{padding:5px 12px;border-radius:var(--radius-sm);font-size:13px;font-family:inherit;font-weight:600;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--text2)}
+.nav-btn.active{background:var(--accent-bg);color:var(--accent);border-color:rgba(26,79,160,0.2)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--text3);border:1px solid var(--border2)}
+.pill.ok{background:var(--success-bg);color:var(--success)}
+.pill.err{background:var(--danger-bg);color:var(--danger)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;font-weight:600;cursor:pointer;border:none}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+main{padding:20px;max-width:1600px;margin:0 auto}
+.view{display:none}.view.active{display:block}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
+.field label{font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text2);font-weight:600}
+.field input{padding:8px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none}
+.field input:focus{border-color:var(--accent)}
+.hint{font-size:11px;color:var(--text3);margin-top:3px}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px}
+.kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:4px}
+.kpi-value{font-size:22px;font-weight:700}
+.kpi-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.toolbar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.toolbar select,.toolbar input{padding:6px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface);color:var(--text);outline:none}
+.toolbar select:focus,.toolbar input:focus{border-color:var(--accent)}
+.sep{width:1px;height:24px;background:var(--border2);margin:0 2px}
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);margin-bottom:20px}
+table{width:100%;border-collapse:collapse}
+th{background:var(--surface2);padding:7px 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text2);font-weight:600;text-align:left;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;position:sticky;top:0;z-index:10}
+th:hover{background:#e5e4de}
+th.sorted{color:var(--accent)}
+td{padding:7px 10px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface2)}
+.badge{display:inline-flex;align-items:center;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px}
+.b-b2c{background:var(--accent-bg);color:var(--accent)}
+.b-b2r{background:var(--success-bg);color:var(--success)}
+.b-pos{background:var(--warn-bg);color:var(--warn)}
+.b-delivered{background:var(--success-bg);color:var(--success)}
+.b-pending{background:var(--warn-bg);color:var(--warn)}
+.alert{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:12px}
+.alert-info{background:var(--accent-bg);color:var(--accent)}
+.alert-warn{background:var(--warn-bg);color:var(--warn)}
+.alert-success{background:var(--success-bg);color:var(--success)}
+.alert-danger{background:var(--danger-bg);color:var(--danger)}
+.trend-up{color:var(--danger);font-weight:700}
+.trend-down{color:var(--success);font-weight:700}
+.trend-flat{color:var(--text3)}
+.rate-high{background:var(--danger-bg);color:var(--danger);font-weight:700;padding:2px 8px;border-radius:4px}
+.rate-med{background:var(--warn-bg);color:var(--warn);font-weight:600;padding:2px 8px;border-radius:4px}
+.rate-low{background:var(--success-bg);color:var(--success);padding:2px 8px;border-radius:4px}
+.rate-zero{color:var(--text3)}
+.yr-cell{text-align:right;font-size:12px;min-width:55px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>SAV</span></div>
+  <button class="nav-btn active" id="nav-dashboard" onclick="showTab('dashboard')">📊 Dashboard</button>
+  <button class="nav-btn" id="nav-detail" onclick="showTab('detail')">📋 Sales Detail</button>
+  <button class="nav-btn" id="nav-rates" onclick="showTab('rates')">📈 SAV Rates</button>
+  <button class="nav-btn" id="nav-settings" onclick="showTab('settings')">⚙ Connection</button>
+  <div class="header-right">
+    <span class="pill" id="conn-pill">Not connected</span>
+    <button class="btn btn-secondary" onclick="loadData()">↻ Refresh</button>
+    <button class="btn btn-primary" onclick="exportCSV()">⬇ CSV</button>
+  </div>
+</header>
+
+<main>
+  <div id="alert-box"></div>
+
+  <!-- SAV RATES TAB -->
+  <div class="view" id="view-rates">
+    <div style="background:var(--accent-bg);border:1px solid rgba(26,79,160,0.15);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--accent)">
+      <strong>How this works:</strong> SAV rate = parts sold after-sales ÷ bikes produced that use that part × 100.
+      A rate of 5% means 5 replacement parts were sold per 100 bikes produced.
+      Trend shows whether the rate is increasing (⚠ possible quality issue) or decreasing (✓ improving).
+    </div>
+
+    <div class="toolbar">
+      <input type="text" id="r-search" placeholder="🔍 Search part…" style="min-width:220px;flex:1" oninput="renderRates()"/>
+      <select id="r-cat" onchange="renderRates()"><option value="">All categories</option></select>
+      <select id="r-channel" onchange="renderRates()">
+        <option value="">All channels</option>
+        <option value="b2c">B2C only</option>
+        <option value="b2r">B2R only</option>
+      </select>
+      <div class="sep"></div>
+      <label style="font-size:12px;color:var(--text2)">Sort:</label>
+      <select id="r-sort" onchange="renderRates()">
+        <option value="rate_desc">Rate ↓ (highest first)</option>
+        <option value="rate_asc">Rate ↑ (lowest first)</option>
+        <option value="trend_desc">Worst trend first</option>
+        <option value="name">Part name</option>
+      </select>
+      <button class="btn btn-primary" onclick="exportRatesCSV()">⬇ Export</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Part #</th>
+          <th>Part Name</th>
+          <th>Category</th>
+          <th style="text-align:center">Used by</th>
+          <th style="text-align:right">Bikes produced</th>
+          <th style="text-align:right">SAV sold</th>
+          <th style="text-align:right">SAV rate<br><span style="font-weight:400;font-size:10px">(per 100 bikes)</span></th>
+          <th style="text-align:center">Trend</th>
+          <th id="yr-cols" colspan="10" style="text-align:center">Year by year rate (%)</th>
+        </tr></thead>
+        <tbody id="rates-tbody"><tr><td colspan="20" style="text-align:center;padding:32px;color:var(--text3)">Load data first — go to Dashboard tab and connect.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="view" id="view-settings">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:480px">
+      <h2 style="font-size:15px;font-weight:700;margin-bottom:16px">Odoo Connection</h2>
+      <input type="hidden" id="cfg-url" value="https://ahooga.odoo.com"/>
+      <input type="hidden" id="cfg-db" value="logicasoft-aho-18-0-21599177"/>
+      <div class="field">
+        <label>Your Odoo email</label>
+        <input type="text" id="cfg-user" placeholder="yourname@ahooga.bike"/>
+      </div>
+      <div class="field">
+        <label>API Key</label>
+        <input type="password" id="cfg-key" placeholder="your-api-key"/>
+        <div class="hint">Odoo → My Profile → Account Security → New API Key</div>
+      </div>
+      <button class="btn btn-primary" onclick="connectAndLoad()">▶ Connect & Load</button>
+      <div id="conn-detail" style="font-size:12px;color:var(--text3);margin-top:10px"></div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="view active" id="view-dashboard">
+    <div class="kpis">
+      <div class="kpi"><div class="kpi-label">Parts sold (SAV)</div><div class="kpi-value" id="k-lines">—</div><div class="kpi-sub">order lines</div></div>
+      <div class="kpi"><div class="kpi-label">Total qty delivered</div><div class="kpi-value" id="k-qty" style="color:var(--accent)">—</div><div class="kpi-sub">units</div></div>
+      <div class="kpi"><div class="kpi-label">Unique parts</div><div class="kpi-value" id="k-parts">—</div><div class="kpi-sub">different components</div></div>
+      <div class="kpi"><div class="kpi-label">B2C sales</div><div class="kpi-value" id="k-b2c" style="color:var(--accent)">—</div><div class="kpi-sub">online + POS</div></div>
+      <div class="kpi"><div class="kpi-label">B2R sales</div><div class="kpi-value" id="k-b2r" style="color:var(--success)">—</div><div class="kpi-sub">resellers</div></div>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" id="d-search" placeholder="🔍 Search part name or number…" style="min-width:260px;flex:1" oninput="renderDashboard()"/>
+      <select id="d-channel" onchange="renderDashboard()">
+        <option value="">All channels</option>
+        <option value="b2c">B2C (Online + POS)</option>
+        <option value="b2r">B2R (Resellers)</option>
+        <option value="online">Online only</option>
+        <option value="pos_louise">POS Louise</option>
+        <option value="pos_paris">POS Paris</option>
+      </select>
+      <select id="d-status" onchange="renderDashboard()">
+        <option value="">All orders</option>
+        <option value="delivered">Delivered only</option>
+        <option value="pending">Pending delivery</option>
+      </select>
+      <select id="d-cat" onchange="renderDashboard()"><option value="">All categories</option></select>
+      <select id="d-year" onchange="renderDashboard()"><option value="">All years</option></select>
+      <div class="sep"></div>
+      <label style="font-size:12px;color:var(--text2)">Sort by:</label>
+      <select id="d-sort" onchange="renderDashboard()">
+        <option value="qty_desc">Qty ↓</option>
+        <option value="qty_asc">Qty ↑</option>
+        <option value="name">Part name</option>
+        <option value="category">Category</option>
+      </select>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Part #</th>
+          <th>Part Name</th>
+          <th>Category</th>
+          <th>Supplier</th>
+          <th style="text-align:right">Total Delivered</th>
+          <th style="text-align:right">B2C Delivered</th>
+          <th style="text-align:right">B2R Delivered</th>
+          <th style="text-align:right">Pending</th>
+          <th style="text-align:right">Orders</th>
+          <th>Last sold</th>
+        </tr></thead>
+        <tbody id="dash-tbody"><tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text3)">Connect and load data.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- DETAIL -->
+  <div class="view" id="view-detail">
+    <div class="toolbar">
+      <input type="text" id="det-search" placeholder="🔍 Search part, order, customer…" style="min-width:260px;flex:1" oninput="renderDetail()"/>
+      <select id="det-channel" onchange="renderDetail()">
+        <option value="">All channels</option>
+        <option value="b2c">B2C</option>
+        <option value="b2r">B2R</option>
+        <option value="online">Online</option>
+        <option value="pos_louise">POS Louise</option>
+        <option value="pos_paris">POS Paris</option>
+      </select>
+      <select id="det-status" onchange="renderDetail()">
+        <option value="">All orders</option>
+        <option value="delivered">Delivered</option>
+        <option value="pending">Pending</option>
+      </select>
+      <select id="det-year" onchange="renderDetail()"><option value="">All years</option></select>
+      <input type="date" id="det-from" onchange="renderDetail()" title="From"/>
+      <input type="date" id="det-to" onchange="renderDetail()" title="To"/>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th onclick="setSort('date')" id="sh-date">Date ↕</th>
+          <th onclick="setSort('order')" id="sh-order">Order ↕</th>
+          <th onclick="setSort('customer')" id="sh-customer">Customer ↕</th>
+          <th onclick="setSort('channel')" id="sh-channel">Channel ↕</th>
+          <th onclick="setSort('pn')" id="sh-pn">Part # ↕</th>
+          <th onclick="setSort('name')" id="sh-name">Part Name ↕</th>
+          <th onclick="setSort('qty')" style="text-align:right" id="sh-qty">Qty ↕</th>
+          <th id="sh-status">Status</th>
+        </tr></thead>
+        <tbody id="det-tbody"><tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text3)">Connect and load data.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+const ODOO_URL='https://ahooga.odoo.com';
+const ODOO_DB='logicasoft-aho-18-0-21599177';
+const CF_WORKER='https://ahooga-planner-proxy.massimiliano-d74.workers.dev';
+let odooUid=null;
+let productionData=[];
+let bikeTemplateProdCount={};
+let bikeTemplateProdByYear={};
+let allLines=[]; // flat detail lines
+let kitByProductId={}; // sale product variant id -> {name, components:[{pn,name,category,qty}]}
+let sortKey='date'; let sortDir=-1;
+
+// Sales team IDs: 1=B2R, 5=Online, 3=POS Louise, 8=POS Paris, 7=Marketing
+const TEAM_MAP={1:'b2r',5:'online',3:'pos_louise',8:'pos_paris',7:'marketing'};
+const TEAM_LABELS={'b2r':'B2R','online':'Online','pos_louise':'POS Louise','pos_paris':'POS Paris','marketing':'Marketing'};
+const B2C_TEAMS=['online','pos_louise','pos_paris'];
+
+let BOM_DATA = [];
+let BOM_MAP = {};
+let BOM_PNS = [];
+
+// Maps component PN -> Set of bike product template IDs that use it
+let compToBikeTemplates = {};
+// Maps bike product template ID -> total bikes produced
+// Maps bike product template ID -> year -> count
+async function loadBoMFromOdoo(){
+  try{
+    // Level 1: Load bike BoMs
+    const bikeTemplates = await odoo("mrp.bom","search_read",
+      [[["product_tmpl_id.name","ilike","MAX"]]],
+      {fields:["id","product_tmpl_id","product_id","product_qty","bom_line_ids"],limit:100});
+    if(!bikeTemplates.length) return;
+
+    // Build: bomId -> bike template ID
+    const bomToTemplate={};
+    for(const b of bikeTemplates){
+      bomToTemplate[b.id]=Array.isArray(b.product_tmpl_id)?b.product_tmpl_id[0]:null;
+    }
+
+    // Level 1 lines
+    const lineIds=bikeTemplates.flatMap(b=>Array.isArray(b.bom_line_ids)?b.bom_line_ids:[]);
+    if(!lineIds.length) return;
+    const bomLines=await odoo("mrp.bom.line","search_read",
+      [[["id","in",lineIds]]],
+      {fields:["bom_id","product_id","product_qty"],limit:5000});
+
+    // Get product details for level 1
+    const l1CompIds=[...new Set(bomLines.map(l=>Array.isArray(l.product_id)?l.product_id[0]:null).filter(Boolean))];
+    const l1Products=l1CompIds.length?await odoo("product.product","search_read",
+      [[["id","in",l1CompIds]]],
+      {fields:["id","display_name","default_code","categ_id","product_tmpl_id"],limit:1000}):[];
+    const l1Map={};for(const p of l1Products)l1Map[p.id]=p;
+
+    // Find sub-assemblies (products that have their own BoM)
+    // These are wheel assemblies, chainwheel sub-assemblies etc.
+    const l1TmplIds=l1Products.map(p=>Array.isArray(p.product_tmpl_id)?p.product_tmpl_id[0]:null).filter(Boolean);
+    const subBoms=l1TmplIds.length?await odoo("mrp.bom","search_read",
+      [[["product_tmpl_id","in",l1TmplIds]]],
+      {fields:["id","product_tmpl_id","bom_line_ids"],limit:200}):[];
+
+    // Build: sub-assembly productId -> sub-BoM line IDs
+    const subBomByTmpl={};
+    for(const sb of subBoms){
+      const tid=Array.isArray(sb.product_tmpl_id)?sb.product_tmpl_id[0]:null;
+      if(tid) subBomByTmpl[tid]=sb.bom_line_ids||[];
+    }
+
+    // Level 2: Load sub-assembly BoM lines
+    const l2LineIds=[...new Set(subBoms.flatMap(sb=>Array.isArray(sb.bom_line_ids)?sb.bom_line_ids:[]))];
+    const l2BomLines=l2LineIds.length?await odoo("mrp.bom.line","search_read",
+      [[["id","in",l2LineIds]]],
+      {fields:["bom_id","product_id","product_qty"],limit:5000}):[];
+
+    // Get product details for level 2
+    const l2CompIds=[...new Set(l2BomLines.map(l=>Array.isArray(l.product_id)?l.product_id[0]:null).filter(Boolean))];
+    const l2Products=l2CompIds.length?await odoo("product.product","search_read",
+      [[["id","in",l2CompIds]]],
+      {fields:["id","display_name","default_code","categ_id"],limit:1000}):[];
+    const l2Map={};for(const p of l2Products)l2Map[p.id]=p;
+
+    // Build: sub-BoM ID -> product template ID of parent sub-assembly
+    const l2BomToTmpl={};
+    for(const sb of subBoms) l2BomToTmpl[sb.id]=Array.isArray(sb.product_tmpl_id)?sb.product_tmpl_id[0]:null;
+
+    // Now build compToBikeTemplates by tracing:
+    // L1 component -> bike templates (direct)
+    // L2 component -> sub-assembly tmpl -> bikes that use sub-assembly
+    compToBikeTemplates={};
+    const seen={};
+    BOM_DATA=[];
+
+    const addComp=(pn, comp, bikeTemplateIds)=>{
+      if(!pn) return;
+      if(!compToBikeTemplates[pn]) compToBikeTemplates[pn]=new Set();
+      for(const tid of bikeTemplateIds) compToBikeTemplates[pn].add(tid);
+      if(seen[pn]) return;
+      seen[pn]=true;
+      const name=comp.display_name.replace(/^\[[^\]]+\]\s*/,"");
+      const cat=Array.isArray(comp.categ_id)?comp.categ_id[1]:"Other";
+      BOM_DATA.push({pn,name,category:cat,supplier:""});
+    };
+
+    // Process level 1 lines
+    // Build: sub-assembly tmplId -> bike template IDs
+    const subTmplToBikeTemplates={};
+    for(const line of bomLines){
+      const compId=Array.isArray(line.product_id)?line.product_id[0]:null;
+      const bomId=Array.isArray(line.bom_id)?line.bom_id[0]:line.bom_id;
+      if(!compId||!bomId) continue;
+      const comp=l1Map[compId];if(!comp) continue;
+      const pn=comp.default_code||"";
+      const bikeTmplId=bomToTemplate[bomId];
+      const compTmplId=Array.isArray(comp.product_tmpl_id)?comp.product_tmpl_id[0]:null;
+
+      if(bikeTmplId){
+        // Track which bike templates use this sub-assembly
+        if(compTmplId&&subBomByTmpl[compTmplId]){
+          if(!subTmplToBikeTemplates[compTmplId]) subTmplToBikeTemplates[compTmplId]=new Set();
+          subTmplToBikeTemplates[compTmplId].add(bikeTmplId);
+        } else {
+          // Direct component (not a sub-assembly)
+          addComp(pn, comp, [bikeTmplId]);
+        }
+      }
+    }
+
+    // Process level 2 lines (sub-assembly components)
+    for(const line of l2BomLines){
+      const compId=Array.isArray(line.product_id)?line.product_id[0]:null;
+      const bomId=Array.isArray(line.bom_id)?line.bom_id[0]:line.bom_id;
+      if(!compId||!bomId) continue;
+      const comp=l2Map[compId];if(!comp) continue;
+      const pn=comp.default_code||"";
+      const subTmplId=l2BomToTmpl[bomId];
+      if(!subTmplId) continue;
+      const bikeTemplateIds=[...(subTmplToBikeTemplates[subTmplId]||new Set())];
+      if(bikeTemplateIds.length) addComp(pn, comp, bikeTemplateIds);
+    }
+
+    // Convert Sets to Arrays
+    for(const pn of Object.keys(compToBikeTemplates)){
+      compToBikeTemplates[pn]=[...compToBikeTemplates[pn]];
+    }
+
+    BOM_PNS=BOM_DATA.map(c=>c.pn).filter(Boolean);
+    BOM_MAP={};
+    BOM_DATA.forEach(c=>{if(c.pn)BOM_MAP[c.pn]=c;});
+    console.log("[SAV] Loaded "+BOM_DATA.length+" components (2-level BoM), "+bikeTemplates.length+" bike BoMs, "+subBoms.length+" sub-assembly BoMs");
+  }catch(e){
+    console.warn("[SAV] BoM load failed:",e.message);
+  }
+}
+
+// Detect kit (phantom-BoM) products among the SAV order lines and map each
+// kit's sale product variant -> its component list, so kit sales can be
+// exploded into the parts actually delivered (e.g. a torque sensor inside a
+// Repair & Maintenance Kit).
+async function loadKitsFromOdoo(soLines){
+  kitByProductId={};
+  try{
+    const prodIds=[...new Set(soLines.map(l=>arr(l.product_id)[0]).filter(Boolean))];
+    if(!prodIds.length) return;
+
+    // Resolve SAV line products -> template + code + name
+    const prods=await odoo("product.product","search_read",
+      [[["id","in",prodIds]]],
+      {fields:["id","product_tmpl_id","default_code","display_name"],limit:5000});
+    const tmplIds=[...new Set(prods.map(p=>arr(p.product_tmpl_id)[0]).filter(Boolean))];
+    const prodTmpl={}; for(const p of prods) prodTmpl[p.id]=arr(p.product_tmpl_id)[0];
+
+    // Phantom BoMs = kits. Match by variant OR by template (variant-agnostic BoMs).
+    const kitBoms=await odoo("mrp.bom","search_read",
+      [[["type","=","phantom"],"|",["product_id","in",prodIds],["product_tmpl_id","in",tmplIds]]],
+      {fields:["id","product_id","product_tmpl_id","bom_line_ids"],limit:500});
+    if(!kitBoms.length){ console.log("[SAV] No kit (phantom) BoMs among SAV products"); return; }
+
+    // Kit component lines
+    const kLineIds=[...new Set(kitBoms.flatMap(b=>Array.isArray(b.bom_line_ids)?b.bom_line_ids:[]))];
+    const kLines=kLineIds.length?await odoo("mrp.bom.line","search_read",
+      [[["id","in",kLineIds]]],
+      {fields:["bom_id","product_id","product_qty"],limit:5000}):[];
+
+    // Component product details
+    const compIds=[...new Set(kLines.map(l=>arr(l.product_id)[0]).filter(Boolean))];
+    const comps=compIds.length?await odoo("product.product","search_read",
+      [[["id","in",compIds]]],
+      {fields:["id","default_code","display_name","categ_id"],limit:2000}):[];
+    const compMap={}; for(const c of comps) compMap[c.id]=c;
+
+    // bomId -> [components]
+    const bomComps={};
+    for(const l of kLines){
+      const bomId=arr(l.bom_id)[0];
+      const c=compMap[arr(l.product_id)[0]]; if(!c) continue;
+      const pn=c.default_code||(arr(l.product_id)[1]||"").match(/^\[([^\]]+)\]/)?.[1]||"";
+      if(!pn) continue;
+      (bomComps[bomId]=bomComps[bomId]||[]).push({
+        pn,
+        name:(c.display_name||"").replace(/^\[[^\]]+\]\s*/,""),
+        category:Array.isArray(c.categ_id)?c.categ_id[1]:"Other",
+        qty:parseFloat(l.product_qty)||1
+      });
+    }
+
+    // Map each kit BoM to the SAV product variants it covers
+    for(const b of kitBoms){
+      const components=bomComps[b.id]; if(!components||!components.length) continue;
+      const kitVariantId=arr(b.product_id)[0];   // false => applies to all variants of the template
+      const kitTmplId=arr(b.product_tmpl_id)[0];
+      const kitName=((prods.find(p=>p.id===kitVariantId)||prods.find(p=>arr(p.product_tmpl_id)[0]===kitTmplId))?.display_name||"Kit").replace(/^\[[^\]]+\]\s*/,"");
+      for(const sp of prods){
+        const matches=kitVariantId?sp.id===kitVariantId:prodTmpl[sp.id]===kitTmplId;
+        if(matches) kitByProductId[sp.id]={name:kitName,components};
+      }
+    }
+    console.log("[SAV] Loaded "+Object.keys(kitByProductId).length+" SAV kit product(s) -> exploded into components");
+  }catch(e){
+    console.warn("[SAV] Kit load failed:",e.message);
+  }
+}
+
+function proxyUrl(path){
+  return(location.hostname==='localhost'||location.hostname==='127.0.0.1')
+    ?`/odoo/${encodeURIComponent(ODOO_URL+path)}`
+    :`${CF_WORKER}/odoo/${encodeURIComponent(ODOO_URL+path)}`;
+}
+function v(x){
+  if(x===null||x===undefined)return'<value><boolean>0</boolean></value>';
+  if(typeof x==='boolean')return`<value><boolean>${x?1:0}</boolean></value>`;
+  if(typeof x==='number'&&Number.isInteger(x))return`<value><int>${x}</int></value>`;
+  if(typeof x==='number')return`<value><double>${x}</double></value>`;
+  if(Array.isArray(x))return`<value><array><data>${x.map(v).join('')}</data></array></value>`;
+  if(typeof x==='object'){const m=Object.entries(x).map(([k,vv])=>`<member><name>${k}</name>${v(vv)}</member>`).join('');return`<value><struct>${m}</struct></value>`;}
+  return`<value><string>${String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</string></value>`;
+}
+function parseXml(xml){
+  const doc=new DOMParser().parseFromString(xml,'text/xml');
+  if(doc.querySelector('fault'))throw new Error('Odoo: '+doc.querySelector('faultString')?.textContent?.substring(0,120));
+  function pv(n){
+    if(!n)return null;const c=n.firstElementChild;if(!c)return n.textContent;
+    switch(c.tagName){
+      case'int':case'i4':case'i8':return parseInt(c.textContent);
+      case'double':return parseFloat(c.textContent);
+      case'boolean':return c.textContent==='1';
+      case'string':return c.textContent;
+      case'nil':return null;
+      case'array':return Array.from(c.querySelector('data')?.children||[]).map(pv);
+      case'struct':{const o={};c.querySelectorAll(':scope>member').forEach(m=>{o[m.querySelector('name').textContent]=pv(m.querySelector('value'))});return o;}
+      default:return c.textContent;
+    }
+  }
+  return pv(doc.querySelector('methodResponse>params>param>value'));
+}
+function arr(x){return Array.isArray(x)?x:[null,x?String(x):''];}
+async function odoo(model,method,args,kwargs={}){
+  const user=document.getElementById('cfg-user').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  if(!odooUid){
+    const b=`<?xml version="1.0"?><methodCall><methodName>authenticate</methodName><params>${[v(ODOO_DB),v(user),v(key),v({})].map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+    const r=await fetch(proxyUrl('/xmlrpc/2/common'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+    odooUid=parseXml(await r.text());
+    if(!odooUid||typeof odooUid!=='number')throw new Error('Authentication failed');
+  }
+  const params=[v(ODOO_DB),v(odooUid),v(key),v(model),v(method),v(args),v(kwargs)];
+  const b=`<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>${params.map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+  const r=await fetch(proxyUrl('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+  return parseXml(await r.text());
+}
+
+function fd(d){if(!d)return'—';const dt=new Date(d);return isNaN(dt)?d:dt.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}
+function alert_(msg,type){document.getElementById('alert-box').innerHTML=`<div class="alert alert-${type}">${msg}</div>`;if(type==='success')setTimeout(()=>document.getElementById('alert-box').innerHTML='',4000);}
+function showTab(t){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+t).classList.add('active');
+  document.getElementById('nav-'+t).classList.add('active');
+  if(t==='rates') renderRates();
+}
+
+async function connectAndLoad(){
+  const user=document.getElementById('cfg-user').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  if(!user||!key){alert_('Enter email and API key.','warn');return;}
+  odooUid=null;
+  document.getElementById('conn-detail').textContent='Connecting…';
+  try{
+    await odoo('res.users','search_read',[[['id','=',1]]],{fields:['name'],limit:1});
+    document.getElementById('conn-pill').textContent='✓ Connected';
+    document.getElementById('conn-pill').className='pill ok';
+    document.getElementById('conn-detail').textContent='✓ Connected — loading SAV data…';
+
+
+
+
+function calcRates(){
+  if(!allLines.length||!productionData.length) return [];
+
+  // Use precomputed bikeTemplateProdCount and bikeTemplateProdByYear
+
+  // Total SAV sold per part (all channels or filtered)
+  const rChannel=document.getElementById('r-channel')?.value||'';
+  const filteredLines=allLines.filter(l=>{
+    if(rChannel==='b2c'&&!l.isB2C)return false;
+    if(rChannel==='b2r'&&l.channel!=='b2r')return false;
+    return l.delivered>0;
+  });
+
+  const savByPn={};   // pn -> total delivered
+  const savByPnYear={}; // pn -> year -> delivered
+  for(const l of filteredLines){
+    savByPn[l.pn]=(savByPn[l.pn]||0)+l.delivered;
+    if(l.date){
+      const yr=new Date(l.date).getFullYear();
+      if(!savByPnYear[l.pn])savByPnYear[l.pn]={};
+      savByPnYear[l.pn][yr]=(savByPnYear[l.pn][yr]||0)+l.delivered;
+    }
+  }
+
+  // Only show parts that have SAV sales
+  const results=[];
+  // Build a unified part list: BoM parts + any extra SAV parts not in BoM
+  const allSAVPNs=[...new Set(filteredLines.map(l=>l.pn).filter(Boolean))];
+  const extraParts=allSAVPNs
+    .filter(pn=>!BOM_DATA.find(c=>c.pn===pn))
+    .map(pn=>{
+      const line=filteredLines.find(l=>l.pn===pn);
+      return {pn,name:line?.partName||pn,category:line?.category||'Other',supplier:'',eMaxD:0,eMaxA:0,aMaxD:0,aMaxA:0,isExtra:true};
+    });
+  const allParts=[...BOM_DATA,...extraParts];
+
+  for(const comp of allParts){
+    const savTotal=savByPn[comp.pn]||0;
+    if(savTotal===0) continue;
+
+    // Which bike templates use this part (from BoM mapping)
+    const tmplIds = compToBikeTemplates[comp.pn] || [];
+
+    // Total bikes produced for templates that use this part
+    const bikesTotal = tmplIds.reduce((s,tid)=>s+(bikeTemplateProdCount[tid]||0),0);
+    const rate = bikesTotal>0 ? savTotal/bikesTotal*100 : null;
+
+    // Year-by-year rates
+    const allYears=[...new Set([
+      ...Object.keys(savByPnYear[comp.pn]||{}),
+      ...tmplIds.flatMap(tid=>Object.keys(bikeTemplateProdByYear[tid]||{}))
+    ])].map(Number).sort();
+
+    const yearRates={};
+    for(const yr of allYears){
+      const savYr=(savByPnYear[comp.pn]||{})[yr]||0;
+      const bikesYr=tmplIds.reduce((s,tid)=>s+((bikeTemplateProdByYear[tid]||{})[yr]||0),0);
+      yearRates[yr]=bikesYr>0?savYr/bikesYr*100:null;
+    }
+
+    // Trend: compare last 2 years
+    const rateVals=allYears.filter(y=>yearRates[y]!==null).map(y=>yearRates[y]);
+    let trend='flat';
+    if(rateVals.length>=2){
+      const diff=rateVals[rateVals.length-1]-rateVals[rateVals.length-2];
+      if(diff>0.5)trend='up';
+      else if(diff<-0.5)trend='down';
+    }
+
+    const usedByLabel=comp.isExtra?'Not in current BoM':tmplIds.length===0?'Unknown':`${tmplIds.length} bike model(s)`;
+
+    results.push({
+      pn:comp.pn,name:comp.name,category:comp.category||'Other',
+      usedBy:usedByLabel,
+      bikesTotal:Math.round(bikesTotal),
+      savTotal,rate,trend,yearRates,allYears,
+      isExtra:comp.isExtra||false
+    });
+  }
+  return results;
+}
+
+function renderRates(){
+  const search=(document.getElementById('r-search')?.value||'').toLowerCase();
+  const cat=document.getElementById('r-cat')?.value||'';
+  const sort=document.getElementById('r-sort')?.value||'rate_desc';
+
+  // Populate category filter
+  const catSel=document.getElementById('r-cat');
+  if(catSel&&catSel.options.length<=1){
+    const cats=[...new Set(BOM_DATA.map(c=>c.category).filter(Boolean))].sort();
+    cats.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;catSel.appendChild(o);});
+  }
+
+  let data=calcRates();
+  if(!data.length){
+    document.getElementById('rates-tbody').innerHTML='<tr><td colspan="20" style="text-align:center;padding:32px;color:var(--text3)">No data yet — load SAV data from the Dashboard tab first.</td></tr>';
+    return;
+  }
+
+  data=data.filter(d=>{
+    if(cat&&d.category!==cat)return false;
+    if(search&&!d.name.toLowerCase().includes(search)&&!d.pn.toLowerCase().includes(search))return false;
+    return true;
+  });
+
+  if(sort==='rate_desc')data.sort((a,b)=>b.rate-a.rate);
+  else if(sort==='rate_asc')data.sort((a,b)=>a.rate-b.rate);
+  else if(sort==='trend_desc')data.sort((a,b)=>{const t={up:0,flat:1,down:2};return t[a.trend]-t[b.trend];});
+  else data.sort((a,b)=>a.name.localeCompare(b.name));
+
+  // Get all unique years across all parts
+  const allYears=[...new Set(data.flatMap(d=>d.allYears))].sort();
+
+  const rateClass=r=>(r===null||r===undefined)?'rate-zero':r>10?'rate-high':r>3?'rate-med':r>0?'rate-low':'rate-zero';
+  const trendIcon=t=>t==='up'?'<span class="trend-up">↑ Rising</span>':t==='down'?'<span class="trend-down">↓ Falling</span>':'<span class="trend-flat">→ Stable</span>';
+  const fmtRate=r=>(r===null||r===undefined)?'—':`${Number(r).toFixed(1)}%`;
+
+  document.getElementById('rates-tbody').innerHTML=data.map(d=>`<tr>
+    <td style="font-family:monospace;font-size:11px;color:var(--text3)">${d.pn}</td>
+    <td style="min-width:160px;white-space:normal;font-weight:500">${d.name}</td>
+    <td style="font-size:11px"><span class="badge b-b2c">${d.category}</span></td>
+    <td style="text-align:center;font-size:11px;color:var(--text3)">${d.usedBy}</td>
+    <td style="text-align:right;color:var(--text2)">${d.bikesTotal.toLocaleString()}</td>
+    <td style="text-align:right;color:var(--text2)">${d.savTotal.toLocaleString()}</td>
+    <td style="text-align:right"><span class="${rateClass(d.rate)}">${d.rate!==null?d.rate.toFixed(1)+'%':'N/A'}</span></td>
+    <td style="text-align:center">${trendIcon(d.trend)}</td>
+    ${allYears.map(yr=>`<td class="yr-cell"><span class="${rateClass(d.yearRates[yr])}">${fmtRate(d.yearRates[yr])}</span></td>`).join('')}
+  </tr>`).join('');
+
+  // Update year columns header
+  document.getElementById('yr-cols').colSpan=allYears.length||1;
+  document.getElementById('yr-cols').textContent='Year by year rate (%) — '+allYears.join(', ');
+}
+
+function exportRatesCSV(){
+  const data=calcRates();
+  if(!data.length){alert_('Load data first.','warn');return;}
+  const allYears=[...new Set(data.flatMap(d=>d.allYears))].sort();
+  const hdr=['Part #','Part Name','Category','Used by','Bikes produced','SAV sold','Rate (per 100 bikes)','Trend',...allYears.map(y=>`Rate ${y}`)];
+  const csv=[hdr,...data.map(d=>[d.pn,d.name,d.category,d.usedBy,d.bikesTotal,d.savTotal,d.rate.toFixed(2),d.trend,...allYears.map(y=>d.yearRates[y]!==null?d.yearRates[y].toFixed(2):'')])].map(r=>r.map(c=>{const s=String(c??'');return s.includes(',')||s.includes('"')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='sav-rates-'+new Date().toISOString().split('T')[0]+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+
+
+try{const c=localStorage.getItem('mxp_cfg');const cfg=c?JSON.parse(c):{};cfg.user=user;cfg.key=key;localStorage.setItem('mxp_cfg',JSON.stringify(cfg));}catch(e){}
+    showTab('dashboard');
+    await loadData();
+  }catch(e){
+    document.getElementById('conn-pill').textContent='✗ Failed';
+    document.getElementById('conn-pill').className='pill err';
+    document.getElementById('conn-detail').textContent='✗ '+e.message;
+  }
+}
+
+async function loadProductionData(){
+  // Use stock.lot (serial numbers) as ground truth
+  // Filter by product category: Bikes/MAX, Bikes/A-MAX*, Bikes/E-MAX*
+  alert_('Loading bike serial numbers from Odoo...','info');
+
+  // Get category IDs for all MAX bike categories
+  const cats = await odoo('product.category','search_read',
+    [[['complete_name','ilike','MAX']]],
+    {fields:['id','complete_name'],limit:20});
+  const bikeCatIds = cats
+    .filter(c=>c.complete_name.startsWith('Bikes'))
+    .map(c=>c.id);
+  console.log('[SAV] Bike categories:', cats.filter(c=>c.complete_name.startsWith('Bikes')).map(c=>c.complete_name));
+
+  if(!bikeCatIds.length){ console.warn('[SAV] No bike categories found'); return; }
+
+  // Get all lots for products in these categories (include archived)
+  const lots = await odoo('stock.lot','search_read',
+    [[['product_id.categ_id','in',bikeCatIds],
+      ['product_id.active','in',[true,false]]]],
+    {fields:['product_id','create_date'],limit:10000});
+
+  console.log('[SAV] Total bike lots found:', lots.length);
+
+  // Get product template IDs
+  const prodIds=[...new Set(lots.map(l=>Array.isArray(l.product_id)?l.product_id[0]:null).filter(Boolean))];
+  const prods=prodIds.length?await odoo('product.product','search_read',
+    [[['id','in',prodIds],['active','in',[true,false]]]],
+    {fields:['id','product_tmpl_id'],limit:1000}):[];
+  const prodToTmpl={};
+  for(const p of prods) prodToTmpl[p.id]=Array.isArray(p.product_tmpl_id)?p.product_tmpl_id[0]:null;
+
+  bikeTemplateProdCount={};
+  bikeTemplateProdByYear={};
+  productionData=[];
+
+  for(const lot of lots){
+    const pid=Array.isArray(lot.product_id)?lot.product_id[0]:null;
+    if(!pid) continue;
+    const tmplId=prodToTmpl[pid];
+    if(!tmplId) continue;
+    const date=lot.create_date?lot.create_date.split(' ')[0]:null;
+    const year=date?new Date(date).getFullYear():null;
+    bikeTemplateProdCount[tmplId]=(bikeTemplateProdCount[tmplId]||0)+1;
+    if(year){
+      if(!bikeTemplateProdByYear[tmplId])bikeTemplateProdByYear[tmplId]={};
+      bikeTemplateProdByYear[tmplId][year]=(bikeTemplateProdByYear[tmplId][year]||0)+1;
+    }
+    productionData.push({tmplId,qty:1,date,year});
+  }
+
+  const total=Object.values(bikeTemplateProdCount).reduce((a,b)=>a+b,0);
+  console.log('[SAV] Production from serials: '+total+' bikes across '+Object.keys(bikeTemplateProdCount).length+' models');
+}
+
+async function loadData(){
+  const user=document.getElementById('cfg-user').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  if(!user||!key){showTab('settings');return;}
+  alert_('Loading SAV sales data from Odoo…','info');
+
+  try{
+    // 1. Load all SO lines for BoM parts
+    alert_('Step 1/3 — Loading sales order lines for BoM parts…','info');
+    alert_('Loading Bills of Materials from Odoo...','info');
+    await loadBoMFromOdoo();
+    // Load ALL component parts sold as SAV (not just current BoM)
+    // Match any part that looks like a component (not a complete bike)
+    const soLines=await odoo('sale.order.line','search_read',
+      [[['order_id.state','in',['sale','done']],
+        ['product_id.default_code','!=',false],
+        ['product_id.default_code','not ilike','AHFM'],
+        ['product_id.default_code','not ilike','AHFA'],
+        ['product_id.categ_id.name','!=','Bikes']]],
+      {fields:['product_id','product_uom_qty','qty_delivered','order_id','state'],limit:10000});
+    // Detect kits (phantom BoMs) so we can explode them into their components
+    await loadKitsFromOdoo(soLines);
+
+    // Component prefixes for plain (non-kit) component lines
+    const COMPONENT_PREFIXES=['EL','FR','TR','BR','WH','ST','SE','EX','FA','SN'];
+
+    // 2. Load SO headers for team info
+    const soIds=[...new Set(soLines.map(l=>arr(l.order_id)[0]).filter(Boolean))];
+    alert_(`Step 2/3 — Loading ${soIds.length} order headers…`,'info');
+    const sos=soIds.length?await odoo('sale.order','search_read',
+      [[['id','in',soIds]]],
+      {fields:['name','partner_id','team_id','date_order','commitment_date'],limit:5000}):[];
+    const soMap={};for(const s of sos)soMap[s.id]=s;
+
+    // 3. Build flat lines
+    alert_('Step 3/3 — Building dashboard…','info');
+    allLines=[];
+    for(const line of soLines){
+      const soId=arr(line.order_id)[0];
+      const so=soMap[soId];if(!so)continue;
+      const teamId=arr(so.team_id)[0];
+      const channel=TEAM_MAP[teamId]||'other';
+      const date=so.date_order?so.date_order.split(' ')[0]:null;
+      const lineOrdered=parseFloat(line.product_uom_qty)||0;
+      const lineDelivered=parseFloat(line.qty_delivered)||0;
+      const prodId=arr(line.product_id)[0];
+      const base={
+        soId,
+        soName:arr(line.order_id)[1]||'',
+        orderName:arr(line.order_id)[1]||'',
+        customer:arr(so.partner_id)[1]||'',
+        channel,
+        isB2C:B2C_TEAMS.includes(channel),
+        date,
+      };
+
+      // KIT: explode into its components — each delivered component counts as a SAV part
+      const kit=kitByProductId[prodId];
+      if(kit){
+        for(const c of kit.components){
+          const ordered=lineOrdered*c.qty;
+          const delivered=lineDelivered*c.qty;
+          const bom=BOM_MAP[c.pn];
+          allLines.push({
+            ...base,
+            pn:c.pn,
+            partName:bom?.name||c.name,
+            category:bom?.category||c.category||'Other',
+            supplier:bom?.supplier||'',
+            ordered,delivered,pending:Math.max(0,ordered-delivered),
+            isDelivered:delivered>=ordered&&ordered>0,
+            fromKit:kit.name,
+          });
+        }
+        continue;
+      }
+
+      // PLAIN component line: keep the component-prefix + BoM filter
+      const code=(arr(line.product_id)[1]||'').match(/^\[([^\]]+)\]/)?.[1]||'';
+      if(!COMPONENT_PREFIXES.some(p=>code.startsWith(p))) continue;
+      const bom=BOM_MAP[code];if(!bom)continue;
+      allLines.push({
+        ...base,
+        pn:code,partName:bom.name,category:bom.category,supplier:bom.supplier,
+        ordered:lineOrdered,delivered:lineDelivered,pending:Math.max(0,lineOrdered-lineDelivered),
+        isDelivered:lineDelivered>=lineOrdered&&lineOrdered>0,
+      });
+    }
+
+    populateFilters();
+    renderDashboard();
+    renderDetail();
+    updateKPIs();
+
+    document.getElementById('conn-pill').textContent=`${allLines.length} lines · ${new Date().toLocaleTimeString()}`;
+    document.getElementById('conn-pill').className='pill ok';
+    alert_(`✓ Loaded ${allLines.length} SAV lines. Loading production data…`,'success');
+
+    // Also load production data for rate calculation
+    try{
+      await loadProductionData();
+      alert_(`✓ All data loaded. Go to SAV Rates tab.`,'success');
+    }catch(e){
+      console.warn('Production data load failed:',e.message);
+    }
+  }catch(e){
+    alert_('Error: '+e.message,'danger');
+    console.error(e);
+  }
+}
+
+function updateKPIs(){
+  const delivered=allLines.filter(l=>l.delivered>0);
+  const totalQty=allLines.reduce((s,l)=>s+l.delivered,0);
+  const parts=new Set(allLines.map(l=>l.pn)).size;
+  const b2cQty=allLines.filter(l=>l.isB2C).reduce((s,l)=>s+l.delivered,0);
+  const b2rQty=allLines.filter(l=>l.channel==='b2r').reduce((s,l)=>s+l.delivered,0);
+  document.getElementById('k-lines').textContent=allLines.length.toLocaleString();
+  document.getElementById('k-qty').textContent=totalQty.toLocaleString();
+  document.getElementById('k-parts').textContent=parts.toLocaleString();
+  document.getElementById('k-b2c').textContent=b2cQty.toLocaleString();
+  document.getElementById('k-b2r').textContent=b2rQty.toLocaleString();
+}
+
+function populateFilters(){
+  const years=[...new Set(allLines.map(l=>l.date?new Date(l.date).getFullYear():null).filter(Boolean))].sort((a,b)=>b-a);
+  const cats=[...new Set(allLines.map(l=>l.category).filter(Boolean))].sort();
+  ['d-year','det-year'].forEach(id=>{
+    const sel=document.getElementById(id);if(!sel)return;
+    const cv=sel.value;
+    sel.innerHTML='<option value="">All years</option>'+years.map(y=>`<option value="${y}">${y}</option>`).join('');
+    if(cv)sel.value=cv;
+  });
+  const catSel=document.getElementById('d-cat');
+  if(catSel&&catSel.options.length<=1){
+    cats.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;catSel.appendChild(o);});
+  }
+}
+
+function filterLines(searchId,channelId,statusId,yearId,fromId,toId){
+  const search=(document.getElementById(searchId)?.value||'').toLowerCase();
+  const channel=document.getElementById(channelId)?.value||'';
+  const status=document.getElementById(statusId)?.value||'';
+  const year=document.getElementById(yearId)?.value||'';
+  const from=document.getElementById(fromId)?.value||'';
+  const to=document.getElementById(toId)?.value||'';
+  const cat=document.getElementById('d-cat')?.value||'';
+
+  return allLines.filter(l=>{
+    if(channel){
+      if(channel==='b2c'&&!l.isB2C)return false;
+      if(channel==='b2r'&&l.channel!=='b2r')return false;
+      if(channel==='online'&&l.channel!=='online')return false;
+      if(channel==='pos_louise'&&l.channel!=='pos_louise')return false;
+      if(channel==='pos_paris'&&l.channel!=='pos_paris')return false;
+    }
+    if(status==='delivered'&&l.delivered<=0)return false;
+    if(status==='pending'&&l.pending<=0)return false;
+    if(year&&l.date&&new Date(l.date).getFullYear().toString()!==year)return false;
+    if(from&&l.date&&l.date<from)return false;
+    if(to&&l.date&&l.date>to)return false;
+    if(cat&&l.category!==cat)return false;
+    if(search&&![l.pn,l.partName,l.orderName,l.customer].join(' ').toLowerCase().includes(search))return false;
+    return true;
+  });
+}
+
+function renderDashboard(){
+  const sort=document.getElementById('d-sort')?.value||'qty_desc';
+  const lines=filterLines('d-search','d-channel','d-status','d-year','','');
+
+  // Group by part
+  const byPart={};
+  for(const l of lines){
+    if(!byPart[l.pn])byPart[l.pn]={pn:l.pn,name:l.partName,category:l.category,supplier:l.supplier,totalDelivered:0,b2cDelivered:0,b2rDelivered:0,pending:0,orders:new Set(),lastDate:null};
+    const p=byPart[l.pn];
+    p.totalDelivered+=l.delivered;
+    if(l.isB2C)p.b2cDelivered+=l.delivered;
+    if(l.channel==='b2r')p.b2rDelivered+=l.delivered;
+    p.pending+=l.pending;
+    p.orders.add(l.orderName);
+    if(l.date&&(!p.lastDate||l.date>p.lastDate))p.lastDate=l.date;
+  }
+
+  let parts=Object.values(byPart).map(p=>({...p,orders:p.orders.size}));
+
+  if(sort==='qty_desc')parts.sort((a,b)=>b.totalDelivered-a.totalDelivered);
+  else if(sort==='qty_asc')parts.sort((a,b)=>a.totalDelivered-b.totalDelivered);
+  else if(sort==='name')parts.sort((a,b)=>a.name.localeCompare(b.name));
+  else if(sort==='category')parts.sort((a,b)=>a.category.localeCompare(b.category));
+
+  const tbody=document.getElementById('dash-tbody');
+  if(!parts.length){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3)">No SAV sales found.</td></tr>';return;}
+
+  tbody.innerHTML=parts.map(p=>`<tr>
+    <td style="font-family:monospace;font-size:11px;color:var(--text3)">${p.pn}</td>
+    <td style="min-width:180px;white-space:normal;font-weight:500">${p.name}</td>
+    <td><span class="badge b-b2c" style="font-size:10px">${p.category}</span></td>
+    <td style="font-size:12px;color:var(--text3)">${p.supplier}</td>
+    <td style="text-align:right;font-weight:700;color:var(--accent)">${p.totalDelivered.toLocaleString()}</td>
+    <td style="text-align:right;color:var(--accent)">${p.b2cDelivered.toLocaleString()}</td>
+    <td style="text-align:right;color:var(--success)">${p.b2rDelivered.toLocaleString()}</td>
+    <td style="text-align:right;color:${p.pending>0?'var(--warn)':'var(--text3)'}">${p.pending>0?p.pending.toLocaleString():'—'}</td>
+    <td style="text-align:right;color:var(--text3)">${p.orders}</td>
+    <td style="font-size:12px">${fd(p.lastDate)}</td>
+  </tr>`).join('');
+}
+
+function renderDetail(){
+  const lines=filterLines('det-search','det-channel','det-status','det-year','det-from','det-to');
+
+  lines.sort((a,b)=>{
+    let av=a[sortKey],bv=b[sortKey];
+    if(sortKey==='date'){av=a.date||'';bv=b.date||'';}
+    if(sortKey==='order'){av=a.orderName;bv=b.orderName;}
+    if(sortKey==='customer'){av=a.customer;bv=b.customer;}
+    if(sortKey==='channel'){av=a.channel;bv=b.channel;}
+    if(sortKey==='pn'){av=a.pn;bv=b.pn;}
+    if(sortKey==='name'){av=a.partName;bv=b.partName;}
+    if(sortKey==='qty'){av=a.delivered;bv=b.delivered;}
+    if(typeof av==='string')return sortDir*av.localeCompare(bv);
+    return sortDir*(av-bv);
+  });
+
+  const tbody=document.getElementById('det-tbody');
+  if(!lines.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text3)">No records found.</td></tr>';return;}
+
+  const channelBadge=ch=>{
+    if(ch==='b2r')return'<span class="badge b-b2r">B2R</span>';
+    if(ch==='online')return'<span class="badge b-b2c">Online</span>';
+    if(ch==='pos_louise')return'<span class="badge b-pos">POS Louise</span>';
+    if(ch==='pos_paris')return'<span class="badge b-pos">POS Paris</span>';
+    return`<span class="badge" style="background:var(--surface2)">${ch}</span>`;
+  };
+
+  tbody.innerHTML=lines.map(l=>`<tr>
+    <td style="font-size:12px;white-space:nowrap">${fd(l.date)}</td>
+    <td style="font-family:monospace;font-size:12px">${l.orderName}</td>
+    <td style="font-size:12px;max-width:160px;white-space:normal">${l.customer}</td>
+    <td>${channelBadge(l.channel)}</td>
+    <td style="font-family:monospace;font-size:11px;color:var(--text3)">${l.pn}</td>
+    <td style="min-width:160px;white-space:normal">${l.partName}${l.fromKit?`<br><span style="font-size:10px;color:var(--text3)">↳ via ${l.fromKit}</span>`:''}</td>
+    <td style="text-align:right;font-weight:600">${l.delivered.toLocaleString()}${l.pending>0?`<br><span style="font-size:10px;color:var(--warn)">${l.pending} pending</span>`:''}
+    </td>
+    <td>${l.isDelivered?'<span class="badge b-delivered">✓ Delivered</span>':'<span class="badge b-pending">⏳ Pending</span>'}</td>
+  </tr>`).join('');
+}
+
+function setSort(key){
+  if(sortKey===key)sortDir*=-1;else{sortKey=key;sortDir=-1;}
+  renderDetail();
+}
+
+function exportCSV(){
+  if(!allLines.length){alert_('Load data first.','warn');return;}
+  const hdr=['Date','Order','Customer','Channel','Part #','Part Name','Category','Ordered','Delivered','Pending','Status'];
+  const csv=[hdr,...allLines.map(l=>[l.date||'',l.orderName,l.customer,TEAM_LABELS[l.channel]||l.channel,l.pn,l.partName,l.category,l.ordered,l.delivered,l.pending,l.isDelivered?'Delivered':'Pending'])].map(r=>r.map(c=>{const s=String(c??'');return s.includes(',')||s.includes('"')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='sav-'+new Date().toISOString().split('T')[0]+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+// ── SAV RATES ─────────────────────────────────────────────
+
+
+function calcRates(){
+  if(!allLines.length||!productionData.length) return [];
+
+  // Use precomputed bikeTemplateProdCount and bikeTemplateProdByYear
+
+  // Total SAV sold per part (all channels or filtered)
+  const rChannel=document.getElementById('r-channel')?.value||'';
+  const filteredLines=allLines.filter(l=>{
+    if(rChannel==='b2c'&&!l.isB2C)return false;
+    if(rChannel==='b2r'&&l.channel!=='b2r')return false;
+    return l.delivered>0;
+  });
+
+  const savByPn={};   // pn -> total delivered
+  const savByPnYear={}; // pn -> year -> delivered
+  for(const l of filteredLines){
+    savByPn[l.pn]=(savByPn[l.pn]||0)+l.delivered;
+    if(l.date){
+      const yr=new Date(l.date).getFullYear();
+      if(!savByPnYear[l.pn])savByPnYear[l.pn]={};
+      savByPnYear[l.pn][yr]=(savByPnYear[l.pn][yr]||0)+l.delivered;
+    }
+  }
+
+  // Only show parts that have SAV sales
+  const results=[];
+  // Build a unified part list: BoM parts + any extra SAV parts not in BoM
+  const allSAVPNs=[...new Set(filteredLines.map(l=>l.pn).filter(Boolean))];
+  const extraParts=allSAVPNs
+    .filter(pn=>!BOM_DATA.find(c=>c.pn===pn))
+    .map(pn=>{
+      const line=filteredLines.find(l=>l.pn===pn);
+      return {pn,name:line?.partName||pn,category:line?.category||'Other',supplier:'',eMaxD:0,eMaxA:0,aMaxD:0,aMaxA:0,isExtra:true};
+    });
+  const allParts=[...BOM_DATA,...extraParts];
+
+  for(const comp of allParts){
+    const savTotal=savByPn[comp.pn]||0;
+    if(savTotal===0) continue;
+
+    // Which bike templates use this part (from BoM mapping)
+    const tmplIds = compToBikeTemplates[comp.pn] || [];
+
+    // Total bikes produced for templates that use this part
+    const bikesTotal = tmplIds.reduce((s,tid)=>s+(bikeTemplateProdCount[tid]||0),0);
+    const rate = bikesTotal>0 ? savTotal/bikesTotal*100 : null;
+
+    // Year-by-year rates
+    const allYears=[...new Set([
+      ...Object.keys(savByPnYear[comp.pn]||{}),
+      ...tmplIds.flatMap(tid=>Object.keys(bikeTemplateProdByYear[tid]||{}))
+    ])].map(Number).sort();
+
+    const yearRates={};
+    for(const yr of allYears){
+      const savYr=(savByPnYear[comp.pn]||{})[yr]||0;
+      const bikesYr=tmplIds.reduce((s,tid)=>s+((bikeTemplateProdByYear[tid]||{})[yr]||0),0);
+      yearRates[yr]=bikesYr>0?savYr/bikesYr*100:null;
+    }
+
+    // Trend: compare last 2 years
+    const rateVals=allYears.filter(y=>yearRates[y]!==null).map(y=>yearRates[y]);
+    let trend='flat';
+    if(rateVals.length>=2){
+      const diff=rateVals[rateVals.length-1]-rateVals[rateVals.length-2];
+      if(diff>0.5)trend='up';
+      else if(diff<-0.5)trend='down';
+    }
+
+    const usedByLabel=comp.isExtra?'Not in current BoM':tmplIds.length===0?'Unknown':`${tmplIds.length} bike model(s)`;
+
+    results.push({
+      pn:comp.pn,name:comp.name,category:comp.category||'Other',
+      usedBy:usedByLabel,
+      bikesTotal:Math.round(bikesTotal),
+      savTotal,rate,trend,yearRates,allYears,
+      isExtra:comp.isExtra||false
+    });
+  }
+  return results;
+}
+
+function renderRates(){
+  const search=(document.getElementById('r-search')?.value||'').toLowerCase();
+  const cat=document.getElementById('r-cat')?.value||'';
+  const sort=document.getElementById('r-sort')?.value||'rate_desc';
+
+  // Populate category filter
+  const catSel=document.getElementById('r-cat');
+  if(catSel&&catSel.options.length<=1){
+    const cats=[...new Set(BOM_DATA.map(c=>c.category).filter(Boolean))].sort();
+    cats.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;catSel.appendChild(o);});
+  }
+
+  let data=calcRates();
+  if(!data.length){
+    document.getElementById('rates-tbody').innerHTML='<tr><td colspan="20" style="text-align:center;padding:32px;color:var(--text3)">No data yet — load SAV data from the Dashboard tab first.</td></tr>';
+    return;
+  }
+
+  data=data.filter(d=>{
+    if(cat&&d.category!==cat)return false;
+    if(search&&!d.name.toLowerCase().includes(search)&&!d.pn.toLowerCase().includes(search))return false;
+    return true;
+  });
+
+  if(sort==='rate_desc')data.sort((a,b)=>b.rate-a.rate);
+  else if(sort==='rate_asc')data.sort((a,b)=>a.rate-b.rate);
+  else if(sort==='trend_desc')data.sort((a,b)=>{const t={up:0,flat:1,down:2};return t[a.trend]-t[b.trend];});
+  else data.sort((a,b)=>a.name.localeCompare(b.name));
+
+  // Get all unique years across all parts
+  const allYears=[...new Set(data.flatMap(d=>d.allYears))].sort();
+
+  const rateClass=r=>(r===null||r===undefined)?'rate-zero':r>10?'rate-high':r>3?'rate-med':r>0?'rate-low':'rate-zero';
+  const trendIcon=t=>t==='up'?'<span class="trend-up">↑ Rising</span>':t==='down'?'<span class="trend-down">↓ Falling</span>':'<span class="trend-flat">→ Stable</span>';
+  const fmtRate=r=>(r===null||r===undefined)?'—':`${Number(r).toFixed(1)}%`;
+
+  document.getElementById('rates-tbody').innerHTML=data.map(d=>`<tr>
+    <td style="font-family:monospace;font-size:11px;color:var(--text3)">${d.pn}</td>
+    <td style="min-width:160px;white-space:normal;font-weight:500">${d.name}</td>
+    <td style="font-size:11px"><span class="badge b-b2c">${d.category}</span></td>
+    <td style="text-align:center;font-size:11px;color:var(--text3)">${d.usedBy}</td>
+    <td style="text-align:right;color:var(--text2)">${d.bikesTotal.toLocaleString()}</td>
+    <td style="text-align:right;color:var(--text2)">${d.savTotal.toLocaleString()}</td>
+    <td style="text-align:right"><span class="${rateClass(d.rate)}">${d.rate!==null?d.rate.toFixed(1)+'%':'N/A'}</span></td>
+    <td style="text-align:center">${trendIcon(d.trend)}</td>
+    ${allYears.map(yr=>`<td class="yr-cell"><span class="${rateClass(d.yearRates[yr])}">${fmtRate(d.yearRates[yr])}</span></td>`).join('')}
+  </tr>`).join('');
+
+  // Update year columns header
+  document.getElementById('yr-cols').colSpan=allYears.length||1;
+  document.getElementById('yr-cols').textContent='Year by year rate (%) — '+allYears.join(', ');
+}
+
+function exportRatesCSV(){
+  const data=calcRates();
+  if(!data.length){alert_('Load data first.','warn');return;}
+  const allYears=[...new Set(data.flatMap(d=>d.allYears))].sort();
+  const hdr=['Part #','Part Name','Category','Used by','Bikes produced','SAV sold','Rate (per 100 bikes)','Trend',...allYears.map(y=>`Rate ${y}`)];
+  const csv=[hdr,...data.map(d=>[d.pn,d.name,d.category,d.usedBy,d.bikesTotal,d.savTotal,d.rate.toFixed(2),d.trend,...allYears.map(y=>d.yearRates[y]!==null?d.yearRates[y].toFixed(2):'')])].map(r=>r.map(c=>{const s=String(c??'');return s.includes(',')||s.includes('"')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='sav-rates-'+new Date().toISOString().split('T')[0]+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+
+
+// Auto-connect if credentials are already saved from homepage
+window.addEventListener('load', () => {
+  try{
+    const c = localStorage.getItem('mxp_cfg');
+    if(c){
+      const cfg = JSON.parse(c);
+      if(cfg.user && cfg.key){
+        const userEl = document.getElementById('cfg-user');
+        const keyEl = document.getElementById('cfg-key');
+        if(userEl) userEl.value = cfg.user;
+        if(keyEl) keyEl.value = cfg.key;
+        // Auto-connect after short delay
+        setTimeout(()=>{
+          if(typeof connectAndLoad === 'function') connectAndLoad();
+          else if(typeof loadData === 'function') loadData();
+        }, 300);
+      }
+    }
+  }catch(e){}
+});
+</script>
+</body>
+</html>
