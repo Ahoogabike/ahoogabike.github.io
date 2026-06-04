@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>How to make a Purchase Order in odoo that needs to be delivered to VV or MTB?</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+:root{--bg:#f5f5f3;--surface:#fff;--border:rgba(0,0,0,0.09);--text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#1a4fa0;--radius:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.6}
+header{background:#0a0a0a;padding:0 28px;height:56px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:10}
+.logo{color:#fff;font-size:15px;font-weight:700}.logo span{color:rgba(255,255,255,0.4)}
+.back{color:rgba(255,255,255,0.6);font-size:13px;text-decoration:none;margin-left:auto}.back:hover{color:#fff}
+.page{max-width:820px;margin:0 auto;padding:36px 24px 60px}
+.dept-badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;padding:3px 10px;border-radius:20px;margin-bottom:14px;background:#e6f0fb;color:#1a4fa0}
+h1{font-size:26px;font-weight:800;letter-spacing:-0.7px;line-height:1.2;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid var(--border)}
+.callout{background:#fff8e6;border-left:4px solid #f0a500;border-radius:0 8px 8px 0;padding:12px 16px;margin:16px 0;font-size:13px;color:#7a5800;line-height:1.6}
+.step{display:flex;gap:14px;align-items:flex-start;margin:14px 0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.step-num{min-width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px}
+.step-body{font-size:14px;line-height:1.65;color:var(--text);padding-top:3px}
+.section-note{font-size:14px;font-weight:600;color:var(--text);margin:20px 0 8px}
+.sub-note{font-size:13px;color:var(--text2);margin:4px 0 4px 42px;line-height:1.6}
+.body-text{font-size:13px;color:var(--text3);margin:3px 0 3px 42px;line-height:1.6;font-style:italic}
+figure{margin:20px 0;text-align:center}
+figure img{max-width:100%;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.1);border:1px solid var(--border)}
+figcaption{font-size:11px;color:var(--text3);margin-top:8px;font-style:italic}
+.process-flow{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin:16px 0;overflow-x:auto}
+
+/* --- iOS / mobile hardening (added) --- */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+a,button,input,select,textarea{-webkit-tap-highlight-color:rgba(0,0,0,.08)}
+img,svg,canvas,video{max-width:100%;height:auto}
+
+@media(max-width:640px){
+  html,body{overflow-x:hidden;max-width:100%}
+  header{flex-wrap:wrap;height:auto;row-gap:6px;padding-top:8px;padding-bottom:8px}
+  .page{padding-left:16px;padding-right:16px}
+  pre,code{white-space:pre-wrap;word-break:break-word}
+  .field-table{font-size:12px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="../knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">📦 Supply</div>
+  <h1>How to make a Purchase Order in odoo that needs to be delivered to VV or MTB?</h1>
+  <p class="section-note"><strong>This process is to make sure all parts are correctly ordered and each step is followed up correctly.</strong></p>
+<p class="section-note"><strong>The target is: to ensure that all parts are delivered on time and in the correct quantity and stored correctly in odoo for proper tracking.</strong></p>
+<p class="section-note"><strong>Applicability:</strong></p>
+<div class="callout">
+  <strong>⚠️ Key difference from standard PO:</strong> Goods are shipped directly from the supplier to <strong>VV (Okazi)</strong> or <strong>MTB (Maastricht)</strong> — not to Anderlecht. This applies to parts purchased in quantities above 100 units for subcontracting assembly.
+</div><div class="step"><div class="step-num">1</div><div class="step-body">All parts that we keep track of the inventory that are shipped from Supplier to VV directly or MTB.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body">All parts that are sellable to dealers or final clients and that we usually purchase it in amounts higher than 100.</div></div>
+<p class="section-note"><strong>The first thing to make sure is that for everybody is clear the full INBOUND Supply process:</strong></p>
+<p class="section-note"><strong>Let’s breakdown now each of those steps and clarify what needs to be done:</strong></p>
+<div class="step"><div class="step-num">3</div><div class="step-body">To make a purchase order go in the Purchase Application in odoo.</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-body">Click on NEW.</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-body">Write the name of the Vendor from who you are purchasing the items. (Note again: All goods purchased including marketing material / R&amp;D material / everything that we keep track of the stock needs to be registered here).</div></div>
+<div class="step"><div class="step-num">6</div><div class="step-body">Change the “Deliver to” operation to “Ahooga Anderlecht: Dropship Subcontractor”</div></div>
+<div class="step"><div class="step-num">7</div><div class="step-body">Add Delivery location “MTB Mastricht” or “Okazi”</div></div>
+<div class="step"><div class="step-num">8</div><div class="step-body">At that moment check what odoo tells you about the “on time delivery” - if percentage below 50% consider an extra buffer of time of 15% on top of the usual leadtime that each part from that supplier says.</div></div>
+<div class="step"><div class="step-num">9</div><div class="step-body">Add the date that based on your deadlines to have the order placed (basically what you are targeting to have the order confirmed – it should not be the same day you do it because you are not getting the order confirmed immediately and the leadtime you have set on the product counts starting from the day of your order)</div></div>
+<div class="step"><div class="step-num">10</div><div class="step-body">Write the product name you want to purchase &amp; the quantity.</div></div>
+<div class="step"><div class="step-num">11</div><div class="step-body">Add the Vendor Reference, in Vendor Reference you should add as text the “quantity x name of the piece but in a simpler way (ex. Alfine 8 MAX) x POnumber”</div></div>
+<div class="step"><div class="step-num">12</div><div class="step-body">Add also the project – Project should be the POnumber</div></div>
+<div class="step"><div class="step-num">13</div><div class="step-body">Now check the “expected time of arrival” - this is based on the leadtime we have at product level. (add 15% delay in time if percentage of on time delivery is lower than 50%)</div></div>
+<div class="step"><div class="step-num">14</div><div class="step-body">Go in the Tab other information and add payment terms and incoterms.</div></div>
+<div class="step"><div class="step-num">15</div><div class="step-body">Send by email the RFQ, add to the e-mail also your own personal e-mail xxxx@ahooga.bike in order to have the follow up also via normal e-mail thread.</div></div>
+<div class="step"><div class="step-num">16</div><div class="step-body">Add in the chat the next activity to do: Confirm price.</div></div>
+<div class="step"><div class="step-num">17</div><div class="step-body">After price is confirmed, confirm order.</div></div>
+<div class="step"><div class="step-num">18</div><div class="step-body">When order is confirmed add a new activity: Confirm ETA and put the scheduled deadline to get this information from the Vendor.</div></div>
+<div class="step"><div class="step-num">19</div><div class="step-body">When you get ETA, click on Receipt and add the scheduled date of the Transfer from “vendor” location to “AND / In Transit”. Go back to the purchase order and schedule a new activity: Confirm Shipment date. Schedule this activity at half way between order and shipment. This will allow you to check with supplier that everything is on time.</div></div>
+<div class="step"><div class="step-num">20</div><div class="step-body">After confirmation of ETA (if it is kept the same – otherwise change the ETA also in the Receipt delivery) schedule a new Activity on the date of the ETA as “Validate transfer” This will allow you to have an alert when theoretically the shipment should be performed.</div></div>
+<div class="step"><div class="step-num">21</div><div class="step-body">On the date of the shipment from the Vendor, validate the transfer from “vendor” location to “AND / In Transit”.</div></div>
+<div class="step"><div class="step-num">22</div><div class="step-body">Set the scheduled date of the transfer from AND/In Transit to the final location.</div></div>
+<div class="step"><div class="step-num">23</div><div class="step-body">Print the inbound picking operation and put it in the inbound area.</div></div>
+
+</div>
+</body>
+</html>

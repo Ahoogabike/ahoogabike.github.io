@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>SAV WEEKLY REPORT – STANDARD OPERATING PROCEDURE</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+:root{--bg:#f5f5f3;--surface:#fff;--border:rgba(0,0,0,0.09);--text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#1a4fa0;--accent-bg:#e6f0fb;--green:#1a5c1a;--green-bg:#eaf4ea;--amber:#7a5800;--amber-bg:#fffbee;--radius:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.6}
+header{background:#0a0a0a;padding:0 28px;height:56px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:10}
+.logo{color:#fff;font-size:15px;font-weight:700}.logo span{color:rgba(255,255,255,0.4)}
+.back{color:rgba(255,255,255,0.6);font-size:13px;text-decoration:none;margin-left:auto}.back:hover{color:#fff}
+.page{max-width:820px;margin:0 auto;padding:36px 24px 60px}
+.dept-badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;padding:3px 10px;border-radius:20px;margin-bottom:14px;background:#fce8e8;color:#8b1a1a}
+h1{font-size:26px;font-weight:800;letter-spacing:-0.7px;line-height:1.2;margin-bottom:28px;padding-bottom:20px;border-bottom:2px solid var(--border)}
+h2{font-size:17px;font-weight:800;color:var(--text);margin:36px 0 14px;padding:10px 14px;background:var(--accent);color:#fff;border-radius:8px}
+h3{font-size:14px;font-weight:700;color:var(--accent);margin:20px 0 10px;padding-left:12px;border-left:3px solid var(--accent)}
+.step{display:flex;gap:14px;align-items:flex-start;margin:8px 0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px}
+.step-num{min-width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px}
+.step-body{font-size:13.5px;line-height:1.55;color:var(--text);padding-top:2px}
+.section-note{font-size:13px;font-weight:600;color:var(--text);margin:14px 0 6px}
+.sub-note{font-size:13px;color:var(--text2);margin:4px 0 4px 40px;line-height:1.5}
+.body-text{font-size:13px;color:var(--text3);margin:3px 0 3px;line-height:1.5;font-style:italic}
+.warning{background:var(--amber-bg);border-left:4px solid #f0a500;border-radius:0 8px 8px 0;padding:12px 16px;margin:14px 0;font-size:13px;color:var(--amber);line-height:1.6}
+.code-line{font-family:monospace;font-size:13px;background:#1a1a18;color:#f1c75a;padding:4px 10px;border-radius:5px;display:inline-block;margin:4px 0 4px 40px}
+/* source/action/destination labels */
+.label{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;padding:2px 8px;border-radius:4px;margin:10px 0 4px}
+.label-source{background:#e6f0fb;color:#1a4fa0}
+.label-actions,.label-action{background:#eaf4ea;color:#1a5c1a}
+.label-destination{background:#fff3e0;color:#7a5800}
+.label-result{background:#f3e8ff;color:#5c1a7a}
+.label-mandatory-steps{background:#fce8e8;color:#8b1a1a}
+.label-if-done-correctly{background:#eaf4ea;color:#1a5c1a}
+
+/* --- iOS / mobile hardening (added) --- */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+a,button,input,select,textarea{-webkit-tap-highlight-color:rgba(0,0,0,.08)}
+img,svg,canvas,video{max-width:100%;height:auto}
+
+@media(max-width:640px){
+  html,body{overflow-x:hidden;max-width:100%}
+  header{flex-wrap:wrap;height:auto;row-gap:6px;padding-top:8px;padding-bottom:8px}
+  .page{padding-left:16px;padding-right:16px}
+  pre,code{white-space:pre-wrap;word-break:break-word}
+  .field-table{font-size:12px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="../knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🔧 Technical</div>
+  <h1>SAV WEEKLY REPORT – STANDARD OPERATING PROCEDURE</h1>
+  <h2>1. Initialize Report</h2>
+<div class="step"><div class="step-num">1</div><div class="step-body">Open SAV Weekly Report Excel</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body">Go to KPI sheet</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-body">Identify the column of the current week</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-body">All inputs go into this column</div></div>
+<h2>2. Shipment Performance (Odoo Data Extraction)</h2>
+<h3>2.1 Shipment KPIs</h3>
+<div class="label label-source">Source</div>
+<div class="step"><div class="step-num">5</div><div class="step-body">Odoo → Documents → Arthur Data → “Shipment 7 days”</div></div>
+<div class="label label-actions">Actions</div>
+<div class="step"><div class="step-num">6</div><div class="step-body">Copy:</div></div>
+<div class="step"><div class="step-num">7</div><div class="step-body">Total shipments</div></div>
+<div class="step"><div class="step-num">8</div><div class="step-body">“YES” (delayed shipments)</div></div>
+<div class="step"><div class="step-num">9</div><div class="step-body">“YES Cycle Days”</div></div>
+<div class="label label-destination">Destination</div>
+<div class="step"><div class="step-num">10</div><div class="step-body">KPI sheet:</div></div>
+<div class="step"><div class="step-num">11</div><div class="step-body">Row 54 → Total shipments</div></div>
+<div class="step"><div class="step-num">12</div><div class="step-body">Row 55 → Delayed shipments</div></div>
+<div class="step"><div class="step-num">13</div><div class="step-body">Row 56 → Delay cycle days</div></div>
+<h3>2.2 Stock Delay KPIs</h3>
+<div class="label label-source">Source</div>
+<div class="step"><div class="step-num">14</div><div class="step-body">Odoo → Documents → Arthur Data → “Stock Overview by Is Late (Pivot 4)”</div></div>
+<div class="label label-actions">Actions</div>
+<div class="step"><div class="step-num">15</div><div class="step-body">Extract:</div></div>
+<div class="step"><div class="step-num">16</div><div class="step-body">Total count</div></div>
+<div class="step"><div class="step-num">17</div><div class="step-body">Total “YES” (delayed)</div></div>
+<div class="step"><div class="step-num">18</div><div class="step-body">Average delay (YES row)</div></div>
+<div class="label label-destination">Destination</div>
+<div class="step"><div class="step-num">19</div><div class="step-body">KPI sheet:</div></div>
+<div class="step"><div class="step-num">20</div><div class="step-body">Row 57 → Total count</div></div>
+<div class="step"><div class="step-num">21</div><div class="step-body">Row 58 → Delayed count</div></div>
+<div class="step"><div class="step-num">22</div><div class="step-body">Row 59 → Avg delay</div></div>
+<h2>3. Late Deliveries Deep Dive</h2>
+<h3>3.1 Count Late Transfers</h3>
+<div class="step"><div class="step-num">23</div><div class="step-body">Go to:</div></div>
+<div class="step"><div class="step-num">24</div><div class="step-body">Inventory → Operations &gt; Deliveries</div></div>
+<div class="step"><div class="step-num">25</div><div class="step-body">Apply filter: “LATE deliveries”</div></div>
+<div class="label label-action">Action</div>
+<div class="step"><div class="step-num">26</div><div class="step-body">Count number of transfers (top-left count)</div></div>
+<div class="label label-destination">Destination</div>
+<div class="step"><div class="step-num">27</div><div class="step-body">KPI sheet:</div></div>
+<div class="step"><div class="step-num">28</div><div class="step-body">Row 60</div></div>
+<h3>3.2 Export Detailed Delay Data</h3>
+<div class="step"><div class="step-num">29</div><div class="step-body">Stay in “LATE deliveries”</div></div>
+<div class="step"><div class="step-num">30</div><div class="step-body">Select all records</div></div>
+<div class="step"><div class="step-num">31</div><div class="step-body">Click:</div></div>
+<div class="step"><div class="step-num">32</div><div class="step-body">Action → Export → templates &gt; “Arthur part delays” &gt; CLICK EXPORT</div></div>
+<div class="label label-result">Result</div>
+<div class="step"><div class="step-num">33</div><div class="step-body">Excel export with delayed lines</div></div>
+<h2>4. Data Processing – “Calcul” Sheet</h2>
+<h3>4.1 Import Data</h3>
+<div class="step"><div class="step-num">34</div><div class="step-body">Copy full export</div></div>
+<div class="step"><div class="step-num">35</div><div class="step-body">Paste into “Calcul” sheet</div></div>
+<div class="step"><div class="step-num">36</div><div class="step-body">BRING COLUMN E and F until bottom line</div></div>
+<h3>4.2 Clean Data</h3>
+<div class="label label-mandatory-steps">Mandatory steps</div>
+<div class="step"><div class="step-num">37</div><div class="step-body">Remove all bike lines</div></div>
+<div class="step"><div class="step-num">38</div><div class="step-body">Keep only spare parts / components</div></div>
+<h3>4.3 Consolidate Data</h3>
+<div class="step"><div class="step-num">39</div><div class="step-body">Remove duplicates:</div></div>
+<div class="step"><div class="step-num">40</div><div class="step-body">Each product must appear once only</div></div>
+<div class="step"><div class="step-num">41</div><div class="step-body">Count occurrences:</div></div>
+<div class="step"><div class="step-num">42</div><div class="step-body">Add count in Column F</div></div>
+<h3>4.4 Sort Data</h3>
+<div class="step"><div class="step-num">43</div><div class="step-body">Sort Column E (Delay):</div></div>
+<div class="step"><div class="step-num">44</div><div class="step-body">Largest → Smallest</div></div>
+<h3>4.5 Output Check</h3>
+<div class="label label-if-done-correctly">If done correctly</div>
+<div class="step"><div class="step-num">45</div><div class="step-body">“Report WK” sheet auto-populates:</div></div>
+<div class="step"><div class="step-num">46</div><div class="step-body">Product name</div></div>
+<div class="step"><div class="step-num">47</div><div class="step-body">Reference</div></div>
+<div class="step"><div class="step-num">48</div><div class="step-body">Quantity</div></div>
+<div class="step"><div class="step-num">49</div><div class="step-body">Avg delay</div></div>
+<h2>5. Ticketing KPIs</h2>
+<h3>5.1 New Tickets</h3>
+<div class="step"><div class="step-num">50</div><div class="step-body">Helpdesk → Reporting → Ticket Analysis</div></div>
+<div class="step"><div class="step-num">51</div><div class="step-body">Apply filter: “New tickets last week”</div></div>
+<div class="step"><div class="step-num">52</div><div class="step-body">Switch to Pivot view</div></div>
+<div class="step"><div class="step-num">53</div><div class="step-body">Take total amount</div></div>
+<p class="body-text">→ KPI row 3</p>
+<h3>5.2 Open Tickets</h3>
+<div class="step"><div class="step-num">54</div><div class="step-body">Apply filter: “Open tickets”</div></div>
+<p class="body-text">→ KPI row 4</p>
+<h3>5.3 Performance Metrics</h3>
+<div class="step"><div class="step-num">55</div><div class="step-body">Filter: “Closed on Last 7 Days”</div></div>
+<div class="step"><div class="step-num">56</div><div class="step-body">Extract:</div></div>
+<div class="step"><div class="step-num">57</div><div class="step-body">Working hours to assign → Row 5</div></div>
+<div class="step"><div class="step-num">58</div><div class="step-body">Working hours to close → Row 6</div></div>
+<h2>6. Warranty KPIs (Project Module)</h2>
+<h3>6.1 New Warranty Tasks</h3>
+<div class="step"><div class="step-num">59</div><div class="step-body">Project → Reporting &gt; task analysis</div></div>
+<div class="step"><div class="step-num">60</div><div class="step-body">Filter: “Warranty - New task”</div></div>
+<div class="step"><div class="step-num">61</div><div class="step-body">Pivot view</div></div>
+<p class="body-text">→ KPI row 8</p>
+<h3>6.2 Open SAV Tickets</h3>
+<div class="step"><div class="step-num">62</div><div class="step-body">Filter: “Open SAV tickets”</div></div>
+<p class="body-text">→ KPI row 9</p>
+<h3>6.3 Time Tracking</h3>
+<div class="step"><div class="step-num">63</div><div class="step-body">Rows 10 &amp; 11:</div></div>
+<div class="step"><div class="step-num">64</div><div class="step-body">Keep at 0 unless tracking is active</div></div>
+<h3>6.4 Warranty Coverage</h3>
+<div class="step"><div class="step-num">65</div><div class="step-body">Filter: “Covered by warranty last 7 days”</div></div>
+<p class="body-text">→ KPI row 12</p>
+<h2>7. Warranty Cost Analysis</h2>
+<div class="step"><div class="step-num">66</div><div class="step-body">Sales → Reporting → Pivot view</div></div>
+<div class="step"><div class="step-num">67</div><div class="step-body">Filter &gt; Shared Filter : “Warranty 7 days”</div></div>
+<div class="label label-action">Action</div>
+<div class="step"><div class="step-num">68</div><div class="step-body">Take total negative revenue</div></div>
+<div class="step"><div class="step-num">69</div><div class="step-body">Divide by number of tickets</div></div>
+<p class="body-text">→ KPI row 13 (avg cost per ticket)</p>
+<h2>8. Phone Metrics</h2>
+<div class="step"><div class="step-num">70</div><div class="step-body">Source: 3CX</div></div>
+<div class="step"><div class="step-num">71</div><div class="step-body">Fill manually in KPI sheet</div></div>
+<h2>9. Weekly Report Generation</h2>
+<h3>9.1 Duplicate Template</h3>
+<div class="step"><div class="step-num">72</div><div class="step-body">Right-click previous week tab</div></div>
+<div class="step"><div class="step-num">73</div><div class="step-body">Duplicate</div></div>
+<div class="step"><div class="step-num">74</div><div class="step-body">Rename → New week</div></div>
+<h3>9.2 Update Date</h3>
+<div class="step"><div class="step-num">75</div><div class="step-body">Cell B3</div></div>
+<h3>9.3 Update Formula References (Critical Step)</h3>
+<p class="section-note"><strong>Step 1 – Identify column</strong></p>
+<div class="step"><div class="step-num">76</div><div class="step-body">Check formula in D17</div></div>
+<div class="step"><div class="step-num">77</div><div class="step-body">Example:</div></div>
+<p class="code-line"><code>=KPI!J12</code></p>
+<div class="step"><div class="step-num">78</div><div class="step-body">Current column = J</div></div>
+<p class="section-note"><strong>Step 2 – Shift formulas forward</strong></p>
+<div class="step"><div class="step-num">79</div><div class="step-body">Select B9 → O34</div></div>
+<div class="step"><div class="step-num">80</div><div class="step-body">Use Replace: ( Find n Select top right of the screen )</div></div>
+<div class="step"><div class="step-num">81</div><div class="step-body">Replace:</div></div>
+<p class="body-text">!J → !K</p>
+<div class="step"><div class="step-num">82</div><div class="step-body">Then:</div></div>
+<p class="body-text">!I → !J</p>
+<div class="step"><div class="step-num">83</div><div class="step-body">Then:</div></div>
+<p class="body-text">!H → !I</p>
+<div class="warning"><strong>⚠️ Order is critical. Do not reverse.</strong></div>
+<h2>10. Export &amp; Distribution</h2>
+<div class="step"><div class="step-num">84</div><div class="step-body">Export sheet → PDF</div></div>
+<div class="step"><div class="step-num">85</div><div class="step-body">Send via email to stakeholders</div></div>
+
+</div>
+</body>
+</html>

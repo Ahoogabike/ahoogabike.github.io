@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>How to set MIN / MAX reorder rules in Odoo</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+:root{--bg:#f5f5f3;--surface:#fff;--border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);--text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#1a4fa0;--accent-bg:#e6f0fb;--green:#1a5c1a;--green-bg:#eaf4ea;--amber:#7a5800;--amber-bg:#fffbee;--radius:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.6}
+header{background:#0a0a0a;padding:0 28px;height:56px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:10}
+.logo{color:#fff;font-size:15px;font-weight:700}.logo span{color:rgba(255,255,255,0.4)}
+.back{color:rgba(255,255,255,0.6);font-size:13px;text-decoration:none;margin-left:auto}.back:hover{color:#fff}
+.page{max-width:820px;margin:0 auto;padding:36px 24px 60px}
+.dept-badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;padding:3px 10px;border-radius:20px;margin-bottom:14px;background:#e6f0fb;color:#1a4fa0}
+h1{font-size:26px;font-weight:800;letter-spacing:-0.7px;line-height:1.2;margin-bottom:8px;padding-bottom:20px;border-bottom:2px solid var(--border)}
+.subtitle{font-size:14px;color:var(--text3);margin-bottom:28px;margin-top:6px}
+h2{font-size:16px;font-weight:700;color:var(--text);margin:28px 0 12px;padding-left:12px;border-left:3px solid var(--accent)}
+.step{display:flex;gap:14px;align-items:flex-start;margin:14px 0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.step-num{min-width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px}
+.step-body{font-size:14px;line-height:1.65;color:var(--text);padding-top:3px}
+.step-body strong{color:var(--accent)}
+.step-body code{background:var(--bg);border:1px solid var(--border2);border-radius:4px;padding:1px 6px;font-family:monospace;font-size:13px;color:var(--text)}
+.note{background:var(--accent-bg);border-left:4px solid var(--accent);border-radius:0 8px 8px 0;padding:12px 16px;margin:14px 0;font-size:13px;color:#1a3c80;line-height:1.6}
+.warning{background:var(--amber-bg);border-left:4px solid #f0a500;border-radius:0 8px 8px 0;padding:12px 16px;margin:14px 0;font-size:13px;color:var(--amber);line-height:1.6}
+.tip{background:var(--green-bg);border-left:4px solid var(--green);border-radius:0 8px 8px 0;padding:12px 16px;margin:14px 0;font-size:13px;color:var(--green);line-height:1.6}
+
+/* Concept diagram */
+.concept-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin:16px 0;overflow-x:auto}
+
+/* Field reference table */
+.field-table{width:100%;border-collapse:collapse;font-size:13px;margin:12px 0}
+.field-table th{background:var(--accent);color:#fff;padding:8px 12px;text-align:left;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.04em}
+.field-table td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+.field-table td:first-child{font-family:monospace;font-size:12px;color:var(--accent);font-weight:600;white-space:nowrap}
+.field-table tr:last-child td{border-bottom:none}
+.field-table tr:hover td{background:var(--bg)}
+
+.path{font-family:monospace;font-size:12px;background:var(--bg);border:1px solid var(--border2);border-radius:6px;padding:6px 12px;display:inline-block;color:var(--text2);margin:4px 0}
+
+/* --- iOS / mobile hardening (added) --- */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+a,button,input,select,textarea{-webkit-tap-highlight-color:rgba(0,0,0,.08)}
+img,svg,canvas,video{max-width:100%;height:auto}
+
+@media(max-width:640px){
+  html,body{overflow-x:hidden;max-width:100%}
+  header{flex-wrap:wrap;height:auto;row-gap:6px;padding-top:8px;padding-bottom:8px}
+  .page{padding-left:16px;padding-right:16px}
+  pre,code{white-space:pre-wrap;word-break:break-word}
+  .field-table{font-size:12px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="../knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">📦 Supply</div>
+  <h1>How to set MIN / MAX reorder rules in Odoo</h1>
+  <p class="subtitle">Configure automatic replenishment triggers so Odoo suggests purchase orders when stock falls below your defined minimum.</p>
+
+  <!-- Concept diagram -->
+  <div class="concept-box">
+    <svg viewBox="0 0 700 120" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px">
+      <!-- Stock level line -->
+      <text x="10" y="18" font-family="Inter,sans-serif" font-size="11" font-weight="600" fill="#1a1a18">Stock level over time</text>
+      <!-- Axes -->
+      <line x1="40" y1="25" x2="40" y2="100" stroke="#ccc" stroke-width="1"/>
+      <line x1="40" y1="100" x2="680" y2="100" stroke="#ccc" stroke-width="1"/>
+      <!-- MAX line -->
+      <line x1="40" y1="38" x2="680" y2="38" stroke="#1a5c1a" stroke-width="1" stroke-dasharray="5,3"/>
+      <text x="686" y="42" font-family="Inter,sans-serif" font-size="10" fill="#1a5c1a" font-weight="600">MAX</text>
+      <!-- MIN line -->
+      <line x1="40" y1="72" x2="680" y2="72" stroke="#c0392b" stroke-width="1" stroke-dasharray="5,3"/>
+      <text x="686" y="76" font-family="Inter,sans-serif" font-size="10" fill="#c0392b" font-weight="600">MIN</text>
+      <!-- Stock curve -->
+      <polyline points="40,42 120,55 200,68 240,75 240,42 320,45 400,60 450,68 450,42 540,44 620,60 660,74 660,42" 
+        fill="none" stroke="#1a4fa0" stroke-width="2.5" stroke-linejoin="round"/>
+      <!-- Reorder arrows -->
+      <line x1="240" y1="75" x2="240" y2="88" stroke="#c0392b" stroke-width="1.5" marker-end="url(#red-arr)"/>
+      <line x1="450" y1="75" x2="450" y2="88" stroke="#c0392b" stroke-width="1.5" marker-end="url(#red-arr)"/>
+      <line x1="660" y1="75" x2="660" y2="88" stroke="#c0392b" stroke-width="1.5" marker-end="url(#red-arr)"/>
+      <text x="220" y="98" font-family="Inter,sans-serif" font-size="9" fill="#c0392b">PO triggered</text>
+      <text x="430" y="98" font-family="Inter,sans-serif" font-size="9" fill="#c0392b">PO triggered</text>
+      <text x="640" y="98" font-family="Inter,sans-serif" font-size="9" fill="#c0392b">PO triggered</text>
+      <defs>
+        <marker id="red-arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L6,3 z" fill="#c0392b"/>
+        </marker>
+      </defs>
+    </svg>
+    <p style="font-size:12px;color:var(--text3);margin-top:8px">When stock drops to MIN, Odoo automatically suggests a PO to replenish up to MAX.</p>
+  </div>
+
+  <div class="note">
+    <strong>Applicability:</strong> All parts tracked in inventory that are shipped directly from supplier to VV / MTB, or parts typically purchased in quantities above 100 units.
+  </div>
+
+  <h2>Part 1 — Set the reorder rule on a product</h2>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">Go to <strong>Inventory App</strong> → <strong>Products</strong> → open the product you want to configure.</div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">Click on the <strong>Reordering Rules</strong> smart button at the top of the product form (you may need to click the "more" button if it's not visible). If no rules exist yet, the count will show <code>0</code>.</div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">Click <strong>New</strong> to create a new reorder rule for this product.</div>
+  </div>
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">Fill in the required fields:
+      <table class="field-table" style="margin-top:10px">
+        <tr><th>Field</th><th>What to enter</th></tr>
+        <tr><td>Location</td><td>Select the correct warehouse location (e.g. <strong>AND/Stock</strong> for Anderlecht, or the subcontracting location)</td></tr>
+        <tr><td>Route</td><td>Select <strong>Buy</strong> (this will trigger a PO when stock drops below MIN)</td></tr>
+        <tr><td>Min Qty</td><td>The threshold below which Odoo will suggest a replenishment order. Set based on your safety stock needs.</td></tr>
+        <tr><td>Max Qty</td><td>The target stock level after replenishment. Odoo will suggest ordering up to this level.</td></tr>
+        <tr><td>Qty Multiple</td><td>Optional — if the supplier sells in fixed pack sizes (e.g. boxes of 10), enter that number here so orders are always rounded up to a multiple.</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-body">Make sure the product has a <strong>preferred vendor</strong> set up. Without a vendor, Odoo cannot generate the purchase order automatically. To check: go to the product form → <strong>Purchase</strong> tab → confirm a vendor is listed with a price and lead time.</div>
+  </div>
+  <div class="step">
+    <div class="step-num">6</div>
+    <div class="step-body">Click <strong>Save</strong>. The reorder rule is now active.</div>
+  </div>
+
+  <div class="tip">
+    <strong>💡 Tip — setting the right MIN:</strong> A good starting point is MIN = average weekly consumption × lead time in weeks × 1.2 (safety buffer). For example, if you use 50 units/week and lead time is 6 weeks: MIN = 50 × 6 × 1.2 = 360 units.
+  </div>
+
+  <h2>Part 2 — Run the replenishment scheduler</h2>
+
+  <div class="step">
+    <div class="step-num">7</div>
+    <div class="step-body">Go to <strong>Inventory App</strong> → <strong>Operations</strong> → <strong>Replenishment</strong>. This shows all products currently below their MIN quantity.</div>
+  </div>
+  <div class="step">
+    <div class="step-num">8</div>
+    <div class="step-body">Review the suggested orders. You can adjust the quantity before confirming. Odoo calculates: <code>Order Qty = Max Qty − Current Stock</code>.</div>
+  </div>
+  <div class="step">
+    <div class="step-num">9</div>
+    <div class="step-body">Click <strong>Order Once</strong> on individual lines, or <strong>Run Scheduler</strong> (top right button) to process all suggestions at once. This creates draft Purchase Orders.</div>
+  </div>
+  <div class="step">
+    <div class="step-num">10</div>
+    <div class="step-body">Go to <strong>Purchase App</strong> to review the generated draft POs. Confirm the prices with vendors and confirm the orders as per the standard PO process (see Guide 1 or 2).</div>
+  </div>
+
+  <div class="warning">
+    <strong>⚠️ Important:</strong> The scheduler creates <em>suggestions</em>, not confirmed orders. Always review before confirming — check vendor prices, lead times, and delivery addresses.
+  </div>
+
+  <h2>Part 3 — Set lead time on the product</h2>
+
+  <div class="step">
+    <div class="step-num">11</div>
+    <div class="step-body">On the product form → <strong>Purchase</strong> tab → vendor line → set the <strong>Delivery Lead Time</strong> in days. This is the number of days from order confirmation to expected delivery at the warehouse.</div>
+  </div>
+  <div class="step">
+    <div class="step-num">12</div>
+    <div class="step-body">If the supplier has a history of delays, add 15% buffer to the lead time. For example: if the actual lead time is 90 days and on-time delivery is below 50%, set the lead time to <code>90 × 1.15 = 104 days</code>.</div>
+  </div>
+
+  <div class="note">
+    <strong>Where to find this:</strong>
+    <div class="path">Inventory → Products → [select product] → Purchase tab → Vendor Pricelist → Delivery Lead Time</div>
+  </div>
+
+  <h2>Part 4 — Alternative: set from the Reordering Rules list</h2>
+
+  <div class="step">
+    <div class="step-num">13</div>
+    <div class="step-body">You can also manage all reorder rules in one place: <strong>Inventory</strong> → <strong>Configuration</strong> → <strong>Reordering Rules</strong>. This gives a full list of all rules across all products, which is useful for bulk review and updates.</div>
+  </div>
+  <div class="step">
+    <div class="step-num">14</div>
+    <div class="step-body">Use the filters and group-by options to sort by location, product category, or route. You can edit MIN and MAX quantities directly in the list view without opening each product.</div>
+  </div>
+
+  <div class="tip">
+    <strong>💡 Best practice:</strong> Review your MIN/MAX settings every time you start a new production order (PO). As production volumes increase, your safety stock levels should increase proportionally.
+  </div>
+
+</div>
+</body>
+</html>
