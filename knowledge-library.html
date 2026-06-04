@@ -194,7 +194,7 @@ function renderCards(){
   const grid=document.getElementById('cards-grid');
   if(!items.length){grid.innerHTML='<div class="no-results">No procedures found.</div>';return;}
   grid.innerHTML=items.map(g=>`
-    <div class="card" onclick="window.location='howto_guides/guide_${g.id}.html'">
+    <div class="card" onclick="window.location='guide_${g.id}.html'">
       <div class="card-dept ${g.dept}">${DEPT_LABELS[g.dept]}</div>
       <div class="card-title">${g.title}</div>
       <div class="card-desc">${g.desc}</div>
