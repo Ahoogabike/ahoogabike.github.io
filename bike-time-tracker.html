@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#15181c">
+<title>Atelier · Bike Time Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;900&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#15181c;
+    --panel:#1d2127;
+    --panel-2:#252a32;
+    --line:#323944;
+    --ink:#eef1f5;
+    --ink-dim:#9aa6b4;
+    --hi:#ffd400;          /* hi-vis safety yellow */
+    --go:#37d67a;          /* recording / running */
+    --stop:#ff5b4d;        /* stop / delete */
+    --shadow:0 10px 30px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:'IBM Plex Sans',system-ui,sans-serif;
+    background-image:
+      repeating-linear-gradient(45deg,rgba(255,255,255,.012) 0 2px,transparent 2px 22px),
+      radial-gradient(1200px 600px at 80% -10%,rgba(255,212,0,.06),transparent 60%);
+  }
+  .wrap{max-width:760px;margin:0 auto;padding:18px 16px 120px}
+
+  header{display:flex;align-items:center;gap:12px;padding:6px 2px 16px;border-bottom:1px solid var(--line)}
+  .logo{width:42px;height:42px;border-radius:11px;background:var(--hi);display:grid;place-items:center;color:#15181c;font-size:24px;box-shadow:var(--shadow)}
+  h1{font-family:'Saira Condensed',sans-serif;font-weight:900;letter-spacing:.04em;
+    text-transform:uppercase;margin:0;font-size:26px;line-height:1}
+  h1 small{display:block;font-size:11px;letter-spacing:.28em;color:var(--ink-dim);font-weight:600;margin-top:3px}
+
+  .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:16px 0 10px}
+  .seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .seg button{background:none;border:0;color:var(--ink-dim);font:600 13px 'IBM Plex Sans';
+    padding:9px 13px;cursor:pointer;letter-spacing:.02em}
+  .seg button.on{background:var(--hi);color:#15181c}
+  .toggle{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
+    border-radius:11px;padding:8px 12px;cursor:pointer;font:600 13px 'IBM Plex Sans';color:var(--ink-dim);user-select:none}
+  .toggle .dot{width:34px;height:19px;border-radius:20px;background:var(--line);position:relative;transition:.2s}
+  .toggle .dot::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:var(--ink);transition:.2s}
+  .toggle.on{color:var(--ink)}
+  .toggle.on .dot{background:var(--go)}
+  .toggle.on .dot::after{left:17px;background:#0c2014}
+
+  /* the big talk button */
+  .mic{margin:20px 0 8px;width:100%;border:0;border-radius:22px;cursor:pointer;
+    background:linear-gradient(180deg,#262c35,#1b2027);border:1px solid var(--line);
+    padding:30px 20px;display:flex;flex-direction:column;align-items:center;gap:14px;
+    box-shadow:var(--shadow);transition:.15s;position:relative;overflow:hidden}
+  .mic:active{transform:scale(.992)}
+  .mic .ring{width:96px;height:96px;border-radius:50%;display:grid;place-items:center;
+    background:var(--hi);color:#15181c;font-size:46px;box-shadow:0 0 0 0 rgba(255,212,0,.55)}
+  .mic.listening .ring{background:var(--go);color:#06210f;animation:pulse 1.3s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(55,214,122,.5)}70%{box-shadow:0 0 0 26px rgba(55,214,122,0)}100%{box-shadow:0 0 0 0 rgba(55,214,122,0)}}
+  .mic .big{font-family:'Saira Condensed',sans-serif;font-weight:700;font-size:23px;letter-spacing:.05em;text-transform:uppercase}
+  .mic .hint{color:var(--ink-dim);font-size:13px;text-align:center;max-width:440px;line-height:1.5}
+
+  .heard{min-height:22px;text-align:center;color:var(--ink-dim);font:500 14px 'IBM Plex Mono';margin:4px 0 6px}
+  .heard b{color:var(--hi)}
+
+  .section-title{font-family:'Saira Condensed',sans-serif;font-weight:700;text-transform:uppercase;
+    letter-spacing:.12em;font-size:14px;color:var(--ink-dim);margin:26px 2px 12px;display:flex;align-items:center;gap:10px}
+  .section-title::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  .jobs{display:grid;gap:12px}
+  .job{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--go);
+    border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:14px;box-shadow:var(--shadow)}
+  .job .live{width:9px;height:9px;border-radius:50%;background:var(--go);box-shadow:0 0 10px var(--go);animation:blink 1.4s infinite}
+  @keyframes blink{50%{opacity:.25}}
+  .job .name{font-family:'Saira Condensed',sans-serif;font-weight:700;font-size:21px;letter-spacing:.02em;flex:1;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .job .clock{font:700 24px 'IBM Plex Mono';color:var(--hi);font-variant-numeric:tabular-nums}
+  .btn{border:0;border-radius:10px;padding:11px 15px;font:700 14px 'IBM Plex Sans';cursor:pointer;letter-spacing:.02em}
+  .btn-stop{background:var(--stop);color:#2a0703}
+  .btn-ghost{background:var(--panel-2);color:var(--ink);border:1px solid var(--line)}
+  .empty{color:var(--ink-dim);font-size:14px;padding:14px 2px;font-style:italic}
+
+  .manual{display:flex;gap:10px;margin-top:4px}
+  .manual input{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:11px;color:var(--ink);
+    padding:12px 14px;font:500 16px 'IBM Plex Sans'}
+  .manual input::placeholder{color:#5e6a78}
+  .btn-go{background:var(--hi);color:#15181c}
+
+  table{width:100%;border-collapse:collapse;margin-top:4px;font-size:14px}
+  th{font-family:'Saira Condensed',sans-serif;text-transform:uppercase;letter-spacing:.08em;font-size:12px;
+    color:var(--ink-dim);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  td{padding:10px;border-bottom:1px solid var(--panel-2)}
+  td.dur{font:700 14px 'IBM Plex Mono';color:var(--hi);font-variant-numeric:tabular-nums;white-space:nowrap}
+  td.name{font-weight:600}
+  .day-row td{background:var(--panel);font-family:'Saira Condensed',sans-serif;font-weight:700;
+    letter-spacing:.05em;text-transform:uppercase;color:var(--ink);font-size:13px}
+  .day-row .tot{color:var(--hi);text-align:right;font-family:'IBM Plex Mono'}
+  .del{background:none;border:0;color:#6c7785;cursor:pointer;font-size:18px;padding:2px 6px;border-radius:7px}
+  .del:hover{color:var(--stop);background:rgba(255,91,77,.1)}
+
+  .footer-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+
+  .status{position:fixed;left:0;right:0;bottom:0;background:rgba(21,24,28,.92);backdrop-filter:blur(8px);
+    border-top:1px solid var(--line);padding:11px 16px;display:flex;align-items:center;gap:10px;
+    font-size:13px;color:var(--ink-dim);z-index:50}
+  .status .pill{width:10px;height:10px;border-radius:50%;background:#5e6a78;flex:none}
+  .status.ok .pill{background:var(--go)}
+  .status.live .pill{background:var(--go);animation:blink 1.2s infinite}
+  .status.err .pill{background:var(--stop)}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:64px;background:var(--hi);color:#15181c;
+    font:700 15px 'IBM Plex Sans';padding:12px 20px;border-radius:12px;box-shadow:var(--shadow);
+    opacity:0;pointer-events:none;transition:.25s;z-index:60;max-width:90%;text-align:center}
+  .toast.show{opacity:1;bottom:74px}
+  .toast.bad{background:var(--stop);color:#2a0703}
+
+/* --- iOS / mobile hardening (added) --- */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+a,button,input,select,textarea{-webkit-tap-highlight-color:rgba(0,0,0,.08)}
+img,svg,canvas,video{max-width:100%;height:auto}
+
+@media(max-width:700px){
+  html,body{overflow-x:hidden;max-width:100%}
+  header{flex-wrap:wrap;height:auto;min-height:48px;row-gap:8px;padding-top:8px;padding-bottom:8px}
+  main{padding:14px;max-width:100%}
+  .kpis,.kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .two-col,.three-col,.cols,.split{grid-template-columns:1fr}
+  .view,.panel,.card,.section{max-width:100%}
+  .table-wrap,.tablewrap,.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{white-space:nowrap}
+  .tabs,.seg,.controls,.toolbar,.filters,.chips,.legend,.actions,.row{flex-wrap:wrap}
+  input,select,textarea{font-size:16px !important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">🔧</div>
+    <h1 data-i18n="title">Bike Time Tracker<small data-i18n="sub">Workshop · voice clock</small></h1>
+  </header>
+
+  <div class="controls">
+    <div class="seg" id="langSeg">
+      <button data-lang="en-US" class="on">EN</button>
+      <button data-lang="fr-FR">FR</button>
+      <button data-lang="nl-NL">NL</button>
+    </div>
+    <div class="toggle on" id="ttsToggle"><span class="dot"></span><span data-i18n="voiceBack">Voice replies</span></div>
+    <div class="toggle" id="freeToggle"><span class="dot"></span><span data-i18n="handsFree">Hands-free</span></div>
+  </div>
+
+  <button class="mic" id="mic">
+    <div class="ring" id="micRing">🎤</div>
+    <div class="big" id="micLabel" data-i18n="tapTalk">Tap & speak</div>
+    <div class="hint" id="micHint"></div>
+  </button>
+  <div class="heard" id="heard"></div>
+
+  <div class="section-title" data-i18n="running">Running now</div>
+  <div class="jobs" id="jobs"></div>
+  <div class="manual">
+    <input id="manualName" placeholder="Bike name or number…" data-i18n-ph="bikePh">
+    <button class="btn btn-go" id="manualStart" data-i18n="start">Start</button>
+  </div>
+
+  <div class="section-title" data-i18n="log">Recorded sessions</div>
+  <div id="logWrap"></div>
+
+  <div class="footer-actions">
+    <button class="btn btn-ghost" id="exportBtn" data-i18n="export">⬇ Export CSV</button>
+    <button class="btn btn-ghost" id="clearBtn" data-i18n="clear">🗑 Clear all</button>
+  </div>
+</div>
+
+<div class="status" id="status"><span class="pill"></span><span id="statusText">Starting…</span></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- i18n strings + voice command vocabulary ---------- */
+const I18N = {
+  "en-US":{
+    code:"en-US", flag:"EN",
+    ui:{title:"Bike Time Tracker", sub:"Workshop · voice clock", voiceBack:"Voice replies",
+        handsFree:"Hands-free", tapTalk:"Tap & speak", running:"Running now",
+        bikePh:"Bike name or number…", start:"Start", log:"Recorded sessions",
+        export:"⬇ Export CSV", clear:"🗑 Clear all",
+        hint:'Say e.g. “Start working on bike 42” — then later “Finish bike 42”.'},
+    startWords:["start","starting","begin","beginning","commence"],
+    stopWords:["stop","stopping","finish","finished","finishing","done","end","ending","complete","completed"],
+    bikeWords:["bike","bicycle","on","the"],
+    filler:["i","am","i'm","im","working","work","on","the","a","an","please","let's","lets","to"],
+    say:{started:n=>`Started, ${n}`, stopped:(n,d)=>`${n}, ${d} recorded`,
+         already:n=>`${n} is already running`, none:n=>`No timer running for ${n}`,
+         which:"Which bike?", notUnderstood:"Sorry, didn't catch a bike"}
+  },
+  "fr-FR":{
+    code:"fr-FR", flag:"FR",
+    ui:{title:"Suivi du temps", sub:"Atelier · horloge vocale", voiceBack:"Réponses vocales",
+        handsFree:"Mains libres", tapTalk:"Appuyer & parler", running:"En cours",
+        bikePh:"Nom ou numéro du vélo…", start:"Démarrer", log:"Sessions enregistrées",
+        export:"⬇ Export CSV", clear:"🗑 Tout effacer",
+        hint:'Dites p.ex. « Commence le vélo 42 » — puis plus tard « Termine le vélo 42 ».'},
+    startWords:["commence","commencer","démarre","demarre","démarrer","demarrer","débute","debute","début","debut","start"],
+    stopWords:["termine","terminer","terminé","termine","fini","finir","finis","arrête","arrete","arrêter","arreter","stop","fin"],
+    bikeWords:["vélo","velo","sur","le","la"],
+    filler:["je","travaille","sur","le","la","les","un","une","de","du","s'il","vous","plait","plaît","à"],
+    say:{started:n=>`C'est parti, ${n}`, stopped:(n,d)=>`${n}, ${d} enregistré`,
+         already:n=>`${n} est déjà en cours`, none:n=>`Aucun chrono pour ${n}`,
+         which:"Quel vélo ?", notUnderstood:"Désolé, aucun vélo reconnu"}
+  },
+  "nl-NL":{
+    code:"nl-NL", flag:"NL",
+    ui:{title:"Tijdregistratie", sub:"Werkplaats · spraakklok", voiceBack:"Spraakantwoord",
+        handsFree:"Handenvrij", tapTalk:"Tik & spreek", running:"Nu bezig",
+        bikePh:"Naam of nummer van de fiets…", start:"Start", log:"Opgeslagen sessies",
+        export:"⬇ Export CSV", clear:"🗑 Alles wissen",
+        hint:'Zeg bv. “Start fiets 42” — daarna “Klaar fiets 42”.'},
+    startWords:["start","starten","begin","beginnen"],
+    stopWords:["stop","stoppen","klaar","eind","einde","beëindig","beeindig","afgewerkt","gedaan","af"],
+    bikeWords:["fiets","aan","de","het"],
+    filler:["ik","werk","aan","de","het","een","ben","alsjeblieft","met"],
+    say:{started:n=>`Gestart, ${n}`, stopped:(n,d)=>`${n}, ${d} opgeslagen`,
+         already:n=>`${n} loopt al`, none:n=>`Geen timer voor ${n}`,
+         which:"Welke fiets?", notUnderstood:"Sorry, geen fiets herkend"}
+  }
+};
+
+/* ---------- persistent storage (localStorage) ---------- */
+const KEY={entries:"btt_entries_v1", active:"btt_active_v1", settings:"btt_settings_v1"};
+function load(k,def){ try{const v=localStorage.getItem(k);return v?JSON.parse(v):def;}catch(e){return def;} }
+function save(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){toast("Storage blocked",true);} }
+
+let entries = load(KEY.entries, []);              // [{id,bike,start,end}]
+let active  = load(KEY.active, {});               // { bikeName: startISO }
+let settings= load(KEY.settings, {lang:"en-US", tts:true, free:false});
+
+let L = I18N[settings.lang] || I18N["en-US"];
+
+/* ---------- elements ---------- */
+const $=id=>document.getElementById(id);
+const micBtn=$("mic"), micRing=$("micRing"), heardEl=$("heard");
+const statusEl=$("status"), statusText=$("statusText"), toastEl=$("toast");
+
+/* ---------- i18n apply ---------- */
+function applyLang(){
+  L = I18N[settings.lang];
+  document.documentElement.lang = settings.lang.split("-")[0];
+  document.querySelectorAll("[data-i18n]").forEach(el=>{ const k=el.dataset.i18n;
+    if(L.ui[k]!==undefined){ if(el.children.length){el.childNodes[0].nodeValue=L.ui[k];} else {el.textContent=L.ui[k];} }});
+  const sub=document.querySelector('[data-i18n="sub"]'); if(sub) sub.textContent=L.ui.sub;
+  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ el.placeholder=L.ui[el.dataset.i18nPh]; });
+  $("micHint").textContent = L.ui.hint;
+  document.querySelectorAll("#langSeg button").forEach(b=>b.classList.toggle("on", b.dataset.lang===settings.lang));
+  if(recognition) recognition.lang = settings.lang;
+}
+
+/* ---------- helpers ---------- */
+function fmt(ms){ let s=Math.floor(ms/1000); const h=Math.floor(s/3600); s-=h*3600;
+  const m=Math.floor(s/60); s-=m*60;
+  return (h>0? h+":":"")+String(m).padStart(h>0?2:1,"0")+":"+String(s).padStart(2,"0"); }
+function fmtWords(ms){ let m=Math.round(ms/60000); const h=Math.floor(m/60); m-=h*60;
+  if(h&&m) return `${h}h${String(m).padStart(2,"0")}`; if(h) return `${h}h`; return `${m} min`; }
+function timeOf(iso){ return new Date(iso).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}); }
+function dayOf(iso){ return new Date(iso).toLocaleDateString([],{weekday:"short",day:"2-digit",month:"short"}); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+function toast(msg,bad){ toastEl.textContent=msg; toastEl.className="toast show"+(bad?" bad":"");
+  clearTimeout(toast._t); toast._t=setTimeout(()=>toastEl.className="toast"+(bad?" bad":""),2600); }
+function speak(text){ if(!settings.tts||!window.speechSynthesis) return;
+  try{ const u=new SpeechSynthesisUtterance(text); u.lang=settings.lang; u.rate=1.02;
+    speechSynthesis.cancel(); speechSynthesis.speak(u);}catch(e){} }
+
+/* ---------- core actions ---------- */
+function startJob(name){
+  name=(name||"").trim(); if(!name){ toast(L.say.which); speak(L.say.which); return; }
+  if(active[name]){ toast(L.say.already(name)); speak(L.say.already(name)); return; }
+  active[name]=new Date().toISOString(); save(KEY.active,active); render();
+  toast("▶ "+name); speak(L.say.started(name));
+}
+function stopJob(name){
+  const keys=Object.keys(active);
+  if(!name && keys.length===1) name=keys[0];          // only one running → stop it
+  name=(name||"").trim();
+  if(!name){ toast(L.say.which); speak(L.say.which); return; }
+  if(!active[name]){
+    // tolerant match (case-insensitive / contains)
+    const hit=keys.find(k=>k.toLowerCase()===name.toLowerCase())||keys.find(k=>k.toLowerCase().includes(name.toLowerCase()));
+    if(hit) name=hit; else { toast(L.say.none(name),true); speak(L.say.none(name)); return; }
+  }
+  const start=active[name]; const end=new Date().toISOString();
+  delete active[name]; save(KEY.active,active);
+  entries.unshift({id:uid(),bike:name,start,end}); save(KEY.entries,entries);
+  const d=fmtWords(new Date(end)-new Date(start));
+  render(); toast("⏹ "+name+" · "+d); speak(L.say.stopped(name,d));
+}
+
+/* ---------- voice command parsing ---------- */
+function parse(transcript){
+  heardEl.innerHTML = `“<b>${transcript}</b>”`;
+  const raw=transcript.toLowerCase().replace(/[.,!?;:]/g,"").trim();
+  const toks=raw.split(/\s+/);
+  // find first start/stop keyword + its position
+  let intent=null, kwIdx=-1, best=1e9;
+  toks.forEach((t,i)=>{ if(L.stopWords.includes(t)&&i<best){intent="stop";best=i;kwIdx=i;} });
+  toks.forEach((t,i)=>{ if(L.startWords.includes(t)&&i<best){intent="start";best=i;kwIdx=i;} });
+  if(!intent){ toast(L.say.notUnderstood,true); speak(L.say.notUnderstood); return; }
+
+  // identifier: prefer text after a bike-word, else everything after the intent keyword minus filler
+  let rest=toks.slice(kwIdx+1);
+  const bIdx=rest.findIndex(t=>L.bikeWords.includes(t));
+  if(bIdx>=0) rest=rest.slice(bIdx+1);
+  const name=rest.filter(t=>!L.filler.includes(t)&&!L.bikeWords.includes(t)).join(" ").trim();
+
+  if(intent==="start") startJob(name);
+  else stopJob(name);
+}
+
+/* ---------- speech recognition ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition=null, listening=false, manualStop=false;
+
+function setStatus(cls,text){ statusEl.className="status "+cls; statusText.textContent=text; }
+
+function initSR(){
+  if(!SR){ setStatus("err","Voice not supported in this browser — use Chrome. Manual buttons still work.");
+    micBtn.querySelector(".big").textContent="Use buttons"; return; }
+  recognition=new SR();
+  recognition.lang=settings.lang;
+  recognition.interimResults=false;
+  recognition.maxAlternatives=1;
+  recognition.continuous=false;
+
+  recognition.onstart=()=>{ listening=true; micBtn.classList.add("listening"); micRing.textContent="●";
+    setStatus("live", settings.free?"Hands-free listening…":"Listening…"); };
+  recognition.onresult=e=>{ const t=e.results[e.results.length-1][0].transcript.trim(); if(t) parse(t); };
+  recognition.onerror=e=>{ if(e.error==="not-allowed"||e.error==="service-not-allowed")
+      setStatus("err","Microphone blocked — allow mic access for this page."); };
+  recognition.onend=()=>{ listening=false; micBtn.classList.remove("listening"); micRing.textContent="🎤";
+    if(settings.free && !manualStop){ try{recognition.start();}catch(e){} }    // keep going in hands-free
+    else setStatus("ok","Ready"); };
+  setStatus("ok","Ready — tap the button and speak");
+}
+
+function listen(){
+  if(!recognition) return;
+  if(listening){ manualStop=true; recognition.stop(); return; }
+  manualStop=false; try{ recognition.start(); }catch(e){}
+}
+
+/* ---------- rendering ---------- */
+function render(){
+  // active jobs
+  const jobsEl=$("jobs"); const names=Object.keys(active);
+  if(!names.length){ jobsEl.innerHTML=`<div class="empty">${
+      settings.lang==="fr-FR"?"Aucun vélo en cours.":settings.lang==="nl-NL"?"Geen fiets bezig.":"Nothing running. Say start, or use the field below."}</div>`; }
+  else{
+    jobsEl.innerHTML=names.map(n=>`
+      <div class="job">
+        <span class="live"></span>
+        <span class="name" title="${esc(n)}">${esc(n)}</span>
+        <span class="clock" data-start="${active[n]}">0:00</span>
+        <button class="btn btn-stop" data-stop="${esc(n)}">${settings.lang==="fr-FR"?"Terminer":settings.lang==="nl-NL"?"Klaar":"Stop"}</button>
+      </div>`).join("");
+    jobsEl.querySelectorAll("[data-stop]").forEach(b=>b.onclick=()=>stopJob(b.dataset.stop));
+  }
+  tick();
+
+  // log grouped by day
+  const wrap=$("logWrap");
+  if(!entries.length){ wrap.innerHTML=`<div class="empty">${
+      settings.lang==="fr-FR"?"Pas encore de sessions.":settings.lang==="nl-NL"?"Nog geen sessies.":"No sessions yet."}</div>`; return; }
+  const groups={}; entries.forEach(e=>{ const k=dayOf(e.end); (groups[k]=groups[k]||[]).push(e); });
+  let rows="";
+  for(const day in groups){
+    const list=groups[day];
+    const tot=list.reduce((s,e)=>s+(new Date(e.end)-new Date(e.start)),0);
+    rows+=`<tr class="day-row"><td colspan="3">${day}</td><td class="tot">${fmtWords(tot)}</td><td></td></tr>`;
+    list.forEach(e=>{
+      rows+=`<tr>
+        <td class="name">${esc(e.bike)}</td>
+        <td>${timeOf(e.start)} → ${timeOf(e.end)}</td>
+        <td class="dur">${fmt(new Date(e.end)-new Date(e.start))}</td>
+        <td class="dur">${fmtWords(new Date(e.end)-new Date(e.start))}</td>
+        <td><button class="del" data-del="${e.id}" title="delete">✕</button></td>
+      </tr>`;
+    });
+  }
+  wrap.innerHTML=`<table><thead><tr>
+    <th>${settings.lang==="fr-FR"?"Vélo":settings.lang==="nl-NL"?"Fiets":"Bike"}</th>
+    <th>${settings.lang==="fr-FR"?"De → À":settings.lang==="nl-NL"?"Van → Tot":"From → To"}</th>
+    <th>${settings.lang==="fr-FR"?"Durée":settings.lang==="nl-NL"?"Duur":"Duration"}</th><th></th><th></th>
+    </tr></thead><tbody>${rows}</tbody></table>`;
+  wrap.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+    entries=entries.filter(x=>x.id!==b.dataset.del); save(KEY.entries,entries); render(); });
+}
+function esc(s){ return (s+"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+function tick(){ document.querySelectorAll(".clock[data-start]").forEach(el=>{
+  el.textContent=fmt(Date.now()-new Date(el.dataset.start)); }); }
+setInterval(tick,1000);
+
+/* ---------- CSV export ---------- */
+function exportCSV(){
+  if(!entries.length){ toast("Nothing to export"); return; }
+  const rows=[["Bike","Date","Start","End","Duration (h:mm:ss)","Minutes"]];
+  entries.slice().reverse().forEach(e=>{
+    const ms=new Date(e.end)-new Date(e.start);
+    rows.push([e.bike, new Date(e.start).toLocaleDateString(), new Date(e.start).toLocaleTimeString(),
+      new Date(e.end).toLocaleTimeString(), fmt(ms), Math.round(ms/60000)]);
+  });
+  const csv=rows.map(r=>r.map(c=>`"${(c+"").replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const blob=new Blob(["\ufeff"+csv],{type:"text/csv"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="bike-time-"+new Date().toISOString().slice(0,10)+".csv"; a.click();
+  toast("CSV exported");
+}
+
+/* ---------- wire up ---------- */
+micBtn.onclick=listen;
+$("manualStart").onclick=()=>{ const v=$("manualName").value; if(v){startJob(v); $("manualName").value="";} };
+$("manualName").addEventListener("keydown",e=>{ if(e.key==="Enter") $("manualStart").click(); });
+$("exportBtn").onclick=exportCSV;
+$("clearBtn").onclick=()=>{ if(confirm("Delete ALL recorded sessions? This cannot be undone.")){
+  entries=[]; save(KEY.entries,entries); render(); toast("Cleared"); } };
+
+document.querySelectorAll("#langSeg button").forEach(b=>b.onclick=()=>{
+  settings.lang=b.dataset.lang; save(KEY.settings,settings); applyLang(); render(); });
+$("ttsToggle").onclick=function(){ settings.tts=!settings.tts; this.classList.toggle("on",settings.tts); save(KEY.settings,settings); };
+$("freeToggle").onclick=function(){ settings.free=!settings.free; this.classList.toggle("on",settings.free); save(KEY.settings,settings);
+  if(settings.free&&!listening) listen(); if(!settings.free&&listening){manualStop=true;recognition&&recognition.stop();} };
+
+/* init */
+$("ttsToggle").classList.toggle("on",settings.tts);
+$("freeToggle").classList.toggle("on",settings.free);
+initSR(); applyLang(); render();
+</script>
+</body>
+</html>

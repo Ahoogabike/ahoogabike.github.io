@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Ahooga Parts Stock</title>
 <style>
 :root{--bg:#f2f1ed;--surface:#fff;--surface2:#f0efe9;--border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);--text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#1a4fa0;--accent-bg:#e6f0fb;--success:#2d6e2d;--success-bg:#eaf3de;--warn:#7a4e0a;--warn-bg:#faeeda;--danger:#8b1f1f;--danger-bg:#fcebeb;--purple:#3c3489;--purple-bg:#eeedfe;--teal:#0f6e56;--teal-bg:#e1f5ee;--radius:10px;--radius-sm:6px}
@@ -85,6 +85,24 @@ tr.grp th:hover{background:var(--surface2)}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--accent-bg);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media print{header,.toolbar,.kpis,.explain{display:none!important}body{background:#fff}.table-wrap{border:none}}
+
+/* --- iOS / mobile hardening (added) --- */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+a,button,input,select,textarea{-webkit-tap-highlight-color:rgba(0,0,0,.08)}
+img,svg,canvas,video{max-width:100%;height:auto}
+
+@media(max-width:700px){
+  html,body{overflow-x:hidden;max-width:100%}
+  header{flex-wrap:wrap;height:auto;min-height:48px;row-gap:8px;padding-top:8px;padding-bottom:8px}
+  main{padding:14px;max-width:100%}
+  .kpis,.kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .two-col,.three-col,.cols,.split{grid-template-columns:1fr}
+  .view,.panel,.card,.section{max-width:100%}
+  .table-wrap,.tablewrap,.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{white-space:nowrap}
+  .tabs,.seg,.controls,.toolbar,.filters,.chips,.legend,.actions,.row{flex-wrap:wrap}
+  input,select,textarea{font-size:16px !important}
+}
 </style>
 </head>
 <body>

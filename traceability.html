@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>MAX Bike Traceability</title>
 <style>
 :root{
@@ -77,6 +77,24 @@ td.via{color:var(--text3);font-size:12px}
 .chip{display:inline-block;background:var(--surface);border:1px solid var(--border2);border-radius:20px;padding:4px 12px;font-size:12px;margin:0 6px 6px 0;cursor:pointer}
 .chip:hover{background:var(--accent-bg);border-color:var(--accent)}
 .progress{font-size:12px;color:var(--text3);margin-top:8px}
+
+/* --- iOS / mobile hardening (added) --- */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+a,button,input,select,textarea{-webkit-tap-highlight-color:rgba(0,0,0,.08)}
+img,svg,canvas,video{max-width:100%;height:auto}
+
+@media(max-width:700px){
+  html,body{overflow-x:hidden;max-width:100%}
+  header{flex-wrap:wrap;height:auto;min-height:48px;row-gap:8px;padding-top:8px;padding-bottom:8px}
+  main{padding:14px;max-width:100%}
+  .kpis,.kpi-grid{grid-template-columns:repeat(2,1fr)}
+  .two-col,.three-col,.cols,.split{grid-template-columns:1fr}
+  .view,.panel,.card,.section{max-width:100%}
+  .table-wrap,.tablewrap,.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table{white-space:nowrap}
+  .tabs,.seg,.controls,.toolbar,.filters,.chips,.legend,.actions,.row{flex-wrap:wrap}
+  input,select,textarea{font-size:16px !important}
+}
 </style>
 </head>
 <body>
