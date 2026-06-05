@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Custom Colour Programme — Ordering Process</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Spline+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16140f;--paper:#f7f4ec;--paper-2:#fffdf7;--line:#ddd6c4;
+    --accent:#ffcf2e;--accent-deep:#e0a800;--ahooga:#1d1b16;--deco:#c0451f;--velo:#2f6f5e;
+    --muted:#6f6a5c;--flag:#b21f1f;--flag-bg:#fbece9;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--paper);color:var(--ink);font-family:'Spline Sans',sans-serif;line-height:1.6;
+    -webkit-font-smoothing:antialiased;background-image:radial-gradient(var(--line) 0.5px, transparent 0.5px);background-size:22px 22px}
+  .wrap{max-width:980px;margin:0 auto;padding:0 24px 100px}
+  code,.mono{font-family:'JetBrains Mono',monospace;font-weight:500}
+
+  header{padding:64px 0 30px;border-bottom:3px solid var(--ink)}
+  .kicker{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.28em;text-transform:uppercase;color:var(--muted);display:flex;gap:14px;align-items:center}
+  .kicker::after{content:"";height:1px;flex:1;background:var(--line)}
+  h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(2.4rem,6vw,4.2rem);line-height:.98;letter-spacing:-.02em;margin:18px 0 8px;max-width:14ch}
+  h1 .hl{background:linear-gradient(transparent 62%,var(--accent) 62%);padding:0 .08em}
+  .sub{font-size:1.05rem;color:var(--muted);max-width:62ch}
+  .meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
+  .chip{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.04em;background:var(--paper-2);border:1.5px solid var(--ink);border-radius:999px;padding:6px 13px;display:inline-flex;gap:7px;align-items:center}
+  .chip b{font-weight:700}
+
+  section{padding-top:54px}
+  .s-head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}
+  .s-num{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.8rem;color:var(--accent-deep);border:1.5px solid var(--accent-deep);border-radius:6px;padding:2px 8px}
+  h2{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:1.7rem;letter-spacing:-.01em}
+  .s-lead{color:var(--muted);max-width:70ch;margin:4px 0 22px}
+
+  .players{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  .player{background:var(--paper-2);border:1.5px solid var(--line);border-radius:14px;padding:20px;border-left-width:6px}
+  .player.ah{border-left-color:var(--ahooga)} .player.dc{border-left-color:var(--deco)} .player.vv{border-left-color:var(--velo)}
+  .player .role{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .player h4{font-family:'Bricolage Grotesque',sans-serif;font-size:1.2rem;margin:2px 0 6px}
+  .player p{font-size:.9rem;color:var(--muted)}
+
+  .legend{display:flex;flex-wrap:wrap;gap:18px;margin:8px 0 8px;font-size:.85rem}
+  .legend span{display:inline-flex;align-items:center;gap:8px}
+  .dot{width:13px;height:13px;border-radius:4px;display:inline-block}
+  .dot.ah{background:var(--ahooga)} .dot.dc{background:var(--deco)} .dot.vv{background:var(--velo)}
+  .raci-legend{display:flex;flex-wrap:wrap;gap:16px;margin:6px 0 24px;font-size:.82rem;color:var(--muted)}
+  .raci-legend b{font-family:'JetBrains Mono',monospace;color:var(--ink)}
+
+  .flow{position:relative;margin-left:6px}
+  .phase{margin-top:30px}
+  .phase-label{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .phase-label::after{content:"";height:1.5px;flex:1;background:var(--line)}
+
+  .step{display:grid;grid-template-columns:74px 1fr;gap:18px;position:relative;padding-bottom:22px}
+  .step:not(:last-child)::before{content:"";position:absolute;left:36px;top:46px;bottom:-4px;width:2px;background:repeating-linear-gradient(var(--line) 0 6px,transparent 6px 12px)}
+  .pid{grid-column:1;justify-self:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.78rem;background:var(--paper-2);border:2px solid var(--ink);border-radius:10px;height:42px;min-width:62px;display:flex;align-items:center;justify-content:center;z-index:2}
+  .pid.start{background:var(--accent);border-color:var(--accent-deep)} .pid.end{background:var(--ink);color:var(--paper)}
+  .card{background:var(--paper-2);border:1.5px solid var(--line);border-radius:14px;padding:16px 18px;border-top:4px solid var(--line)}
+  .card.ah{border-top-color:var(--ahooga)} .card.dc{border-top-color:var(--deco)} .card.vv{border-top-color:var(--velo)}
+  .card .desc{font-weight:600;font-size:1.02rem;margin-bottom:10px}
+
+  .target{display:flex;gap:9px;align-items:flex-start;font-size:.9rem;margin-bottom:11px;background:#fff8df;border:1px solid #f0e3a8;border-radius:9px;padding:8px 11px}
+  .target .tlab{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-deep);font-weight:700;background:var(--accent);border-radius:5px;padding:2px 7px;white-space:nowrap;margin-top:1px}
+  .target span.tx{color:var(--ink)}
+
+  .raci{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .rlab{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:2px}
+  .rc{font-family:'JetBrains Mono',monospace;font-size:.66rem;border-radius:6px;padding:3px 8px;display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);color:var(--ink)}
+  .rc .who-ah{color:var(--ahooga)} .rc .who-dc{color:var(--deco)} .rc .who-vv{color:var(--velo)}
+  .rc.r{background:#eef6f2;border-color:#bfe0d2} .rc.a{background:#fdeee9;border-color:#f3cdbf}
+  .rc.c{background:var(--paper);border-style:dashed} .rc.i{background:var(--paper);border-style:dotted}
+  .rkey{font-weight:700;font-family:'JetBrains Mono',monospace}
+  .rkey.kr{color:var(--velo)} .rkey.ka{color:var(--deco)} .rkey.kc,.rkey.ki{color:var(--muted)}
+  .next{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--accent-deep);border:1px solid var(--accent-deep);border-radius:6px;padding:3px 8px;margin-left:auto}
+
+  .branch{margin:2px 0 4px 92px;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--deco);display:flex;align-items:center;gap:8px}
+  .branch::before{content:"⑂";font-size:1rem}
+
+  .howto{background:var(--paper-2);border:1.5px solid var(--line);border-radius:14px;padding:22px 24px;margin-top:18px}
+  .howto h4{font-family:'Bricolage Grotesque',sans-serif;font-size:1.15rem;display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .howto h4 .pill{font-family:'JetBrains Mono',monospace;font-size:.68rem;background:var(--accent);color:var(--ink);padding:3px 8px;border-radius:6px;font-weight:700;letter-spacing:.04em}
+  .howto .file{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--deco);margin-bottom:12px}
+  ol.steps-list{margin:6px 0 0 0;padding-left:0;counter-reset:s;list-style:none}
+  ol.steps-list li{position:relative;padding:8px 0 8px 38px;border-bottom:1px dashed var(--line)}
+  ol.steps-list li:last-child{border-bottom:none}
+  ol.steps-list li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:8px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.72rem;width:24px;height:24px;border-radius:50%;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center}
+  .tabname{font-family:'JetBrains Mono',monospace;font-size:.82rem;background:#efe9d8;padding:1px 6px;border-radius:5px;border:1px solid var(--line)}
+
+  .email{border:1.5px solid var(--ink);border-radius:14px;overflow:hidden;margin-top:18px}
+  .email .ehead{background:var(--ink);color:var(--paper);padding:14px 20px;font-size:.85rem}
+  .email .ehead .erow{display:flex;gap:8px}
+  .email .ehead .lab{font-family:'JetBrains Mono',monospace;color:var(--accent);min-width:62px;font-size:.74rem}
+  .email .ebody{padding:18px 20px;background:var(--paper-2)}
+  .email .attlist{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .att{font-family:'JetBrains Mono',monospace;font-size:.74rem;background:#efe9d8;border:1px solid var(--line);border-radius:7px;padding:5px 10px;display:inline-flex;gap:7px;align-items:center}
+  .att::before{content:"📎"}
+
+  .issue{background:var(--flag-bg);border:1.5px solid #efc7bf;border-left:6px solid var(--flag);border-radius:12px;padding:18px 20px;margin-top:14px}
+  .issue h4{font-family:'Bricolage Grotesque',sans-serif;font-size:1.05rem;color:var(--flag);margin-bottom:6px;display:flex;gap:9px;align-items:center}
+  .issue p{font-size:.93rem}
+  .issue .ask{margin-top:8px;font-size:.88rem;color:var(--ink)} .issue .ask b{color:var(--flag)}
+  .imp{background:var(--paper-2);border:1.5px dashed var(--velo);border-radius:12px;padding:16px 20px;margin-top:14px}
+  .imp h4{font-family:'Bricolage Grotesque',sans-serif;color:var(--velo);font-size:1.02rem;margin-bottom:5px}
+  .imp p{font-size:.92rem;color:var(--muted)}
+
+  footer{margin-top:60px;padding-top:24px;border-top:2px solid var(--ink);font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+
+  @media print{body{background:#fff}.step,.card,.howto,.player,.email{break-inside:avoid}}
+  @media (max-width:560px){.step{grid-template-columns:56px 1fr;gap:12px}.step:not(:last-child)::before{left:27px}.branch{margin-left:68px}.next{margin-left:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="kicker">Ahooga · Internal Operations Playbook</div>
+    <h1>Custom Colour Programme — <span class="hl">Ordering Process</span></h1>
+    <p class="sub">End-to-end workflow for ordering a custom-painted (MAX Custom Colour) frame — across Ahooga, Deco Coat and Velovisie. Each step lists its target and how responsibility is shared.</p>
+    <div class="meta">
+      <span class="chip"><b>Programme</b> MAX Custom Colour Frames</span>
+      <span class="chip"><b>Steps</b> P100 → P800</span>
+      <span class="chip"><b>Partners</b> 3</span>
+      <span class="chip"><b>Serial format</b> <span class="mono">MACU·······</span></span>
+    </div>
+  </header>
+
+  <section id="players">
+    <div class="s-head"><span class="s-num">01</span><h2>Who's involved</h2></div>
+    <div class="players">
+      <div class="player ah"><div class="role">Brand / Owner</div><h4>Ahooga</h4><p>Takes the sales order, processes it, plans production, and handles final delivery to the customer. HQ in Anderlecht (AH), Belgium.</p></div>
+      <div class="player dc"><div class="role">Painting partner</div><h4>Deco Coat</h4><p>Paints the frame in the custom colour, then ships the painted frame plus configuration stickers onward. Contact: Wietze Hoppe (NL).</p></div>
+      <div class="player vv"><div class="role">Assembly &amp; logistics</div><h4>Velovisie</h4><p>Assembles the bike from the painted frame and configuration sticker, labels the box, and ships the finished bike back to Anderlecht.</p></div>
+    </div>
+  </section>
+
+  <section id="flow">
+    <div class="s-head"><span class="s-num">02</span><h2>The process, step by step</h2></div>
+    <p class="s-lead">Each card shows the action, its <strong>target</strong> (the outcome that means the step is done), the <strong>responsibility split</strong>, and the next step. After order processing the flow splits in parallel: production planning runs alongside painting, and both reconverge at assembly.</p>
+    <div class="legend">
+      <span><i class="dot ah"></i> Ahooga</span><span><i class="dot dc"></i> Deco Coat</span><span><i class="dot vv"></i> Velovisie</span>
+    </div>
+    <div class="raci-legend">
+      <span><b>R</b> Responsible — does the work</span>
+      <span><b>A</b> Accountable — owns the outcome</span>
+      <span><b>C</b> Consulted — input needed</span>
+      <span><b>I</b> Informed — kept in the loop</span>
+    </div>
+
+    <div class="flow">
+
+      <div class="phase">
+        <div class="phase-label">Order Intake</div>
+        <div class="step">
+          <div class="pid start">P100</div>
+          <div class="card ah">
+            <div class="desc">Receive Sales Order (SO) for custom colour</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Every custom-colour SO is logged with full configuration, customer and deadline.</span></div>
+            <div class="raci"><span class="rlab">RACI</span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Sales</span></span>
+              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Sales</span></span>
+              <span class="rc i"><span class="rkey ki">I</span> <span class="who-ah">Supply</span></span>
+              <span class="next">→ P200A · B · C</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-label">Order Processing — Ahooga / Supply</div>
+        <div class="step">
+          <div class="pid">P200A</div>
+          <div class="card ah">
+            <div class="desc">Input configuration to the Deco Coat Order Book (Excel) → create labels</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Order Book updated and error-free labels generated from it.</span></div>
+            <div class="raci"><span class="rlab">RACI</span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc c"><span class="rkey kc">C</span> <span class="who-dc">Deco Coat</span></span>
+              <span class="rc i"><span class="rkey ki">I</span> <span class="who-ah">Planning</span></span>
+              <span class="next">→ P300A · B</span>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="pid">P200B</div>
+          <div class="card ah">
+            <div class="desc">Send Purchase Order (PO) to painting partner (Deco Coat)</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">PO issued and acknowledged by Deco Coat.</span></div>
+            <div class="raci"><span class="rlab">RACI</span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc i"><span class="rkey ki">I</span> <span class="who-dc">Deco Coat</span></span>
+              <span class="next">→ P300A · B</span>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="pid">P200C</div>
+          <div class="card ah">
+            <div class="desc">Send Order Form (Excel) to painting partner (Deco Coat)</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Order Form delivered alongside the PO and labels; Deco Coat confirms a painting week.</span></div>
+            <div class="raci"><span class="rlab">RACI</span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc c"><span class="rkey kc">C</span> <span class="who-dc">Deco Coat</span></span>
+              <span class="next">→ P300A · B</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="branch">Flow splits: planning (P300A) and painting (P300B) proceed in parallel, both feeding P500</div>
+
+      <div class="phase">
+        <div class="phase-label">Planning &amp; Painting (parallel)</div>
+        <div class="step">
+          <div class="pid">P300A</div>
+          <div class="card ah">
+            <div class="desc">Plan the custom colour bike in the production plan</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Production slot / week assigned for the bike.</span></div>
+            <div class="raci"><span class="rlab">RACI</span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Planning</span></span>
+              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc i"><span class="rkey ki">I</span> <span class="who-vv">Velovisie</span></span>
+              <span class="next">→ P500</span>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="pid">P300B</div>
+          <div class="card dc">
+            <div class="desc">Paint the frame in the custom colour</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Frame painted to the configuration spec; painting week confirmed.</span></div>
+            <div class="raci"><span class="rlab">RACI</span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-dc">Deco Coat</span></span>
+              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc i"><span class="rkey ki">I</span> <span class="who-vv">Velovisie</span></span>
+              <span class="next">→ P400</span>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="pid">P400</div>
+          <div class="card dc">
+            <div class="desc">Ship painted frame + configuration stickers to Velovisie</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Painted frame and matching config stickers dispatched to Velovisie.</span></div>
+            <div class="raci"><span class="rlab">RACI</span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-dc">Deco Coat</span></span>
+              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc i"><span class="rkey ki">I</span> <span class="who-vv">Velovisie</span></span>
+              <span class="next">→ P500</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-label">Assembly — Velovisie</div>
+        <div class="step">
+          <div class="pid">P500</div>
+          <div class="card vv">
+            <div class="desc">Assemble the bike based on the configuration sticker and painted frame</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Bike assembled exactly per the configuration sticker.</span></div>
+            <div class="raci"><span class="rlab">RACI</span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-vv">Velovisie</span></span>
+              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc c"><span class="rkey kc">C</span> <span class="who-dc">Deco Coat</span></span>
+              <span class="next">→ P600</span>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="pid">P600</div>
+          <div class="card vv">
+            <div class="desc">Attach the SO sticker to the bike box</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Box labelled with the SO (and serial) so it is traceable.</span></div>
+            <div class="raci"><span class="rlab">RACI</span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-vv">Velovisie</span></span>
+              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="next">→ P700</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="phase-label">Distribution &amp; Delivery</div>
+        <div class="step">
+          <div class="pid">P700</div>
+          <div class="card vv">
+            <div class="desc">Ship the finished bike to Anderlecht (AH)</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Bike received at the Anderlecht warehouse.</span></div>
+            <div class="raci"><span class="rlab">RACI</span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-vv">Velovisie</span></span>
+              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc i"><span class="rkey ki">I</span> <span class="who-ah">Sales</span></span>
+              <span class="next">→ P800</span>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="pid">P800</div>
+          <div class="card ah">
+            <div class="desc">Ship the bike to the customer</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Bike delivered to the customer; order closed.</span></div>
+            <div class="raci"><span class="rlab">RACI</span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Fulfillment</span></span>
+              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Sales</span></span>
+              <span class="rc i"><span class="rkey ki">I</span> Customer</span>
+              <span class="next">→ END</span>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="pid end">END</div>
+          <div class="card"><div class="desc">Order completed</div></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section id="docs">
+    <div class="s-head"><span class="s-num">03</span><h2>Key documents &amp; how to use them</h2></div>
+    <p class="s-lead">Two Excel files do most of the work in the Order Processing phase. The planner app can now generate these pre-filled from the live Odoo sales orders (Custom Color Orders view → Forms).</p>
+    <div class="howto">
+      <h4><span class="pill">P200A</span> Deco Coat Order Book</h4>
+      <div class="file">Decocoat Order book.xlsm</div>
+      <ol class="steps-list">
+        <li>Fill in the <span class="tabname">Configuration</span> tab with the new order's details.</li>
+        <li>Copy new orders across into the <span class="tabname">Order book</span> tab (the running register).</li>
+        <li>Copy this sheet into a <strong>new file</strong> — this is the file you attach to the email to Deco Coat.</li>
+        <li>Generate the labels in the <span class="tabname">Labels_Print</span> tab; its data is pulled automatically from the <span class="tabname">Order book</span> tab.</li>
+      </ol>
+    </div>
+    <div class="howto">
+      <h4><span class="pill">P200B / P200C</span> Purchase Order &amp; Order Form</h4>
+      <div class="file">Order form.xlsx</div>
+      <p style="font-size:.93rem;color:var(--muted)">The Purchase Order (PO) and the Order Form (Excel) are sent to Deco Coat alongside the labels. Columns: Prod Week, PO#, SO#, Bike SKU, Configuration, Quantity, Status, frame colours &amp; finishes, logo colour/size, personal text, colour numbers and primers.</p>
+    </div>
+  </section>
+
+  <section id="example">
+    <div class="s-head"><span class="s-num">04</span><h2>What an actual order to Deco Coat looks like</h2></div>
+    <p class="s-lead">Reference from a real order, so you can see exactly what gets sent and what to attach.</p>
+    <div class="email">
+      <div class="ehead">
+        <div class="erow"><span class="lab">To</span><span>Wietze Hoppe | Deco Coat &lt;wietzehoppe@decocoat.nl&gt;</span></div>
+        <div class="erow"><span class="lab">From</span><span>Ahooga — Purchasing &amp; Supply Chain</span></div>
+        <div class="erow"><span class="lab">Subject</span><span>New Orders – MAX Custom Colour Frames</span></div>
+      </div>
+      <div class="ebody">
+        <p style="font-size:.95rem">Short cover note: places the order (e.g. <em>1 order, 4 custom painted frames</em>), references the attached POs, labels and order forms, and asks Deco Coat to <strong>confirm which week the frames can be painted</strong>.</p>
+        <div class="attlist">
+          <span class="att">labels.pdf</span><span class="att">New order.xlsx</span><span class="att">Purchase Order — P0####.pdf</span><span class="att">[date].zip</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="gaps">
+    <div class="s-head"><span class="s-num">05</span><h2>Open points to resolve</h2></div>
+    <p class="s-lead">Operational gaps to close so the programme runs reliably.</p>
+    <div class="issue">
+      <h4>⚠ Serial number ↔ Sales Order is not linked</h4>
+      <p>Bike serial numbers (<span class="mono">MACU·······</span>) are not matched to a sales order in any document, so a physical bike can't be traced back to its SO.</p>
+      <p class="ask"><b>Action:</b> make the Order Book the single source of truth for serial ↔ SO, and a mandatory field at intake / assembly. The planner now tracks this via the Decocoat sync.</p>
+    </div>
+    <div class="issue">
+      <h4>⚠ The serial registry is behind production</h4>
+      <p>The last registered bike was <span class="mono">MACU0000025</span>, yet many more frames have been produced.</p>
+      <p class="ask"><b>Action:</b> back-fill the missing serials against their orders, then set a clear owner and trigger for registering each new serial.</p>
+    </div>
+    <div class="imp">
+      <h4>↻ Is the separate Order Form still needed?</h4>
+      <p>Worth challenging whether the standalone Order Form (P200C) is still necessary, or whether the Order Book + PO already cover it — to discuss with Deco Coat.</p>
+    </div>
+  </section>
+
+  <footer>
+    <span>Ahooga · Custom Colour Programme — Ordering Process</span>
+    <span>Source: process handover · custom color process.csv</span>
+  </footer>
+
+</div>
+</body>
+</html>
