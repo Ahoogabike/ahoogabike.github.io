@@ -71,6 +71,12 @@ table.grid td.total,table.grid th.total{font-weight:700;border-left:2px solid va
 .tag{font-size:10px;padding:2px 7px;border-radius:20px;background:var(--surface2);color:var(--text2);border:1px solid var(--border2)}
 .tag.fill{background:var(--purple-bg);color:var(--purple)}
 .tag.comm{background:var(--success-bg);color:var(--success)}
+table.grid thead th.wk{cursor:pointer}
+table.grid thead th.wk:hover{color:var(--accent)}
+table.grid thead th.blocked{background:repeating-linear-gradient(45deg,#efe9da,#efe9da 5px,#e2dccb 5px,#e2dccb 10px);color:var(--text3);text-decoration:line-through}
+table.grid td.blocked{background:rgba(0,0,0,0.045)!important;color:var(--text3)}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 4px 2px 9px;border-radius:20px;background:var(--warn-bg);color:var(--warn);border:1px solid var(--border2);margin:1px}
+.chip button{border:none;background:none;cursor:pointer;color:var(--warn);font-weight:700;font-size:13px;line-height:1;padding:0 3px}
 @media(max-width:700px){main{padding:12px}input{font-size:16px!important}}
 </style>
 </head>
@@ -80,6 +86,7 @@ table.grid td.total,table.grid th.total{font-weight:700;border-left:2px solid va
   <div class="header-right">
     <span class="pill" id="conn-pill">Not connected</span>
     <span class="pill" id="fc-pill" title="Sales Forecast published to the shared store">Forecast: —</span>
+    <span class="pill" id="basis-pill" title="Stock & unmatched orders published by the Production Planner">Planner basis: —</span>
     <button class="btn btn-secondary" onclick="toggleConn()">⚙ Connection</button>
     <button class="btn btn-secondary" onclick="exportCSV()">⬇ Year plan CSV</button>
     <button class="btn btn-primary" onclick="loadData()">↻ Refresh</button>
@@ -102,6 +109,8 @@ table.grid td.total,table.grid th.total{font-weight:700;border-left:2px solid va
     <div class="field"><label>Min A-MAX / family per PO</label><input type="number" id="f-minamax" style="width:120px" value="20" oninput="recompute()"/></div>
     <div class="field"><label>Production days</label><input type="number" id="f-prod" style="width:90px" value="12" oninput="recompute()"/></div>
     <div class="field"><label>Transit days</label><input type="number" id="f-lead" style="width:90px" value="2" oninput="recompute()"/></div>
+    <div class="field"><label>Produce everything by</label><input type="date" id="f-deadline" style="width:150px" oninput="recompute()"/><span class="hint">last production week</span></div>
+    <div class="field"><label>Level production (bikes/week)</label><input type="number" id="f-weekly" style="width:140px" min="0" placeholder="off" oninput="recompute()"/><span class="hint" id="weekly-hint">blank = follow seasonality</span></div>
     <div class="field" style="flex:1;min-width:160px"><span class="hint" id="basis-line"></span></div>
   </div>
 
@@ -124,8 +133,15 @@ table.grid td.total,table.grid th.total{font-weight:700;border-left:2px solid va
   <div class="view" id="view-year">
     <div class="kpis" id="year-kpis"></div>
     <div class="section">
-      <div class="section-title">Tentative weekly plan to 31 Dec <span class="tag" style="background:var(--purple-bg);color:var(--purple)">covers full forecast</span></div>
-      <div class="section-note">Each SKU's remaining forecast is spread across the weeks left in the year following the seasonality shape, then grouped into family POs that respect the minimum batch size. A value in a cell = bikes to <b>start producing</b> that week (they arrive ~production + transit days later). The current week is marked. Totals on the right should cover each SKU's forecast.</div>
+      <div class="section-title">Tentative weekly plan <span class="tag" id="year-deadline-tag" style="background:var(--purple-bg);color:var(--purple)">covers full forecast</span></div>
+      <div class="section-note" id="year-note"></div>
+      <div id="block-bar" style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;font-size:12px">
+        <span style="font-weight:600;color:var(--text2)">Blocked weeks (assembler off):</span>
+        <span id="block-chips"><span class="hint">none</span></span>
+        <button class="btn btn-secondary" onclick="clearBlocks()">Clear all</button>
+        <span class="hint" style="margin-left:4px">Click a week header in the table to block / unblock it.</span>
+      </div>
+      <div id="year-warn"></div>
       <div class="table-wrap"><div id="year-grid"></div></div>
     </div>
   </div>
@@ -137,8 +153,10 @@ const ODOO_URL='https://ahooga.odoo.com';
 const ODOO_DB ='logicasoft-aho-18-0-21599177';
 const CF_WORKER='https://ahooga-planner-proxy.massimiliano-d74.workers.dev';
 const LS_CFG='ahooga_pobuilder_cfg';
+const LS_BLOCK='ahooga_pobuilder_blocked';
 const IS_ONLINE = location.hostname!=='localhost' && location.hostname!=='127.0.0.1';
 let odooUid=null;
+let blockedWeeks=new Set();   // Monday dates (YYYY-MM-DD, local) blocked for production
 
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 //                Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec  (same tiered shape as the forecast)
@@ -157,6 +175,19 @@ const FAMILIES=[['emax','alfine'],['emax','derailleur'],['amax','alfine'],['amax
   .map(([bt,tr])=>({key:`${bt}|${tr}`, bt, tr, label:`${bt==='emax'?'E-MAX':'A-MAX'} ${tr.charAt(0).toUpperCase()+tr.slice(1)}`}));
 
 let forwardBySku={}, fcYear=null, fcUpdated=null;   // from the Sales Forecast app (KV)
+let unmatchedBySku={}, freeStockBySku={}, incomingBySku={}, inprodBySku={}, basisUpdated=null;  // from the Production Planner (KV)
+// Incoming over-production already on issued POs (beyond committed in-prod orders) → becomes free stock
+function incomingFree(sku){ return Math.max(0, (incomingBySku[sku]||0) - (inprodBySku[sku]||0)); }
+// Bikes still to produce per SKU:
+//   demand  = unmatched orders + extra forecast
+//   supply  = surplus free stock + incoming bikes already on open POs
+//   produce = max(0, demand − supply)
+function toProduce(sku){
+  const demand = (unmatchedBySku[sku]||0) + (forwardBySku[sku]||0);
+  const supply = (freeStockBySku[sku]||0) + incomingFree(sku);
+  return Math.max(0, demand - supply);
+}
+function totalToProduce(){ return SKUS.reduce((a,s)=>a+toProduce(s.key),0); }
 let orderbook=[];                                    // [{sku, remaining, due}]
 let weeks=[];                                        // [{monday:Date, iso, month, label, weight}]
 let yearGrid={};                                     // sku -> [qty per week index]
@@ -218,6 +249,11 @@ async function kvGet(key){
   try{ const r=await fetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`); const t=await r.text(); return t==='null'?null:JSON.parse(t); }
   catch(e){ console.warn('KV get failed',e); return null; }
 }
+async function kvSet(key,value){
+  if(!IS_ONLINE) return;
+  try{ await fetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)}); }
+  catch(e){ console.warn('KV set failed',e); }
+}
 
 // ── DETECTION (same rules as the planner / forecast) ─────────
 function detectColor(n){const l=(n||'').toLowerCase();if(l.includes('yellow')||l.includes('bumblebee'))return'yellow';if(l.includes('black')||l.includes('cosmic'))return'black';if(l.includes('red')||l.includes('ruby'))return'red';return'custom';}
@@ -255,13 +291,22 @@ function allocateByMix(weights, total){
   return out;
 }
 
-// ── BUILD THE WEEK AXIS (now → 31 Dec) ───────────────────────
+// ── BUILD THE WEEK AXIS (now → produce-by deadline, default 31 Oct) ──
+function getDeadline(){
+  const year=selectedYear();
+  const el=document.getElementById('f-deadline');
+  let d = el && el.value ? new Date(el.value+'T00:00:00') : new Date(year,9,31); // default 31 Oct
+  if(isNaN(d)) d=new Date(year,9,31);
+  const dec31=new Date(year,11,31);
+  if(d>dec31) d=dec31;
+  return d;
+}
 function buildWeeks(){
   const year=selectedYear();
   const now=new Date(); now.setHours(0,0,0,0);
   let start = (year===now.getFullYear()) ? mondayOf(now) : mondayOf(new Date(year,0,1));
   if(start.getFullYear()<year) start=mondayOf(new Date(year,0,1));
-  const end=new Date(year,11,31);
+  const end=getDeadline();
   weeks=[];
   for(let d=new Date(start); d<=end; d=addDays(d,7)){
     weeks.push({ monday:new Date(d), iso:isoWeek(d), month:d.getMonth(), label:'W'+isoWeek(d), weight:SEASON_FWD[d.getMonth()] });
@@ -274,19 +319,34 @@ function currentWeekIndex(){
   return (selectedYear()===new Date().getFullYear()) ? 0 : -1;
 }
 
-// pick n weeks spread across the year, weighted by seasonality
+// ── BLOCKED WEEKS (assembler holidays) ───────────────────────
+function ymd(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function weekKey(i){ return ymd(weeks[i].monday); }
+function isBlocked(i){ return blockedWeeks.has(weekKey(i)); }
+function availableWeekIdx(){ const o=[]; for(let i=0;i<weeks.length;i++) if(!isBlocked(i)) o.push(i); return o; }
+function blockedAllObj(){ let all={}; try{ all=JSON.parse(localStorage.getItem(LS_BLOCK)||'{}'); }catch(e){} return all; }
+function syncBlockedForYear(){ const all=blockedAllObj(); blockedWeeks=new Set(all[selectedYear()]||[]); }
+function saveBlocked(){ const all=blockedAllObj(); all[selectedYear()]=[...blockedWeeks]; try{ localStorage.setItem(LS_BLOCK, JSON.stringify(all)); }catch(e){} kvSet('po_blocked_weeks', all); }
+function toggleBlock(i){ const k=weekKey(i); if(blockedWeeks.has(k)) blockedWeeks.delete(k); else blockedWeeks.add(k); saveBlocked(); recompute(); }
+function unblockKey(d){ blockedWeeks.delete(d); saveBlocked(); recompute(); }
+function clearBlocks(){ blockedWeeks.clear(); saveBlocked(); recompute(); }
+async function loadBlocked(){ const kv=await kvGet('po_blocked_weeks'); if(kv && typeof kv==='object'){ try{ localStorage.setItem(LS_BLOCK, JSON.stringify(kv)); }catch(e){} } syncBlockedForYear(); }
+
+// pick n production weeks spread across the AVAILABLE (non-blocked) weeks, weighted by seasonality
 function pickSpreadWeeks(n){
-  n=Math.min(n, weeks.length);
-  const w=weeks.map(x=>x.weight); const tot=w.reduce((a,b)=>a+b,0)||1;
+  const av=availableWeekIdx();
+  if(!av.length) return [];
+  n=Math.min(n, av.length);
+  const w=av.map(i=>weeks[i].weight); const tot=w.reduce((a,b)=>a+b,0)||1;
   const cum=[]; let c=0; for(const x of w){ c+=x; cum.push(c); }
-  const chosen=new Set(); const idxs=[];
+  const chosen=new Set(); const out=[];
   for(let k=0;k<n;k++){
     const target=((k+0.5)/n)*tot;
-    let i=cum.findIndex(cv=>cv>=target); if(i<0) i=weeks.length-1;
-    let guard=0; while(chosen.has(i)){ i=(i+1)%weeks.length; if(++guard>weeks.length) break; }
-    chosen.add(i); idxs.push(i);
+    let j=cum.findIndex(cv=>cv>=target); if(j<0) j=av.length-1;
+    let guard=0; while(chosen.has(j)){ j=(j+1)%av.length; if(++guard>av.length) break; }
+    chosen.add(j); out.push(av[j]);
   }
-  idxs.sort((a,b)=>a-b); return idxs;
+  out.sort((a,b)=>a-b); return out;
 }
 // split a family total into n PO sizes, each >= minF, summing to >= total
 function sizePOs(total,n,minF){
@@ -316,6 +376,19 @@ async function loadData(){
       document.getElementById('fc-pill').className='pill err';
     }
 
+    const pb=await kvGet('production_basis');
+    if(pb && (pb.unmatchedBySku || pb.freeStockBySku || pb.incomingBySku)){
+      unmatchedBySku=pb.unmatchedBySku||{}; freeStockBySku=pb.freeStockBySku||{};
+      incomingBySku=pb.incomingBySku||{}; inprodBySku=pb.inprodBySku||{}; basisUpdated=pb.updated;
+      document.getElementById('basis-pill').textContent='Planner basis: '+(pb.updated?new Date(pb.updated).toLocaleDateString():'ok');
+      document.getElementById('basis-pill').className='pill ok';
+    } else {
+      unmatchedBySku={}; freeStockBySku={}; incomingBySku={}; inprodBySku={};
+      document.getElementById('basis-pill').textContent='Planner basis: none';
+      document.getElementById('basis-pill').className='pill err';
+    }
+
+    await loadBlocked();
     alert_('<span class="spinner"></span> Reading the open order book…','info');
     await loadOrderbook();
 
@@ -324,7 +397,10 @@ async function loadData(){
     document.getElementById('conn-pill').className='pill ok';
 
     recompute();
-    if(!fc || !fc.forwardBySku) alert_('Loaded, but no Sales Forecast has been published yet. Open the Sales Forecast app and let it load — then refresh here.','warn');
+    const miss=[];
+    if(!fc || !fc.forwardBySku) miss.push('Sales Forecast (open the Sales Forecast app)');
+    if(Object.keys(unmatchedBySku).length===0 && Object.keys(freeStockBySku).length===0) miss.push('Planner basis (run a Sync in the Production Planner)');
+    if(miss.length) alert_('Loaded, but missing: '+miss.join(' and ')+'. Numbers will be partial until both are published.','warn');
     else alert_('✓ Loaded.','success');
   }catch(e){
     document.getElementById('conn-pill').textContent='Error';
@@ -367,33 +443,74 @@ async function loadOrderbook(){
 
 // ── COMPUTE both tabs ────────────────────────────────────────
 function recompute(){
+  syncBlockedForYear();
   buildWeeks();
   buildYearPlan();
   renderYear();
   renderWeek();
   const fcTot=Object.values(forwardBySku).reduce((a,b)=>a+(b||0),0);
+  const dl=getDeadline().toLocaleDateString('en-GB');
+  const avail=availableWeekIdx().length;
+  const prod=totalToProduce();
+  const evenRate=avail?Math.ceil(prod/avail):0;
+  const tgt=targetPerWeek();
+  document.getElementById('weekly-hint').textContent = tgt>0
+    ? `≈ ${evenRate}/wk needed to finish by ${dl}`
+    : `blank = seasonality · ≈ ${evenRate}/wk would level it`;
   document.getElementById('basis-line').innerHTML =
-    `Forecast to cover: <b>${fmt(fcTot)}</b> bikes · ${weeks.length} weeks to 31 Dec · arrive ≈ ${arrivalDays()} days after PO`;
+    `To produce: <b>${fmt(prod)}</b> bikes (unmatched + forecast − surplus stock − already on PO) · ${avail} weeks to ${dl}${blockedWeeks.size?` · ${blockedWeeks.size} blocked`:''}${tgt>0?` · level ${tgt}/wk`:''}`;
   saveCfg();
 }
 
-// Year plan: spread each family's forecast across weeks, in min-batch POs
+function targetPerWeek(){ const v=parseInt(document.getElementById('f-weekly').value); return v>0?v:0; }
+
+// Year plan: produce (unmatched orders + forecast − surplus stock) per SKU.
+// Two modes: level production (fixed bikes/week) or seasonality-weighted batches.
 function buildYearPlan(){
   yearGrid={}; for(const s of SKUS) yearGrid[s.key]=Array(weeks.length).fill(0);
+  const av=availableWeekIdx();
+  if(!av.length) return;
+  const target=targetPerWeek();
+
+  // Build atomic family PO chunks (each ≥ min batch), with their SKU split by the to-produce mix.
+  const chunks=[];   // {bt, size, alloc:{sku:qty}}
   for(const fam of FAMILIES){
     const skusF=SKUS.filter(s=>s.fam===fam.key);
-    const totalF=skusF.reduce((a,s)=>a+(forwardBySku[s.key]||0),0);
+    const totalF=skusF.reduce((a,s)=>a+toProduce(s.key),0);
     if(totalF<=0) continue;
     const minF=minFor(fam.bt);
-    let n=Math.max(1, Math.floor(totalF/minF));
-    n=Math.min(n, weeks.length);
-    const idxs=pickSpreadWeeks(n);
-    const sizes=sizePOs(totalF, idxs.length, minF);
-    const weights={}; for(const s of skusF) weights[s.key]=forwardBySku[s.key]||0;
-    idxs.forEach((wi,j)=>{
-      const alloc=allocateByMix(weights, sizes[j]);
-      for(const s of skusF) yearGrid[s.key][wi]+=alloc[s.key]||0;
-    });
+    const nChunks=Math.max(1, Math.round(totalF/minF));
+    const sizes=sizePOs(totalF, nChunks, minF);
+    const weights={}; for(const s of skusF) weights[s.key]=toProduce(s.key);
+    for(const sz of sizes) chunks.push({ bt:fam.bt, size:sz, alloc:allocateByMix(weights, sz) });
+  }
+  if(!chunks.length) return;
+
+  if(target>0){
+    // LEVEL MODE — pack chunks into the available weeks keeping each ≈ target bikes/week.
+    chunks.sort((a,b)=>b.size-a.size);   // place big chunks first
+    const load=av.map(()=>0);
+    for(const ch of chunks){
+      let p=load.findIndex(l=>l+ch.size<=target);
+      if(p<0){ p=0; for(let i=1;i<load.length;i++) if(load[i]<load[p]) p=i; }  // else least-loaded week
+      load[p]+=ch.size;
+      const wi=av[p];
+      for(const [sku,q] of Object.entries(ch.alloc)) yearGrid[sku][wi]+=q;
+    }
+  } else {
+    // SEASONAL MODE — spread family POs across the year by seasonality.
+    for(const fam of FAMILIES){
+      const skusF=SKUS.filter(s=>s.fam===fam.key);
+      const totalF=skusF.reduce((a,s)=>a+toProduce(s.key),0);
+      if(totalF<=0) continue;
+      const minF=minFor(fam.bt);
+      const n=Math.max(1, Math.floor(totalF/minF));
+      const idxs=pickSpreadWeeks(n);
+      if(!idxs.length) continue;
+      const sizes=sizePOs(totalF, idxs.length, minF);
+      const weights={}; for(const s of skusF) weights[s.key]=toProduce(s.key);
+      idxs.forEach((wi,j)=>{ const alloc=allocateByMix(weights, sizes[j]); for(const s of skusF) yearGrid[s.key][wi]+=alloc[s.key]||0; });
+    }
   }
 }
 
@@ -403,24 +520,42 @@ function renderYear(){
   const body=SKUS.map(s=>{
     let rt=0;
     const cells=weeks.map((wk,wi)=>{ const val=yearGrid[s.key][wi]||0; rt+=val; colTot[wi]+=val;
-      const cls=[ val?'has':'zero', wi===ci?'cur':'' ].filter(Boolean).join(' ');
+      const cls=[ val?'has':'zero', wi===ci?'cur':'', isBlocked(wi)?'blocked':'' ].filter(Boolean).join(' ');
       return `<td class="${cls}" title="${wk.monday.toLocaleDateString('en-GB')} · ${wk.label}">${fmt(val)}</td>`;
     }).join('');
     grand+=rt;
     return `<tr><td class="sku"><span class="dot" style="background:${COLOR_HEX[s.color]}"></span>${s.label} · ${s.col} · ${s.rkl}</td>${cells}<td class="total">${fmt(rt)}</td></tr>`;
   }).join('');
-  const head=`<tr><th class="sku">SKU (32)</th>${weeks.map((wk,wi)=>`<th class="${wi===ci?'cur':''}" title="${wk.monday.toLocaleDateString('en-GB')}">${wk.label}</th>`).join('')}<th class="total">Year</th></tr>`;
-  const foot=`<tr><th class="sku">Total</th>${colTot.map((c,wi)=>`<td class="total ${wi===ci?'cur':''}">${fmt(c)}</td>`).join('')}<td class="total">${fmt(grand)}</td></tr>`;
+  const head=`<tr><th class="sku">SKU (32)</th>${weeks.map((wk,wi)=>`<th class="wk ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}" onclick="toggleBlock(${wi})" title="${wk.monday.toLocaleDateString('en-GB')}${isBlocked(wi)?' · blocked — click to unblock':' · click to block (assembler off)'}">${wk.label}</th>`).join('')}<th class="total">Year</th></tr>`;
+  const foot=`<tr><th class="sku">Total</th>${colTot.map((c,wi)=>`<td class="total ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}">${fmt(c)}</td>`).join('')}<td class="total">${fmt(grand)}</td></tr>`;
   document.getElementById('year-grid').innerHTML=`<table class="grid"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table>`;
 
-  const planned=grand, fcTot=Object.values(forwardBySku).reduce((a,b)=>a+(b||0),0);
-  const nPOs=weeks.reduce((a,_,wi)=>{ let p=0; for(const fam of FAMILIES){ if(SKUS.filter(s=>s.fam===fam.key).reduce((x,s)=>x+(yearGrid[s.key][wi]||0),0)>0) p++; } return a+p; },0);
+  // blocked-week chips + deadline note
+  const chips=[...blockedWeeks].sort().map(d=>`<span class="chip">${new Date(d+'T00:00:00').toLocaleDateString('en-GB')}<button onclick="unblockKey('${d}')" title="unblock">×</button></span>`).join('');
+  document.getElementById('block-chips').innerHTML = chips || '<span class="hint">none</span>';
+  const dl=getDeadline().toLocaleDateString('en-GB');
+  const tgt=targetPerWeek();
+  document.getElementById('year-deadline-tag').textContent='produced by '+dl;
+  const basisTxt = `Each SKU's <b>to-produce</b> = unmatched orders + extra forecast, minus surplus stock and bikes already on open POs (shown in Bikes Coming Next).`;
+  document.getElementById('year-note').innerHTML = tgt>0
+    ? `${basisTxt} Production is <b>levelled to ≈ ${tgt} bikes/week</b>, packed into the open weeks up to <b>${dl}</b> (family POs kept at or above the minimum batch). A cell = bikes to <b>start producing</b> that week. Blocked weeks carry no production.`
+    : `${basisTxt} It is spread across the open weeks up to <b>${dl}</b> by seasonality, grouped into family POs at or above the minimum batch. Set a <b>level production</b> rate above to even out the weekly load. A cell = bikes to <b>start producing</b> that week.`;
+
+  const planned=grand;
+  const peak=Math.max(0,...colTot);
+  const usedWeeks=colTot.filter(c=>c>0).length;
+  const incTot=Object.values(incomingBySku).reduce((a,b)=>a+(b||0),0);
   const k=(l,vv,sub,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${vv}</div>${sub?`<div class="kpi-label" style="margin-top:4px">${sub}</div>`:''}</div>`;
   document.getElementById('year-kpis').innerHTML=
-    k('Forecast to cover', fmt(fcTot),'bikes, all SKUs',null)+
-    k('Planned production', fmt(planned),'rounded up to batches','var(--purple)')+
-    k('Purchase orders', nPOs,'across the year','var(--accent)')+
-    k('Weeks remaining', weeks.length,'to 31 Dec','var(--success)');
+    k('To produce', fmt(planned),'unmatched + net forecast','var(--purple)')+
+    k('Already on order', fmt(incTot),'on open POs · netted out','var(--accent)')+
+    k('Busiest week', fmt(peak), tgt>0?`target ${tgt}/wk`:'bikes',null)+
+    k('Production weeks', usedWeeks,`of ${availableWeekIdx().length} open`,null)+
+    k('Last production', getDeadline().toLocaleDateString('en-GB'),'everything done by','var(--success)');
+
+  document.getElementById('year-warn').innerHTML = (tgt>0 && peak>tgt)
+    ? `<div class="alert alert-warn">⚠ At ${tgt} bikes/week the plan can't all fit before ${dl} — the busiest week reaches <b>${fmt(peak)}</b>. Raise the weekly rate, push the deadline, or unblock weeks to smooth it out.</div>`
+    : '';
 }
 
 // This-week proposal: committed orders in the production window + batch top-up
@@ -451,7 +586,7 @@ function renderWeek(){
     const weights={};
     for(const c of FILL_COLS) for(const r of FILL_RKS){
       const key=`${fam.key}|${c}|${r}`;
-      weights[`${c}|${r}`]=Math.max(0,(forwardBySku[key]||0)-(comm[key]||0));
+      weights[`${c}|${r}`]=Math.max(0, toProduce(key)-(comm[key]||0));
     }
     const fillAlloc=allocateByMix(weights, fillerN);
     // assemble per-SKU breakdown
@@ -470,13 +605,14 @@ function renderWeek(){
     k('Committed (urgent)', fmt(urgentTotal),`due ≤ ${arrivalDays()} days`,'var(--success)')+
     k('Expected arrival', arrival.toLocaleDateString('en-GB'),`+${arrivalDays()} days`,null);
 
+  const blockMsg = (ci>=0 && isBlocked(ci)) ? `<div class="alert alert-warn">⚠ The current week is blocked (assembler off). No production should start now — cover the orders below in the next open week.</div>` : '';
   if(!proposals.length){
-    document.getElementById('week-content').innerHTML =
+    document.getElementById('week-content').innerHTML = blockMsg +
       `<div class="alert alert-success">✓ No purchase order needs to be placed this week — no committed deliveries fall inside the production window, and the year plan has nothing scheduled for the current week.</div>`;
     return;
   }
   const skuLabel=k=>{ const s=SKUS.find(x=>x.key===k); return s?`<span class="dot" style="background:${COLOR_HEX[s.color]}"></span>${s.label} · ${s.col} · ${s.rkl}`:k; };
-  document.getElementById('week-content').innerHTML = proposals.map(p=>{
+  document.getElementById('week-content').innerHTML = blockMsg + proposals.map(p=>{
     const skus=Object.keys(p.rows).filter(k=>p.rows[k]>0).sort((a,b)=>p.rows[b]-p.rows[a]);
     const rowsHtml=skus.map(sku=>{
       const total=p.rows[sku], comm=p.comm[sku]||0, fill=Math.max(0,total-comm);
@@ -523,7 +659,9 @@ function saveCfg(){
     minemax:document.getElementById('f-minemax').value,
     minamax:document.getElementById('f-minamax').value,
     prod:document.getElementById('f-prod').value,
-    lead:document.getElementById('f-lead').value
+    lead:document.getElementById('f-lead').value,
+    deadline:document.getElementById('f-deadline').value,
+    weekly:document.getElementById('f-weekly').value
   })); }catch(e){}
 }
 function loadCfg(){
@@ -532,11 +670,15 @@ function loadCfg(){
   let fc={}; try{ fc=JSON.parse(localStorage.getItem('ahooga_forecast_cfg')||'{}'); }catch(e){}
   document.getElementById('cfg-user').value=c.user||fc.user||'';
   document.getElementById('cfg-key').value=c.key||fc.key||'';
-  document.getElementById('f-year').value=new Date().getFullYear();
+  const y=new Date().getFullYear();
+  document.getElementById('f-year').value=y;
   document.getElementById('f-minemax').value=c.minemax||40;
   document.getElementById('f-minamax').value=c.minamax||20;
   document.getElementById('f-prod').value=c.prod||12;
   document.getElementById('f-lead').value=c.lead||2;
+  document.getElementById('f-deadline').value=c.deadline||(y+'-10-31');
+  document.getElementById('f-weekly').value=c.weekly||'';
+  syncBlockedForYear();
 }
 
 // ── INIT ─────────────────────────────────────────────────────
