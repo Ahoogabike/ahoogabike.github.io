@@ -175,6 +175,7 @@ const FAMILIES=[['emax','alfine'],['emax','derailleur'],['amax','alfine'],['amax
   .map(([bt,tr])=>({key:`${bt}|${tr}`, bt, tr, label:`${bt==='emax'?'E-MAX':'A-MAX'} ${tr.charAt(0).toUpperCase()+tr.slice(1)}`}));
 
 let forwardBySku={}, fcYear=null, fcUpdated=null;   // from the Sales Forecast app (KV)
+let forwardMonthlyBySku={};   // sku -> [12] forward demand by month (timing), from the Forecast app
 let unmatchedBySku={}, freeStockBySku={}, incomingBySku={}, inprodBySku={}, basisUpdated=null;  // from the Production Planner (KV)
 // Incoming over-production already on issued POs (beyond committed in-prod orders) → becomes free stock
 function incomingFree(sku){ return Math.max(0, (incomingBySku[sku]||0) - (inprodBySku[sku]||0)); }
@@ -188,6 +189,27 @@ function toProduce(sku){
   return Math.max(0, demand - supply);
 }
 function totalToProduce(){ return SKUS.reduce((a,s)=>a+toProduce(s.key),0); }
+
+// Publish the weekly production plan (per bike family) so the Parts Stock app can
+// project component stock forward. Family codes match the Parts Stock app.
+let _planTimer=null;
+function schedulePlanPublish(){ clearTimeout(_planTimer); _planTimer=setTimeout(publishPlan, 800); }
+function publishPlan(){
+  if(!IS_ONLINE) return;
+  const CODE={ 'emax|alfine':'EMA','emax|derailleur':'EMD','amax|alfine':'AMA','amax|derailleur':'AMD' };
+  const byFam={EMA:[],EMD:[],AMA:[],AMD:[]};
+  for(const fam of FAMILIES){
+    const code=CODE[fam.key]; if(!code) continue;
+    const skusF=SKUS.filter(s=>s.fam===fam.key);
+    byFam[code]=weeks.map((_,wi)=>skusF.reduce((a,s)=>a+(yearGrid[s.key][wi]||0),0));
+  }
+  kvSet('production_plan', {
+    year:selectedYear(), updated:new Date().toISOString(),
+    deadline:ymd(getDeadline()), weekly:targetPerWeek(),
+    weeks:weeks.map(w=>({monday:ymd(w.monday), label:w.label, iso:w.iso})),
+    byFam
+  });
+}
 let orderbook=[];                                    // [{sku, remaining, due}]
 let weeks=[];                                        // [{monday:Date, iso, month, label, weight}]
 let yearGrid={};                                     // sku -> [qty per week index]
@@ -368,10 +390,11 @@ async function loadData(){
     alert_('<span class="spinner"></span> Reading the published Sales Forecast…','info');
     const fc=await kvGet('sales_forecast');
     if(fc && fc.forwardBySku){ forwardBySku=fc.forwardBySku; fcYear=fc.year; fcUpdated=fc.updated;
+      forwardMonthlyBySku=fc.forwardBySkuMonthly||{};
       document.getElementById('fc-pill').textContent='Forecast: '+(fc.year||'?')+(fc.updated?(' · '+new Date(fc.updated).toLocaleDateString()):'');
       document.getElementById('fc-pill').className='pill ok';
     } else {
-      forwardBySku={};
+      forwardBySku={}; forwardMonthlyBySku={};
       document.getElementById('fc-pill').textContent='Forecast: none';
       document.getElementById('fc-pill').className='pill err';
     }
@@ -456,60 +479,118 @@ function recompute(){
   const tgt=targetPerWeek();
   document.getElementById('weekly-hint').textContent = tgt>0
     ? `≈ ${evenRate}/wk needed to finish by ${dl}`
-    : `blank = seasonality · ≈ ${evenRate}/wk would level it`;
+    : `blank = timed to monthly demand · ≈ ${evenRate}/wk would level it`;
   document.getElementById('basis-line').innerHTML =
     `To produce: <b>${fmt(prod)}</b> bikes (unmatched + forecast − surplus stock − already on PO) · ${avail} weeks to ${dl}${blockedWeeks.size?` · ${blockedWeeks.size} blocked`:''}${tgt>0?` · level ${tgt}/wk`:''}`;
   saveCfg();
+  schedulePlanPublish();
 }
 
 function targetPerWeek(){ const v=parseInt(document.getElementById('f-weekly').value); return v>0?v:0; }
+function hasMonthly(){ return forwardMonthlyBySku && Object.keys(forwardMonthlyBySku).length>0; }
 
-// Year plan: produce (unmatched orders + forecast − surplus stock) per SKU.
-// Two modes: level production (fixed bikes/week) or seasonality-weighted batches.
-function buildYearPlan(){
-  yearGrid={}; for(const s of SKUS) yearGrid[s.key]=Array(weeks.length).fill(0);
-  const av=availableWeekIdx();
-  if(!av.length) return;
-  const target=targetPerWeek();
+// The demand-month a bike STARTED in week wi becomes available to sell (production + transit later).
+function readyMonthOfWeek(wi){
+  const d=addDays(weeks[wi].monday, arrivalDays());
+  if(d.getFullYear()>selectedYear()) return 11;     // spills past the plan year → treat as December
+  return d.getMonth();
+}
 
-  // Build atomic family PO chunks (each ≥ min batch), with their SKU split by the to-produce mix.
-  const chunks=[];   // {bt, size, alloc:{sku:qty}}
-  for(const fam of FAMILIES){
-    const skusF=SKUS.filter(s=>s.fam===fam.key);
-    const totalF=skusF.reduce((a,s)=>a+toProduce(s.key),0);
-    if(totalF<=0) continue;
-    const minF=minFor(fam.bt);
-    const nChunks=Math.max(1, Math.round(totalF/minF));
-    const sizes=sizePOs(totalF, nChunks, minF);
-    const weights={}; for(const s of skusF) weights[s.key]=toProduce(s.key);
-    for(const sz of sizes) chunks.push({ bt:fam.bt, size:sz, alloc:allocateByMix(weights, sz) });
-  }
-  if(!chunks.length) return;
-
-  if(target>0){
-    // LEVEL MODE — pack chunks into the available weeks keeping each ≈ target bikes/week.
-    chunks.sort((a,b)=>b.size-a.size);   // place big chunks first
-    const load=av.map(()=>0);
-    for(const ch of chunks){
-      let p=load.findIndex(l=>l+ch.size<=target);
-      if(p<0){ p=0; for(let i=1;i<load.length;i++) if(load[i]<load[p]) p=i; }  // else least-loaded week
-      load[p]+=ch.size;
-      const wi=av[p];
-      for(const [sku,q] of Object.entries(ch.alloc)) yearGrid[sku][wi]+=q;
+// Per-SKU per-week production need, timed to the forecast's monthly demand.
+//   • committed unmatched orders → produce ASAP (first open week)
+//   • each month's forecast → produced in the weeks that *feed* that month (month − lead time)
+//   • surplus stock + incoming-on-PO absorb the earliest forecast first
+function buildTimedNeed(){
+  const W=weeks.length;
+  const need={}; for(const s of SKUS) need[s.key]=Array(W).fill(0);
+  // which weeks feed each demand-month
+  const weeksForMonth={};
+  for(let wi=0;wi<W;wi++){ const m=readyMonthOfWeek(wi); (weeksForMonth[m]=weeksForMonth[m]||[]).push(wi); }
+  const lastReady=W?readyMonthOfWeek(W-1):11;
+  const firstOpen=()=>{ for(let i=0;i<W;i++) if(!isBlocked(i)) return i; return 0; };
+  for(const s of SKUS){
+    const row=forwardMonthlyBySku[s.key]||[];
+    // committed orders → ASAP
+    const um=unmatchedBySku[s.key]||0; if(um>0) need[s.key][firstOpen()]+=um;
+    // surplus available now absorbs the soonest forecast
+    let surplus=(freeStockBySku[s.key]||0)+incomingFree(s.key);
+    for(let m=0;m<12;m++){
+      let q=row[m]||0; if(q<=0) continue;
+      const use=Math.min(surplus,q); surplus-=use; q-=use; if(q<=0) continue;
+      let ws=weeksForMonth[m];
+      if(!ws||!ws.length) ws=[ m>lastReady ? (W-1) : firstOpen() ];   // beyond deadline → last week; too soon → ASAP
+      const per=q/ws.length;
+      for(const wi of ws) need[s.key][wi]+=per;
     }
-  } else {
-    // SEASONAL MODE — spread family POs across the year by seasonality.
+  }
+  return need;
+}
+
+// Year plan: schedule production to demand timing, grouped into family POs (≥ min batch),
+// optionally levelled to a fixed bikes/week, skipping blocked weeks.
+function buildYearPlan(){
+  const W=weeks.length;
+  yearGrid={}; for(const s of SKUS) yearGrid[s.key]=Array(W).fill(0);
+  if(!availableWeekIdx().length) return;
+
+  // Fallback for old forecast publishes with no monthly breakdown: seasonality spread.
+  if(!hasMonthly()){
     for(const fam of FAMILIES){
       const skusF=SKUS.filter(s=>s.fam===fam.key);
-      const totalF=skusF.reduce((a,s)=>a+toProduce(s.key),0);
-      if(totalF<=0) continue;
+      const totalF=skusF.reduce((a,s)=>a+toProduce(s.key),0); if(totalF<=0) continue;
       const minF=minFor(fam.bt);
-      const n=Math.max(1, Math.floor(totalF/minF));
-      const idxs=pickSpreadWeeks(n);
-      if(!idxs.length) continue;
+      const idxs=pickSpreadWeeks(Math.max(1,Math.floor(totalF/minF))); if(!idxs.length) continue;
       const sizes=sizePOs(totalF, idxs.length, minF);
       const weights={}; for(const s of skusF) weights[s.key]=toProduce(s.key);
-      idxs.forEach((wi,j)=>{ const alloc=allocateByMix(weights, sizes[j]); for(const s of skusF) yearGrid[s.key][wi]+=alloc[s.key]||0; });
+      idxs.forEach((wi,j)=>{ const a=allocateByMix(weights, sizes[j]); for(const s of skusF) yearGrid[s.key][wi]+=a[s.key]||0; });
+    }
+    return;
+  }
+
+  const need=buildTimedNeed();
+  const target=targetPerWeek();
+
+  // Group each family's timed need into min-batch POs as the need accrues week by week.
+  for(const fam of FAMILIES){
+    const skusF=SKUS.filter(s=>s.fam===fam.key);
+    const minF=minFor(fam.bt);
+    const cap = target>0 ? Math.max(target, minF) : Infinity;
+    const accSku={}; for(const s of skusF) accSku[s.key]=0;
+    const accTot=()=>skusF.reduce((a,s)=>a+accSku[s.key],0);
+    const load=Array(W).fill(0);
+    const doEmit=(wi,size)=>{
+      const a=allocateByMix(accSku, size);
+      for(const s of skusF) yearGrid[s.key][wi]+=a[s.key]||0;
+      const rem=Math.max(0, accTot()-size), scale=accTot()>0?rem/accTot():0;
+      for(const s of skusF) accSku[s.key]*=scale;
+      load[wi]+=size;
+    };
+    // place a PO as late as possible at/before the preferred week, respecting the weekly cap;
+    // spill earlier when the preferred week is full or blocked, then forward as a last resort.
+    const place=(pref,size)=>{
+      pref=Math.max(0, Math.min(pref, W-1));
+      let wi=pref;
+      while(wi>=0 && (isBlocked(wi) || (cap!==Infinity && load[wi]+size>cap))) wi--;
+      if(wi<0){ wi=pref+1; while(wi<W && (isBlocked(wi) || (cap!==Infinity && load[wi]+size>cap))) wi++; }
+      if(wi<0 || wi>=W){ wi=pref; while(wi<W && isBlocked(wi)) wi++; if(wi>=W){ wi=pref; while(wi>=0 && isBlocked(wi)) wi--; } }
+      if(wi>=0 && wi<W) doEmit(wi, size);
+    };
+    let lastNeedWi=-1;
+    for(let wi=0; wi<W; wi++){
+      let added=0;
+      for(const s of skusF){ const n=need[s.key][wi]; accSku[s.key]+=n; added+=n; }
+      if(added>0) lastNeedWi=wi;
+      while(accTot()>=minF){
+        let size = cap!==Infinity ? Math.min(cap, Math.round(accTot())) : Math.round(accTot());
+        if(size<minF) size=minF;
+        place(wi, size);
+      }
+    }
+    // leftover demand → final PO at the latest open week at/before the last demand
+    if(accTot()>0.5){
+      let size=Math.max(minF, Math.round(accTot()));
+      if(cap!==Infinity) size=Math.min(size, cap);
+      place(lastNeedWi<0?W-1:lastNeedWi, size);
     }
   }
 }
@@ -537,9 +618,12 @@ function renderYear(){
   const tgt=targetPerWeek();
   document.getElementById('year-deadline-tag').textContent='produced by '+dl;
   const basisTxt = `Each SKU's <b>to-produce</b> = unmatched orders + extra forecast, minus surplus stock and bikes already on open POs (shown in Bikes Coming Next).`;
+  const timeTxt = hasMonthly()
+    ? `Production is <b>timed to the forecast's monthly demand</b> — each SKU is built in the weeks that feed the month it's needed (allowing ≈ ${arrivalDays()} days production + transit), and anything due after ${dl} is pulled forward to land by then.`
+    : `Production is spread by seasonality (the forecast app hasn't published a monthly breakdown yet — refresh it to enable demand-timed planning).`;
   document.getElementById('year-note').innerHTML = tgt>0
-    ? `${basisTxt} Production is <b>levelled to ≈ ${tgt} bikes/week</b>, packed into the open weeks up to <b>${dl}</b> (family POs kept at or above the minimum batch). A cell = bikes to <b>start producing</b> that week. Blocked weeks carry no production.`
-    : `${basisTxt} It is spread across the open weeks up to <b>${dl}</b> by seasonality, grouped into family POs at or above the minimum batch. Set a <b>level production</b> rate above to even out the weekly load. A cell = bikes to <b>start producing</b> that week.`;
+    ? `${basisTxt} ${timeTxt} It is then <b>levelled to ≈ ${tgt} bikes/week</b> in family POs at or above the minimum batch. A cell = bikes to <b>start producing</b> that week. Blocked weeks carry no production.`
+    : `${basisTxt} ${timeTxt} POs are grouped per family at or above the minimum batch. Set a <b>level production</b> rate above to cap the weekly load. A cell = bikes to <b>start producing</b> that week.`;
 
   const planned=grand;
   const peak=Math.max(0,...colTot);
