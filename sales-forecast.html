@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ahooga Sales Forecast</title>
+<style>
+:root{--bg:#f2f1ed;--surface:#fff;--surface2:#f0efe9;--border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);--text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#1a4fa0;--accent-bg:#e6f0fb;--success:#2d6e2d;--success-bg:#eaf3de;--warn:#7a4e0a;--warn-bg:#faeeda;--danger:#8b1f1f;--danger-bg:#fcebeb;--purple:#3c3489;--purple-bg:#eeedfe;--radius:10px;--radius-sm:6px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Georgia,serif;background:var(--bg);color:var(--text);font-size:14px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:52px;gap:12px;position:sticky;top:0;z-index:100}
+.logo{font-size:17px;font-weight:bold}.logo span{color:var(--accent)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--text3);border:1px solid var(--border2)}
+.pill.ok{background:var(--success-bg);color:var(--success)}
+.pill.err{background:var(--danger-bg);color:var(--danger)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;font-weight:600;cursor:pointer;border:none}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+main{padding:20px;max-width:1600px;margin:0 auto}
+.controls{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text2);font-weight:600}
+.field input{padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;background:var(--surface)}
+.field input:focus{border-color:var(--accent)}
+.field .hint{font-size:10px;color:var(--text3)}
+.conn-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;max-width:520px;display:none}
+.conn-panel.open{display:block}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px}
+.kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:4px}
+.kpi-value{font-size:21px;font-weight:700}
+.section{margin-bottom:26px}
+.section-title{font-size:15px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.section-note{font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.5}
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface)}
+table.grid{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+table.grid th,table.grid td{border-bottom:1px solid var(--border);border-right:1px solid var(--border);padding:5px 8px;font-size:12px;text-align:right;white-space:nowrap}
+table.grid thead th{background:var(--surface2);color:var(--text2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.03em;position:sticky;top:0;z-index:5}
+table.grid th.sku,table.grid td.sku{text-align:left;position:sticky;left:0;background:var(--surface);z-index:4;min-width:210px;font-weight:600;border-right:2px solid var(--border2)}
+table.grid thead th.sku{z-index:6;background:var(--surface2)}
+table.grid tr:hover td{background:var(--surface2)}
+table.grid tr:hover td.sku{background:var(--surface2)}
+table.grid td.zero{color:var(--text3)}
+table.grid td.past{background:rgba(0,0,0,0.015)}
+table.grid td.fcst{color:var(--purple)}
+table.grid tfoot td,table.grid tfoot th{background:var(--surface2);font-weight:700;border-top:2px solid var(--border2)}
+table.grid td.total,table.grid th.total{font-weight:700;border-left:2px solid var(--border2);background:rgba(26,79,160,0.05)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px;border:1px solid rgba(0,0,0,0.15)}
+.alert{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:12px}
+.alert-info{background:var(--accent-bg);color:var(--accent)}
+.alert-warn{background:var(--warn-bg);color:var(--warn)}
+.alert-success{background:var(--success-bg);color:var(--success)}
+.alert-danger{background:var(--danger-bg);color:var(--danger)}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--accent-bg);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.legend{font-size:11px;color:var(--text3);margin-top:6px}
+.tag{font-size:10px;padding:2px 7px;border-radius:20px;background:var(--surface2);color:var(--text2);border:1px solid var(--border2)}
+@media(max-width:700px){main{padding:12px}input{font-size:16px!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>Sales Forecast</span></div>
+  <div class="header-right">
+    <span class="pill" id="conn-pill">Not connected</span>
+    <span class="pill" id="pub-pill" title="Whether the forecast has been shared with the Production Planner">Not published</span>
+    <button class="btn btn-secondary" onclick="toggleConn()">⚙ Connection</button>
+    <button class="btn btn-secondary" onclick="exportCSV()">⬇ CSV</button>
+    <button class="btn btn-primary" onclick="loadData()">↻ Refresh</button>
+  </div>
+</header>
+
+<main>
+  <div id="alert-box"></div>
+
+  <div class="conn-panel" id="conn-panel">
+    <h2 style="font-size:15px;font-weight:700;margin-bottom:12px">Odoo Connection</h2>
+    <div class="field" style="margin-bottom:10px"><label>Your Odoo email</label><input type="text" id="cfg-user" placeholder="yourname@ahooga.bike"/></div>
+    <div class="field" style="margin-bottom:10px"><label>API Key</label><input type="password" id="cfg-key" placeholder="your-api-key"/><span class="hint">Odoo → My Profile → Account Security → New API Key</span></div>
+    <button class="btn btn-primary" onclick="loadData()">Connect &amp; load</button>
+  </div>
+
+  <div class="controls">
+    <div class="field"><label>Year</label><input type="number" id="f-year" style="width:90px" oninput="recompute()"/></div>
+    <div class="field"><label>Annual target (optional)</label><input type="number" id="f-target" style="width:130px" placeholder="auto from YTD" oninput="recompute()"/><span class="hint">blank = projected from YTD × seasonality</span></div>
+    <div class="field" style="flex:1;min-width:200px"><label>Effective monthly mix (past = actual, forward = seasonality)</label><span class="hint" id="season-line"></span></div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="section">
+    <div class="section-title">1 · Invoiced bikes <span class="tag">actuals, fills in as the year goes</span></div>
+    <div class="section-note">Posted customer invoices (net of credit notes) for MAX Alfine/Derailleur bikes, by SKU and by invoice month.</div>
+    <div class="table-wrap"><div id="t1"></div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">2 · Order book — expected deliveries <span class="tag">committed</span></div>
+    <div class="section-note">Open sales orders (not yet delivered), placed in the month their delivery is expected (Odoo delivery/commitment date). Remaining quantity only.</div>
+    <div class="table-wrap"><div id="t2"></div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">3 · Forecast going forward <span class="tag" style="background:var(--purple-bg);color:var(--purple)">generative</span></div>
+    <div class="section-note">SKU mix from YTD invoiced + order book. Past months use the real invoiced shares; forward months follow the tiered seasonality (Apr/May/Jun strongest → Mar/Jul/Sep → Aug/Feb/Oct → Jan/Nov/Dec), scaled to the run-rate the actuals imply, up to the projected annual total, and net of bikes already invoiced or on the order book that month.</div>
+    <div class="table-wrap"><div id="t3"></div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">4 · Full-year invoiced projection <span class="tag" style="background:var(--purple-bg);color:var(--purple)">actuals + forecast → 31 Dec</span></div>
+    <div class="section-note">How the year is projected to finish: each past month shows the real invoiced bikes, each remaining month shows the projected invoiced (seasonality × SKU mix). The Year column is the projected total invoiced at 31 December. Rolls automatically — in Jan 2027 it shows the 2027 projection.</div>
+    <div class="table-wrap"><div id="t4"></div></div>
+  </div>
+</main>
+
+<script>
+// ── CONFIG (shared with the other Ahooga apps) ───────────────
+const ODOO_URL='https://ahooga.odoo.com';
+const ODOO_DB ='logicasoft-aho-18-0-21599177';
+const CF_WORKER='https://ahooga-planner-proxy.massimiliano-d74.workers.dev';
+const LS_CFG='ahooga_forecast_cfg';
+let odooUid=null;
+
+// ── SHARED STATE via Cloudflare KV (same store the Production Planner reads) ──
+// The planner's computeForecastPools() does kvGet('sales_forecast') and expects
+//   { forwardBySku:{ "<bt>|<tr>|<colour>|<rack>": <number>, ... }, year, updated }
+// where each value is the *forecast going forward* for that SKU (Table 3),
+// i.e. net of what's already invoiced or on the order book. We publish exactly
+// that here so the planner's PO proposal builds free-stock filler from the real
+// per-SKU forecast instead of falling back to the rough live colour/rack mix.
+const IS_ONLINE = location.hostname!=='localhost' && location.hostname!=='127.0.0.1';
+let _fcDataLoaded=false, _publishTimer=null;
+
+async function kvSet(key, value){
+  if(!IS_ONLINE) return false;
+  const r = await fetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`,{
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(value)
+  });
+  if(!r.ok) throw new Error('store responded '+r.status);
+  return true;
+}
+
+function setPubPill(text, cls){
+  const el=document.getElementById('pub-pill');
+  if(!el) return;
+  el.textContent=text;
+  el.className='pill'+(cls?(' '+cls):'');
+}
+
+// Build forwardBySku from the current Table-3 forecast grid and push it to the store.
+async function publishForecast(){
+  if(!IS_ONLINE){ setPubPill('Local only',''); return; }
+  if(!_fcDataLoaded){ return; }                 // never publish the empty start-up grid
+  const forwardBySku={};
+  let total=0;
+  for(const s of SKUS){
+    const row=forecast[s.key]||[];
+    const sum=row.reduce((a,b)=>a+(b||0),0);
+    forwardBySku[s.key]=Math.round(sum);
+    total+=sum;
+  }
+  try{
+    setPubPill('Publishing…','');
+    await kvSet('sales_forecast', {
+      forwardBySku,
+      year: selectedYear(),
+      total: Math.round(total),
+      updated: new Date().toISOString()
+    });
+    setPubPill('Published ✓ '+new Date().toLocaleTimeString(),'ok');
+  }catch(e){
+    console.warn('publishForecast failed:', e.message);
+    setPubPill('Publish failed','err');
+  }
+}
+
+// Debounced: recompute() runs on every keystroke, so don't POST each time.
+function schedulePublish(){
+  if(!_fcDataLoaded) return;
+  clearTimeout(_publishTimer);
+  _publishTimer=setTimeout(publishForecast, 900);
+}
+
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+// FORWARD seasonality shape (relative weights, normalised in code), by tiers:
+//   strongest  Apr May Jun   = 15
+//   2nd        Mar Jul Sep   = 11
+//   3rd        Aug Feb Oct   =  7
+//   weakest    Jan Nov Dec   =  3
+//        Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec
+const SEASON_FWD=[3,  7, 11, 15, 15, 15, 11,  7, 11,  7,  3,  3];
+
+// 32 SKU rows = {A-MAX,E-MAX} × {Alfine,Derailleur} × {Yellow,Black,Red,Custom} × {Rack,No rack}
+const BT=[['emax','E-MAX'],['amax','A-MAX']];
+const TR=[['alfine','Alfine'],['derailleur','Derailleur']];
+const CO=[['yellow','Yellow'],['black','Black'],['red','Red'],['custom','Custom']];
+const RK=[['rack','Rack'],['no rack','No rack']];
+const COLOR_HEX={yellow:'#f5c842',black:'#2a2a2a',red:'#c0392b',custom:'#7f77dd'};
+const SKUS=[];
+for(const [bt,btl] of BT) for(const [tr,trl] of TR) for(const [co,col] of CO) for(const [rk,rkl] of RK)
+  SKUS.push({key:`${bt}|${tr}|${co}|${rk}`, bt,tr,co,rk, color:co, label:`${btl} ${trl}`, col, rkl});
+
+// computed data: skuKey -> [12 monthly numbers]
+let invoiced={}, orderbook={}, forecast={};
+
+// ── PROXY / XML-RPC ──────────────────────────────────────────
+function proxyUrl(path){
+  return (location.hostname==='localhost'||location.hostname==='127.0.0.1')
+    ? `/odoo/${encodeURIComponent(ODOO_URL+path)}`
+    : `${CF_WORKER}/odoo/${encodeURIComponent(ODOO_URL+path)}`;
+}
+function v(x){
+  if(x===null||x===undefined) return '<value><boolean>0</boolean></value>';
+  if(typeof x==='boolean') return `<value><boolean>${x?1:0}</boolean></value>`;
+  if(typeof x==='number'&&Number.isInteger(x)) return `<value><int>${x}</int></value>`;
+  if(typeof x==='number') return `<value><double>${x}</double></value>`;
+  if(Array.isArray(x)) return `<value><array><data>${x.map(v).join('')}</data></array></value>`;
+  if(typeof x==='object'){const m=Object.entries(x).map(([k,vv])=>`<member><name>${k}</name>${v(vv)}</member>`).join('');return `<value><struct>${m}</struct></value>`;}
+  return `<value><string>${String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</string></value>`;
+}
+function parseXml(xml){
+  const doc=new DOMParser().parseFromString(xml,'text/xml');
+  if(doc.querySelector('fault')) throw new Error('Odoo error: '+(doc.querySelector('faultString')?.textContent?.substring(0,160)||'fault'));
+  function pv(n){
+    if(!n) return null;
+    const c=n.firstElementChild;
+    if(!c) return n.textContent;
+    switch(c.tagName){
+      case 'int':case 'i4':case 'i8': return parseInt(c.textContent);
+      case 'double': return parseFloat(c.textContent);
+      case 'boolean': return c.textContent==='1';
+      case 'string': return c.textContent;
+      case 'nil': return null;
+      case 'array': return Array.from(c.querySelector('data')?.children||[]).map(pv);
+      case 'struct':{const o={};c.querySelectorAll(':scope>member').forEach(m=>{o[m.querySelector('name').textContent]=pv(m.querySelector('value'))});return o;}
+      default: return c.textContent;
+    }
+  }
+  return pv(doc.querySelector('methodResponse>params>param>value'));
+}
+function arr(x){return Array.isArray(x)?x:[null,x?String(x):''];}
+function toArr(x){return Array.isArray(x)?x:(x?[x]:[]);}
+async function odoo(model,method,args,kwargs={}){
+  const user=document.getElementById('cfg-user').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  if(!user||!key) throw new Error('Enter your Odoo email and API key (⚙ Connection).');
+  if(!odooUid){
+    const b=`<?xml version="1.0"?><methodCall><methodName>authenticate</methodName><params>${[v(ODOO_DB),v(user),v(key),v({})].map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+    const r=await fetch(proxyUrl('/xmlrpc/2/common'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+    odooUid=parseXml(await r.text());
+    if(!odooUid||typeof odooUid!=='number') throw new Error('Authentication failed — check email and API key');
+  }
+  const params=[v(ODOO_DB),v(odooUid),v(key),v(model),v(method),v(args),v(kwargs)];
+  const b=`<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>${params.map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+  const r=await fetch(proxyUrl('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+  return parseXml(await r.text());
+}
+
+// ── DETECTION (same rules as the planner) ────────────────────
+function detectColor(n){const l=(n||'').toLowerCase();if(l.includes('yellow')||l.includes('bumblebee'))return'yellow';if(l.includes('black')||l.includes('cosmic'))return'black';if(l.includes('red')||l.includes('ruby'))return'red';return'custom';}
+function detectTransmission(n){const l=(n||'').toLowerCase();if(l.includes('alfine')||l.includes('alf'))return'alfine';if(l.includes('derailleur')||l.includes('der'))return'derailleur';if(l.includes('nexus')||l.includes('nex'))return'nexus';return'unknown';}
+function detectBikeType(n){const l=(n||'').toLowerCase();if(l.includes('e-max')||l.includes('emax'))return'emax';if(l.includes('a-max')||l.includes('amax'))return'amax';if(l.includes('modular')||l.includes('ahmun'))return'modular';if(l.includes('folding')||l.includes('ahfan')||l.includes('analog'))return'folding';return'other';}
+function detectRack(n){const l=(n||'').toLowerCase();return(l.includes('rack')&&!l.includes('no rack'))?'rack':'no rack';}
+function skuKeyForName(name){
+  const bt=detectBikeType(name), tr=detectTransmission(name);
+  if(!['emax','amax'].includes(bt)) return null;
+  if(!['alfine','derailleur'].includes(tr)) return null;
+  return `${bt}|${tr}|${detectColor(name)}|${detectRack(name)}`;
+}
+
+// ── HELPERS ──────────────────────────────────────────────────
+function alert_(msg,type){document.getElementById('alert-box').innerHTML=`<div class="alert alert-${type}">${msg}</div>`;if(type==='success')setTimeout(()=>{const b=document.getElementById('alert-box');if(b&&b.querySelector('.alert-success'))b.innerHTML='';},5000);}
+function toggleConn(){document.getElementById('conn-panel').classList.toggle('open');}
+function emptyGrid(){const g={};for(const s of SKUS)g[s.key]=Array(12).fill(0);return g;}
+function fmt(n){ if(!n) return '·'; return Math.round(n).toLocaleString('en-GB'); }
+function monthIdx(dateStr){ if(!dateStr) return null; const d=new Date(dateStr); return isNaN(d)?null:d.getMonth(); }
+function selectedYear(){ return parseInt(document.getElementById('f-year').value)|| new Date().getFullYear(); }
+
+// ── LOAD DATA ────────────────────────────────────────────────
+async function loadData(){
+  saveCfg();
+  try{
+    odooUid=null;
+    const year=selectedYear();
+    document.getElementById('conn-pill').textContent='Connecting…';
+    document.getElementById('conn-pill').className='pill';
+
+    alert_('<span class="spinner"></span> Loading invoiced bikes…','info');
+    await loadInvoiced(year);
+
+    alert_('<span class="spinner"></span> Loading order book…','info');
+    await loadOrderbook(year);
+
+    document.getElementById('conn-panel').classList.remove('open');
+    document.getElementById('conn-pill').textContent=`Connected · ${new Date().toLocaleTimeString()}`;
+    document.getElementById('conn-pill').className='pill ok';
+
+    _fcDataLoaded=true;
+    recompute();
+    publishForecast();          // share fresh per-SKU forecast with the Production Planner
+    alert_('✓ Loaded.','success');
+  }catch(e){
+    document.getElementById('conn-pill').textContent='Error';
+    document.getElementById('conn-pill').className='pill err';
+    alert_('Error: '+e.message,'danger');
+    console.error(e);
+  }
+}
+
+// Table 1 — invoiced per SKU per month (posted customer invoices net of refunds)
+async function loadInvoiced(year){
+  invoiced=emptyGrid();
+  const ys=`${year}-01-01`, ye=`${year}-12-31`;
+  const base=[['parent_state','=','posted'],
+              ['date','>=',ys],['date','<=',ye],
+              ['product_id.categ_id.complete_name','ilike','Bikes'],
+              ['product_id.name','ilike','MAX']];
+  const add=async(moveType,sign)=>{
+    let lines=[];
+    try{
+      lines=toArr(await odoo('account.move.line','search_read',
+        [[...base,['move_id.move_type','=',moveType]]],
+        {fields:['quantity','product_id','date'],limit:60000}));
+    }catch(e){ console.warn('invoice line read failed ('+moveType+'):',e.message); throw new Error('Could not read invoices ('+moveType+'). '+e.message); }
+    for(const l of lines){
+      const key=skuKeyForName(arr(l.product_id)[1]||'');
+      if(!key||!invoiced[key]) continue;
+      const m=monthIdx(l.date); if(m==null) continue;
+      invoiced[key][m]+= sign*(parseFloat(l.quantity)||0);
+    }
+  };
+  await add('out_invoice', 1);
+  await add('out_refund', -1);
+  // clamp negatives to 0 at cell level (a refund without matching invoice in-year)
+  for(const k in invoiced) invoiced[k]=invoiced[k].map(x=>Math.max(0,x));
+}
+
+// Table 2 — order book remaining, by expected delivery month
+async function loadOrderbook(year){
+  orderbook=emptyGrid();
+  const soData=toArr(await odoo('sale.order','search_read',
+    [[['state','in',['sale','done']],['delivery_status','in',['pending','started','partial','ready']]]],
+    {fields:['name','commitment_date','order_line'],limit:6000}));
+  const soIds=soData.map(s=>s.id);
+  const byId={}; soData.forEach(s=>byId[s.id]=s);
+
+  // earliest expected delivery date per SO from outgoing transfers
+  const dueBySO={};
+  if(soIds.length){
+    const pickings=toArr(await odoo('stock.picking','search_read',
+      [[['sale_id','in',soIds],['state','not in',['done','cancel']],['picking_type_code','=','outgoing']]],
+      {fields:['sale_id','scheduled_date','date_deadline'],limit:8000}));
+    for(const p of pickings){
+      const sid=arr(p.sale_id)[0]; if(!sid) continue;
+      const d=(p.date_deadline||p.scheduled_date||'').split(' ')[0]; if(!d) continue;
+      if(!dueBySO[sid] || d<dueBySO[sid]) dueBySO[sid]=d;
+    }
+  }
+
+  const lineIds=soData.flatMap(s=>toArr(s.order_line));
+  const lines=lineIds.length?toArr(await odoo('sale.order.line','search_read',
+    [[['id','in',lineIds],['product_uom_qty','>',0],['product_id.categ_id.complete_name','ilike','Bikes'],['product_id.name','ilike','MAX']]],
+    {fields:['order_id','product_id','product_uom_qty','qty_delivered']})):[];
+
+  const today0=new Date(); today0.setHours(0,0,0,0);
+  for(const l of lines){
+    const key=skuKeyForName(arr(l.product_id)[1]||''); if(!key||!orderbook[key]) continue;
+    const remaining=Math.max(0,Math.ceil((parseFloat(l.product_uom_qty)||0)-(parseFloat(l.qty_delivered)||0)));
+    if(remaining<=0) continue;
+    const soId=arr(l.order_id)[0];
+    const dueStr=dueBySO[soId] || ((byId[soId]?.commitment_date||'').split(' ')[0]) || null;
+    let eff = dueStr ? new Date(dueStr) : new Date(today0);
+    if(isNaN(eff)) eff=new Date(today0);
+    if(eff<today0) eff=new Date(today0);          // overdue / past deadline → deliver ASAP = current month
+    const y=eff.getFullYear(), m=eff.getMonth();
+    if(y===year) orderbook[key][m]+=remaining;     // deliveries due in other years appear under that year's view
+  }
+}
+
+// ── COMPUTE FORECAST (table 3) + KPIs ────────────────────────
+function recompute(){
+  const year=selectedYear();
+  const now=new Date(); const curY=now.getFullYear(); const curM=now.getMonth();
+  const isElapsed=m=> year<curY ? true : year>curY ? false : m<curM;   // fully-past months
+  const isFuture =m=> !isElapsed(m);                                    // current + future
+
+  // SKU mix from pool = YTD invoiced + order book
+  const pool={}; let poolTotal=0;
+  for(const s of SKUS){
+    const inv=(invoiced[s.key]||[]).reduce((a,b)=>a+b,0);
+    const ob =(orderbook[s.key]||[]).reduce((a,b)=>a+b,0);
+    pool[s.key]=inv+ob; poolTotal+=pool[s.key];
+  }
+
+  // Real monthly invoiced totals (used for the elapsed months — actual %)
+  const invMonthTotal=Array(12).fill(0);
+  for(const s of SKUS){ const row=invoiced[s.key]||[]; for(let m=0;m<12;m++) invMonthTotal[m]+=row[m]||0; }
+  const elapsedRealTotal=invMonthTotal.reduce((a,v,m)=> a+(isElapsed(m)?v:0),0);
+  const ytdTotal=invMonthTotal.reduce((a,b)=>a+b,0);
+  const obTotal =Object.values(orderbook).reduce((a,row)=>a+row.reduce((x,y)=>x+y,0),0);
+
+  // Forward seasonality weights for elapsed vs future months
+  const elapsedSeason=SEASON_FWD.reduce((a,v,m)=> a+(isElapsed(m)?v:0),0);
+  const futureSeason =SEASON_FWD.reduce((a,v,m)=> a+(isFuture(m)?v:0),0);
+
+  // Projected annual total:
+  //   manual override, else gross up the REAL elapsed actuals using the
+  //   tiered seasonality shape (annual = elapsed actual × totalShape ÷ elapsedShape)
+  const manual=parseFloat(document.getElementById('f-target').value)||0;
+  let annual;
+  if(manual>0) annual=manual;
+  else annual = elapsedSeason>0 ? elapsedRealTotal*((elapsedSeason+futureSeason)/elapsedSeason) : 0;
+  const futureTotal=Math.max(0, annual-elapsedRealTotal);
+
+  // Monthly total going forward = futureTotal spread by tiered seasonality.
+  // Past months keep their REAL invoiced total (their actual share of the year).
+  const monthTotal=Array(12).fill(0);
+  for(let m=0;m<12;m++){
+    if(isElapsed(m)) monthTotal[m]=invMonthTotal[m];
+    else monthTotal[m]= futureSeason>0 ? futureTotal*(SEASON_FWD[m]/futureSeason) : 0;
+  }
+
+  // Table 3: forward months only, split by SKU mix, net of invoiced + order book
+  forecast=emptyGrid();
+  for(const s of SKUS){
+    const mix = poolTotal? pool[s.key]/poolTotal : 0;
+    for(let m=0;m<12;m++){
+      if(isElapsed(m)){ forecast[s.key][m]=0; continue; }
+      const gross = monthTotal[m]*mix;
+      const known = (invoiced[s.key]?.[m]||0) + (orderbook[s.key]?.[m]||0);
+      forecast[s.key][m]=Math.max(0, Math.round(gross-known));
+    }
+  }
+
+  const fcstTotal=Object.values(forecast).reduce((a,row)=>a+row.reduce((x,y)=>x+y,0),0);
+
+  // Per-SKU year-end projection for the current (selected) year, and the data
+  // table 4 needs: each month = actual invoiced (past) or projected (future).
+  const skuMixObj={}, annualBySku={};
+  for(const s of SKUS){
+    const mix = poolTotal? pool[s.key]/poolTotal : 0;
+    skuMixObj[s.key]=mix;
+    const realYtdSku=(invoiced[s.key]||[]).reduce((a,b)=>a+b,0);
+    annualBySku[s.key]= realYtdSku + mix*futureTotal;   // actuals + remaining forecast
+  }
+  window._proj={ year, annual, annualBySku, skuMixObj, monthTotal, isElapsed:Array.from({length:12},(_,m)=>isElapsed(m)) };
+
+  renderKPIs({annual,ytdTotal,obTotal,fcstTotal,elapsedSeason,futureSeason});
+  renderTable('t1',invoiced,'plain');
+  renderTable('t2',orderbook,'plain');
+  renderTable('t3',forecast,'fcst');
+  renderTable4();
+  saveCfg();
+  schedulePublish();   // re-share with the planner if year/target was changed after load
+
+  // effective monthly mix line: past = real %, future = tiered %
+  const annDen=annual||1;
+  document.getElementById('season-line').innerHTML=
+    MONTHS.map((mo,i)=>{
+      const pct=Math.round((monthTotal[i]/annDen)*100);
+      const tag=isElapsed(i)?'real':'seasonal';
+      const col=isElapsed(i)?'var(--text2)':'var(--purple)';
+      return `<span style="color:${col}">${mo} ${pct}%</span>`;
+    }).join('  ·  ')+'  <span style="color:var(--text3)">(past = actual, forward = seasonality)</span>';
+}
+
+function renderKPIs({annual,ytdTotal,obTotal,fcstTotal,elapsedSeason,futureSeason}){
+  const k=(label,val,sub,col)=>`<div class="kpi"><div class="kpi-label">${label}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${val}</div>${sub?`<div class="kpi-label" style="margin-top:4px">${sub}</div>`:''}</div>`;
+  const elapsedPct=Math.round((elapsedSeason/((elapsedSeason+futureSeason)||1))*100);
+  const manualOn=(parseFloat(document.getElementById('f-target').value)||0)>0;
+  document.getElementById('kpis').innerHTML=
+    k('YTD invoiced', fmt(ytdTotal),'MAX Alf/Der',null)+
+    k('Order book', fmt(obTotal),'remaining to deliver','var(--accent)')+
+    k('Projected annual', annual?fmt(annual):'—', manualOn?'manual target':`actuals ÷ ${elapsedPct}% of season elapsed`,'var(--purple)')+
+    k('Still to forecast', fmt(fcstTotal),'beyond invoiced + OB','var(--success)');
+}
+
+// ── RENDER A GRID TABLE ──────────────────────────────────────
+function renderTable(elId,data,kind){
+  const year=selectedYear();
+  const now=new Date(); const curY=now.getFullYear(); const curM=now.getMonth();
+  const isPast=m=> year<curY ? true : year>curY ? false : m<curM;
+  const colTot=Array(12).fill(0); let grand=0;
+  const body=SKUS.map(s=>{
+    const row=data[s.key]||Array(12).fill(0);
+    let rt=0;
+    const cells=row.map((val,m)=>{ rt+=val; colTot[m]+=val;
+      const cls=[ val?'':'zero', isPast(m)&&kind!=='fcst'?'past':'', kind==='fcst'&&!isPast(m)?'fcst':'' ].filter(Boolean).join(' ');
+      return `<td class="${cls}">${fmt(val)}</td>`;
+    }).join('');
+    grand+=rt;
+    return `<tr>
+      <td class="sku"><span class="dot" style="background:${COLOR_HEX[s.color]}"></span>${s.label} · ${s.col} · ${s.rkl}</td>
+      ${cells}
+      <td class="total">${fmt(rt)}</td>
+    </tr>`;
+  }).join('');
+  const foot=`<tr>
+    <th class="sku">Total</th>
+    ${colTot.map(c=>`<td class="total">${fmt(c)}</td>`).join('')}
+    <td class="total">${fmt(grand)}</td>
+  </tr>`;
+  document.getElementById(elId).innerHTML=`
+    <table class="grid">
+      <thead><tr><th class="sku">SKU (32)</th>${MONTHS.map(m=>`<th>${m}</th>`).join('')}<th class="total">Year</th></tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot>${foot}</tfoot>
+    </table>`;
+}
+
+// ── TABLE 4 — FULL-YEAR INVOICED PROJECTION (actuals + forecast → 31 Dec) ──
+function renderTable4(){
+  const proj=window._proj; if(!proj){ document.getElementById('t4').innerHTML=''; return; }
+  // value per SKU/month: past month = real invoiced, future month = projected
+  const cellVal=(s,m)=> proj.isElapsed[m]
+      ? (invoiced[s.key]?.[m]||0)
+      : (proj.monthTotal[m]*(proj.skuMixObj[s.key]||0));
+  const colTot=Array(12).fill(0); let grand=0;
+  const body=SKUS.map(s=>{
+    let rt=0;
+    const cells=Array.from({length:12},(_,m)=>{
+      const val=cellVal(s,m); rt+=val; colTot[m]+=val;
+      const cls=[ val?'':'zero', proj.isElapsed[m]?'past':'fcst' ].filter(Boolean).join(' ');
+      return `<td class="${cls}">${fmt(val)}</td>`;
+    }).join('');
+    grand+=rt;
+    return `<tr>
+      <td class="sku"><span class="dot" style="background:${COLOR_HEX[s.color]}"></span>${s.label} · ${s.col} · ${s.rkl}</td>
+      ${cells}
+      <td class="total">${fmt(rt)}</td>
+    </tr>`;
+  }).join('');
+  const foot=`<tr><th class="sku">Total</th>${colTot.map(c=>`<td class="total">${fmt(c)}</td>`).join('')}<td class="total">${fmt(grand)}</td></tr>`;
+  document.getElementById('t4').innerHTML=`
+    <table class="grid">
+      <thead><tr><th class="sku">SKU (32)</th>${MONTHS.map((mo,i)=>`<th class="${proj.isElapsed[i]?'':''}">${mo}</th>`).join('')}<th class="total">${proj.year} total</th></tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot>${foot}</tfoot>
+    </table>`;
+}
+
+// ── CSV EXPORT ───────────────────────────────────────────────
+function exportCSV(){
+  const year=selectedYear();
+  const block=(title,data)=>{
+    let out=title+'\n'+['SKU',...MONTHS,'Year'].join(',')+'\n';
+    for(const s of SKUS){
+      const row=data[s.key]||Array(12).fill(0);
+      const rt=row.reduce((a,b)=>a+b,0);
+      out+=[`${s.label} ${s.col} ${s.rkl}`,...row.map(x=>Math.round(x)),Math.round(rt)].join(',')+'\n';
+    }
+    return out+'\n';
+  };
+  const csv=`Ahooga Sales Forecast ${year}\n\n`+
+    block('1. Invoiced',invoiced)+block('2. Order book (expected deliveries)',orderbook)+block('3. Forecast going forward',forecast)+
+    (()=>{
+      const proj=window._proj; if(!proj) return '';
+      let out=`4. Full-year invoiced projection (actuals + forecast)\n`+['SKU',...MONTHS,`${proj.year} total`].join(',')+'\n';
+      for(const s of SKUS){
+        let rt=0;
+        const row=Array.from({length:12},(_,m)=>{
+          const val=proj.isElapsed[m]?(invoiced[s.key]?.[m]||0):(proj.monthTotal[m]*(proj.skuMixObj[s.key]||0));
+          rt+=val; return Math.round(val);
+        });
+        out+=[`${s.label} ${s.col} ${s.rkl}`,...row,Math.round(rt)].join(',')+'\n';
+      }
+      return out+'\n';
+    })();
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`sales_forecast_${year}.csv`;a.click();
+}
+
+// ── PERSIST SETTINGS ─────────────────────────────────────────
+function saveCfg(){
+  try{ localStorage.setItem(LS_CFG, JSON.stringify({
+    user:document.getElementById('cfg-user').value.trim(),
+    key:document.getElementById('cfg-key').value.trim(),
+    target:document.getElementById('f-target').value
+  })); }catch(e){}
+}
+function loadCfg(){
+  let c={}; try{ c=JSON.parse(localStorage.getItem(LS_CFG)||'{}'); }catch(e){}
+  document.getElementById('cfg-user').value=c.user||'';
+  document.getElementById('cfg-key').value=c.key||'';
+  document.getElementById('f-year').value=new Date().getFullYear();   // always default to the current year so table 4 rolls over
+  document.getElementById('f-target').value=c.target||'';
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+loadCfg();
+invoiced=emptyGrid(); orderbook=emptyGrid(); forecast=emptyGrid();
+recompute();
+if(document.getElementById('cfg-user').value && document.getElementById('cfg-key').value){
+  loadData();
+} else {
+  document.getElementById('conn-panel').classList.add('open');
+}
+</script>
+</body>
+</html>
