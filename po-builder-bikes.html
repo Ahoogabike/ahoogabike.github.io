@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ahooga PO Builder — Bikes</title>
+<style>
+:root{--bg:#f2f1ed;--surface:#fff;--surface2:#f0efe9;--border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);--text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#1a4fa0;--accent-bg:#e6f0fb;--success:#2d6e2d;--success-bg:#eaf3de;--warn:#7a4e0a;--warn-bg:#faeeda;--danger:#8b1f1f;--danger-bg:#fcebeb;--purple:#3c3489;--purple-bg:#eeedfe;--radius:10px;--radius-sm:6px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Georgia,serif;background:var(--bg);color:var(--text);font-size:14px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:52px;gap:12px;position:sticky;top:0;z-index:100}
+.logo{font-size:17px;font-weight:bold}.logo span{color:var(--accent)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--text3);border:1px solid var(--border2)}
+.pill.ok{background:var(--success-bg);color:var(--success)}
+.pill.err{background:var(--danger-bg);color:var(--danger)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;font-weight:600;cursor:pointer;border:none}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+main{padding:20px;max-width:1600px;margin:0 auto}
+.controls{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text2);font-weight:600}
+.field input{padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;background:var(--surface)}
+.field input:focus{border-color:var(--accent)}
+.field .hint{font-size:10px;color:var(--text3)}
+.conn-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;max-width:520px;display:none}
+.conn-panel.open{display:block}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px}
+.kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:4px}
+.kpi-value{font-size:21px;font-weight:700}
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border)}
+.tab{padding:9px 18px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;border:none;background:none;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.view{display:none}.view.active{display:block}
+.section{margin-bottom:22px}
+.section-title{font-size:15px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.section-note{font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.5}
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface)}
+table.grid{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+table.grid th,table.grid td{border-bottom:1px solid var(--border);border-right:1px solid var(--border);padding:5px 8px;font-size:12px;text-align:right;white-space:nowrap}
+table.grid thead th{background:var(--surface2);color:var(--text2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.03em;position:sticky;top:0;z-index:5}
+table.grid th.sku,table.grid td.sku{text-align:left;position:sticky;left:0;background:var(--surface);z-index:4;min-width:230px;font-weight:600;border-right:2px solid var(--border2)}
+table.grid thead th.sku{z-index:6;background:var(--surface2)}
+table.grid tr:hover td{background:var(--surface2)}
+table.grid tr:hover td.sku{background:var(--surface2)}
+table.grid td.zero{color:var(--text3)}
+table.grid td.has{color:var(--purple);font-weight:700;background:rgba(60,52,137,0.05)}
+table.grid td.cur{box-shadow:inset 3px 0 0 var(--accent)}
+table.grid thead th.cur{box-shadow:inset 0 -2px 0 var(--accent)}
+table.grid tfoot td,table.grid tfoot th{background:var(--surface2);font-weight:700;border-top:2px solid var(--border2)}
+table.grid td.total,table.grid th.total{font-weight:700;border-left:2px solid var(--border2);background:rgba(26,79,160,0.05)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px;border:1px solid rgba(0,0,0,0.15)}
+.alert{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:12px}
+.alert-info{background:var(--accent-bg);color:var(--accent)}
+.alert-warn{background:var(--warn-bg);color:var(--warn)}
+.alert-success{background:var(--success-bg);color:var(--success)}
+.alert-danger{background:var(--danger-bg);color:var(--danger)}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--accent-bg);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.po-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px}
+.po-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.po-title{font-size:15px;font-weight:700}
+.po-meta{font-size:11px;color:var(--text3)}
+.po-size{font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-bg);padding:3px 10px;border-radius:20px}
+.bk-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.bk-table td,.bk-table th{padding:4px 8px;font-size:12px;border-bottom:1px solid var(--border);text-align:right}
+.bk-table th{color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:0.04em;text-align:right}
+.bk-table td:first-child,.bk-table th:first-child{text-align:left}
+.tag{font-size:10px;padding:2px 7px;border-radius:20px;background:var(--surface2);color:var(--text2);border:1px solid var(--border2)}
+.tag.fill{background:var(--purple-bg);color:var(--purple)}
+.tag.comm{background:var(--success-bg);color:var(--success)}
+@media(max-width:700px){main{padding:12px}input{font-size:16px!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>PO Builder — Bikes</span></div>
+  <div class="header-right">
+    <span class="pill" id="conn-pill">Not connected</span>
+    <span class="pill" id="fc-pill" title="Sales Forecast published to the shared store">Forecast: —</span>
+    <button class="btn btn-secondary" onclick="toggleConn()">⚙ Connection</button>
+    <button class="btn btn-secondary" onclick="exportCSV()">⬇ Year plan CSV</button>
+    <button class="btn btn-primary" onclick="loadData()">↻ Refresh</button>
+  </div>
+</header>
+
+<main>
+  <div id="alert-box"></div>
+
+  <div class="conn-panel" id="conn-panel">
+    <h2 style="font-size:15px;font-weight:700;margin-bottom:12px">Odoo Connection</h2>
+    <div class="field" style="margin-bottom:10px"><label>Your Odoo email</label><input type="text" id="cfg-user" placeholder="yourname@ahooga.bike"/></div>
+    <div class="field" style="margin-bottom:10px"><label>API Key</label><input type="password" id="cfg-key" placeholder="your-api-key"/><span class="hint">Odoo → My Profile → Account Security → New API Key. Used only to read the open order book.</span></div>
+    <button class="btn btn-primary" onclick="loadData()">Connect &amp; load</button>
+  </div>
+
+  <div class="controls">
+    <div class="field"><label>Year</label><input type="number" id="f-year" style="width:90px" oninput="recompute()"/></div>
+    <div class="field"><label>Min E-MAX / family per PO</label><input type="number" id="f-minemax" style="width:120px" value="40" oninput="recompute()"/></div>
+    <div class="field"><label>Min A-MAX / family per PO</label><input type="number" id="f-minamax" style="width:120px" value="20" oninput="recompute()"/></div>
+    <div class="field"><label>Production days</label><input type="number" id="f-prod" style="width:90px" value="12" oninput="recompute()"/></div>
+    <div class="field"><label>Transit days</label><input type="number" id="f-lead" style="width:90px" value="2" oninput="recompute()"/></div>
+    <div class="field" style="flex:1;min-width:160px"><span class="hint" id="basis-line"></span></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="tab-week" onclick="showTab('week')">⚡ This week</button>
+    <button class="tab" id="tab-year" onclick="showTab('year')">📅 Plan to year-end</button>
+  </div>
+
+  <!-- THIS WEEK -->
+  <div class="view active" id="view-week">
+    <div class="kpis" id="week-kpis"></div>
+    <div class="section">
+      <div class="section-title">Purchase orders to place this week <span class="tag">production starts now</span></div>
+      <div class="section-note">Open sales orders whose expected delivery falls inside the production + transit window are grouped by family. Each PO is topped up to the minimum batch with free-stock filler, split across SKUs by the published Sales Forecast mix — the same rule as the Production Planner.</div>
+      <div id="week-content"></div>
+    </div>
+  </div>
+
+  <!-- YEAR PLAN -->
+  <div class="view" id="view-year">
+    <div class="kpis" id="year-kpis"></div>
+    <div class="section">
+      <div class="section-title">Tentative weekly plan to 31 Dec <span class="tag" style="background:var(--purple-bg);color:var(--purple)">covers full forecast</span></div>
+      <div class="section-note">Each SKU's remaining forecast is spread across the weeks left in the year following the seasonality shape, then grouped into family POs that respect the minimum batch size. A value in a cell = bikes to <b>start producing</b> that week (they arrive ~production + transit days later). The current week is marked. Totals on the right should cover each SKU's forecast.</div>
+      <div class="table-wrap"><div id="year-grid"></div></div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── CONFIG (shared with the other Ahooga apps) ───────────────
+const ODOO_URL='https://ahooga.odoo.com';
+const ODOO_DB ='logicasoft-aho-18-0-21599177';
+const CF_WORKER='https://ahooga-planner-proxy.massimiliano-d74.workers.dev';
+const LS_CFG='ahooga_pobuilder_cfg';
+const IS_ONLINE = location.hostname!=='localhost' && location.hostname!=='127.0.0.1';
+let odooUid=null;
+
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+//                Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec  (same tiered shape as the forecast)
+const SEASON_FWD=[3,  7, 11, 15, 15, 15, 11,  7, 11,  7,  3,  3];
+
+const BT=[['emax','E-MAX'],['amax','A-MAX']];
+const TR=[['alfine','Alfine'],['derailleur','Derailleur']];
+const CO=[['yellow','Yellow'],['black','Black'],['red','Red'],['custom','Custom']];
+const RK=[['rack','Rack'],['no rack','No rack']];
+const COLOR_HEX={yellow:'#f5c842',black:'#2a2a2a',red:'#c0392b',custom:'#7f77dd'};
+const FILL_COLS=['yellow','black','red'], FILL_RKS=['rack','no rack'];
+const SKUS=[];
+for(const [bt,btl] of BT) for(const [tr,trl] of TR) for(const [co,col] of CO) for(const [rk,rkl] of RK)
+  SKUS.push({key:`${bt}|${tr}|${co}|${rk}`, bt,tr,co,rk, color:co, label:`${btl} ${trl}`, col, rkl, fam:`${bt}|${tr}`});
+const FAMILIES=[['emax','alfine'],['emax','derailleur'],['amax','alfine'],['amax','derailleur']]
+  .map(([bt,tr])=>({key:`${bt}|${tr}`, bt, tr, label:`${bt==='emax'?'E-MAX':'A-MAX'} ${tr.charAt(0).toUpperCase()+tr.slice(1)}`}));
+
+let forwardBySku={}, fcYear=null, fcUpdated=null;   // from the Sales Forecast app (KV)
+let orderbook=[];                                    // [{sku, remaining, due}]
+let weeks=[];                                        // [{monday:Date, iso, month, label, weight}]
+let yearGrid={};                                     // sku -> [qty per week index]
+
+// ── PROXY / XML-RPC (same as the other apps) ─────────────────
+function proxyUrl(path){
+  return (location.hostname==='localhost'||location.hostname==='127.0.0.1')
+    ? `/odoo/${encodeURIComponent(ODOO_URL+path)}`
+    : `${CF_WORKER}/odoo/${encodeURIComponent(ODOO_URL+path)}`;
+}
+function v(x){
+  if(x===null||x===undefined) return '<value><boolean>0</boolean></value>';
+  if(typeof x==='boolean') return `<value><boolean>${x?1:0}</boolean></value>`;
+  if(typeof x==='number'&&Number.isInteger(x)) return `<value><int>${x}</int></value>`;
+  if(typeof x==='number') return `<value><double>${x}</double></value>`;
+  if(Array.isArray(x)) return `<value><array><data>${x.map(v).join('')}</data></array></value>`;
+  if(typeof x==='object'){const m=Object.entries(x).map(([k,vv])=>`<member><name>${k}</name>${v(vv)}</member>`).join('');return `<value><struct>${m}</struct></value>`;}
+  return `<value><string>${String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</string></value>`;
+}
+function parseXml(xml){
+  const doc=new DOMParser().parseFromString(xml,'text/xml');
+  if(doc.querySelector('fault')) throw new Error('Odoo error: '+(doc.querySelector('faultString')?.textContent?.substring(0,160)||'fault'));
+  function pv(n){
+    if(!n) return null;
+    const c=n.firstElementChild;
+    if(!c) return n.textContent;
+    switch(c.tagName){
+      case 'int':case 'i4':case 'i8': return parseInt(c.textContent);
+      case 'double': return parseFloat(c.textContent);
+      case 'boolean': return c.textContent==='1';
+      case 'string': return c.textContent;
+      case 'nil': return null;
+      case 'array': return Array.from(c.querySelector('data')?.children||[]).map(pv);
+      case 'struct':{const o={};c.querySelectorAll(':scope>member').forEach(m=>{o[m.querySelector('name').textContent]=pv(m.querySelector('value'))});return o;}
+      default: return c.textContent;
+    }
+  }
+  return pv(doc.querySelector('methodResponse>params>param>value'));
+}
+function arr(x){return Array.isArray(x)?x:[null,x?String(x):''];}
+function toArr(x){return Array.isArray(x)?x:(x?[x]:[]);}
+async function odoo(model,method,args,kwargs={}){
+  const user=document.getElementById('cfg-user').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  if(!user||!key) throw new Error('Enter your Odoo email and API key (⚙ Connection).');
+  if(!odooUid){
+    const b=`<?xml version="1.0"?><methodCall><methodName>authenticate</methodName><params>${[v(ODOO_DB),v(user),v(key),v({})].map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+    const r=await fetch(proxyUrl('/xmlrpc/2/common'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+    odooUid=parseXml(await r.text());
+    if(!odooUid||typeof odooUid!=='number') throw new Error('Authentication failed — check email and API key');
+  }
+  const params=[v(ODOO_DB),v(odooUid),v(key),v(model),v(method),v(args),v(kwargs)];
+  const b=`<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>${params.map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+  const r=await fetch(proxyUrl('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+  return parseXml(await r.text());
+}
+async function kvGet(key){
+  if(!IS_ONLINE) return null;
+  try{ const r=await fetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`); const t=await r.text(); return t==='null'?null:JSON.parse(t); }
+  catch(e){ console.warn('KV get failed',e); return null; }
+}
+
+// ── DETECTION (same rules as the planner / forecast) ─────────
+function detectColor(n){const l=(n||'').toLowerCase();if(l.includes('yellow')||l.includes('bumblebee'))return'yellow';if(l.includes('black')||l.includes('cosmic'))return'black';if(l.includes('red')||l.includes('ruby'))return'red';return'custom';}
+function detectTransmission(n){const l=(n||'').toLowerCase();if(l.includes('alfine')||l.includes('alf'))return'alfine';if(l.includes('derailleur')||l.includes('der'))return'derailleur';return'unknown';}
+function detectBikeType(n){const l=(n||'').toLowerCase();if(l.includes('e-max')||l.includes('emax'))return'emax';if(l.includes('a-max')||l.includes('amax'))return'amax';return'other';}
+function detectRack(n){const l=(n||'').toLowerCase();return(l.includes('rack')&&!l.includes('no rack'))?'rack':'no rack';}
+function skuKeyForName(name){
+  const bt=detectBikeType(name), tr=detectTransmission(name);
+  if(!['emax','amax'].includes(bt)) return null;
+  if(!['alfine','derailleur'].includes(tr)) return null;
+  return `${bt}|${tr}|${detectColor(name)}|${detectRack(name)}`;
+}
+
+// ── HELPERS ──────────────────────────────────────────────────
+function alert_(msg,type){document.getElementById('alert-box').innerHTML=`<div class="alert alert-${type}">${msg}</div>`;if(type==='success')setTimeout(()=>{const b=document.getElementById('alert-box');if(b&&b.querySelector('.alert-success'))b.innerHTML='';},5000);}
+function toggleConn(){document.getElementById('conn-panel').classList.toggle('open');}
+function fmt(n){ if(!n) return '·'; return Math.round(n).toLocaleString('en-GB'); }
+function selectedYear(){ return parseInt(document.getElementById('f-year').value)|| new Date().getFullYear(); }
+function minFor(bt){ return bt==='emax' ? (parseInt(document.getElementById('f-minemax').value)||40) : (parseInt(document.getElementById('f-minamax').value)||20); }
+function arrivalDays(){ return (parseInt(document.getElementById('f-prod').value)||12)+(parseInt(document.getElementById('f-lead').value)||2); }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+function isoWeek(d){ const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const day=(t.getUTCDay()+6)%7; t.setUTCDate(t.getUTCDate()-day+3); const first=new Date(Date.UTC(t.getUTCFullYear(),0,4)); return 1+Math.round(((t-first)/86400000-3+((first.getUTCDay()+6)%7))/7); }
+function mondayOf(d){ const x=new Date(d); const day=(x.getDay()+6)%7; x.setDate(x.getDate()-day); x.setHours(0,0,0,0); return x; }
+
+// Integer allocation across weighted keys (largest-remainder) — from the planner
+function allocateByMix(weights, total){
+  const keys=Object.keys(weights); const out={}; keys.forEach(k=>out[k]=0);
+  const sum=keys.reduce((s,k)=>s+(weights[k]||0),0);
+  if(total<=0) return out;
+  if(sum<=0){ for(let i=0;i<total;i++) out[keys[i%keys.length]]++; return out; }
+  const rem=[]; let used=0;
+  for(const k of keys){ const x=(weights[k]/sum)*total; const f=Math.floor(x); out[k]=f; used+=f; rem.push([k,x-f]); }
+  let left=total-used; rem.sort((a,b)=>b[1]-a[1]);
+  for(let i=0;i<left;i++) out[rem[i%rem.length][0]]++;
+  return out;
+}
+
+// ── BUILD THE WEEK AXIS (now → 31 Dec) ───────────────────────
+function buildWeeks(){
+  const year=selectedYear();
+  const now=new Date(); now.setHours(0,0,0,0);
+  let start = (year===now.getFullYear()) ? mondayOf(now) : mondayOf(new Date(year,0,1));
+  if(start.getFullYear()<year) start=mondayOf(new Date(year,0,1));
+  const end=new Date(year,11,31);
+  weeks=[];
+  for(let d=new Date(start); d<=end; d=addDays(d,7)){
+    weeks.push({ monday:new Date(d), iso:isoWeek(d), month:d.getMonth(), label:'W'+isoWeek(d), weight:SEASON_FWD[d.getMonth()] });
+  }
+  if(!weeks.length) weeks.push({ monday:start, iso:isoWeek(start), month:start.getMonth(), label:'W'+isoWeek(start), weight:SEASON_FWD[start.getMonth()] });
+}
+function currentWeekIndex(){
+  const now=mondayOf(new Date());
+  for(let i=0;i<weeks.length;i++) if(weeks[i].monday.getTime()===now.getTime()) return i;
+  return (selectedYear()===new Date().getFullYear()) ? 0 : -1;
+}
+
+// pick n weeks spread across the year, weighted by seasonality
+function pickSpreadWeeks(n){
+  n=Math.min(n, weeks.length);
+  const w=weeks.map(x=>x.weight); const tot=w.reduce((a,b)=>a+b,0)||1;
+  const cum=[]; let c=0; for(const x of w){ c+=x; cum.push(c); }
+  const chosen=new Set(); const idxs=[];
+  for(let k=0;k<n;k++){
+    const target=((k+0.5)/n)*tot;
+    let i=cum.findIndex(cv=>cv>=target); if(i<0) i=weeks.length-1;
+    let guard=0; while(chosen.has(i)){ i=(i+1)%weeks.length; if(++guard>weeks.length) break; }
+    chosen.add(i); idxs.push(i);
+  }
+  idxs.sort((a,b)=>a-b); return idxs;
+}
+// split a family total into n PO sizes, each >= minF, summing to >= total
+function sizePOs(total,n,minF){
+  const base=Math.floor(total/n); let rem=total-base*n;
+  const sizes=Array(n).fill(base);
+  for(let i=0;i<rem;i++) sizes[i]++;
+  for(let i=0;i<n;i++) if(sizes[i]<minF) sizes[i]=minF;
+  return sizes;
+}
+
+// ── DATA LOAD ────────────────────────────────────────────────
+async function loadData(){
+  saveCfg();
+  try{
+    odooUid=null;
+    document.getElementById('conn-pill').textContent='Connecting…';
+    document.getElementById('conn-pill').className='pill';
+
+    alert_('<span class="spinner"></span> Reading the published Sales Forecast…','info');
+    const fc=await kvGet('sales_forecast');
+    if(fc && fc.forwardBySku){ forwardBySku=fc.forwardBySku; fcYear=fc.year; fcUpdated=fc.updated;
+      document.getElementById('fc-pill').textContent='Forecast: '+(fc.year||'?')+(fc.updated?(' · '+new Date(fc.updated).toLocaleDateString()):'');
+      document.getElementById('fc-pill').className='pill ok';
+    } else {
+      forwardBySku={};
+      document.getElementById('fc-pill').textContent='Forecast: none';
+      document.getElementById('fc-pill').className='pill err';
+    }
+
+    alert_('<span class="spinner"></span> Reading the open order book…','info');
+    await loadOrderbook();
+
+    document.getElementById('conn-panel').classList.remove('open');
+    document.getElementById('conn-pill').textContent=`Connected · ${new Date().toLocaleTimeString()}`;
+    document.getElementById('conn-pill').className='pill ok';
+
+    recompute();
+    if(!fc || !fc.forwardBySku) alert_('Loaded, but no Sales Forecast has been published yet. Open the Sales Forecast app and let it load — then refresh here.','warn');
+    else alert_('✓ Loaded.','success');
+  }catch(e){
+    document.getElementById('conn-pill').textContent='Error';
+    document.getElementById('conn-pill').className='pill err';
+    alert_('Error: '+e.message,'danger');
+    console.error(e);
+    recompute();   // still render the year plan from forecast if we have it
+  }
+}
+
+// Open sales-order remaining units for MAX bikes, with earliest expected delivery date
+async function loadOrderbook(){
+  orderbook=[];
+  const soData=toArr(await odoo('sale.order','search_read',
+    [[['state','in',['sale','done']],['delivery_status','in',['pending','started','partial','ready']]]],
+    {fields:['name','commitment_date','order_line'],limit:6000}));
+  const soIds=soData.map(s=>s.id); const byId={}; soData.forEach(s=>byId[s.id]=s);
+  const dueBySO={};
+  if(soIds.length){
+    const pickings=toArr(await odoo('stock.picking','search_read',
+      [[['sale_id','in',soIds],['state','not in',['done','cancel']],['picking_type_code','=','outgoing']]],
+      {fields:['sale_id','scheduled_date','date_deadline'],limit:8000}));
+    for(const p of pickings){ const sid=arr(p.sale_id)[0]; if(!sid) continue;
+      const d=(p.date_deadline||p.scheduled_date||'').split(' ')[0]; if(!d) continue;
+      if(!dueBySO[sid]||d<dueBySO[sid]) dueBySO[sid]=d; }
+  }
+  const lineIds=soData.flatMap(s=>toArr(s.order_line));
+  const lines=lineIds.length?toArr(await odoo('sale.order.line','search_read',
+    [[['id','in',lineIds],['product_uom_qty','>',0],['product_id.categ_id.complete_name','ilike','Bikes'],['product_id.name','ilike','MAX']]],
+    {fields:['order_id','product_id','product_uom_qty','qty_delivered']})):[];
+  for(const l of lines){
+    const sku=skuKeyForName(arr(l.product_id)[1]||''); if(!sku) continue;
+    const remaining=Math.max(0,Math.ceil((parseFloat(l.product_uom_qty)||0)-(parseFloat(l.qty_delivered)||0)));
+    if(remaining<=0) continue;
+    const soId=arr(l.order_id)[0];
+    const dueStr=dueBySO[soId]||((byId[soId]?.commitment_date||'').split(' ')[0])||null;
+    orderbook.push({sku, remaining, due:dueStr});
+  }
+}
+
+// ── COMPUTE both tabs ────────────────────────────────────────
+function recompute(){
+  buildWeeks();
+  buildYearPlan();
+  renderYear();
+  renderWeek();
+  const fcTot=Object.values(forwardBySku).reduce((a,b)=>a+(b||0),0);
+  document.getElementById('basis-line').innerHTML =
+    `Forecast to cover: <b>${fmt(fcTot)}</b> bikes · ${weeks.length} weeks to 31 Dec · arrive ≈ ${arrivalDays()} days after PO`;
+  saveCfg();
+}
+
+// Year plan: spread each family's forecast across weeks, in min-batch POs
+function buildYearPlan(){
+  yearGrid={}; for(const s of SKUS) yearGrid[s.key]=Array(weeks.length).fill(0);
+  for(const fam of FAMILIES){
+    const skusF=SKUS.filter(s=>s.fam===fam.key);
+    const totalF=skusF.reduce((a,s)=>a+(forwardBySku[s.key]||0),0);
+    if(totalF<=0) continue;
+    const minF=minFor(fam.bt);
+    let n=Math.max(1, Math.floor(totalF/minF));
+    n=Math.min(n, weeks.length);
+    const idxs=pickSpreadWeeks(n);
+    const sizes=sizePOs(totalF, idxs.length, minF);
+    const weights={}; for(const s of skusF) weights[s.key]=forwardBySku[s.key]||0;
+    idxs.forEach((wi,j)=>{
+      const alloc=allocateByMix(weights, sizes[j]);
+      for(const s of skusF) yearGrid[s.key][wi]+=alloc[s.key]||0;
+    });
+  }
+}
+
+function renderYear(){
+  const ci=currentWeekIndex();
+  const colTot=Array(weeks.length).fill(0); let grand=0;
+  const body=SKUS.map(s=>{
+    let rt=0;
+    const cells=weeks.map((wk,wi)=>{ const val=yearGrid[s.key][wi]||0; rt+=val; colTot[wi]+=val;
+      const cls=[ val?'has':'zero', wi===ci?'cur':'' ].filter(Boolean).join(' ');
+      return `<td class="${cls}" title="${wk.monday.toLocaleDateString('en-GB')} · ${wk.label}">${fmt(val)}</td>`;
+    }).join('');
+    grand+=rt;
+    return `<tr><td class="sku"><span class="dot" style="background:${COLOR_HEX[s.color]}"></span>${s.label} · ${s.col} · ${s.rkl}</td>${cells}<td class="total">${fmt(rt)}</td></tr>`;
+  }).join('');
+  const head=`<tr><th class="sku">SKU (32)</th>${weeks.map((wk,wi)=>`<th class="${wi===ci?'cur':''}" title="${wk.monday.toLocaleDateString('en-GB')}">${wk.label}</th>`).join('')}<th class="total">Year</th></tr>`;
+  const foot=`<tr><th class="sku">Total</th>${colTot.map((c,wi)=>`<td class="total ${wi===ci?'cur':''}">${fmt(c)}</td>`).join('')}<td class="total">${fmt(grand)}</td></tr>`;
+  document.getElementById('year-grid').innerHTML=`<table class="grid"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table>`;
+
+  const planned=grand, fcTot=Object.values(forwardBySku).reduce((a,b)=>a+(b||0),0);
+  const nPOs=weeks.reduce((a,_,wi)=>{ let p=0; for(const fam of FAMILIES){ if(SKUS.filter(s=>s.fam===fam.key).reduce((x,s)=>x+(yearGrid[s.key][wi]||0),0)>0) p++; } return a+p; },0);
+  const k=(l,vv,sub,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${vv}</div>${sub?`<div class="kpi-label" style="margin-top:4px">${sub}</div>`:''}</div>`;
+  document.getElementById('year-kpis').innerHTML=
+    k('Forecast to cover', fmt(fcTot),'bikes, all SKUs',null)+
+    k('Planned production', fmt(planned),'rounded up to batches','var(--purple)')+
+    k('Purchase orders', nPOs,'across the year','var(--accent)')+
+    k('Weeks remaining', weeks.length,'to 31 Dec','var(--success)');
+}
+
+// This-week proposal: committed orders in the production window + batch top-up
+function renderWeek(){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const horizon=addDays(today, arrivalDays());     // anything due on/before this date must start now
+  const committed={};                              // fam -> {skuKey: qty}
+  for(const fam of FAMILIES) committed[fam.key]={};
+  let urgentTotal=0;
+  for(const o of orderbook){
+    const due=o.due?new Date(o.due):null;
+    if(!due || isNaN(due) || due<=horizon){        // overdue / no date / within window → start now
+      const fam=o.sku.split('|').slice(0,2).join('|');
+      committed[fam][o.sku]=(committed[fam][o.sku]||0)+o.remaining; urgentTotal+=o.remaining;
+    }
+  }
+  const ci=currentWeekIndex();
+  const proposals=[];
+  for(const fam of FAMILIES){
+    const comm=committed[fam.key];
+    const commTotal=Object.values(comm).reduce((a,b)=>a+b,0);
+    const planThisWeek = ci>=0 ? SKUS.filter(s=>s.fam===fam.key).reduce((a,s)=>a+(yearGrid[s.key][ci]||0),0) : 0;
+    if(commTotal<=0 && planThisWeek<=0) continue;   // nothing to do for this family
+    const minF=minFor(fam.bt);
+    const target=Math.max(minF, commTotal, planThisWeek);
+    const fillerN=Math.max(0, target-commTotal);
+    // filler split by remaining forecast need across yellow/black/red × rack (custom via committed only)
+    const weights={};
+    for(const c of FILL_COLS) for(const r of FILL_RKS){
+      const key=`${fam.key}|${c}|${r}`;
+      weights[`${c}|${r}`]=Math.max(0,(forwardBySku[key]||0)-(comm[key]||0));
+    }
+    const fillAlloc=allocateByMix(weights, fillerN);
+    // assemble per-SKU breakdown
+    const rows={};
+    for(const [sku,q] of Object.entries(comm)) rows[sku]=(rows[sku]||0)+q;            // committed (any colour incl custom)
+    for(const [cr,q] of Object.entries(fillAlloc)){ if(!q) continue; const sku=`${fam.key}|${cr}`; rows[sku]=(rows[sku]||0)+0; rows[sku]+=q; }
+    proposals.push({fam, commTotal, fillerN, target, comm, rows});
+  }
+
+  const arrival=addDays(today, arrivalDays());
+  const k=(l,vv,sub,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${vv}</div>${sub?`<div class="kpi-label" style="margin-top:4px">${sub}</div>`:''}</div>`;
+  const totBikes=proposals.reduce((a,p)=>a+p.target,0);
+  document.getElementById('week-kpis').innerHTML=
+    k('Families to order', proposals.length,'POs to place now','var(--accent)')+
+    k('Bikes this week', fmt(totBikes),'committed + filler','var(--purple)')+
+    k('Committed (urgent)', fmt(urgentTotal),`due ≤ ${arrivalDays()} days`,'var(--success)')+
+    k('Expected arrival', arrival.toLocaleDateString('en-GB'),`+${arrivalDays()} days`,null);
+
+  if(!proposals.length){
+    document.getElementById('week-content').innerHTML =
+      `<div class="alert alert-success">✓ No purchase order needs to be placed this week — no committed deliveries fall inside the production window, and the year plan has nothing scheduled for the current week.</div>`;
+    return;
+  }
+  const skuLabel=k=>{ const s=SKUS.find(x=>x.key===k); return s?`<span class="dot" style="background:${COLOR_HEX[s.color]}"></span>${s.label} · ${s.col} · ${s.rkl}`:k; };
+  document.getElementById('week-content').innerHTML = proposals.map(p=>{
+    const skus=Object.keys(p.rows).filter(k=>p.rows[k]>0).sort((a,b)=>p.rows[b]-p.rows[a]);
+    const rowsHtml=skus.map(sku=>{
+      const total=p.rows[sku], comm=p.comm[sku]||0, fill=Math.max(0,total-comm);
+      const tags=[ comm?`<span class="tag comm">${fmt(comm)} order</span>`:'', fill?`<span class="tag fill">${fmt(fill)} filler</span>`:'' ].filter(Boolean).join(' ');
+      return `<tr><td>${skuLabel(sku)}</td><td>${tags}</td><td>${fmt(total)}</td></tr>`;
+    }).join('');
+    return `<div class="po-card">
+      <div class="po-head">
+        <div><div class="po-title">${p.fam.label}</div>
+          <div class="po-meta">${fmt(p.commTotal)} committed + ${fmt(p.fillerN)} free-stock filler · min batch ${minFor(p.fam.bt)} · arrives ≈ ${arrival.toLocaleDateString('en-GB')}</div></div>
+        <div class="po-size">${fmt(p.target)} bikes</div>
+      </div>
+      <table class="bk-table"><thead><tr><th>SKU</th><th>Source</th><th>Qty</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+    </div>`;
+  }).join('');
+}
+
+// ── TABS ─────────────────────────────────────────────────────
+function showTab(name){
+  document.getElementById('tab-week').classList.toggle('active', name==='week');
+  document.getElementById('tab-year').classList.toggle('active', name==='year');
+  document.getElementById('view-week').classList.toggle('active', name==='week');
+  document.getElementById('view-year').classList.toggle('active', name==='year');
+}
+
+// ── CSV EXPORT (year plan) ───────────────────────────────────
+function exportCSV(){
+  const year=selectedYear();
+  let out=`Ahooga PO Builder — Year plan ${year}\n\n`+['SKU',...weeks.map(w=>w.label),'Year'].join(',')+'\n';
+  for(const s of SKUS){
+    const row=yearGrid[s.key]||Array(weeks.length).fill(0);
+    const rt=row.reduce((a,b)=>a+b,0);
+    out+=[`${s.label} ${s.col} ${s.rkl}`,...row.map(x=>Math.round(x)),Math.round(rt)].join(',')+'\n';
+  }
+  const blob=new Blob([out],{type:'text/csv'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`po_year_plan_${year}.csv`; a.click();
+}
+
+// ── PERSIST SETTINGS ─────────────────────────────────────────
+function saveCfg(){
+  try{ localStorage.setItem(LS_CFG, JSON.stringify({
+    user:document.getElementById('cfg-user').value.trim(),
+    key:document.getElementById('cfg-key').value.trim(),
+    minemax:document.getElementById('f-minemax').value,
+    minamax:document.getElementById('f-minamax').value,
+    prod:document.getElementById('f-prod').value,
+    lead:document.getElementById('f-lead').value
+  })); }catch(e){}
+}
+function loadCfg(){
+  let c={}; try{ c=JSON.parse(localStorage.getItem(LS_CFG)||'{}'); }catch(e){}
+  // also reuse the forecast app's saved Odoo creds if present
+  let fc={}; try{ fc=JSON.parse(localStorage.getItem('ahooga_forecast_cfg')||'{}'); }catch(e){}
+  document.getElementById('cfg-user').value=c.user||fc.user||'';
+  document.getElementById('cfg-key').value=c.key||fc.key||'';
+  document.getElementById('f-year').value=new Date().getFullYear();
+  document.getElementById('f-minemax').value=c.minemax||40;
+  document.getElementById('f-minamax').value=c.minamax||20;
+  document.getElementById('f-prod').value=c.prod||12;
+  document.getElementById('f-lead').value=c.lead||2;
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+loadCfg();
+buildWeeks();
+recompute();
+if(document.getElementById('cfg-user').value && document.getElementById('cfg-key').value){
+  loadData();
+} else {
+  document.getElementById('conn-panel').classList.add('open');
+}
+</script>
+</body>
+</html>
