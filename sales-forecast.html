@@ -153,17 +153,20 @@ async function publishForecast(){
   if(!IS_ONLINE){ setPubPill('Local only',''); return; }
   if(!_fcDataLoaded){ return; }                 // never publish the empty start-up grid
   const forwardBySku={};
+  const forwardBySkuMonthly={};
   let total=0;
   for(const s of SKUS){
     const row=forecast[s.key]||[];
     const sum=row.reduce((a,b)=>a+(b||0),0);
     forwardBySku[s.key]=Math.round(sum);
+    forwardBySkuMonthly[s.key]=row.map(x=>Math.max(0,Math.round(x||0)));   // [12] forward demand by month
     total+=sum;
   }
   try{
     setPubPill('Publishing…','');
     await kvSet('sales_forecast', {
       forwardBySku,
+      forwardBySkuMonthly,
       year: selectedYear(),
       total: Math.round(total),
       updated: new Date().toISOString()
