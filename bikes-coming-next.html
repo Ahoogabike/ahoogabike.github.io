@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ahooga Bikes Coming Next</title>
+<style>
+:root{--bg:#f2f1ed;--surface:#fff;--surface2:#f0efe9;--border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);--text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#1a4fa0;--accent-bg:#e6f0fb;--success:#2d6e2d;--success-bg:#eaf3de;--warn:#7a4e0a;--warn-bg:#faeeda;--danger:#8b1f1f;--danger-bg:#fcebeb;--purple:#3c3489;--purple-bg:#eeedfe;--radius:10px;--radius-sm:6px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Georgia,serif;background:var(--bg);color:var(--text);font-size:14px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:52px;gap:12px;position:sticky;top:0;z-index:100}
+.logo{font-size:17px;font-weight:bold}.logo span{color:var(--accent)}
+.nav-btn{padding:5px 12px;border-radius:var(--radius-sm);font-size:13px;font-family:inherit;font-weight:600;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--text2)}
+.nav-btn.active{background:var(--accent-bg);color:var(--accent);border-color:rgba(26,79,160,0.2)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--text3);border:1px solid var(--border2)}
+.pill.ok{background:var(--success-bg);color:var(--success)}
+.pill.err{background:var(--danger-bg);color:var(--danger)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;font-weight:600;cursor:pointer;border:none}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+main{padding:20px;max-width:1500px;margin:0 auto}
+.view{display:none}.view.active{display:block}
+.settings-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;max-width:540px;margin-bottom:16px}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
+.field label{font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text2);font-weight:600}
+.field input{padding:8px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none}
+.field input:focus{border-color:var(--accent)}
+.hint{font-size:11px;color:var(--text3);margin-top:3px}
+.explain{background:var(--accent-bg);border:1px solid rgba(26,79,160,0.15);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--accent);line-height:1.55}
+.explain code{background:rgba(26,79,160,0.1);padding:1px 6px;border-radius:4px;font-family:monospace;font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px}
+.kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:4px}
+.kpi-value{font-size:21px;font-weight:700}
+.toolbar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.toolbar select,.toolbar input[type=text]{padding:6px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface);color:var(--text);outline:none}
+.toolbar select:focus,.toolbar input:focus{border-color:var(--accent)}
+.sep{width:1px;height:24px;background:var(--border2);margin:0 2px}
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse}
+th{background:var(--surface2);padding:8px 11px;font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text2);font-weight:600;text-align:left;border-bottom:1px solid var(--border);cursor:pointer;user-select:none;position:sticky;top:0;z-index:10;white-space:nowrap}
+th:hover{background:#e5e4de}
+th.sorted{color:var(--accent)}
+th.num{text-align:right}
+td{padding:7px 11px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface2)}
+td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.serial{font-family:monospace;font-weight:700;color:var(--purple)}
+.serial.warn{color:var(--warn);font-weight:600;font-family:inherit}
+.badge{display:inline-flex;align-items:center;font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;white-space:nowrap;background:var(--surface2);color:var(--text2);border:1px solid var(--border2)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px;border:1px solid rgba(0,0,0,0.15)}
+.b-open{background:var(--accent-bg);color:var(--accent)}
+.b-partial{background:var(--warn-bg);color:var(--warn)}
+.b-overdue{background:var(--danger-bg);color:var(--danger)}
+.alert{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:12px}
+.alert-info{background:var(--accent-bg);color:var(--accent)}
+.alert-warn{background:var(--warn-bg);color:var(--warn)}
+.alert-success{background:var(--success-bg);color:var(--success)}
+.alert-danger{background:var(--danger-bg);color:var(--danger)}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--accent-bg);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.prefix-grid{display:grid;grid-template-columns:auto 1fr auto;gap:8px 12px;align-items:center;margin-bottom:12px}
+.prefix-grid input{padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:monospace;outline:none}
+.prefix-grid input:focus{border-color:var(--accent)}
+.prefix-grid .nx{font-size:11px;color:var(--text3);font-family:monospace;white-space:nowrap}
+@media print{header,.toolbar,.kpis,.explain{display:none!important}body{background:#fff}.table-wrap{border:none}}
+@media(max-width:700px){main{padding:14px}table{white-space:nowrap}input,select{font-size:16px!important}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>Bikes Coming Next</span></div>
+  <button class="nav-btn active" id="nav-list" onclick="showTab('list')">🚲 Coming Next</button>
+  <button class="nav-btn" id="nav-excluded" onclick="showTab('excluded')">🚫 Won't arrive</button>
+  <button class="nav-btn" id="nav-settings" onclick="showTab('settings')">⚙ Serials &amp; Connection</button>
+  <div class="header-right">
+    <span class="pill" id="conn-pill">Not connected</span>
+    <button class="btn btn-secondary" onclick="loadData()">↻ Refresh</button>
+    <button class="btn btn-primary" onclick="exportCSV()">⬇ CSV</button>
+  </div>
+</header>
+
+<main>
+  <div id="alert-box"></div>
+
+  <!-- LIST TAB -->
+  <div class="view active" id="view-list">
+    <div class="explain">
+      <strong>MAX bikes ordered but not yet received.</strong> Every MAX bike on an open or partially-received purchase order (subcontracting), one row per unit still to arrive, sorted by expected arrival. Each gets an <strong>estimated serial number</strong>: the colour decides the prefix (set in <em>Serials &amp; Connection</em>), and the number continues from the last serial of that prefix already in Odoo. If a PO line has an error and a bike won't actually arrive, hit <strong>🚫</strong> on its row — it's removed, its serial is freed (the rest shift up), and the choice is saved to the shared store. Undo any time under <em>Won't arrive</em>.
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="kpi-label">Bikes incoming</div><div class="kpi-value" id="k-bikes">—</div></div>
+      <div class="kpi"><div class="kpi-label">Purchase orders</div><div class="kpi-value" id="k-pos" style="color:var(--accent)">—</div></div>
+      <div class="kpi"><div class="kpi-label">Overdue</div><div class="kpi-value" id="k-overdue" style="color:var(--danger)">—</div></div>
+      <div class="kpi"><div class="kpi-label">Next arrival</div><div class="kpi-value" id="k-next" style="font-size:16px">—</div></div>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" id="f-search" placeholder="🔍 Search model, PO, vendor, serial…" style="min-width:260px;flex:1" oninput="render()"/>
+      <select id="f-family" onchange="render()"><option value="">All families</option></select>
+      <select id="f-color" onchange="render()"><option value="">All colours</option></select>
+      <select id="f-vendor" onchange="render()"><option value="">All vendors</option></select>
+      <select id="f-po" onchange="render()"><option value="">All POs</option></select>
+      <div class="sep"></div>
+      <span id="row-count" style="font-size:12px;color:var(--text3)"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table id="main-table">
+        <thead><tr>
+          <th onclick="setSort('expected')" id="sh-expected">Expected</th>
+          <th onclick="setSort('daysUntil')" id="sh-daysUntil" class="num">In (days)</th>
+          <th onclick="setSort('serial')" id="sh-serial">Est. Serial</th>
+          <th onclick="setSort('model')" id="sh-model">Bike</th>
+          <th onclick="setSort('family')" id="sh-family">Family</th>
+          <th onclick="setSort('color')" id="sh-color">Colour</th>
+          <th onclick="setSort('poName')" id="sh-poName">PO</th>
+          <th onclick="setSort('vendor')" id="sh-vendor">Vendor</th>
+          <th onclick="setSort('status')" id="sh-status">Status</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="t-body">
+          <tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text3)">Go to <strong>⚙ Serials &amp; Connection</strong> to connect.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- EXCLUDED TAB -->
+  <div class="view" id="view-excluded">
+    <div class="explain">
+      <strong>Bikes marked "won't be received".</strong> These PO units are excluded from the Coming Next list and get no serial. Use this when a purchase order has an error. Restore any of them to put them back in the queue (serials re-shift automatically). Saved to the shared cloud store.
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Bike</th><th>Family</th><th>Colour</th><th>PO</th><th>Vendor</th>
+          <th class="num">Excluded</th><th></th>
+        </tr></thead>
+        <tbody id="exc-body">
+          <tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">Nothing excluded.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div class="view" id="view-settings">
+    <div class="settings-card">
+      <h2 style="font-size:15px;font-weight:700;margin-bottom:6px">Serial number rule</h2>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.5">Serial prefixes are pre-filled to match the Production Planner (Yellow→MAYA, Black→MABS, Red→MARA, Custom→MACU). The next number is taken automatically from the highest existing <code>MA…</code> serial of that prefix in Odoo, +1, padded to 7 digits — no setup needed. Change a prefix only if the planner's rule changes; it saves to the shared cloud store.</p>
+      <div class="prefix-grid" id="prefix-grid">
+        <!-- filled by JS -->
+      </div>
+      <div class="field" style="max-width:160px">
+        <label>Number padding (digits)</label>
+        <input type="number" id="cfg-pad" min="1" max="12" value="7"/>
+        <div class="hint">e.g. 7 → MARA<strong>0000592</strong></div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-secondary" onclick="detectPrefixes()">🔎 Detect from Odoo</button>
+        <button class="btn btn-primary" onclick="saveSerialCfg()">💾 Save serial rule</button>
+      </div>
+      <div id="detect-out" style="font-size:12px;color:var(--text2);margin-top:12px"></div>
+    </div>
+
+    <div class="settings-card">
+      <h2 style="font-size:15px;font-weight:700;margin-bottom:16px">Odoo Connection</h2>
+      <input type="hidden" id="cfg-url" value="https://ahooga.odoo.com"/>
+      <input type="hidden" id="cfg-db"  value="logicasoft-aho-18-0-21599177"/>
+      <div class="field">
+        <label>Your Odoo email</label>
+        <input type="text" id="cfg-user" placeholder="yourname@ahooga.bike"/>
+      </div>
+      <div class="field">
+        <label>API Key</label>
+        <input type="password" id="cfg-key" placeholder="your-api-key"/>
+        <div class="hint">Odoo → My Profile → Account Security → New API Key</div>
+      </div>
+      <button class="btn btn-primary" onclick="connectAndLoad()">▶ Connect &amp; Load</button>
+      <div id="conn-detail" style="font-size:12px;color:var(--text3);margin-top:10px"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── CONFIG (shared with the other Ahooga apps) ───────────────
+const ODOO_URL='https://ahooga.odoo.com';
+const ODOO_DB ='logicasoft-aho-18-0-21599177';
+const CF_WORKER='https://ahooga-planner-proxy.massimiliano-d74.workers.dev';
+const KV_KEY='bikes_coming_serial_cfg';   // Cloudflare KV key (shared serial rule)
+let odooUid=null;
+let rows=[];                 // one row per incoming bike unit
+let sortKey='expected'; let sortDir=1;
+
+const COLORS=['Yellow','Black','Red','Custom'];
+// Default serial prefixes — identical to the Production Planner.
+let serialCfg={prefixes:{Yellow:'MAYA',Black:'MABS',Red:'MARA',Custom:'MACU'},pad:7};
+let prefixMax={};            // prefix -> {max, pad} from Odoo (last used)
+let lineList=[];             // per-PO-line metadata (for rebuilding units without re-querying)
+let excludedMap={};          // purchase.order.line id -> number of units marked "won't be received"
+const EXC_KEY='bikes_coming_excluded';   // Cloudflare KV key (shared)
+const EXC_LS='ahooga_bcn_excluded';
+
+// ── PROXY / XML-RPC ──────────────────────────────────────────
+function proxyUrl(path){
+  return (location.hostname==='localhost'||location.hostname==='127.0.0.1')
+    ? `/odoo/${encodeURIComponent(ODOO_URL+path)}`
+    : `${CF_WORKER}/odoo/${encodeURIComponent(ODOO_URL+path)}`;
+}
+function v(x){
+  if(x===null||x===undefined) return '<value><boolean>0</boolean></value>';
+  if(typeof x==='boolean') return `<value><boolean>${x?1:0}</boolean></value>`;
+  if(typeof x==='number'&&Number.isInteger(x)) return `<value><int>${x}</int></value>`;
+  if(typeof x==='number') return `<value><double>${x}</double></value>`;
+  if(Array.isArray(x)) return `<value><array><data>${x.map(v).join('')}</data></array></value>`;
+  if(typeof x==='object'){const m=Object.entries(x).map(([k,vv])=>`<member><name>${k}</name>${v(vv)}</member>`).join('');return `<value><struct>${m}</struct></value>`;}
+  return `<value><string>${String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</string></value>`;
+}
+function parseXml(xml){
+  const doc=new DOMParser().parseFromString(xml,'text/xml');
+  if(doc.querySelector('fault')) throw new Error('Odoo error: '+(doc.querySelector('faultString')?.textContent?.substring(0,160)||'fault'));
+  function pv(n){
+    if(!n) return null;
+    const c=n.firstElementChild;
+    if(!c) return n.textContent;
+    switch(c.tagName){
+      case 'int':case 'i4':case 'i8': return parseInt(c.textContent);
+      case 'double': return parseFloat(c.textContent);
+      case 'boolean': return c.textContent==='1';
+      case 'string': return c.textContent;
+      case 'nil': return null;
+      case 'array': return Array.from(c.querySelector('data')?.children||[]).map(pv);
+      case 'struct':{const o={};c.querySelectorAll(':scope>member').forEach(m=>{o[m.querySelector('name').textContent]=pv(m.querySelector('value'))});return o;}
+      default: return c.textContent;
+    }
+  }
+  return pv(doc.querySelector('methodResponse>params>param>value'));
+}
+function arr(x){return Array.isArray(x)?x:[null,x?String(x):''];}
+async function odoo(model,method,args,kwargs={}){
+  const user=document.getElementById('cfg-user').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  if(!odooUid){
+    const b=`<?xml version="1.0"?><methodCall><methodName>authenticate</methodName><params>${[v(ODOO_DB),v(user),v(key),v({})].map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+    const r=await fetch(proxyUrl('/xmlrpc/2/common'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+    odooUid=parseXml(await r.text());
+    if(!odooUid||typeof odooUid!=='number') throw new Error('Authentication failed — check email and API key');
+  }
+  const params=[v(ODOO_DB),v(odooUid),v(key),v(model),v(method),v(args),v(kwargs)];
+  const b=`<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>${params.map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+  const r=await fetch(proxyUrl('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+  return parseXml(await r.text());
+}
+
+// ── HELPERS ──────────────────────────────────────────────────
+const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o;};
+function alert_(msg,type){document.getElementById('alert-box').innerHTML=`<div class="alert alert-${type}">${msg}</div>`;if(type==='success')setTimeout(()=>{const b=document.getElementById('alert-box');if(b&&b.querySelector('.alert-success'))b.innerHTML='';},5000);}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fd(d){if(!d)return'—';const dt=new Date(d);return isNaN(dt)?d:dt.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}
+function showTab(t){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+t).classList.add('active');
+  document.getElementById('nav-'+t).classList.add('active');
+  if(t==='excluded') renderExcluded();
+}
+const COLOR_DOT={Yellow:'#e8c20a',Black:'#222',Red:'#b8241f',Custom:'#7a5cff'};
+function detectColor(name){
+  const s=String(name||'').toUpperCase();
+  if(s.includes('YELLOW')||s.includes('BUMBLEBEE')) return 'Yellow';
+  if(s.includes('BLACK')||s.includes('COSMIC')) return 'Black';
+  if(s.includes('RED')||s.includes('RUBY')) return 'Red';
+  return 'Custom';
+}
+function detectFamily(name){
+  const s=String(name||'').toUpperCase().replace(/É/g,'E');
+  const plat=(s.includes('E-MAX')||s.includes('EMAX'))?'E-MAX':((s.includes('A-MAX')||s.includes('AMAX'))?'A-MAX':'MAX');
+  let drive='';
+  if(s.includes('NEXUS'))drive='Nexus';
+  else if(s.includes('ALFINE'))drive='Alfine';
+  else if(s.includes('DERAIL'))drive='Derailleur';
+  return (plat+(drive?' '+drive:'')).trim();
+}
+
+// ── SERIAL CONFIG (Cloudflare KV) ────────────────────────────
+function kvUrl(key){return `${CF_WORKER}/kv/${encodeURIComponent(key||KV_KEY)}`;}
+async function loadExcluded(){
+  try{
+    const r=await fetch(kvUrl(EXC_KEY),{method:'GET'});
+    if(r.ok){const t=(await r.text()||'').trim();if(t){const o=JSON.parse(t);if(o&&typeof o==='object'){excludedMap=o;try{localStorage.setItem(EXC_LS,t);}catch(e){}return;}}}
+  }catch(e){console.warn('excluded load failed',e.message);}
+  try{const a=localStorage.getItem(EXC_LS);if(a)excludedMap=JSON.parse(a)||{};}catch(e){excludedMap={};}
+}
+async function saveExcluded(){
+  try{localStorage.setItem(EXC_LS,JSON.stringify(excludedMap));}catch(e){}
+  try{const r=await fetch(kvUrl(EXC_KEY),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(excludedMap)});if(!r.ok)throw new Error('HTTP '+r.status);}
+  catch(e){console.warn('excluded save failed',e.message);}
+}
+async function loadSerialCfg(){
+  try{
+    const r=await fetch(kvUrl(),{method:'GET'});
+    if(r.ok){const txt=(await r.text()||'').trim();if(txt){const o=JSON.parse(txt);if(o&&o.prefixes){serialCfg={prefixes:{...serialCfg.prefixes,...o.prefixes},pad:o.pad||7};}}}
+  }catch(e){console.warn('serial cfg load failed',e.message);}
+  buildPrefixGrid();
+}
+async function saveSerialCfg(){
+  COLORS.forEach(c=>{serialCfg.prefixes[c]=(document.getElementById('px-'+c)?.value||'').trim();});
+  serialCfg.pad=Math.max(1,parseInt(document.getElementById('cfg-pad').value)||7);
+  try{
+    const r=await fetch(kvUrl(),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(serialCfg)});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    alert_('✓ Serial rule saved to the shared cloud store.','success');
+  }catch(e){ alert_('Could not save to cloud ('+e.message+'). Check the Worker /kv route.','warn'); }
+  if(rows.length){ await refreshSerials(); }
+}
+function buildPrefixGrid(){
+  const g=document.getElementById('prefix-grid');if(!g)return;
+  g.innerHTML=COLORS.map(c=>{
+    const px=serialCfg.prefixes[c]||'';
+    const info=prefixMax[px]?`last ${px}${String(prefixMax[px].max).padStart(prefixMax[px].pad||serialCfg.pad,'0')}`:'';
+    return `<label style="display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600"><span class="dot" style="background:${COLOR_DOT[c]}"></span>${c}</label>
+      <input id="px-${c}" value="${esc(px)}" placeholder="prefix e.g. MARA" oninput="buildNextHints()">
+      <span class="nx" id="nx-${c}">${info}</span>`;
+  }).join('');
+  const pad=document.getElementById('cfg-pad'); if(pad) pad.value=serialCfg.pad||7;
+}
+function buildNextHints(){
+  COLORS.forEach(c=>{
+    const px=(document.getElementById('px-'+c)?.value||'').trim();
+    const el=document.getElementById('nx-'+c);if(!el)return;
+    if(px&&prefixMax[px]) el.textContent=`next ${px}${String(prefixMax[px].max+1).padStart(prefixMax[px].pad||serialCfg.pad,'0')}`;
+    else el.textContent=px?'no existing serial':'';
+  });
+}
+
+// ── CONNECT ──────────────────────────────────────────────────
+async function connectAndLoad(){
+  const user=document.getElementById('cfg-user').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  if(!user||!key){alert_('Enter email and API key.','warn');return;}
+  odooUid=null;
+  document.getElementById('conn-detail').textContent='Connecting…';
+  try{
+    await odoo('res.users','search_read',[[['id','=',1]]],{fields:['name'],limit:1});
+    document.getElementById('conn-pill').textContent='✓ Connected';
+    document.getElementById('conn-pill').className='pill ok';
+    document.getElementById('conn-detail').textContent='✓ Connected — loading…';
+    try{const c=localStorage.getItem('mxp_cfg');const cfg=c?JSON.parse(c):{};cfg.user=user;cfg.key=key;localStorage.setItem('mxp_cfg',JSON.stringify(cfg));}catch(e){}
+    showTab('list');
+    await loadData();
+  }catch(e){
+    document.getElementById('conn-pill').textContent='✗ Failed';
+    document.getElementById('conn-pill').className='pill err';
+    document.getElementById('conn-detail').textContent='✗ '+e.message;
+  }
+}
+
+// ── LOAD DATA ────────────────────────────────────────────────
+async function bikeCategoryIds(){
+  const cats=await odoo('product.category','search_read',[[['complete_name','ilike','Bikes']]],{fields:['id','complete_name'],limit:100});
+  const ids=cats.filter(c=>String(c.complete_name||'').startsWith('Bikes')).map(c=>c.id);
+  return ids.length?ids:cats.map(c=>c.id);
+}
+
+async function loadData(){
+  const user=document.getElementById('cfg-user').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  if(!user||!key){showTab('settings');return;}
+  try{
+    await loadSerialCfg();
+    await loadExcluded();
+
+    alert_('<span class="spinner"></span> Loading bike categories…','info');
+    const bikeCatIds=await bikeCategoryIds();
+    window._bikeCatIds=bikeCatIds;
+
+    // 1. MAX bike PO lines still open (ordered but not fully received), excluding cancelled
+    alert_('<span class="spinner"></span> Loading open MAX bike purchase orders…','info');
+    const lines=await odoo('purchase.order.line','search_read',
+      [[['order_id.state','in',['purchase','done']],['product_id.categ_id','in',bikeCatIds],['product_id.name','ilike','MAX']]],
+      {fields:['id','order_id','product_id','product_qty','qty_received','date_planned'],limit:20000,order:'date_planned asc'});
+
+    // 2. PO headers
+    const poIds=[...new Set(lines.map(l=>arr(l.order_id)[0]).filter(Boolean))];
+    const poList=poIds.length?await odoo('purchase.order','search_read',
+      [[['id','in',poIds]]],{fields:['name','partner_id','date_order','state'],limit:5000}):[];
+    const poMap={};for(const p of poList)poMap[p.id]=p;
+
+    // 3. Per-line metadata (one entry per PO line with remaining units)
+    const today=new Date();today.setHours(0,0,0,0);
+    lineList=[];
+    for(const line of lines){
+      const po=poMap[arr(line.order_id)[0]];if(!po||po.state==='cancel')continue;
+      const remaining=Math.round((parseFloat(line.product_qty)||0)-(parseFloat(line.qty_received)||0));
+      if(remaining<=0)continue;
+      const prodName=arr(line.product_id)[1]||'';
+      const expected=line.date_planned?line.date_planned.split(' ')[0]:null;
+      const received=parseFloat(line.qty_received)||0;
+      lineList.push({
+        lineId:line.id,
+        poName:po.name, vendor:arr(po.partner_id)[1]||'',
+        model:prodName.replace(/^\[[^\]]+\]\s*/,''),
+        family:detectFamily(prodName), color:detectColor(prodName),
+        expected, remaining,
+        status:(expected&&new Date(expected)<today)?'overdue':(received>0?'partial':'open'),
+        daysUntil: expected? Math.round((new Date(expected)-today)/86400000) : null,
+        _sortDate: expected? new Date(expected).getTime() : 8e15
+      });
+    }
+
+    // prune stale / over-cap exclusions, then persist if changed
+    const validIds=new Set(lineList.map(l=>String(l.lineId)));
+    const remById={}; lineList.forEach(l=>remById[l.lineId]=l.remaining);
+    let changed=false;
+    for(const k of Object.keys(excludedMap)){
+      if(!validIds.has(k)){delete excludedMap[k];changed=true;continue;}
+      const c=Math.min(excludedMap[k], remById[k]); if(c<=0){delete excludedMap[k];changed=true;} else if(c!==excludedMap[k]){excludedMap[k]=c;changed=true;}
+    }
+    if(changed) saveExcluded();
+
+    // 4. Last-used serial number per prefix (planner rule: scan all MA* lots)
+    alert_('<span class="spinner"></span> Reading last serial numbers created…','info');
+    await loadLastSerials();
+
+    buildUnits();
+    populateFilters();
+    buildPrefixGrid();
+
+    const ts=new Date().toLocaleTimeString();
+    document.getElementById('conn-pill').textContent=`${rows.length} bikes · ${ts}`;
+    document.getElementById('conn-pill').className='pill ok';
+    const missing=COLORS.filter(c=>rows.some(u=>u.color===c)&&!serialCfg.prefixes[c]);
+    alert_(`✓ ${rows.length} MAX bikes incoming on ${poIds.length} PO(s).`+(missing.length?` ⚠ No serial prefix set for: ${missing.join(', ')} — set it in Serials & Connection.`:''), missing.length?'warn':'success');
+  }catch(e){
+    alert_('Error: '+e.message,'danger');
+    console.error(e);
+  }
+}
+
+// Build incoming-bike rows from lineList + exclusions, assign serials, render.
+function buildUnits(){
+  let units=[];
+  for(const lm of lineList){
+    const exc=Math.min(lm.remaining, excludedMap[lm.lineId]||0);
+    const eff=lm.remaining-exc;
+    for(let u=0;u<eff;u++) units.push({...lm, lineUnit:u+1, lineQty:eff});
+  }
+  units.sort((a,b)=> a._sortDate-b._sortDate || a.poName.localeCompare(b.poName) || a.model.localeCompare(b.model));
+  assignSerials(units);
+  rows=units;
+  render();
+  renderExcluded();
+}
+
+function excludeBike(lineId){
+  const lm=lineList.find(l=>l.lineId===lineId);if(!lm)return;
+  const cur=excludedMap[lineId]||0;
+  if(cur>=lm.remaining) return;
+  excludedMap[lineId]=cur+1;
+  saveExcluded();
+  buildUnits();
+}
+function restoreOne(lineId){
+  const cur=excludedMap[lineId]||0;
+  if(cur<=1) delete excludedMap[lineId]; else excludedMap[lineId]=cur-1;
+  saveExcluded();
+  buildUnits();
+}
+function restoreAll(lineId){
+  delete excludedMap[lineId];
+  saveExcluded();
+  buildUnits();
+}
+
+async function loadLastSerials(){
+  // Mirror the Production Planner: scan all MA* lots once, find the highest
+  // number per prefix. Zero-padded 7-digit numbers sort = numeric, so this is exact.
+  prefixMax={};
+  for(const c of COLORS){const px=serialCfg.prefixes[c];if(px&&!prefixMax[px])prefixMax[px]={max:0,pad:serialCfg.pad||7,found:false};}
+  let lots=[];
+  try{
+    lots=await odoo('stock.lot','search_read',[[['name','like','MA']]],
+      {fields:['name'],limit:30000,order:'name desc'});
+  }catch(e){ console.warn('lot scan failed',e.message); }
+  for(const lot of lots){
+    const name=String(lot.name||'');if(!name)continue;
+    for(const px in prefixMax){
+      if(name.startsWith(px)){
+        const rest=name.slice(px.length);
+        const dm=rest.match(/^\d+/);
+        const n=dm?parseInt(dm[0],10):0;
+        const pm=prefixMax[px];
+        pm.found=true;
+        if(n>pm.max){pm.max=n; if(dm)pm.pad=dm[0].length;}
+        break;
+      }
+    }
+  }
+}
+
+function assignSerials(units){
+  const counter={};   // prefix -> running number
+  for(const u of units){
+    const px=serialCfg.prefixes[u.color]||serialCfg.prefixes['Custom']||'';
+    if(!px){ u.serial=null; u.serialWarn='set prefix'; continue; }
+    const pm=prefixMax[px]||{max:0,pad:serialCfg.pad||7,found:false};
+    const pad=pm.pad||serialCfg.pad||7;
+    counter[px]=(counter[px]===undefined?pm.max:counter[px])+1;
+    u.serial=px+String(counter[px]).padStart(pad,'0');
+    u.serialEstimated=!pm.found;
+  }
+}
+async function refreshSerials(){
+  // recompute last-used + reassign (after editing the rule)
+  try{
+    await loadLastSerials();
+    buildUnits(); buildPrefixGrid();
+  }catch(e){alert_('Could not refresh serials: '+e.message,'warn');}
+}
+
+async function detectPrefixes(){
+  const user=document.getElementById('cfg-user').value.trim();
+  if(!user){alert_('Connect first.','warn');return;}
+  document.getElementById('detect-out').innerHTML='<span class="spinner"></span> Scanning bike serials…';
+  try{
+    const bikeCatIds=await bikeCategoryIds();
+    const lots=await odoo('stock.lot','search_read',
+      [[['product_id.categ_id','in',bikeCatIds],['product_id.name','ilike','MAX']]],{fields:['name'],limit:50000});
+    const groups={};
+    for(const l of lots){
+      const name=String(l.name||'');
+      const m=name.match(/^([^\d]*\D)(\d+)\s*$/) || name.match(/^(\D+)(\d+)/);
+      if(!m)continue;
+      const px=m[1], n=parseInt(m[2],10), pad=m[2].length;
+      if(!groups[px])groups[px]={count:0,max:0,pad};
+      groups[px].count++; if(n>groups[px].max){groups[px].max=n;groups[px].pad=pad;}
+    }
+    const list=Object.entries(groups).sort((a,b)=>b[1].count-a[1].count);
+    if(!list.length){document.getElementById('detect-out').textContent='No serial numbers found on bike lots.';return;}
+    document.getElementById('detect-out').innerHTML=
+      '<strong>Prefixes found on bike serials (paste the right one into each colour):</strong><br>'+
+      list.map(([px,g])=>`<code style="background:var(--surface2);padding:1px 6px;border-radius:4px">${esc(px)}</code> — ${g.count} lots · last <strong>${esc(px)}${String(g.max).padStart(g.pad,'0')}</strong> · next ${esc(px)}${String(g.max+1).padStart(g.pad,'0')}`).join('<br>');
+  }catch(e){document.getElementById('detect-out').textContent='Error: '+e.message;}
+}
+
+// ── FILTERS / SORT / RENDER ──────────────────────────────────
+function populateFilters(){
+  const fill=(id,vals)=>{const s=document.getElementById(id);if(!s)return;const cur=s.value;s.innerHTML=s.options[0].outerHTML+vals.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');if(cur)s.value=cur;};
+  fill('f-family',[...new Set(rows.map(r=>r.family).filter(Boolean))].sort());
+  fill('f-color',COLORS.filter(c=>rows.some(r=>r.color===c)));
+  fill('f-vendor',[...new Set(rows.map(r=>r.vendor).filter(Boolean))].sort());
+  fill('f-po',[...new Set(rows.map(r=>r.poName).filter(Boolean))].sort());
+}
+function setSort(k){if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=1;}render();}
+function getFiltered(){
+  const search=(document.getElementById('f-search').value||'').toLowerCase();
+  const fam=document.getElementById('f-family').value;
+  const col=document.getElementById('f-color').value;
+  const ven=document.getElementById('f-vendor').value;
+  const po=document.getElementById('f-po').value;
+  let data=rows.filter(r=>{
+    if(fam&&r.family!==fam)return false;
+    if(col&&r.color!==col)return false;
+    if(ven&&r.vendor!==ven)return false;
+    if(po&&r.poName!==po)return false;
+    if(search&&![r.model,r.poName,r.vendor,r.serial,r.family,r.color].join(' ').toLowerCase().includes(search))return false;
+    return true;
+  });
+  data.sort((a,b)=>{
+    let av=a[sortKey],bv=b[sortKey];
+    if(sortKey==='expected'){av=a._sortDate;bv=b._sortDate;}
+    if(av===null||av===undefined)av=typeof bv==='string'?'zzz':Infinity;
+    if(bv===null||bv===undefined)bv=typeof av==='string'?'zzz':Infinity;
+    if(typeof av==='string')return sortDir*av.localeCompare(bv);
+    return sortDir*(av-bv);
+  });
+  return data;
+}
+function render(){
+  if(!rows.length)return;
+  const data=getFiltered();
+  document.getElementById('k-bikes').textContent=rows.length.toLocaleString();
+  document.getElementById('k-pos').textContent=new Set(rows.map(r=>r.poName)).size;
+  document.getElementById('k-overdue').textContent=rows.filter(r=>r.status==='overdue').length;
+  const next=rows.map(r=>r.expected).filter(Boolean).sort()[0];
+  document.getElementById('k-next').textContent=next?fd(next):'—';
+
+  ['expected','daysUntil','serial','model','family','color','poName','vendor','status'].forEach(k=>{
+    const el=document.getElementById('sh-'+k);if(!el)return;
+    el.classList.toggle('sorted',sortKey===k);
+    el.querySelectorAll('.arr').forEach(n=>n.remove());
+    if(sortKey===k){const s=document.createElement('span');s.className='arr';s.textContent=sortDir===1?' ↑':' ↓';el.appendChild(s);}
+  });
+  document.getElementById('row-count').textContent=`${data.length} of ${rows.length} bikes`;
+
+  const stBadge={open:'b-open',partial:'b-partial',overdue:'b-overdue'};
+  const stTxt={open:'Open',partial:'Partial',overdue:'Overdue'};
+  const tb=document.getElementById('t-body');
+  if(!data.length){tb.innerHTML='<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--text3)">No bikes match the filters.</td></tr>';return;}
+  tb.innerHTML=data.map(r=>`<tr>
+    <td>${r.expected?fd(r.expected):'<span style="color:var(--text3)">no date</span>'}</td>
+    <td class="num">${r.daysUntil===null?'—':(r.daysUntil<0?`<span style="color:var(--danger)">${r.daysUntil}</span>`:r.daysUntil)}</td>
+    <td>${r.serial?`<span class="serial">${esc(r.serial)}</span>${r.serialEstimated?' <span class="badge" title="No prior serial for this prefix in Odoo — sequence assumed to start at 1">new seq</span>':''}`:`<span class="serial warn">⚠ ${esc(r.serialWarn||'')}</span>`}</td>
+    <td style="min-width:200px;white-space:normal;line-height:1.3;font-weight:500">${esc(r.model)}${r.lineQty>1?` <span class="badge">${r.lineUnit}/${r.lineQty}</span>`:''}</td>
+    <td>${esc(r.family)}</td>
+    <td><span class="dot" style="background:${COLOR_DOT[r.color]||'#999'}"></span>${esc(r.color)}</td>
+    <td style="font-size:12px">${esc(r.poName)}</td>
+    <td style="font-size:12px;color:var(--text2)">${esc(r.vendor)}</td>
+    <td><span class="badge ${stBadge[r.status]}">${stTxt[r.status]}</span></td>
+    <td><button class="btn btn-secondary" title="This bike won't be received — remove it and free its serial" onclick="excludeBike(${r.lineId})" style="padding:3px 8px">🚫</button></td>
+  </tr>`).join('');
+}
+
+function renderExcluded(){
+  const tb=document.getElementById('exc-body');if(!tb)return;
+  const items=lineList.filter(l=>excludedMap[l.lineId]>0)
+    .sort((a,b)=>a.poName.localeCompare(b.poName)||a.model.localeCompare(b.model));
+  if(!items.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text3)">Nothing excluded.</td></tr>';return;}
+  tb.innerHTML=items.map(l=>`<tr>
+    <td style="min-width:200px;white-space:normal;line-height:1.3;font-weight:500">${esc(l.model)}</td>
+    <td>${esc(l.family)}</td>
+    <td><span class="dot" style="background:${COLOR_DOT[l.color]||'#999'}"></span>${esc(l.color)}</td>
+    <td style="font-size:12px">${esc(l.poName)}</td>
+    <td style="font-size:12px;color:var(--text2)">${esc(l.vendor)}</td>
+    <td class="num" style="font-weight:700;color:var(--danger)">${excludedMap[l.lineId]} / ${l.remaining}</td>
+    <td style="white-space:nowrap">
+      <button class="btn btn-secondary" onclick="restoreOne(${l.lineId})" style="padding:3px 8px" title="Restore one">↩ one</button>
+      <button class="btn btn-secondary" onclick="restoreAll(${l.lineId})" style="padding:3px 8px" title="Restore all">↩ all</button>
+    </td>
+  </tr>`).join('');
+}
+
+// ── CSV ──────────────────────────────────────────────────────
+function exportCSV(){
+  if(!rows.length){alert_('Load data first.','warn');return;}
+  const data=getFiltered();
+  const hdr=['Expected','In (days)','Estimated Serial','Bike','Family','Colour','Unit','PO','Vendor','Status'];
+  const csv=[hdr,...data.map(r=>[r.expected||'',r.daysUntil===null?'':r.daysUntil,r.serial||'',r.model,r.family,r.color,r.lineQty>1?`${r.lineUnit}/${r.lineQty}`:'',r.poName,r.vendor,r.status])]
+    .map(row=>row.map(c=>{const s=String(c??'');return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='bikes-coming-next-'+new Date().toISOString().split('T')[0]+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+buildPrefixGrid();
+try{
+  const c=localStorage.getItem('mxp_cfg');
+  if(c){const cfg=JSON.parse(c);if(cfg.user)document.getElementById('cfg-user').value=cfg.user;if(cfg.key)document.getElementById('cfg-key').value=cfg.key;}
+}catch(e){}
+window.addEventListener('load',()=>{
+  loadSerialCfg();
+  try{
+    const c=localStorage.getItem('mxp_cfg');
+    if(c){const cfg=JSON.parse(c);
+      if(cfg.user&&cfg.key){
+        document.getElementById('cfg-user').value=cfg.user;
+        document.getElementById('cfg-key').value=cfg.key;
+        setTimeout(()=>connectAndLoad(),300);
+      }
+    }
+  }catch(e){}
+});
+</script>
+</body>
+</html>
