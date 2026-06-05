@@ -105,8 +105,7 @@ table.grid td.blocked{background:rgba(0,0,0,0.045)!important;color:var(--text3)}
 
   <div class="controls">
     <div class="field"><label>Year</label><input type="number" id="f-year" style="width:90px" oninput="recompute()"/></div>
-    <div class="field"><label>Min E-MAX / family per PO</label><input type="number" id="f-minemax" style="width:120px" value="40" oninput="recompute()"/></div>
-    <div class="field"><label>Min A-MAX / family per PO</label><input type="number" id="f-minamax" style="width:120px" value="20" oninput="recompute()"/></div>
+    <div class="field"><label>Minimum batch (per PO)</label><input type="number" id="f-minbatch" style="width:120px" value="20" oninput="recompute()"/><span class="hint">smallest production run</span></div>
     <div class="field"><label>Production days</label><input type="number" id="f-prod" style="width:90px" value="12" oninput="recompute()"/></div>
     <div class="field"><label>Transit days</label><input type="number" id="f-lead" style="width:90px" value="2" oninput="recompute()"/></div>
     <div class="field"><label>Produce everything by</label><input type="date" id="f-deadline" style="width:150px" oninput="recompute()"/><span class="hint">last production week</span></div>
@@ -294,7 +293,7 @@ function alert_(msg,type){document.getElementById('alert-box').innerHTML=`<div c
 function toggleConn(){document.getElementById('conn-panel').classList.toggle('open');}
 function fmt(n){ if(!n) return '·'; return Math.round(n).toLocaleString('en-GB'); }
 function selectedYear(){ return parseInt(document.getElementById('f-year').value)|| new Date().getFullYear(); }
-function minFor(bt){ return bt==='emax' ? (parseInt(document.getElementById('f-minemax').value)||40) : (parseInt(document.getElementById('f-minamax').value)||20); }
+function minFor(bt){ return parseInt(document.getElementById('f-minbatch').value)||20; }
 function arrivalDays(){ return (parseInt(document.getElementById('f-prod').value)||12)+(parseInt(document.getElementById('f-lead').value)||2); }
 function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
 function isoWeek(d){ const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); const day=(t.getUTCDay()+6)%7; t.setUTCDate(t.getUTCDate()-day+3); const first=new Date(Date.UTC(t.getUTCFullYear(),0,4)); return 1+Math.round(((t-first)/86400000-3+((first.getUTCDay()+6)%7))/7); }
@@ -549,6 +548,7 @@ function buildYearPlan(){
 
   const need=buildTimedNeed();
   const target=targetPerWeek();
+  const weekLoad=Array(W).fill(0);   // SHARED across families — the cap is total bikes/week
 
   // Group each family's timed need into min-batch POs as the need accrues week by week.
   for(const fam of FAMILIES){
@@ -557,21 +557,21 @@ function buildYearPlan(){
     const cap = target>0 ? Math.max(target, minF) : Infinity;
     const accSku={}; for(const s of skusF) accSku[s.key]=0;
     const accTot=()=>skusF.reduce((a,s)=>a+accSku[s.key],0);
-    const load=Array(W).fill(0);
     const doEmit=(wi,size)=>{
       const a=allocateByMix(accSku, size);
       for(const s of skusF) yearGrid[s.key][wi]+=a[s.key]||0;
       const rem=Math.max(0, accTot()-size), scale=accTot()>0?rem/accTot():0;
       for(const s of skusF) accSku[s.key]*=scale;
-      load[wi]+=size;
+      weekLoad[wi]+=size;
     };
-    // place a PO as late as possible at/before the preferred week, respecting the weekly cap;
+    const room=(wi,size)=> cap===Infinity || weekLoad[wi]+size<=cap;
+    // place a PO as late as possible at/before the preferred week, respecting the shared weekly cap;
     // spill earlier when the preferred week is full or blocked, then forward as a last resort.
     const place=(pref,size)=>{
       pref=Math.max(0, Math.min(pref, W-1));
       let wi=pref;
-      while(wi>=0 && (isBlocked(wi) || (cap!==Infinity && load[wi]+size>cap))) wi--;
-      if(wi<0){ wi=pref+1; while(wi<W && (isBlocked(wi) || (cap!==Infinity && load[wi]+size>cap))) wi++; }
+      while(wi>=0 && (isBlocked(wi) || !room(wi,size))) wi--;
+      if(wi<0){ wi=pref+1; while(wi<W && (isBlocked(wi) || !room(wi,size))) wi++; }
       if(wi<0 || wi>=W){ wi=pref; while(wi<W && isBlocked(wi)) wi++; if(wi>=W){ wi=pref; while(wi>=0 && isBlocked(wi)) wi--; } }
       if(wi>=0 && wi<W) doEmit(wi, size);
     };
@@ -740,8 +740,7 @@ function saveCfg(){
   try{ localStorage.setItem(LS_CFG, JSON.stringify({
     user:document.getElementById('cfg-user').value.trim(),
     key:document.getElementById('cfg-key').value.trim(),
-    minemax:document.getElementById('f-minemax').value,
-    minamax:document.getElementById('f-minamax').value,
+    minbatch:document.getElementById('f-minbatch').value,
     prod:document.getElementById('f-prod').value,
     lead:document.getElementById('f-lead').value,
     deadline:document.getElementById('f-deadline').value,
@@ -756,8 +755,7 @@ function loadCfg(){
   document.getElementById('cfg-key').value=c.key||fc.key||'';
   const y=new Date().getFullYear();
   document.getElementById('f-year').value=y;
-  document.getElementById('f-minemax').value=c.minemax||40;
-  document.getElementById('f-minamax').value=c.minamax||20;
+  document.getElementById('f-minbatch').value=c.minbatch||c.minamax||20;
   document.getElementById('f-prod').value=c.prod||12;
   document.getElementById('f-lead').value=c.lead||2;
   document.getElementById('f-deadline').value=c.deadline||(y+'-10-31');
