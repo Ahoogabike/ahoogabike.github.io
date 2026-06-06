@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>VV · Serial Registry</title>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{ --bg:#14130f; --panel:#1d1c17; --line:#34322a; --ink:#f4f1e8; --muted:#a39e8d;
+         --accent:#ffcf2e; --ok:#3ec46d; --warn:#e0613a; }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+       padding:0 16px 40px;max-width:520px;margin:0 auto}
+  header{padding:22px 0 14px;display:flex;align-items:center;gap:10px}
+  header .logo{font-weight:800;letter-spacing:-.02em;font-size:20px}
+  header .logo span{color:var(--accent)}
+  header .tag{margin-left:auto;font-size:11px;color:var(--muted);font-family:ui-monospace,monospace}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+  .slot{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+  .slot:last-child{border-bottom:none}
+  .slot .n{flex:none;width:28px;height:28px;border-radius:50%;background:var(--line);color:var(--ink);
+           display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+  .slot.done .n{background:var(--ok);color:#06210f}
+  .slot .lab{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .slot .val{font-size:20px;font-weight:700;font-family:ui-monospace,monospace;margin-top:1px;word-break:break-all}
+  .slot .val.empty{color:var(--muted);font-weight:400;font-size:14px;font-family:inherit}
+  .slot input{width:100%;background:#000;border:1px solid var(--line);border-radius:9px;color:var(--ink);
+              font-size:18px;font-family:ui-monospace,monospace;padding:8px 10px;margin-top:4px}
+  #reader{border-radius:14px;overflow:hidden;margin-bottom:8px;background:#000;min-height:0}
+  #reader:empty{display:none}
+  .hint{font-size:12px;color:var(--muted);text-align:center;margin:4px 0 12px}
+  button{font:inherit;font-weight:700;border:none;border-radius:12px;padding:15px;width:100%;cursor:pointer}
+  .btn-primary{background:var(--accent);color:#191712}
+  .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn-ok{background:var(--ok);color:#06210f}
+  .btn-row{display:flex;gap:10px;margin-top:6px}
+  .btn-row button{flex:1}
+  button:disabled{opacity:.4}
+  .msg{border-radius:12px;padding:12px 14px;font-size:14px;margin-bottom:12px;display:none}
+  .msg.ok{display:block;background:#10331e;border:1px solid #2c6b40;color:#bff0cf}
+  .msg.err{display:block;background:#3a1c12;border:1px solid #7a3320;color:#f4c4b2}
+  h3{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:18px 0 8px}
+  .rec{display:flex;gap:10px;align-items:baseline;font-family:ui-monospace,monospace;font-size:13px;
+       padding:9px 0;border-bottom:1px solid var(--line)}
+  .rec .so{color:var(--accent);font-weight:700}
+  .rec .sr{font-weight:700}
+  .rec .t{margin-left:auto;color:var(--muted);font-size:11px}
+  .setup{background:#3a1c12;border:1px solid #7a3320;color:#f4c4b2;border-radius:12px;padding:12px 14px;font-size:13px;margin-bottom:14px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">VV · <span>Serials</span></div>
+  <div class="tag">Velovisie → Ahooga</div>
+</header>
+
+<div id="setup-warn" class="setup" style="display:none">
+  ⚠ Not configured yet. Open this file and set <b>WORKER_URL</b> (and <b>WRITE_KEY</b> if you set one) at the top of the script.
+</div>
+
+<div id="msg" class="msg"></div>
+
+<div class="card">
+  <div id="slot-so" class="slot">
+    <div class="n">1</div>
+    <div style="flex:1">
+      <div class="lab">Order (SO)</div>
+      <div id="so-val" class="val empty">scan the box label…</div>
+      <input id="so-in" inputmode="text" placeholder="or type S23911" style="display:none"/>
+    </div>
+  </div>
+  <div id="slot-sr" class="slot">
+    <div class="n">2</div>
+    <div style="flex:1">
+      <div class="lab">Frame serial</div>
+      <div id="sr-val" class="val empty">scan the MACU sticker…</div>
+      <input id="sr-in" inputmode="text" placeholder="or type MACU0000123" style="display:none"/>
+    </div>
+  </div>
+</div>
+
+<div id="reader"></div>
+<div id="cam-hint" class="hint"></div>
+
+<button id="scan-btn" class="btn-primary">📷 Start scanning</button>
+<div class="btn-row">
+  <button id="manual-btn" class="btn-ghost">⌨ Type manually</button>
+  <button id="reset-btn" class="btn-ghost">↺ Reset</button>
+</div>
+<button id="submit-btn" class="btn-ok" style="margin-top:10px" disabled>✓ Register pairing</button>
+
+<h3>Recent registrations</h3>
+<div id="recent"><div class="hint" style="text-align:left">—</div></div>
+
+<script>
+/* ─────────────  CONFIG — fill these in  ─────────────
+   WORKER_URL : your Cloudflare Worker URL, e.g. https://vv-serials.yourname.workers.dev
+   WRITE_KEY  : the same string you set as WRITE_KEY in the Worker (leave '' if you didn't set one)
+*/
+const WORKER_URL = "https://vv-serials.massimiliano-d74.workers.dev";
+const WRITE_KEY  = "";
+/* ──────────────────────────────────────────────────── */
+
+const $ = id => document.getElementById(id);
+let state = { so:'', serial:'', stage:'so', scanner:null, scanning:false, manual:false };
+
+if(!WORKER_URL) $('setup-warn').style.display='block';
+
+const SUPPORTED = [
+  Html5QrcodeSupportedFormats.CODE_128,
+  Html5QrcodeSupportedFormats.CODE_39,
+  Html5QrcodeSupportedFormats.EAN_13,
+  Html5QrcodeSupportedFormats.QR_CODE,
+];
+
+function looksLikeSO(s){ return /^[A-Z]?S?\d{4,}$/i.test(s) || /\bS\d{4,}\b/i.test(s); }
+function cleanSO(s){ const m=String(s).toUpperCase().match(/S\s*\d{3,}/); return m?m[0].replace(/\s+/g,''):String(s).trim().toUpperCase(); }
+function cleanSerial(s){ return String(s).trim().toUpperCase().replace(/\s+/g,''); }
+
+function render(){
+  $('so-val').textContent = state.so || 'scan the box label…';
+  $('so-val').className = 'val' + (state.so?'':' empty');
+  $('sr-val').textContent = state.serial || 'scan the MACU sticker…';
+  $('sr-val').className = 'val' + (state.serial?'':' empty');
+  $('slot-so').classList.toggle('done', !!state.so);
+  $('slot-sr').classList.toggle('done', !!state.serial);
+  $('submit-btn').disabled = !(state.so && state.serial);
+  $('scan-btn').textContent = state.scanning ? '■ Stop camera'
+      : (!state.so ? '📷 Scan order (SO)' : (!state.serial ? '📷 Scan serial' : '📷 Scan again'));
+}
+
+function flash(){ try{ navigator.vibrate && navigator.vibrate(60); }catch(e){} }
+function showMsg(text, kind){ const m=$('msg'); m.textContent=text; m.className='msg '+kind; if(kind==='ok') setTimeout(()=>m.className='msg',3500); }
+
+function onDetected(text){
+  if(state.stage==='so'){
+    state.so = cleanSO(text); state.stage='serial'; flash();
+    $('cam-hint').textContent='Order captured — now scan the MACU serial.';
+  } else {
+    if(cleanSerial(text)===state.so) return;          // ignore re-reading the SO barcode
+    state.serial = cleanSerial(text); flash();
+    stopCam();
+    $('cam-hint').textContent='Both captured. Review, then Register.';
+  }
+  render();
+}
+
+async function startCam(){
+  if(!state.scanner) state.scanner = new Html5Qrcode("reader", { formatsToSupport: SUPPORTED, verbose:false });
+  try{
+    state.scanning = true; render();
+    await state.scanner.start({ facingMode:"environment" },
+      { fps:12, qrbox:{width:300,height:170}, aspectRatio:1.4 },
+      (t)=>onDetected(t), ()=>{});
+    $('cam-hint').textContent = state.stage==='so' ? 'Point at the SO barcode on the box label.' : 'Point at the MACU serial barcode.';
+  }catch(e){
+    state.scanning=false; render();
+    showMsg('Camera unavailable: '+(e&&e.message||e)+'. Use “Type manually”. (Camera needs an https:// page.)','err');
+  }
+}
+async function stopCam(){
+  if(state.scanner && state.scanning){ try{ await state.scanner.stop(); }catch(e){} }
+  state.scanning=false; $('cam-hint').textContent=''; render();
+}
+
+$('scan-btn').onclick = ()=>{ state.scanning ? stopCam() : startCam(); };
+
+$('manual-btn').onclick = ()=>{
+  state.manual = !state.manual;
+  for(const [v,i] of [['so-val','so-in'],['sr-val','sr-in']]){
+    $(v).style.display = state.manual?'none':'block';
+    $(i).style.display = state.manual?'block':'none';
+  }
+  if(state.manual){ stopCam(); $('so-in').value=state.so; $('sr-in').value=state.serial; }
+};
+$('so-in').oninput = e=>{ state.so=cleanSO(e.target.value); $('submit-btn').disabled=!(state.so&&state.serial); };
+$('sr-in').oninput = e=>{ state.serial=cleanSerial(e.target.value); $('submit-btn').disabled=!(state.so&&state.serial); };
+
+$('reset-btn').onclick = ()=>{ stopCam(); state.so=''; state.serial=''; state.stage='so';
+  $('so-in').value=''; $('sr-in').value=''; $('msg').className='msg'; render(); };
+
+$('submit-btn').onclick = async ()=>{
+  if(!WORKER_URL){ showMsg('Set WORKER_URL in this file first.','err'); return; }
+  $('submit-btn').disabled=true; $('submit-btn').textContent='Saving…';
+  try{
+    const headers={'Content-Type':'application/json'};
+    if(WRITE_KEY) headers['x-api-key']=WRITE_KEY;
+    const resp = await fetch(WORKER_URL, { method:'POST', headers,
+      body: JSON.stringify({ so:state.so, serial:state.serial, by:'VV' }) });
+    const data = await resp.json();
+    if(!resp.ok) throw new Error(data.error||('HTTP '+resp.status));
+    showMsg('✓ Registered  '+state.so+'  →  '+state.serial,'ok');
+    state.so=''; state.serial=''; state.stage='so'; $('so-in').value=''; $('sr-in').value=''; render();
+    loadRecent();
+  }catch(e){ showMsg('Could not save: '+(e&&e.message||e),'err'); }
+  $('submit-btn').textContent='✓ Register pairing'; render();
+};
+
+async function loadRecent(){
+  if(!WORKER_URL) return;
+  try{
+    const resp = await fetch(WORKER_URL); const list = await resp.json();
+    list.sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
+    $('recent').innerHTML = list.slice(0,12).map(r=>{
+      const t = r.ts ? new Date(r.ts).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+      return `<div class="rec"><span class="so">${r.so}</span><span class="sr">${r.serial}</span><span class="t">${t}</span></div>`;
+    }).join('') || '<div class="hint" style="text-align:left">No registrations yet.</div>';
+  }catch(e){ /* offline / not configured */ }
+}
+
+render(); loadRecent();
+</script>
+</body>
+</html>
