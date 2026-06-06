@@ -5256,6 +5256,7 @@ function createLabels(opts){
   }
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const pages = labels.map(l => `<div class="label"><div class="inner"><div class="txt">${esc(l.text)}</div>`
+    + (l.so ? `<svg class="bc" data-code="${esc(l.so)}"></svg>` : '')
     + (l.serial ? `<svg class="bc" data-code="${esc(l.serial)}"></svg>` : '')
     + `</div></div>`).join('');
   const w = window.open('', '_blank');
