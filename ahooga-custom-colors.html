@@ -353,6 +353,7 @@ main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
         <option value="hold">On hold</option>
       </select>
     </div>
+    <div id="custom-sendbar" style="margin-bottom:12px"></div>
     <div class="table-wrap">
       <table class="data-table">
         <thead>
@@ -722,6 +723,9 @@ let manualOrders = []; // Virtual orders (e.g. Matt Cooke reservations)
 let decocoatData = [];
 let vvStock = [];
 let registrySerials = {};  // SO# -> serial, captured by Velovisie's barcode scan (Cloudflare registry)
+let sentStatus = {};       // SO# -> {ts,by}, marked when the PO + order form were emailed to Deco Coat (shared)
+let customSendFilter = ''; // '' | 'ready' | 'sent' | 'nopo' — filters the Custom Colors table by send state
+function setCustomSendFilter(v){ customSendFilter = (customSendFilter===v ? '' : v); renderCustom(); }
 let issuedPOSupply = []; // remaining-to-receive on every open purchase order for bikes (mirrors the Coming Next app)
 let forecastMix = null;  // {color:{yellow,black,red}, rack:{'rack','no rack'}} pools = YTD invoiced + current order book
 let lotToPOMap = {};
@@ -739,6 +743,7 @@ function save() {
   try { localStorage.setItem('cxc_decocoat', JSON.stringify(decocoatData||[])); } catch(e){}
   try { localStorage.setItem('cxc_vv', JSON.stringify(vvStock||[])); } catch(e){}
   try { localStorage.setItem('cxc_regserials', JSON.stringify(registrySerials||{})); } catch(e){}
+  try { localStorage.setItem('cxc_sent', JSON.stringify(sentStatus||{})); } catch(e){}
   try { if(typeof visibleCols!=='undefined') localStorage.setItem('cxc_viscols', JSON.stringify(visibleCols)); } catch(e){}
 }
 function load() {
@@ -754,6 +759,7 @@ function load() {
     const dc = localStorage.getItem('cxc_decocoat'); if(dc) decocoatData=JSON.parse(dc);
     const vv = localStorage.getItem('cxc_vv'); if(vv) vvStock=JSON.parse(vv);
     const rs = localStorage.getItem('cxc_regserials'); if(rs) registrySerials=JSON.parse(rs);
+    const sn = localStorage.getItem('cxc_sent'); if(sn) sentStatus=JSON.parse(sn);
     const vc = localStorage.getItem('cxc_viscols'); if(vc) visibleCols={...visibleCols,...JSON.parse(vc)};
     applyConfigToUI();
   } catch(e){ console.warn(e); }
@@ -1697,6 +1703,7 @@ async function syncOdoo() {
     await detectDecocoatPOs();
     fillDecoCoatPOsFromSheet({silent:true});   // backfill any PO that only lives in the Deco Coat sheet
     try { await pullSerialsFromRegistry({silent:true}); } catch(e){ console.warn('VV serial sync skipped:', e&&e.message); }
+    try { await pullSentStatusFromRegistry({silent:true}); } catch(e){ console.warn('sent-status sync skipped:', e&&e.message); }
     save();
     showView('custom');
     // If stock tab was active, refresh it now that vvStock is populated
@@ -4142,14 +4149,32 @@ function renderCustom() {
   const search = (document.getElementById('custom-search')||{}).value?.toLowerCase()||'';
   const filter = (document.getElementById('custom-filter')||{}).value||'';
 
-  const customOrders = [...orders,...manualOrders]
+  const baseCustom = [...orders,...manualOrders].filter(o =>
+    o.color==='custom' && isMaxBike(o) && o.status!=='shipped' && !(Number(o.delivered)>0));
+
+  // Send-status summary (PO done but not yet emailed to Deco Coat is the actionable set)
+  const sb = document.getElementById('custom-sendbar');
+  if(sb){
+    const ready = baseCustom.filter(o=>decoSendState(o)==='ready').length;
+    const sent  = baseCustom.filter(o=>decoSendState(o)==='sent').length;
+    const nopo  = baseCustom.filter(o=>decoSendState(o)==='nopo').length;
+    const chip = (active,bg,border,txt,label,val) =>
+      `<button onclick="setCustomSendFilter('${val}')" style="cursor:pointer;border:1px solid ${border};background:${active?bg:'transparent'};color:${txt};border-radius:999px;padding:6px 12px;font-size:12px;font-weight:600">${label}</button>`;
+    sb.innerHTML =
+      `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:12px;color:var(--text3)">Deco Coat:</span>
+        ${chip(customSendFilter==='ready', 'rgba(200,121,26,.12)', 'rgba(200,121,26,.5)', '#a8650f', `● Ready to send · ${ready}`, 'ready')}
+        ${chip(customSendFilter==='sent',  'rgba(26,127,75,.12)',  'rgba(26,127,75,.5)',  '#1a7f4b', `✓ Sent · ${sent}`, 'sent')}
+        ${chip(customSendFilter==='nopo',  'rgba(0,0,0,.05)',      'var(--border)',        'var(--text2)', `Needs PO · ${nopo}`, 'nopo')}
+        ${customSendFilter ? `<button onclick="setCustomSendFilter('')" style="cursor:pointer;border:none;background:none;color:var(--text3);font-size:12px;text-decoration:underline">clear</button>`:''}
+      </div>`;
+  }
+
+  const customOrders = baseCustom
     .filter(o => {
-      if(o.color !== 'custom') return false;
-      if(!isMaxBike(o)) return false;
-      if(o.status === 'shipped') return false;
-      if(Number(o.delivered) > 0) return false;   // already delivered — frame is done
       if(search && !`${o.name} ${o.customer} ${o.sku}`.toLowerCase().includes(search)) return false;
       if(filter && o.status !== filter) return false;
+      if(customSendFilter && decoSendState(o) !== customSendFilter) return false;
       return true;
     })
     .sort((a,b) => a.priority - b.priority);
@@ -4208,7 +4233,12 @@ function renderCustom() {
       </td>
       <td style="font-size:12px">${ decoCoatPO(o)
           ? `<span class="badge badge-po">${decoCoatPO(o)}</span>`
-          : '<span style="color:var(--text3)">—</span>' }</td>
+          : '<span style="color:var(--text3)">—</span>' }
+          <div style="margin-top:4px">${
+            decoSendState(o)==='sent'  ? '<span style="font-size:10px;font-weight:700;color:#1a7f4b">✓ sent</span>'
+          : decoSendState(o)==='ready' ? '<span style="font-size:10px;font-weight:700;color:#c8791a">● not sent</span>'
+          : '<span style="font-size:10px;color:var(--text3)">needs PO</span>' }</div>
+      </td>
       <td style="font-size:12px">${ okaziPO(o)
           ? `<span class="badge badge-stock">${okaziPO(o)}</span>`
           : '<span style="color:var(--text3)">—</span>' }</td>
@@ -4399,6 +4429,7 @@ async function pullSerialsFromRegistry(opts){
       const k = soKey(r && r.so); const v = String((r&&r.serial)||'').trim().toUpperCase();
       if(k && v){ registrySerials[k] = v; n++; }
     }
+    await pullSentStatusFromRegistry({silent:true});
     save();
     if(typeof renderCustom==='function') renderCustom();
     if(typeof renderQueue==='function') renderQueue();
@@ -4408,6 +4439,46 @@ async function pullSerialsFromRegistry(opts){
     if(!opts.silent) formsAlert('Could not reach the VV serial registry: '+(e&&e.message||e),'warn');
     return 0;
   }
+}
+
+// ── "Sent to Deco Coat" status (shared via the Cloudflare registry) ──────────
+// State per order:  'nopo' (no Deco Coat PO yet) · 'ready' (PO done, not sent) · 'sent'.
+function isSentToDeco(o){ const k = soKey(o && o.name); return !!(k && sentStatus[k]); }
+function decoSendState(o){ if(!decoCoatPO(o)) return 'nopo'; return isSentToDeco(o) ? 'sent' : 'ready'; }
+
+// Pull the shared "sent" list from the registry (the team's source of truth).
+async function pullSentStatusFromRegistry(opts){
+  opts = opts || {};
+  const url = (cfg.serialRegistryUrl||'').trim();
+  if(!url) return 0;
+  try{
+    const resp = await fetch(url + (url.includes('?')?'&':'?') + 'type=sent', { redirect:'follow' });
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const list = await resp.json();
+    if(!Array.isArray(list)) throw new Error('unexpected response');
+    let n=0;
+    for(const r of list){ const k = soKey(r && r.so); if(k){ sentStatus[k] = { ts:r.ts, by:r.by }; n++; } }
+    save();
+    return n;
+  }catch(e){ if(!opts.silent) console.warn('sent-status sync failed:', e&&e.message); return 0; }
+}
+
+// Mark one or more orders as sent to Deco Coat (writes to the shared registry).
+async function markSentToDeco(list, opts){
+  opts = opts || {};
+  const url = (cfg.serialRegistryUrl||'').trim();
+  const orders_ = Array.isArray(list) ? list : [list];
+  for(const o of orders_){
+    const k = soKey(o && o.name); if(!k) continue;
+    sentStatus[k] = { ts:new Date().toISOString(), by:'Ahooga' };       // optimistic local update
+    if(url){
+      try{ await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ type:'sent', so:k, by:'Ahooga' }) }); }
+      catch(e){ console.warn('could not record sent for '+k+':', e&&e.message); }
+    }
+  }
+  save();
+  if(typeof renderCustom==='function') renderCustom();
 }
 
 // Base SO number, e.g. "S23684 (1/2)" -> "S23684"
@@ -5180,7 +5251,9 @@ async function emailToSupplier(o){
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([eml],{type:'message/rfc822'}));
   a.download = `Deco Coat order - ${po}.eml`; a.click(); URL.revokeObjectURL(a.href);
-  formsAlert(`Outlook email (.eml) for ${po} downloaded — PO PDF + order form(s) + labels attached. Open it and hit Send.`);
+  // Auto-mark every frame on this PO as sent to Deco Coat (shared registry).
+  try { await markSentToDeco(lns); } catch(e){ console.warn('mark-sent failed', e&&e.message); }
+  formsAlert(`Outlook email (.eml) for ${po} downloaded — PO PDF + order form(s) + labels attached. Open it and hit Send. Marked as sent to Deco Coat.`);
 }
 
 // Columns follow the Decocoat order-book layout used by the sync.
