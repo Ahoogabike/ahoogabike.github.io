@@ -268,10 +268,14 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
       </label>
       <select id="fc-cat" onchange="renderForecast()"><option value="">All categories</option></select>
       <label class="toggle"><input type="checkbox" id="fc-onlyneg" checked onchange="renderForecast()"> Only shortages</label>
+      <label class="toggle"><input type="checkbox" id="fc-hidesub" checked onchange="renderForecast()"> Hide in-house sub-assemblies</label>
       <div class="sep"></div>
       <span id="fc-status" style="font-size:12px;color:var(--text3)"></span>
     </div>
     <div id="fc-table-wrap" style="overflow:auto;max-height:72vh;border:1px solid rgba(0,0,0,0.09);border-radius:var(--radius-sm)"><div id="fc-grid"></div></div>
+    <div id="fc-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center" onclick="if(event.target===this)this.style.display='none'">
+      <div id="fc-modal-body" style="background:#fff;max-width:540px;width:92%;max-height:82vh;overflow:auto;border-radius:8px;padding:18px;box-shadow:0 12px 48px rgba(0,0,0,.35)"></div>
+    </div>
   </div>
 
   <!-- SETTINGS TAB -->
@@ -340,6 +344,38 @@ function bikeArea(name, category){
   return 'Other';
 }
 function toggleFcGroup(g){ fcCollapsed[g]=!fcCollapsed[g]; renderForecast(); }
+
+// Drill-down: show exactly which open POs make up a component's incoming, and the plan consumption.
+function fcInspect(pid){
+  const r=rows.find(x=>x.id===pid); if(!r) return;
+  const list=(incomingByPart[pid]||[]).slice().sort((a,b)=>((a.date||'\uffff')<(b.date||'\uffff')?-1:1));
+  const first=(productionPlan&&productionPlan.weeks&&productionPlan.weeks[0])?productionPlan.weeks[0].monday:null;
+  let inc=0;
+  const lines=list.map(d=>{ inc+=d.qty;
+    const when = !d.date ? '<span style="color:#b26a00">no date → week 1</span>'
+      : (first && d.date<first ? `${esc(d.date)} <span style="color:#b26a00">(overdue → week 1)</span>` : esc(d.date));
+    return `<tr><td style="padding:2px 6px">${esc(d.ref||'PO')}</td><td style="padding:2px 6px;text-align:right">${fmt(Math.round(d.qty))}</td><td style="padding:2px 6px">${when}</td></tr>`;
+  }).join('');
+  let cons=0;
+  if(productionPlan){ const byFam=productionPlan.byFam||{}; for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u){ for(let wi=0;wi<productionPlan.weeks.length;wi++) cons+=u*(byFam[fam][wi]||0); } } }
+  document.getElementById('fc-modal-body').innerHTML=
+    `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+       <div><b>${esc(r.partName)}</b><div style="font-size:12px;color:var(--text3)">${r.partNo?('['+esc(r.partNo)+'] '):''}${esc(r.category||'')}</div></div>
+       <button class="btn btn-secondary" style="flex:none" onclick="document.getElementById('fc-modal').style.display='none'">Close</button>
+     </div>
+     <div style="margin-top:12px;font-size:13px;line-height:1.7">
+       <div>Velovisie now (start): <b>${fmt(Math.round(r.vv||0))}</b></div>
+       <div>Total incoming on open POs: <b>${fmt(Math.round(inc))}</b></div>
+       <div>Consumed by the plan (all weeks): <b>${fmt(Math.round(cons))}</b></div>
+     </div>
+     <div style="margin-top:12px;font-size:12px;font-weight:600">Open purchase orders — ${list.length}</div>
+     <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:4px">
+       <thead><tr style="text-align:left;color:var(--text3)"><th style="padding:2px 6px">PO</th><th style="padding:2px 6px;text-align:right">Qty left</th><th style="padding:2px 6px">Planned date</th></tr></thead>
+       <tbody>${lines||'<tr><td colspan="3" style="padding:6px;color:var(--text3)">No open POs.</td></tr>'}</tbody>
+     </table>
+     <div style="margin-top:10px;font-size:11px;color:var(--text3)">POs with no planned date, or a date already in the past, are counted as arriving in the first week. If a figure looks off, check that PO's status and planned date in Odoo.</div>`;
+  document.getElementById('fc-modal').style.display='flex';
+}
 
 // ── PROXY / XML-RPC ──────────────────────────────────────────
 function proxyUrl(path){
@@ -685,13 +721,13 @@ async function loadData(){
     for(const c of idChunks){
       const pol=await odoo('purchase.order.line','search_read',
         [[['product_id','in',c],['order_id.state','=','purchase']]],
-        {fields:['product_id','product_qty','qty_received','date_planned']});
+        {fields:['product_id','product_qty','qty_received','date_planned','order_id']});
       for(const l of pol){
         const p=arr(l.product_id); if(!p[0]) continue;
         const rem=(parseFloat(l.product_qty)||0)-(parseFloat(l.qty_received)||0);
         if(rem<=0) continue;
         const d=(l.date_planned||'').split(' ')[0]||null;
-        (incomingByPart[p[0]]=incomingByPart[p[0]]||[]).push({date:d, qty:rem});
+        (incomingByPart[p[0]]=incomingByPart[p[0]]||[]).push({date:d, qty:rem, ref:(arr(l.order_id)[1]||'PO')});
       }
     }
 
@@ -1048,6 +1084,7 @@ function renderForecast(){
   const cat=document.getElementById('fc-cat').value;
   const model=(modelSel||{}).value||'';
   const onlyNeg=document.getElementById('fc-onlyneg').checked;
+  const hideSub=(document.getElementById('fc-hidesub')||{checked:true}).checked;
   const usedByModel=(pid)=> !model || ((usagePerBikeByFam[model]||{})[pid]||0)>0;
 
   // incoming PO qty for a part within week wi  (monday wi inclusive → next monday exclusive; last week catches all later)
@@ -1070,22 +1107,25 @@ function renderForecast(){
 
   const proj=rows.map(r=>{
     const pid=r.id;
-    let running=(r.vv||0)+incBeforeFirst(pid);   // start from Velovisie (VV) component stock
+    let running=(r.vv||0);                 // start from current Velovisie (VV) stock
+    const overdue=incBeforeFirst(pid);     // POs already past their date → count as arriving in week 1
     const cells=[]; let firstNeg=-1, minLevel=running, totCons=0;
     for(let wi=0; wi<wks.length; wi++){
       let cons=0;
       for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) cons+=u*(byFam[fam][wi]||0); }
       totCons+=cons;
-      const arrv=incForWeek(pid,wi);
+      let arrv=incForWeek(pid,wi);
+      if(wi===0) arrv+=overdue;            // surface overdue arrivals as a visible (+n)
       running=running-cons+arrv;
       if(running<0 && firstNeg<0) firstNeg=wi;
       if(running<minLevel) minLevel=running;
       cells.push({level:running, arr:arrv});
     }
     return {r, cells, firstNeg, minLevel, totCons, start:(r.vv||0)};
-  }).filter(p=> model ? usedByModel(p.r.id) : p.totCons>0.0001);
-  // With a model selected: show every component in that model's BoM (rack + no-rack),
-  // even if the current plan doesn't build it (flat line). Otherwise: only consumed parts.
+  }).filter(p=>{
+    if(hideSub && p.r.isSub) return false;                 // built in-house, not purchased
+    return model ? usedByModel(p.r.id) : p.totCons>0.0001;
+  });
 
   let view=proj.filter(p=>{
     if(onlyNeg && p.firstNeg<0) return false;
@@ -1113,11 +1153,12 @@ function renderForecast(){
 
   const rowHtml=(p)=>{
     const tds=p.cells.map(c=>{
-      const arrTxt=c.arr>0?`<span class="fc-arr">(+${fmt(Math.round(c.arr))})</span>`:'';
+      const a=Math.round(c.arr);
+      const arrTxt=a>0?`<span class="fc-arr">(+${fmt(a)})</span>`:'';
       return `<td class="${c.level<0?'fc-neg':''}">${fmt(Math.round(c.level))}${arrTxt}</td>`;
     }).join('');
     const nm=`${p.r.partNo?('['+esc(p.r.partNo)+'] '):''}${esc(p.r.partName)}`;
-    return `<tr><td class="fc-part" title="${esc(p.r.category)}">${nm}</td><td class="fc-w" style="font-weight:600">${fmt(Math.round(p.start))}</td>${tds}</tr>`;
+    return `<tr><td class="fc-part" title="Click for incoming-PO breakdown · ${esc(p.r.category)}" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" onclick="fcInspect(${p.r.id})">${nm}</td><td class="fc-w" style="font-weight:600">${fmt(Math.round(p.start))}</td>${tds}</tr>`;
   };
 
   let body='';
