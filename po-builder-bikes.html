@@ -573,30 +573,42 @@ function buildYearPlan(){
   }
   const T=demands.reduce((a,d)=>a+d.qty,0);
   if(T<=0) return;
-  demands.sort((a,b)=> a.due-b.due);
-
-  const pos={}; av.forEach((wi,i)=>pos[wi]=i);
 
   // Per-week capacity: a week's own override, else the global default, else an even rate.
   const L=targetPerWeek();
   const evenRate=Math.max(1, Math.ceil(T/av.length));
   const capOf=(wi)=>{ const k=weekKey(wi); if(weekCaps[k]!=null) return weekCaps[k]; return L>0?L:evenRate; };
 
-  // Fill each week up to ITS capacity, earliest-deadline-first. Build ahead where capacity allows.
-  let di=0;
+  // Group demand into per-model (platform+transmission) queues, each sorted by deadline.
+  const skuFam={}; for(const s of SKUS) skuFam[s.key]=s.fam;
+  const fams=FAMILIES.map(f=>f.key);
+  const queue={}, remaining={};
+  for(const fk of fams){ queue[fk]=[]; remaining[fk]=0; }
+  for(const d of demands){ const fk=skuFam[d.sku]; if(!queue[fk])continue; queue[fk].push(d); remaining[fk]+=d.qty; }
+  for(const fk of fams) queue[fk].sort((a,b)=>a.due-b.due);
+  const earliestDue=(fk)=>{ for(const p of queue[fk]) if(p.qty>1e-9) return p.due; return Infinity; };
+  const consume=(fk,n,wi)=>{ let need=n; for(const p of queue[fk]){ if(need<=1e-9)break; if(p.qty<=1e-9)continue; const t=Math.min(need,p.qty); yearGrid[p.sku][wi]+=t; p.qty-=t; need-=t; } };
+
+  // Fill each week up to its capacity using AT MOST 2 models, most-urgent models first.
   for(let i=0;i<av.length;i++){
-    const wi=av[i];
-    let budget=capOf(wi);
-    while(budget>1e-9 && di<demands.length){
-      const d=demands[di];
-      const take=Math.min(budget, d.qty);
-      yearGrid[d.sku][wi]+=take; d.qty-=take; budget-=take;
-      if(d.qty<=1e-9) di++;
+    const wi=av[i]; let budget=capOf(wi); const used=new Set();
+    while(budget>1e-9){
+      let best=null, bestDue=Infinity;
+      for(const fk of fams){
+        if(remaining[fk]<=1e-9) continue;
+        if(!used.has(fk) && used.size>=2) continue;           // can't open a 3rd model this week
+        const ed=earliestDue(fk);
+        if(ed<bestDue || (ed===bestDue && used.has(fk) && !(best&&used.has(best)))){ best=fk; bestDue=ed; }
+      }
+      if(!best) break;
+      used.add(best);
+      const take=Math.min(budget, remaining[best]);
+      consume(best, take, wi); budget-=take; remaining[best]-=take;
     }
-    if(di>=demands.length) break;
   }
-  // If total capacity is too low, the remainder lands in the last open week (flagged in the UI).
-  if(di<demands.length){ const wi=av[av.length-1]; for(;di<demands.length;di++) yearGrid[demands[di].sku][wi]+=demands[di].qty; }
+  // If the ≤2-models/week limit + capacities can't fit everything, push the remainder into the last open week (flagged).
+  const leftover=fams.reduce((a,fk)=>a+remaining[fk],0);
+  if(leftover>1e-9){ const wi=av[av.length-1]; for(const fk of fams){ if(remaining[fk]>1e-9){ consume(fk, remaining[fk], wi); remaining[fk]=0; } } }
 
   // round to whole bikes
   for(const s of SKUS){ const a=yearGrid[s.key]; for(let i=0;i<a.length;i++) a[i]=Math.round(a[i]); }
@@ -623,8 +635,9 @@ function renderYear(){
       const over=weekCaps[weekKey(wi)]!=null;
       return `<td style="text-align:center;padding:2px"><input type="number" min="0" value="${effCap(wi)}" onchange="setWeekCap(${wi}, this.value)" style="width:40px;text-align:center;font-size:11px;padding:2px;border:1px solid var(--border2);border-radius:4px;${over?'font-weight:700;color:var(--accent);background:var(--accent-bg)':'color:var(--text3)'}"/></td>`;
     }).join('')}<td class="total"></td></tr>`;
+  const modelsRow=`<tr><th class="sku" style="font-size:11px;color:var(--text2)">Models / wk</th>${weeks.map((wk,wi)=>{ if(isBlocked(wi)) return `<td class="blocked"></td>`; const n=FAMILIES.filter(f=>SKUS.filter(s=>s.fam===f.key).reduce((a,s)=>a+(yearGrid[s.key][wi]||0),0)>0).length; return `<td style="text-align:center;font-size:11px;color:${n>2?'var(--danger)':'var(--text3)'}">${n||''}</td>`; }).join('')}<td class="total"></td></tr>`;
   const foot=`<tr><th class="sku">Total</th>${colTot.map((c,wi)=>`<td class="total ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''} ${(!isBlocked(wi)&&c>effCap(wi)+0.5)?'over':''}">${fmt(c)}</td>`).join('')}<td class="total">${fmt(grand)}</td></tr>`;
-  document.getElementById('year-grid').innerHTML=`<table class="grid"><thead>${head}</thead><tbody>${capRow}${body}</tbody><tfoot>${foot}</tfoot></table>`;
+  document.getElementById('year-grid').innerHTML=`<table class="grid"><thead>${head}</thead><tbody>${capRow}${body}</tbody><tfoot>${modelsRow}${foot}</tfoot></table>`;
 
   // blocked-week chips + deadline note
   const chips=[...blockedWeeks].sort().map(d=>`<span class="chip">${new Date(d+'T00:00:00').toLocaleDateString('en-GB')}<button onclick="unblockKey('${d}')" title="unblock">×</button></span>`).join('');
@@ -634,7 +647,7 @@ function renderYear(){
   document.getElementById('year-deadline-tag').textContent='produced by '+dl;
   const basisTxt = `Each SKU's <b>to-produce</b> = unmatched orders + extra forecast, minus surplus stock and bikes already on open POs (shown in Bikes Coming Next).`;
   const timeTxt = hasMonthly()
-    ? `It fills each week up to <b>that week's capacity</b> (the editable row below), most-urgent SKUs first, so you set the pace period-by-period and the app picks the mix.`
+    ? `It fills each week up to <b>that week's capacity</b> using <b>at most 2 models</b> (platform+transmission), most-urgent first — colours/racks mix freely inside a run. You set the pace per period; the app picks the models and mix.`
     : `(The forecast app hasn't published a monthly breakdown yet — refresh it to enable demand-timed planning.)`;
   document.getElementById('year-note').innerHTML =
     `${basisTxt} ${timeTxt} Set capacities with the range tool above, or edit any week's box. A cell = bikes to <b>start producing</b> that week. Blocked weeks carry no production.`;
