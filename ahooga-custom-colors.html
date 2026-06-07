@@ -334,9 +334,7 @@ main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
       <div style="display:flex;flex-wrap:wrap;gap:8px">
         <button class="btn btn-success btn-sm" onclick="exportPOImport({selected:true})">⬇ PO → Odoo import (selected)</button>
         <button class="btn btn-primary btn-sm" title="For custom orders without a PO from Odoo, look the SO up in the Deco Coat sheet and write the PO into the tab." onclick="fillDecoCoatPOsFromSheet()">🔎 Find PO in Deco Coat sheet</button>
-        <button class="btn btn-primary btn-sm" onclick="createLabels()">🏷 Create labels — new</button>
         <button class="btn btn-primary btn-sm" onclick="createLabels({selected:true})">🏷 Labels — selected <span id="lbl-sel-count" style="font-weight:600"></span></button>
-        <button class="btn btn-secondary btn-sm" onclick="createLabels({all:true})">🏷 Labels — all custom</button>
         <button class="btn btn-success btn-sm" onclick="exportUpdatedDecocoat()">⬇ Updated Decocoat file</button>
         <button class="btn btn-secondary btn-sm" title="Legacy fallback: link serials that were previously typed into the Decocoat sheet. New serials come from Velovisie's scan — use Sync VV serials." onclick="assignSerials()">#️⃣ Link Decocoat serials</button>
         <button class="btn btn-primary btn-sm" title="Pull SO ↔ serial pairings scanned by Velovisie at the assembly line (Cloudflare registry)." onclick="pullSerialsFromRegistry()">↻ Sync VV serials</button>
