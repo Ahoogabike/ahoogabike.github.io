@@ -115,6 +115,8 @@ table.fcg thead th.fc-part{z-index:6;background:#f0efe9}
 table.fcg tbody tr:hover td{background:#faf9f5}
 table.fcg td.fc-neg{background:#fcebeb;color:#8b1f1f;font-weight:700}
 .fc-arr{color:#1a7f37;font-weight:700;font-size:10px;margin-left:3px}
+table.fcg tr.fc-grp td{background:#efe9da;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.3px;border-top:2px solid rgba(0,0,0,0.18);position:sticky;left:0}
+table.fcg tr.fc-grp td.fc-part{background:#efe9da}
 </style>
 <header>
   <div class="logo">Ahooga <span>Parts Stock</span></div>
@@ -251,13 +253,21 @@ table.fcg td.fc-neg{background:#fcebeb;color:#8b1f1f;font-weight:700}
   <!-- FORWARD STOCK TAB -->
   <div class="view" id="view-forecast">
     <div class="explain">
-      <strong>Forward component stock — week by week.</strong> Starts from current on-hand (<strong>AND + LOUI</strong>, the stock Odoo can see) and burns each component down using the production plan published by the <strong>PO Builder — Bikes</strong> app (bikes/week × per-bike BoM usage, averaged per family). <code>(+n)</code> in a cell marks an incoming component PO arriving that week. A <strong style="color:#8b1f1f">red / negative</strong> cell means you run out that week — pull a delivery forward or place a PO. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
+      <strong>Forward component stock — week by week.</strong> Starts from current <strong>Velovisie (VV)</strong> component stock — the parts physically at the assembler, <code>Theoretical − (AND + LOUI)</code> — and burns each component down using the production plan published by the <strong>PO Builder — Bikes</strong> app (bikes/week × per-bike BoM usage, averaged per family). <code>(+n)</code> in a cell marks an incoming component PO arriving that week. A <strong style="color:#8b1f1f">red / negative</strong> cell means VV runs out that week — pull a delivery forward or place a PO. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
     </div>
     <div class="kpis" id="fc-kpis"></div>
     <div class="toolbar">
-      <input type="text" id="fc-search" placeholder="🔍 component name / number…" style="min-width:260px;flex:1" oninput="renderForecast()"/>
+      <input type="text" id="fc-search" placeholder="🔍 component name / number…" style="min-width:200px;flex:1" oninput="renderForecast()"/>
+      <select id="fc-model" onchange="renderForecast()" title="Show only components used by one model"><option value="">All models</option></select>
+      <label class="toggle" style="gap:4px">Group:
+        <select id="fc-group" onchange="renderForecast()">
+          <option value="area" selected>Bike area</option>
+          <option value="category">Odoo category</option>
+          <option value="none">No grouping</option>
+        </select>
+      </label>
       <select id="fc-cat" onchange="renderForecast()"><option value="">All categories</option></select>
-      <label class="toggle"><input type="checkbox" id="fc-onlyneg" checked onchange="renderForecast()"> Only components that go negative</label>
+      <label class="toggle"><input type="checkbox" id="fc-onlyneg" checked onchange="renderForecast()"> Only shortages</label>
       <div class="sep"></div>
       <span id="fc-status" style="font-size:12px;color:var(--text3)"></span>
     </div>
@@ -308,6 +318,28 @@ let sortKey='partName'; let sortDir=1;
 let usagePerBikeByFam={};   // famKey -> {productId: qty per one bike}
 let incomingByPart={};      // productId -> [{date:'YYYY-MM-DD'|null, qty}]
 let productionPlan=null;    // {weeks:[{monday,label,iso}], byFam:{EMA:[],EMD:[],AMA:[],AMD:[]}, ...}
+let fcCollapsed={};         // group name -> true if collapsed in the Forward stock tab
+
+// Best-effort mapping of a component to an area of the bike (EN/FR/NL keywords).
+function bikeArea(name, category){
+  const s=((name||'')+' '+(category||'')).toLowerCase();
+  const has=(...kw)=>kw.some(k=>s.includes(k));
+  if(has('motor','moteur')) return 'Motor';
+  if(has('battery','batterie','accu','bms','charger','chargeur')) return 'Battery & charger';
+  if(has('display','écran','ecran','controller','contrôleur','controleur','wiring','harness','câble','cable','kabel','sensor','capteur','light','lumière','lumiere','phare','feu','licht','led','horn','klaxon')) return 'Electronics & lights';
+  if(has('brake','frein','rem ','rotor','caliper','étrier','etrier','disc','disque','pad','plaquette')) return 'Brakes';
+  if(has('chain','chaîne','chaine','ketting','cassette','sprocket','pignon','derailleur','dérailleur','crank','pédalier','pedalier','chainring','plateau','bottom bracket','boitier','boîtier','shifter','manette','belt','courroie','nexus','alfine','freewheel','roue libre')) return 'Drivetrain';
+  if(has('wheel','roue','wiel','rim','jante','spoke','rayon','tire','tyre','pneu','band','tube','chambre','valve','hub','moyeu')) return 'Wheels & tires';
+  if(has('fork','fourche','vork','headset','jeu de direction','steerer','pivot')) return 'Fork & steering';
+  if(has('handlebar','guidon','stuur','stem','potence','grip','poignée','poignee','bell','sonnette','lever','levier')) return 'Cockpit';
+  if(has('saddle','selle','zadel','seatpost','tige de selle','seat ','clamp selle')) return 'Saddle & seatpost';
+  if(has('pedal','pédale','pedale','pedaal')) return 'Pedals';
+  if(has('rack','porte-bagage','porte bagage','drager','fender','garde-boue','garde boue','mudguard','spatbord','kickstand','béquille','bequille','basket','panier','lock','antivol','sacoche','bag ')) return 'Rack & accessories';
+  if(has('frame','cadre','chassis','châssis')) return 'Frame';
+  if(has('bolt','screw','vis ','écrou','ecrou','nut','washer','rondelle','collier','bearing','roulement','clip','rivet','spacer','entretoise')) return 'Hardware & fasteners';
+  return 'Other';
+}
+function toggleFcGroup(g){ fcCollapsed[g]=!fcCollapsed[g]; renderForecast(); }
 
 // ── PROXY / XML-RPC ──────────────────────────────────────────
 function proxyUrl(path){
@@ -1005,9 +1037,18 @@ function renderForecast(){
     const cats=[...new Set(rows.map(r=>r.category).filter(c=>c&&c!=='—'))].sort();
     catSel.innerHTML='<option value="">All categories</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
   }
+  // model filter (populate once) — only families that actually have BoM usage
+  const modelSel=document.getElementById('fc-model');
+  if(modelSel && modelSel.options.length<=1){
+    const opts=FAMILIES.filter(f=>usagePerBikeByFam[f.key] && Object.keys(usagePerBikeByFam[f.key]).length)
+      .map(f=>`<option value="${f.key}">${esc(f.label)}</option>`).join('');
+    modelSel.innerHTML='<option value="">All models</option>'+opts;
+  }
   const search=(document.getElementById('fc-search').value||'').toLowerCase();
   const cat=document.getElementById('fc-cat').value;
+  const model=(modelSel||{}).value||'';
   const onlyNeg=document.getElementById('fc-onlyneg').checked;
+  const usedByModel=(pid)=> !model || ((usagePerBikeByFam[model]||{})[pid]||0)>0;
 
   // incoming PO qty for a part within week wi  (monday wi inclusive → next monday exclusive; last week catches all later)
   const incForWeek=(pid,wi)=>{
@@ -1029,19 +1070,22 @@ function renderForecast(){
 
   const proj=rows.map(r=>{
     const pid=r.id;
-    let running=(r.odoo||0)+incBeforeFirst(pid);
-    const cells=[]; let firstNeg=-1, minLevel=running;
+    let running=(r.vv||0)+incBeforeFirst(pid);   // start from Velovisie (VV) component stock
+    const cells=[]; let firstNeg=-1, minLevel=running, totCons=0;
     for(let wi=0; wi<wks.length; wi++){
       let cons=0;
       for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) cons+=u*(byFam[fam][wi]||0); }
+      totCons+=cons;
       const arrv=incForWeek(pid,wi);
       running=running-cons+arrv;
       if(running<0 && firstNeg<0) firstNeg=wi;
       if(running<minLevel) minLevel=running;
       cells.push({level:running, arr:arrv});
     }
-    return {r, cells, firstNeg, minLevel};
-  });
+    return {r, cells, firstNeg, minLevel, totCons, start:(r.vv||0)};
+  }).filter(p=> model ? usedByModel(p.r.id) : p.totCons>0.0001);
+  // With a model selected: show every component in that model's BoM (rack + no-rack),
+  // even if the current plan doesn't build it (flat line). Otherwise: only consumed parts.
 
   let view=proj.filter(p=>{
     if(onlyNeg && p.firstNeg<0) return false;
@@ -1063,18 +1107,42 @@ function renderForecast(){
     k('Plan weeks', wks.length, 'var(--accent)')+
     k('Plan updated', productionPlan.updated?new Date(productionPlan.updated).toLocaleDateString():'—', 'var(--purple)');
 
-  const head=`<tr><th class="fc-part">Component</th>${wks.map(w=>`<th class="fc-w" title="${esc(w.monday)}">${esc(w.label)}</th>`).join('')}</tr>`;
-  const body=view.map(p=>{
+  const groupBy=(document.getElementById('fc-group')||{}).value||'area';
+  const nWk=wks.length;
+  const head=`<tr><th class="fc-part">Component</th><th class="fc-w" title="Velovisie stock now (start)">VV now</th>${wks.map(w=>`<th class="fc-w" title="${esc(w.monday)}">${esc(w.label)}</th>`).join('')}</tr>`;
+
+  const rowHtml=(p)=>{
     const tds=p.cells.map(c=>{
       const arrTxt=c.arr>0?`<span class="fc-arr">(+${fmt(Math.round(c.arr))})</span>`:'';
       return `<td class="${c.level<0?'fc-neg':''}">${fmt(Math.round(c.level))}${arrTxt}</td>`;
     }).join('');
     const nm=`${p.r.partNo?('['+esc(p.r.partNo)+'] '):''}${esc(p.r.partName)}`;
-    return `<tr><td class="fc-part" title="${esc(p.r.category)}">${nm}</td>${tds}</tr>`;
-  }).join('');
-  grid.innerHTML=`<table class="fcg"><thead>${head}</thead><tbody>${body||`<tr><td class="fc-part" style="padding:20px">No components${onlyNeg?' go negative — all covered 🎉':' match.'}</td></tr>`}</tbody></table>`;
+    return `<tr><td class="fc-part" title="${esc(p.r.category)}">${nm}</td><td class="fc-w" style="font-weight:600">${fmt(Math.round(p.start))}</td>${tds}</tr>`;
+  };
+
+  let body='';
+  if(groupBy==='none'){
+    body=view.map(rowHtml).join('');
+  } else {
+    const groups={};
+    for(const p of view){ const g = groupBy==='category' ? (p.r.category||'—') : bikeArea(p.r.partName,p.r.category); (groups[g]=groups[g]||[]).push(p); }
+    // sort groups: those with a shortage first, then by name
+    const names=Object.keys(groups).sort((a,b)=>{
+      const sa=groups[a].some(p=>p.firstNeg>=0)?0:1, sb=groups[b].some(p=>p.firstNeg>=0)?0:1;
+      return sa!==sb ? sa-sb : a.localeCompare(b);
+    });
+    for(const g of names){
+      const list=groups[g];
+      const short=list.filter(p=>p.firstNeg>=0).length;
+      const collapsed=!!fcCollapsed[g];
+      const span=nWk+2;
+      body+=`<tr class="fc-grp"><td class="fc-part" onclick="toggleFcGroup('${g.replace(/'/g,"\\'")}')" style="cursor:pointer">${collapsed?'▸':'▾'} ${esc(g)} <span style="color:var(--text3);font-weight:400">· ${list.length}${short?` · <span style="color:#8b1f1f">${short} short</span>`:''}</span></td><td colspan="${span-1}"></td></tr>`;
+      if(!collapsed) body+=list.map(rowHtml).join('');
+    }
+  }
+  grid.innerHTML=`<table class="fcg"><thead>${head}</thead><tbody>${body||`<tr><td class="fc-part" style="padding:20px">No components${onlyNeg?' go negative — all covered 🎉':' use parts in this plan.'}</td></tr>`}</tbody></table>`;
   const st=document.getElementById('fc-status');
-  if(st) st.textContent=`${view.length} shown · start = AND+LOUI on-hand · (+n) = component PO arrival`;
+  if(st) st.textContent=`${view.length} components${model?(' for '+ (FAMILIES.find(f=>f.key===model)||{}).label):' used'} · start = Velovisie (VV) stock · (+n) = component PO arrival`;
 }
 
 // ── CSV EXPORT ───────────────────────────────────────────────
