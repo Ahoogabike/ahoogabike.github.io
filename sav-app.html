@@ -103,9 +103,10 @@ img,svg,canvas,video{max-width:100%;height:auto}
   <!-- SAV RATES TAB -->
   <div class="view" id="view-rates">
     <div style="background:var(--accent-bg);border:1px solid rgba(26,79,160,0.15);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--accent)">
-      <strong>How this works:</strong> SAV rate = parts replaced after-sales ÷ bikes produced that use that part × 100.
-      "Parts replaced" counts both parts sold via sale orders <em>and</em> parts installed via Repair Orders (warranty replacements — the "Add" lines).
-      A rate of 5% means 5 replacement parts per 100 bikes produced.
+      <strong>How this works:</strong> SAV rate = parts replaced after-sales ÷ bikes that actually have that part × 100.
+      The denominator is traced from each bike's manufacturing order (real part usage per serial), so two versions of the same part get their own bike counts — not the whole model's production.
+      "Parts replaced" counts parts sold via sale orders <em>and</em> parts installed via Repair Orders (the warranty "Add" lines).
+      A rate of 5% means 5 replacements per 100 bikes that carry the part.
       Trend shows whether the rate is increasing (⚠ possible quality issue) or decreasing (✓ improving).
     </div>
 
@@ -136,7 +137,7 @@ img,svg,canvas,video{max-width:100%;height:auto}
           <th>Part Name</th>
           <th>Category</th>
           <th style="text-align:center">Used by</th>
-          <th style="text-align:right">Bikes produced</th>
+          <th style="text-align:right">Bikes with part<br><span style="font-weight:400;font-size:10px">(actual installs)</span></th>
           <th style="text-align:right">SAV sold</th>
           <th style="text-align:right">SAV rate<br><span style="font-weight:400;font-size:10px">(per 100 bikes)</span></th>
           <th style="text-align:center">Trend</th>
@@ -274,6 +275,12 @@ let odooUid=null;
 let productionData=[];
 let bikeTemplateProdCount={};
 let bikeTemplateProdByYear={};
+// Actual part usage from manufacturing orders (ground truth, like the traceability app):
+// pn -> number of distinct bike serials that actually consumed this part
+let partInstalledCount={};
+// pn -> year -> number of distinct bike serials (by production year) that consumed it
+let partInstalledByYear={};
+let hasConsumptionData=false; // true once MO tracing succeeds
 let allLines=[]; // flat detail lines
 let kitByProductId={}; // sale product variant id -> {name, components:[{pn,name,category,qty}]}
 let sortKey='date'; let sortDir=-1;
@@ -601,23 +608,32 @@ function calcRates(){
     const savTotal=savByPn[comp.pn]||0;
     if(savTotal===0) continue;
 
-    // Which bike templates use this part (from BoM mapping)
+    // Which bike templates use this part (from BoM mapping) — kept for the "Used by" label
     const tmplIds = compToBikeTemplates[comp.pn] || [];
 
-    // Total bikes produced for templates that use this part
-    const bikesTotal = tmplIds.reduce((s,tid)=>s+(bikeTemplateProdCount[tid]||0),0);
+    // Denominator = bikes that ACTUALLY had this part installed (traced via MOs,
+    // same source of truth as the traceability tool). Falls back to theoretical
+    // BoM production only when MO tracing was unavailable.
+    const bikesTotal = hasConsumptionData
+      ? (partInstalledCount[comp.pn]||0)
+      : tmplIds.reduce((s,tid)=>s+(bikeTemplateProdCount[tid]||0),0);
     const rate = bikesTotal>0 ? savTotal/bikesTotal*100 : null;
 
     // Year-by-year rates
+    const prodYearsForPart = hasConsumptionData
+      ? Object.keys(partInstalledByYear[comp.pn]||{})
+      : tmplIds.flatMap(tid=>Object.keys(bikeTemplateProdByYear[tid]||{}));
     const allYears=[...new Set([
       ...Object.keys(savByPnYear[comp.pn]||{}),
-      ...tmplIds.flatMap(tid=>Object.keys(bikeTemplateProdByYear[tid]||{}))
+      ...prodYearsForPart
     ])].map(Number).sort();
 
     const yearRates={};
     for(const yr of allYears){
       const savYr=(savByPnYear[comp.pn]||{})[yr]||0;
-      const bikesYr=tmplIds.reduce((s,tid)=>s+((bikeTemplateProdByYear[tid]||{})[yr]||0),0);
+      const bikesYr=hasConsumptionData
+        ? ((partInstalledByYear[comp.pn]||{})[yr]||0)
+        : tmplIds.reduce((s,tid)=>s+((bikeTemplateProdByYear[tid]||{})[yr]||0),0);
       yearRates[yr]=bikesYr>0?savYr/bikesYr*100:null;
     }
 
@@ -630,7 +646,11 @@ function calcRates(){
       else if(diff<-0.5)trend='down';
     }
 
-    const usedByLabel=comp.isExtra?'Not in current BoM':tmplIds.length===0?'Unknown':`${tmplIds.length} bike model(s)`;
+    const usedByLabel=comp.isExtra
+      ? (hasConsumptionData&&bikesTotal>0?'Traced from MOs':'Not in current BoM')
+      : tmplIds.length===0
+        ? (hasConsumptionData&&bikesTotal>0?'Traced from MOs':'Unknown')
+        : `${tmplIds.length} bike model(s)`;
 
     results.push({
       pn:comp.pn,name:comp.name,category:comp.category||'Other',
@@ -700,7 +720,7 @@ function exportRatesCSV(){
   const data=calcRates();
   if(!data.length){alert_('Load data first.','warn');return;}
   const allYears=[...new Set(data.flatMap(d=>d.allYears))].sort();
-  const hdr=['Part #','Part Name','Category','Used by','Bikes produced','SAV sold','Rate (per 100 bikes)','Trend',...allYears.map(y=>`Rate ${y}`)];
+  const hdr=['Part #','Part Name','Category','Used by','Bikes with part','SAV replaced','Rate (per 100 bikes)','Trend',...allYears.map(y=>`Rate ${y}`)];
   const csv=[hdr,...data.map(d=>[d.pn,d.name,d.category,d.usedBy,d.bikesTotal,d.savTotal,d.rate.toFixed(2),d.trend,...allYears.map(y=>d.yearRates[y]!==null?d.yearRates[y].toFixed(2):'')])].map(r=>r.map(c=>{const s=String(c??'');return s.includes(',')||s.includes('"')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
@@ -773,6 +793,140 @@ async function loadProductionData(){
 
   const total=Object.values(bikeTemplateProdCount).reduce((a,b)=>a+b,0);
   console.log('[SAV] Production from serials: '+total+' bikes across '+Object.keys(bikeTemplateProdCount).length+' models');
+
+  // Ground-truth denominator: how many bikes ACTUALLY had each part installed,
+  // traced through the manufacturing orders (not theoretical BoM membership).
+  const bikeLots=lots.map(l=>({
+    id:l.id,
+    year:l.create_date?new Date(l.create_date.split(' ')[0]).getFullYear():null
+  }));
+  alert_('Tracing actual part usage through manufacturing orders…','info');
+  await loadActualConsumption(bikeLots);
+}
+
+function chunk(a,n){const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o;}
+
+// Build partInstalledCount[pn] = number of distinct bike serials whose manufacturing
+// order actually consumed that part. Traces 2 levels (bike MO -> sub-assembly MO),
+// mirroring the traceability app. Falls back silently if MO data isn't accessible.
+async function loadActualConsumption(bikeLots){
+  partInstalledCount={}; partInstalledByYear={}; hasConsumptionData=false;
+  try{
+    const bikeLotYear={}; const bikeLotIds=[];
+    for(const b of bikeLots){ bikeLotIds.push(b.id); bikeLotYear[b.id]=b.year; }
+    if(!bikeLotIds.length) return;
+
+    // A. bike serial -> producing manufacturing order
+    const moToBike={}; const moIds=[];
+    for(const c of chunk(bikeLotIds,200)){
+      const mos=await odoo('mrp.production','search_read',
+        [[['lot_producing_id','in',c]]],{fields:['id','lot_producing_id'],limit:30000});
+      for(const m of mos){ const bl=arr(m.lot_producing_id)[0]; if(bl){ moToBike[m.id]=bl; moIds.push(m.id); } }
+    }
+    if(!moIds.length){ console.warn('[SAV] No producing MOs found for bike serials — keeping BoM denominator'); return; }
+
+    const partBikes={};      // pn -> Set(bikeLotId)
+    const partBikesYear={};  // pn -> year -> Set(bikeLotId)
+    const addUse=(pn,bikeLot)=>{
+      if(!pn||!bikeLot) return;
+      (partBikes[pn]=partBikes[pn]||new Set()).add(bikeLot);
+      const yr=bikeLotYear[bikeLot];
+      if(yr){ partBikesYear[pn]=partBikesYear[pn]||{}; (partBikesYear[pn][yr]=partBikesYear[pn][yr]||new Set()).add(bikeLot); }
+    };
+
+    // B. Level 1 — raw materials consumed directly by each bike MO
+    const consumedProdIds=new Set();
+    const rawMoves=[];   // {mo, pid, moveId}
+    let qf='quantity';
+    for(const c of chunk(moIds,150)){
+      let mv;
+      try{ mv=await odoo('stock.move','search_read',
+        [[['raw_material_production_id','in',c],['state','=','done']]],
+        {fields:['id','raw_material_production_id','product_id','quantity'],limit:80000}); }
+      catch(e){ qf='quantity_done'; mv=await odoo('stock.move','search_read',
+        [[['raw_material_production_id','in',c],['state','=','done']]],
+        {fields:['id','raw_material_production_id','product_id','quantity_done'],limit:80000}); }
+      for(const m of mv){
+        const q=parseFloat(m[qf]!=null?m[qf]:m.quantity)||0; if(q<=0) continue;
+        const mo=arr(m.raw_material_production_id)[0]; const pid=arr(m.product_id)[0];
+        if(!mo||!pid) continue;
+        consumedProdIds.add(pid);
+        rawMoves.push({mo,pid,moveId:m.id});
+      }
+    }
+
+    // C. product id -> default_code
+    const prodCode={};
+    for(const c of chunk([...consumedProdIds],300)){
+      const ps=await odoo('product.product','search_read',
+        [[['id','in',c],['active','in',[true,false]]]],{fields:['id','default_code'],limit:8000});
+      for(const p of ps) prodCode[p.id]=p.default_code||'';
+    }
+    for(const rm of rawMoves){ addUse(prodCode[rm.pid], moToBike[rm.mo]); }
+
+    // D. Level 2 — leaf parts inside consumed sub-assemblies (best-effort)
+    try{
+      const moveIds=rawMoves.map(r=>r.moveId);
+      const moveToBike={}; for(const r of rawMoves) moveToBike[r.moveId]=moToBike[r.mo];
+      const lotToBikes={};            // sub-assembly lotId -> Set(bikeLot)
+      const subLotIds=new Set();
+      for(const c of chunk(moveIds,200)){
+        let mls;
+        try{ mls=await odoo('stock.move.line','search_read',
+          [[['move_id','in',c]]],{fields:['move_id','lot_id'],limit:80000}); }
+        catch(e){ mls=await odoo('stock.move.line','search_read',
+          [[['move_id','in',c]]],{fields:['move_id','lot_id'],limit:80000}); }
+        for(const ml of mls){
+          const lot=arr(ml.lot_id)[0]; const bike=moveToBike[arr(ml.move_id)[0]];
+          if(!lot||!bike) continue;
+          subLotIds.add(lot);
+          (lotToBikes[lot]=lotToBikes[lot]||new Set()).add(bike);
+        }
+      }
+      const subMoToLot={}; const subMoIds=[];
+      for(const c of chunk([...subLotIds],200)){
+        const smos=await odoo('mrp.production','search_read',
+          [[['lot_producing_id','in',c]]],{fields:['id','lot_producing_id'],limit:30000});
+        for(const m of smos){ const l=arr(m.lot_producing_id)[0]; if(l){ subMoToLot[m.id]=l; subMoIds.push(m.id); } }
+      }
+      if(subMoIds.length){
+        const leafProdIds=new Set(); const leafMoves=[];
+        for(const c of chunk(subMoIds,150)){
+          const mv=await odoo('stock.move','search_read',
+            [[['raw_material_production_id','in',c],['state','=','done']]],
+            {fields:['raw_material_production_id','product_id',qf],limit:80000});
+          for(const m of mv){
+            const q=parseFloat(m[qf])||0; if(q<=0) continue;
+            const smo=arr(m.raw_material_production_id)[0]; const pid=arr(m.product_id)[0];
+            if(!smo||!pid) continue; leafProdIds.add(pid); leafMoves.push({smo,pid});
+          }
+        }
+        const need=[...leafProdIds].filter(id=>!(id in prodCode));
+        for(const c of chunk(need,300)){
+          const ps=await odoo('product.product','search_read',
+            [[['id','in',c],['active','in',[true,false]]]],{fields:['id','default_code'],limit:8000});
+          for(const p of ps) prodCode[p.id]=p.default_code||'';
+        }
+        for(const lm of leafMoves){
+          const pn=prodCode[lm.pid]; if(!pn) continue;
+          const bikes=lotToBikes[subMoToLot[lm.smo]];
+          if(bikes) for(const b of bikes) addUse(pn,b);
+        }
+      }
+    }catch(e){ console.warn('[SAV] Level-2 sub-assembly trace skipped:',e.message); }
+
+    // Finalize: Set sizes = distinct bikes (no double counting)
+    for(const pn of Object.keys(partBikes)){
+      partInstalledCount[pn]=partBikes[pn].size;
+      partInstalledByYear[pn]={};
+      for(const yr of Object.keys(partBikesYear[pn]||{})) partInstalledByYear[pn][yr]=partBikesYear[pn][yr].size;
+    }
+    hasConsumptionData=Object.keys(partInstalledCount).length>0;
+    console.log('[SAV] Actual consumption: traced '+Object.keys(partInstalledCount).length+' parts across '+moIds.length+' bike MOs');
+  }catch(e){
+    console.warn('[SAV] Actual consumption trace failed — falling back to BoM denominator:',e.message);
+    hasConsumptionData=false;
+  }
 }
 
 // ── REPAIR ORDERS ─────────────────────────────────────────
@@ -1182,23 +1336,32 @@ function calcRates(){
     const savTotal=savByPn[comp.pn]||0;
     if(savTotal===0) continue;
 
-    // Which bike templates use this part (from BoM mapping)
+    // Which bike templates use this part (from BoM mapping) — kept for the "Used by" label
     const tmplIds = compToBikeTemplates[comp.pn] || [];
 
-    // Total bikes produced for templates that use this part
-    const bikesTotal = tmplIds.reduce((s,tid)=>s+(bikeTemplateProdCount[tid]||0),0);
+    // Denominator = bikes that ACTUALLY had this part installed (traced via MOs,
+    // same source of truth as the traceability tool). Falls back to theoretical
+    // BoM production only when MO tracing was unavailable.
+    const bikesTotal = hasConsumptionData
+      ? (partInstalledCount[comp.pn]||0)
+      : tmplIds.reduce((s,tid)=>s+(bikeTemplateProdCount[tid]||0),0);
     const rate = bikesTotal>0 ? savTotal/bikesTotal*100 : null;
 
     // Year-by-year rates
+    const prodYearsForPart = hasConsumptionData
+      ? Object.keys(partInstalledByYear[comp.pn]||{})
+      : tmplIds.flatMap(tid=>Object.keys(bikeTemplateProdByYear[tid]||{}));
     const allYears=[...new Set([
       ...Object.keys(savByPnYear[comp.pn]||{}),
-      ...tmplIds.flatMap(tid=>Object.keys(bikeTemplateProdByYear[tid]||{}))
+      ...prodYearsForPart
     ])].map(Number).sort();
 
     const yearRates={};
     for(const yr of allYears){
       const savYr=(savByPnYear[comp.pn]||{})[yr]||0;
-      const bikesYr=tmplIds.reduce((s,tid)=>s+((bikeTemplateProdByYear[tid]||{})[yr]||0),0);
+      const bikesYr=hasConsumptionData
+        ? ((partInstalledByYear[comp.pn]||{})[yr]||0)
+        : tmplIds.reduce((s,tid)=>s+((bikeTemplateProdByYear[tid]||{})[yr]||0),0);
       yearRates[yr]=bikesYr>0?savYr/bikesYr*100:null;
     }
 
@@ -1211,7 +1374,11 @@ function calcRates(){
       else if(diff<-0.5)trend='down';
     }
 
-    const usedByLabel=comp.isExtra?'Not in current BoM':tmplIds.length===0?'Unknown':`${tmplIds.length} bike model(s)`;
+    const usedByLabel=comp.isExtra
+      ? (hasConsumptionData&&bikesTotal>0?'Traced from MOs':'Not in current BoM')
+      : tmplIds.length===0
+        ? (hasConsumptionData&&bikesTotal>0?'Traced from MOs':'Unknown')
+        : `${tmplIds.length} bike model(s)`;
 
     results.push({
       pn:comp.pn,name:comp.name,category:comp.category||'Other',
@@ -1281,7 +1448,7 @@ function exportRatesCSV(){
   const data=calcRates();
   if(!data.length){alert_('Load data first.','warn');return;}
   const allYears=[...new Set(data.flatMap(d=>d.allYears))].sort();
-  const hdr=['Part #','Part Name','Category','Used by','Bikes produced','SAV sold','Rate (per 100 bikes)','Trend',...allYears.map(y=>`Rate ${y}`)];
+  const hdr=['Part #','Part Name','Category','Used by','Bikes with part','SAV replaced','Rate (per 100 bikes)','Trend',...allYears.map(y=>`Rate ${y}`)];
   const csv=[hdr,...data.map(d=>[d.pn,d.name,d.category,d.usedBy,d.bikesTotal,d.savTotal,d.rate.toFixed(2),d.trend,...allYears.map(y=>d.yearRates[y]!==null?d.yearRates[y].toFixed(2):'')])].map(r=>r.map(c=>{const s=String(c??'');return s.includes(',')||s.includes('"')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
