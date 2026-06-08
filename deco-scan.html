@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>Deco Coat · Line Status</title>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{ --bg:#14130f; --panel:#1d1c17; --line:#34322a; --ink:#f4f1e8; --muted:#a39e8d;
+         --accent:#c0451f; --ok:#3ec46d; }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+       padding:0 16px 40px;max-width:520px;margin:0 auto}
+  header{padding:22px 0 14px;display:flex;align-items:center;gap:10px}
+  header .logo{font-weight:800;letter-spacing:-.02em;font-size:20px}
+  header .logo span{color:var(--accent)}
+  header .tag{margin-left:auto;font-size:11px;color:var(--muted);font-family:ui-monospace,monospace}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+  .slot{display:flex;align-items:center;gap:12px}
+  .slot .n{flex:none;width:28px;height:28px;border-radius:50%;background:var(--line);color:var(--ink);
+           display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+  .slot.done .n{background:var(--ok);color:#06210f}
+  .slot .lab{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .slot .val{font-size:20px;font-weight:700;font-family:ui-monospace,monospace;margin-top:1px;word-break:break-all}
+  .slot .val.empty{color:var(--muted);font-weight:400;font-size:14px;font-family:inherit}
+  .slot input{width:100%;background:#000;border:1px solid var(--line);border-radius:9px;color:var(--ink);
+              font-size:18px;font-family:ui-monospace,monospace;padding:8px 10px;margin-top:4px}
+  #reader{border-radius:14px;overflow:hidden;margin-bottom:8px;background:#000}
+  #reader:empty{display:none}
+  .hint{font-size:12px;color:var(--muted);text-align:center;margin:4px 0 12px}
+  button{font:inherit;font-weight:700;border:none;border-radius:12px;padding:15px;width:100%;cursor:pointer}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn-ok{background:var(--ok);color:#06210f}
+  .btn-row{display:flex;gap:10px;margin-top:6px}
+  .btn-row button{flex:1}
+  button:disabled{opacity:.4}
+  .stages{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+  .stage{border:1px solid var(--line);background:#000;color:var(--ink);border-radius:12px;padding:14px 10px;font-size:14px;text-align:center}
+  .stage.sel{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .stage small{display:block;font-size:10px;font-weight:400;color:var(--muted);margin-top:3px}
+  .stage.sel small{color:rgba(255,255,255,.85)}
+  .msg{border-radius:12px;padding:12px 14px;font-size:14px;margin-bottom:12px;display:none}
+  .msg.ok{display:block;background:#10331e;border:1px solid #2c6b40;color:#bff0cf}
+  .msg.err{display:block;background:#3a1c12;border:1px solid #7a3320;color:#f4c4b2}
+  h3{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:18px 0 8px}
+  .rec{display:flex;gap:10px;align-items:baseline;font-family:ui-monospace,monospace;font-size:13px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .rec .so{color:var(--accent);font-weight:700}
+  .rec .st{font-weight:700}
+  .rec .t{margin-left:auto;color:var(--muted);font-size:11px}
+  .setup{background:#3a1c12;border:1px solid #7a3320;color:#f4c4b2;border-radius:12px;padding:12px 14px;font-size:13px;margin-bottom:14px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Deco Coat · <span>Line</span></div>
+  <div class="tag">stage tracking</div>
+</header>
+
+<div id="setup-warn" class="setup" style="display:none">
+  ⚠ Not configured. Set <b>WORKER_URL</b> at the top of the script.
+</div>
+
+<div id="msg" class="msg"></div>
+
+<div class="card">
+  <div class="slot" id="slot-so">
+    <div class="n">1</div>
+    <div style="flex:1">
+      <div class="lab">Order (SO)</div>
+      <div id="so-val" class="val empty">scan the box label…</div>
+      <input id="so-in" inputmode="text" placeholder="or type S23911" style="display:none"/>
+    </div>
+  </div>
+</div>
+
+<div id="reader"></div>
+<div id="cam-hint" class="hint"></div>
+
+<button id="scan-btn" class="btn-primary">📷 Scan order (SO)</button>
+<div class="btn-row">
+  <button id="manual-btn" class="btn-ghost">⌨ Type SO</button>
+  <button id="reset-btn" class="btn-ghost">↺ Reset</button>
+</div>
+
+<div class="card" style="margin-top:14px">
+  <div class="lab" style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Stage — scan the location barcode, or tap</div>
+  <div class="stages" id="stages"></div>
+</div>
+
+<button id="submit-btn" class="btn-ok" disabled>✓ Update stage</button>
+
+<h3>Recent updates</h3>
+<div id="recent"><div class="hint" style="text-align:left">—</div></div>
+
+<script>
+/* ─────────────  CONFIG  ─────────────
+   WORKER_URL : your Cloudflare Worker URL (same one as the VV scan / app)
+   WRITE_KEY  : same string you set as WRITE_KEY in the Worker, or '' if none
+*/
+const WORKER_URL = "https://vv-serials.massimiliano-d74.workers.dev";
+const WRITE_KEY  = "";
+/* ──────────────────────────────────── */
+
+const STAGES = [
+  { code:'WAITPAINT', label:'Waiting to paint',  sub:'in queue' },
+  { code:'PAINTING',  label:'In painting',       sub:'on the line' },
+  { code:'WAITSHIP',  label:'Waiting to ship',   sub:'painted, ready' },
+  { code:'SHIPPED',   label:'Shipped',           sub:'left to VV' },
+];
+const $ = id => document.getElementById(id);
+let st = { so:'', stage:'', scanner:null, scanning:false, manual:false, scanTarget:'so' };
+
+if(!WORKER_URL) $('setup-warn').style.display='block';
+
+// render stage buttons
+$('stages').innerHTML = STAGES.map(s =>
+  `<div class="stage" data-code="${s.code}" onclick="pickStage('${s.code}')">${s.label}<small>${s.sub}</small></div>`).join('');
+
+function render(){
+  $('so-val').textContent = st.so || 'scan the box label…';
+  $('so-val').className = 'val' + (st.so?'':' empty');
+  $('slot-so').classList.toggle('done', !!st.so);
+  document.querySelectorAll('.stage').forEach(el => el.classList.toggle('sel', el.getAttribute('data-code')===st.stage));
+  $('submit-btn').disabled = !(st.so && st.stage);
+  $('scan-btn').textContent = st.scanning ? '■ Stop camera' : '📷 Scan order (SO)';
+}
+function flash(){ try{ navigator.vibrate && navigator.vibrate(60); }catch(e){} }
+function showMsg(t,k){ const m=$('msg'); m.textContent=t; m.className='msg '+k; if(k==='ok') setTimeout(()=>m.className='msg',3500); }
+
+const cleanSO = s => { const m=String(s).toUpperCase().match(/S\s*\d{3,}/); return m?m[0].replace(/\s+/g,''):String(s).trim().toUpperCase(); };
+function parseLocation(text){
+  // location barcodes look like  DCLOC|PAINTING|...  or just a stage code
+  const up = String(text).toUpperCase();
+  const m = up.match(/DCLOC[|\-: ]+([A-Z]+)/);
+  const code = m ? m[1] : up.replace(/[^A-Z]/g,'');
+  return STAGES.find(s => s.code===code) ? code : '';
+}
+
+window.pickStage = code => { st.stage = code; flash(); render(); };
+
+const SUPPORTED = [Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.QR_CODE];
+function onDetected(text){
+  if(st.scanTarget==='so' && !st.so){ st.so = cleanSO(text); flash(); render();
+    $('cam-hint').textContent='Order set. Scan a location barcode, or tap a stage below.';
+    st.scanTarget='loc'; return; }
+  // try to read a location barcode -> stage
+  const stage = parseLocation(text);
+  if(stage){ st.stage = stage; flash(); stopCam(); $('cam-hint').textContent='Stage set. Review, then Update.'; render(); }
+}
+async function startCam(){
+  if(!st.scanner) st.scanner = new Html5Qrcode("reader", { formatsToSupport: SUPPORTED, verbose:false });
+  try{ st.scanning=true; render();
+    await st.scanner.start({ facingMode:"environment" }, { fps:12, qrbox:{width:300,height:170}, aspectRatio:1.4 }, onDetected, ()=>{});
+    $('cam-hint').textContent = st.so ? 'Scan a location barcode (or tap a stage).' : 'Point at the SO barcode on the box label.';
+  }catch(e){ st.scanning=false; render(); showMsg('Camera unavailable: '+(e&&e.message||e)+'. Type the SO and tap a stage. (Camera needs an https page.)','err'); }
+}
+async function stopCam(){ if(st.scanner && st.scanning){ try{ await st.scanner.stop(); }catch(e){} } st.scanning=false; $('cam-hint').textContent=''; render(); }
+
+$('scan-btn').onclick = ()=>{ st.scanning ? stopCam() : (st.scanTarget = st.so?'loc':'so', startCam()); };
+$('manual-btn').onclick = ()=>{ st.manual=!st.manual; $('so-val').style.display=st.manual?'none':'block'; $('so-in').style.display=st.manual?'block':'none'; if(st.manual){ stopCam(); $('so-in').value=st.so; } };
+$('so-in').oninput = e=>{ st.so=cleanSO(e.target.value); render(); };
+$('reset-btn').onclick = ()=>{ stopCam(); st.so=''; st.stage=''; st.scanTarget='so'; $('so-in').value=''; $('msg').className='msg'; render(); };
+
+$('submit-btn').onclick = async ()=>{
+  if(!WORKER_URL){ showMsg('Set WORKER_URL in this file first.','err'); return; }
+  $('submit-btn').disabled=true; $('submit-btn').textContent='Saving…';
+  try{
+    const headers={'Content-Type':'application/json'}; if(WRITE_KEY) headers['x-api-key']=WRITE_KEY;
+    const resp = await fetch(WORKER_URL, { method:'POST', headers, body: JSON.stringify({ type:'status', so:st.so, status:st.stage, by:'DecoCoat' }) });
+    const data = await resp.json(); if(!resp.ok) throw new Error(data.error||('HTTP '+resp.status));
+    const lab = (STAGES.find(s=>s.code===st.stage)||{}).label || st.stage;
+    showMsg('✓ '+st.so+' → '+lab,'ok');
+    st.so=''; st.stage=''; st.scanTarget='so'; $('so-in').value=''; render(); loadRecent();
+  }catch(e){ showMsg('Could not save: '+(e&&e.message||e),'err'); }
+  $('submit-btn').textContent='✓ Update stage'; render();
+};
+
+async function loadRecent(){
+  if(!WORKER_URL) return;
+  try{
+    const resp = await fetch(WORKER_URL+'?type=status'); const list = await resp.json();
+    list.sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
+    $('recent').innerHTML = list.slice(0,12).map(r=>{
+      const lab=(STAGES.find(s=>s.code===r.status)||{}).label||r.status;
+      const t=r.ts?new Date(r.ts).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+      return `<div class="rec"><span class="so">${r.so}</span><span class="st">${lab}</span><span class="t">${t}</span></div>`;
+    }).join('') || '<div class="hint" style="text-align:left">No updates yet.</div>';
+  }catch(e){}
+}
+render(); loadRecent();
+</script>
+</body>
+</html>
