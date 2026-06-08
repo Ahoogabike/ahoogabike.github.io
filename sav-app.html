@@ -53,6 +53,9 @@ tr:hover td{background:var(--surface2)}
 .note-text:hover{background:#f7eccb}
 .note-add{cursor:pointer;color:var(--text3);font-size:11px;font-style:italic}
 .note-add:hover{color:var(--accent)}
+.hide-btn{cursor:pointer;font-size:10px;color:var(--text3);font-style:italic}
+.hide-btn:hover{color:var(--danger)}
+.hide-btn.unhide:hover{color:var(--success)}
 #note-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:1000;align-items:center;justify-content:center}
 .note-box{background:var(--surface);border:1px solid var(--border2);border-radius:var(--radius);padding:20px 22px;width:min(560px,92vw);box-shadow:0 12px 40px rgba(0,0,0,0.2)}
 .note-box h3{font-size:14px;font-weight:700;margin-bottom:4px}
@@ -166,6 +169,7 @@ img,svg,canvas,video{max-width:100%;height:auto}
         <option value="name">Part name</option>
       </select>
       <button class="btn btn-primary" onclick="exportRatesCSV()">⬇ Export</button>
+      <label class="toggle" style="font-size:12px;color:var(--text2);display:inline-flex;align-items:center;gap:5px;margin-left:6px;cursor:pointer"><input type="checkbox" id="r-showhidden" onchange="toggleShowHidden()" style="cursor:pointer"/> Show hidden <span id="r-hidden-count" style="color:var(--text3)"></span></label>
       <span id="notes-status" style="font-size:11px;color:var(--text3);margin-left:4px"></span>
     </div>
 
@@ -733,7 +737,8 @@ function calcRates(){
       usedBy:usedByLabel,
       bikesTotal:Math.round(bikesTotal),
       savTotal,rate,trend,yearRates,allYears,
-      isExtra:comp.isExtra||false
+      isExtra:comp.isExtra||false,
+      isHidden:isHiddenPart(comp.pn)
     });
   }
   return results;
@@ -758,10 +763,12 @@ function renderRates(){
   }
 
   data=data.filter(d=>{
+    if(!showHidden && d.isHidden)return false;
     if(cat&&d.category!==cat)return false;
     if(search&&!d.name.toLowerCase().includes(search)&&!d.pn.toLowerCase().includes(search))return false;
     return true;
   });
+  updateHiddenToggle();
 
   if(sort==='rate_desc')data.sort((a,b)=>b.rate-a.rate);
   else if(sort==='rate_asc')data.sort((a,b)=>a.rate-b.rate);
@@ -775,9 +782,9 @@ function renderRates(){
   const trendIcon=t=>t==='up'?'<span class="trend-up">↑ Rising</span>':t==='down'?'<span class="trend-down">↓ Falling</span>':'<span class="trend-flat">→ Stable</span>';
   const fmtRate=r=>(r===null||r===undefined)?'—':`${Number(r).toFixed(1)}%`;
 
-  document.getElementById('rates-tbody').innerHTML=data.map(d=>`<tr>
+  document.getElementById('rates-tbody').innerHTML=data.map(d=>`<tr${d.isHidden?' style="opacity:0.45"':''}>
     <td style="font-family:monospace;font-size:11px;color:var(--text3)">${d.pn}</td>
-    <td style="min-width:160px;white-space:normal;font-weight:500">${d.name}</td>
+    <td style="min-width:160px;white-space:normal;font-weight:500">${d.name}<div style="margin-top:3px">${hideCellHtml(d.pn)}</div></td>
     <td style="font-size:11px"><span class="badge b-b2c">${d.category}</span></td>
     <td style="text-align:center;font-size:11px;color:var(--text3)">${d.usedBy}</td>
     <td style="text-align:right;color:var(--text2)">${d.bikesTotal.toLocaleString()}</td>
@@ -794,7 +801,7 @@ function renderRates(){
 }
 
 function exportRatesCSV(){
-  const data=calcRates();
+  const data=calcRates().filter(d=>!d.isHidden);
   if(!data.length){alert_('Load data first.','warn');return;}
   const allYears=[...new Set(data.flatMap(d=>d.allYears))].sort();
   const hdr=['Part #','Part Name','Category','Used by','Bikes produced','SAV replaced','Rate (per 100 bikes)','Trend','Note',...allYears.map(y=>`Rate ${y}`)];
@@ -1213,6 +1220,7 @@ function renderDashboard(){
   // Group by part
   const byPart={};
   for(const l of lines){
+    if(isHiddenPart(l.pn)) continue;
     if(!byPart[l.pn])byPart[l.pn]={pn:l.pn,name:l.partName,category:l.category,supplier:l.supplier,totalDelivered:0,b2cDelivered:0,b2rDelivered:0,repairDelivered:0,pending:0,orders:new Set(),lastDate:null};
     const p=byPart[l.pn];
     p.totalDelivered+=l.delivered;
@@ -1399,7 +1407,8 @@ function calcRates(){
       usedBy:usedByLabel,
       bikesTotal:Math.round(bikesTotal),
       savTotal,rate,trend,yearRates,allYears,
-      isExtra:comp.isExtra||false
+      isExtra:comp.isExtra||false,
+      isHidden:isHiddenPart(comp.pn)
     });
   }
   return results;
@@ -1424,10 +1433,12 @@ function renderRates(){
   }
 
   data=data.filter(d=>{
+    if(!showHidden && d.isHidden)return false;
     if(cat&&d.category!==cat)return false;
     if(search&&!d.name.toLowerCase().includes(search)&&!d.pn.toLowerCase().includes(search))return false;
     return true;
   });
+  updateHiddenToggle();
 
   if(sort==='rate_desc')data.sort((a,b)=>b.rate-a.rate);
   else if(sort==='rate_asc')data.sort((a,b)=>a.rate-b.rate);
@@ -1441,9 +1452,9 @@ function renderRates(){
   const trendIcon=t=>t==='up'?'<span class="trend-up">↑ Rising</span>':t==='down'?'<span class="trend-down">↓ Falling</span>':'<span class="trend-flat">→ Stable</span>';
   const fmtRate=r=>(r===null||r===undefined)?'—':`${Number(r).toFixed(1)}%`;
 
-  document.getElementById('rates-tbody').innerHTML=data.map(d=>`<tr>
+  document.getElementById('rates-tbody').innerHTML=data.map(d=>`<tr${d.isHidden?' style="opacity:0.45"':''}>
     <td style="font-family:monospace;font-size:11px;color:var(--text3)">${d.pn}</td>
-    <td style="min-width:160px;white-space:normal;font-weight:500">${d.name}</td>
+    <td style="min-width:160px;white-space:normal;font-weight:500">${d.name}<div style="margin-top:3px">${hideCellHtml(d.pn)}</div></td>
     <td style="font-size:11px"><span class="badge b-b2c">${d.category}</span></td>
     <td style="text-align:center;font-size:11px;color:var(--text3)">${d.usedBy}</td>
     <td style="text-align:right;color:var(--text2)">${d.bikesTotal.toLocaleString()}</td>
@@ -1460,7 +1471,7 @@ function renderRates(){
 }
 
 function exportRatesCSV(){
-  const data=calcRates();
+  const data=calcRates().filter(d=>!d.isHidden);
   if(!data.length){alert_('Load data first.','warn');return;}
   const allYears=[...new Set(data.flatMap(d=>d.allYears))].sort();
   const hdr=['Part #','Part Name','Category','Used by','Bikes produced','SAV replaced','Rate (per 100 bikes)','Trend','Note',...allYears.map(y=>`Rate ${y}`)];
@@ -1475,7 +1486,7 @@ function exportRatesCSV(){
 
 // ── ANALYSIS / TOP PARTS ──────────────────────────────────
 function calcAnalysis(){
-  const lines=allLines.filter(l=>l.delivered>0 && !isExcludedPart(l.pn,l.partName,l.category));
+  const lines=allLines.filter(l=>l.delivered>0 && !isExcludedPart(l.pn,l.partName,l.category) && !isHiddenPart(l.pn));
   const byPart={}; const byCat={}; const byYear={};
   for(const l of lines){
     const isRepair=l.channel==='repair';
@@ -1641,7 +1652,7 @@ async function saveNotesRemote(){
 }
 function setNotesStatus(state){
   const el=document.getElementById('notes-status'); if(!el) return;
-  const map={saving:['● Saving notes…','var(--text3)'],saved:['✓ Notes saved to cloud','var(--success)'],local:['● Notes saved in this browser only','var(--warn)'],error:['✗ Notes cloud save failed — kept locally','var(--danger)'],'':['','var(--text3)']};
+  const map={saving:['● Saving…','var(--text3)'],saved:['✓ Saved to cloud','var(--success)'],local:['● Saved in this browser only','var(--warn)'],error:['✗ Cloud save failed — kept locally','var(--danger)'],'':['','var(--text3)']};
   const [txt,col]=map[state]||map['']; el.textContent=txt; el.style.color=col;
 }
 function noteCellHtml(pn){
@@ -1673,9 +1684,58 @@ function saveCurrentNote(){
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeNoteEditor();});
 document.addEventListener('click',e=>{if(e.target&&e.target.id==='note-modal')closeNoteEditor();});
 
+// ── HIDDEN PARTS (shared via Cloudflare KV, cached in localStorage) ────────
+// Hide parts that aren't relevant from the analysis tables. Toggle "Show hidden"
+// on the SAV Rates tab to review and unhide them. Hidden parts are removed from
+// the Dashboard, SAV Rates and Top Parts views (Sales Detail stays raw).
+const HIDDEN_LS='ahooga_sav_hidden';
+const HIDDEN_KV_KEY='sav_hidden_parts';
+let hiddenParts=new Set();
+let showHidden=false;
+let hiddenSaveTimer=null;
+try{const h=localStorage.getItem(HIDDEN_LS);if(h){const a=JSON.parse(h);if(Array.isArray(a))hiddenParts=new Set(a);}}catch(e){hiddenParts=new Set();}
+function isHiddenPart(pn){return hiddenParts.has(pn);}
+function saveHiddenLocal(){try{localStorage.setItem(HIDDEN_LS,JSON.stringify([...hiddenParts]));}catch(e){}}
+function hiddenKvUrl(){return `${CF_WORKER}/kv/${encodeURIComponent(HIDDEN_KV_KEY)}`;}
+async function loadHiddenRemote(){
+  try{
+    const r=await fetch(hiddenKvUrl(),{method:'GET'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const txt=(await r.text()||'').trim();
+    if(txt){ const a=JSON.parse(txt); if(Array.isArray(a)){ hiddenParts=new Set(a); saveHiddenLocal(); } }
+    setNotesStatus('saved');
+    if(allLines.length){ renderRates(); renderDashboard(); }
+  }catch(e){ console.warn('[SAV] Hidden KV load failed:',e.message); }
+}
+function scheduleHiddenSave(){ clearTimeout(hiddenSaveTimer); setNotesStatus('saving'); hiddenSaveTimer=setTimeout(saveHiddenRemote,600); }
+async function saveHiddenRemote(){
+  try{
+    const r=await fetch(hiddenKvUrl(),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify([...hiddenParts])});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    setNotesStatus('saved');
+  }catch(e){ console.warn('[SAV] Hidden KV save failed:',e.message); setNotesStatus('error'); }
+}
+function setHidden(pn,hide){
+  if(hide) hiddenParts.add(pn); else hiddenParts.delete(pn);
+  saveHiddenLocal(); scheduleHiddenSave();
+  updateHiddenToggle();
+  renderRates(); renderDashboard();
+  if(document.getElementById('view-analysis')?.classList.contains('active')) renderAnalysis();
+}
+function toggleShowHidden(){ showHidden=document.getElementById('r-showhidden').checked; renderRates(); }
+function updateHiddenToggle(){
+  const el=document.getElementById('r-hidden-count'); if(el) el.textContent=hiddenParts.size?`${hiddenParts.size} hidden`:'';
+}
+function hideCellHtml(pn){
+  return isHiddenPart(pn)
+    ? `<span class="hide-btn unhide" title="Show this part again" onclick="setHidden('${esc(pn)}',false)">↩ unhide</span>`
+    : `<span class="hide-btn" title="Hide this part from the tables" onclick="setHidden('${esc(pn)}',true)">🚫 hide</span>`;
+}
+
 // Auto-connect if credentials are already saved from homepage
 window.addEventListener('load', () => {
   loadNotesRemote();
+  loadHiddenRemote();
   try{
     const c = localStorage.getItem('mxp_cfg');
     if(c){
