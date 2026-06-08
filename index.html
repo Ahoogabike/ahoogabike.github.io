@@ -165,9 +165,11 @@ footer{
   .hero h1{font-size:38px}
 }
 @media(max-width:760px){.grid{grid-template-columns:1fr 1fr}}
+@media(max-width:980px){.cc-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.cc-grid{grid-template-columns:1fr}}
 @media(max-width:520px){
   .grid{grid-template-columns:1fr}
-  header,.hero,.apps-section,.connect-section,footer{
+  header,.hero,.apps-section,.connect-section,.cc-band,footer{
     padding-left:max(20px,env(safe-area-inset-left));
     padding-right:max(20px,env(safe-area-inset-right));
   }
@@ -177,7 +179,50 @@ footer{
   .connect-btn{width:100%;padding-top:14px;padding-bottom:14px}
   .header-right{font-size:10px}
   .hero p{font-size:15px}
+  .cc-title{font-size:27px}
 }
+
+/* ===== custom colour workflow band ===== */
+.cc-band{
+  position:relative;overflow:hidden;padding:46px 40px 52px;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  background:
+    radial-gradient(680px 380px at 6% -12%,rgba(255,77,131,.60),transparent 60%),
+    radial-gradient(640px 380px at 52% 124%,rgba(47,111,94,.55),transparent 62%),
+    radial-gradient(720px 440px at 100% -6%,rgba(242,183,5,.65),transparent 58%),
+    linear-gradient(118deg,#c0451f 0%,#ea1d5e 30%,#b07d2b 58%,#2f6f5e 100%);
+}
+.cc-band::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(0,0,0,.07))}
+.cc-inner{max-width:1040px;margin:0 auto;position:relative;z-index:1}
+.cc-eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.20);
+  border:1px solid rgba(255,255,255,.5);color:#fff;font-size:11px;font-weight:700;letter-spacing:.16em;
+  text-transform:uppercase;padding:6px 14px;border-radius:20px;margin-bottom:14px;
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.cc-eyebrow .pulse{width:7px;height:7px;border-radius:50%;background:#fff;
+  box-shadow:0 0 0 0 rgba(255,255,255,.6);animation:pulse 2s infinite}
+.cc-title{font-size:34px;font-weight:900;letter-spacing:-1px;color:#fff;line-height:1.04;
+  text-shadow:0 2px 20px rgba(80,20,10,.28)}
+.cc-sub{color:rgba(255,255,255,.94);font-size:14px;max-width:560px;line-height:1.6;margin:9px 0 24px;
+  text-shadow:0 1px 8px rgba(80,20,10,.2)}
+.cc-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.cc-card{position:relative;overflow:hidden;text-decoration:none;color:var(--ink);
+  background:rgba(255,255,255,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,.6);border-radius:var(--radius);padding:22px;
+  display:flex;flex-direction:column;gap:13px;box-shadow:0 14px 40px rgba(60,18,10,.28);transition:.22s}
+.cc-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--accent)}
+.cc-card::after{content:'';position:absolute;top:-50px;right:-50px;width:130px;height:130px;border-radius:50%;
+  background:radial-gradient(circle,var(--accent),transparent 68%);opacity:.10;transition:.22s}
+.cc-card:hover{transform:translateY(-4px);box-shadow:0 24px 56px rgba(60,18,10,.36)}
+.cc-card:hover::after{opacity:.2}
+.cc-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;position:relative;z-index:1}
+.cc-step{font-family:'Space Mono',monospace;font-size:10.5px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--accent)}
+.cc-name{font-size:19px;font-weight:800;letter-spacing:-.02em;margin-top:2px}
+.cc-ico{flex:none;width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;
+  background:color-mix(in srgb,var(--accent) 14%,#fff);border:1px solid color-mix(in srgb,var(--accent) 32%,transparent)}
+.cc-desc{font-size:13px;color:var(--ink-dim);line-height:1.55;position:relative;z-index:1}
+.cc-arrow{margin-top:auto;color:var(--accent);font-weight:800;font-size:20px;position:relative;z-index:1}
 </style>
 </head>
 <body>
@@ -283,43 +328,9 @@ footer{
         <div class="card-arrow">→</div>
       </a>
 
-      <a href="ahooga-custom-colors.html" class="card" style="--accent:#c0451f">
-        <div class="card-header">
-          <div class="card-num">04</div>
-          <div class="card-icon-wrap">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#c0451f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>
-              <path d="M9.5 14a2.5 2.5 0 0 0 2.5 2.5"/>
-            </svg>
-          </div>
-        </div>
-        <div>
-          <div class="card-title">Custom Colors</div>
-          <div class="card-desc">Custom-colour orders end-to-end: Deco Coat PO, order forms, labels, supplier email, plus frame-serial tracking from the VV scan — and a step-by-step process guide</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </a>
-
-      <a href="vv-scan.html" class="card" style="--accent:#2f6f5e">
-        <div class="card-header">
-          <div class="card-num">05</div>
-          <div class="card-icon-wrap">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2f6f5e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="6" width="18" height="12" rx="1.5"/>
-              <path d="M6 9v6M9 9v6M12 9v6M15 9v6M18 9v6"/>
-            </svg>
-          </div>
-        </div>
-        <div>
-          <div class="card-title">VV Serial Scan</div>
-          <div class="card-desc">Pair a sales order to a frame serial by scanning the SO and MACU barcodes — used at assembly (Velovisie), or here as a manual backup. Feeds the Custom Colors app.</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </a>
-
       <a href="po-builder-bikes.html" class="card" style="--accent:#176f8c">
         <div class="card-header">
-          <div class="card-num">06</div>
+          <div class="card-num">04</div>
           <div class="card-icon-wrap">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#176f8c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="4" width="18" height="16" rx="2"/>
@@ -335,7 +346,7 @@ footer{
 
       <a href="bikes-coming-next.html" class="card" style="--accent:#c2410c">
         <div class="card-header">
-          <div class="card-num">07</div>
+          <div class="card-num">05</div>
           <div class="card-icon-wrap">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 6h11v9H3z"/>
@@ -351,7 +362,7 @@ footer{
       </a>
       <a href="po-tracker.html" class="card" style="--accent:#2f6df0">
         <div class="card-header">
-          <div class="card-num">08</div>
+          <div class="card-num">06</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <rect x="5" y="3" width="14" height="18" rx="2" fill="none" stroke="#2f6df0" stroke-width="1.5"/>
@@ -371,7 +382,7 @@ footer{
       </a>
       <a href="bike-time-tracker.html" class="card" style="--accent:#e08a1e">
         <div class="card-header">
-          <div class="card-num">09</div>
+          <div class="card-num">07</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <circle cx="14" cy="15" r="8" fill="none" stroke="#e08a1e" stroke-width="1.5"/>
@@ -390,7 +401,7 @@ footer{
       </a>
       <a href="parts-stock.html" class="card" style="--accent:#8a4fd6">
         <div class="card-header">
-          <div class="card-num">10</div>
+          <div class="card-num">08</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <rect x="4" y="13" width="8" height="10" rx="1.5" fill="none" stroke="#8a4fd6" stroke-width="1.5"/>
@@ -408,11 +419,92 @@ footer{
       </a>
     </div>
 
-    <div class="section-label" style="margin-top:40px">After-sales &amp; service</div>
+  </div>
+</div>
+
+<div class="cc-band">
+  <div class="cc-inner">
+    <div class="cc-eyebrow"><span class="pulse"></span> Custom colour · end-to-end</div>
+    <div class="cc-title">Custom Colour Workflow</div>
+    <div class="cc-sub">Start with the programme — the full flow and who owns each step — then the three apps run it: plan &amp; raise the Deco&nbsp;Coat PO, track the frame down the paint line, then pair its serial at assembly. The apps share one live registry.</div>
+    <div class="cc-grid">
+      <a href="custom-colour-process-guide.html" class="cc-card" style="--accent:#7a4ad0">
+        <div class="cc-card-head">
+          <div>
+            <div class="cc-step">★ Start here · the playbook</div>
+            <div class="cc-name">Custom Colour Programme</div>
+          </div>
+          <div class="cc-ico">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7a4ad0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 5a2 2 0 0 1 2-2h11a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2z"/>
+              <path d="M8 7h7M8 11h7M8 15h4"/>
+            </svg>
+          </div>
+        </div>
+        <div class="cc-desc">The full process flow and who's responsible at each step — Ahooga, Deco Coat and Velovisie. The reference behind the three apps.</div>
+        <div class="cc-arrow">→</div>
+      </a>
+
+
+      <a href="ahooga-custom-colors.html" class="cc-card" style="--accent:#c0451f">
+        <div class="cc-card-head">
+          <div>
+            <div class="cc-step">① Plan &amp; order</div>
+            <div class="cc-name">Custom Colors</div>
+          </div>
+          <div class="cc-ico">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#c0451f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/><path d="M9.5 14a2.5 2.5 0 0 0 2.5 2.5"/>
+            </svg>
+          </div>
+        </div>
+        <div class="cc-desc">Deco Coat PO, order forms, labels, supplier email and serial tracking — plus a step-by-step process guide and live ship-date estimates.</div>
+        <div class="cc-arrow">→</div>
+      </a>
+
+      <a href="deco-scan.html" class="cc-card" style="--accent:#b07d2b">
+        <div class="cc-card-head">
+          <div>
+            <div class="cc-step">② Paint line · Deco Coat</div>
+            <div class="cc-name">Deco Coat Scan</div>
+          </div>
+          <div class="cc-ico">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#b07d2b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 8v8M10 8v8M13 8v8M17 8v8"/>
+            </svg>
+          </div>
+        </div>
+        <div class="cc-desc">Scan the SO then the zone barcode — waiting to paint → painting → waiting to ship → shipped. Feeds live status and learned ship dates back to the app.</div>
+        <div class="cc-arrow">→</div>
+      </a>
+
+      <a href="vv-scan.html" class="cc-card" style="--accent:#2f6f5e">
+        <div class="cc-card-head">
+          <div>
+            <div class="cc-step">③ Assembly · Velovisie</div>
+            <div class="cc-name">VV Serial Scan</div>
+          </div>
+          <div class="cc-ico">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2f6f5e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="6" width="18" height="12" rx="1.5"/><path d="M6 9v6M9 9v6M12 9v6M15 9v6M18 9v6"/>
+            </svg>
+          </div>
+        </div>
+        <div class="cc-desc">Scan the SO and the MACU frame serial to pair each bike to its order at the line — or as a manual backup from here.</div>
+        <div class="cc-arrow">→</div>
+      </a>
+
+    </div>
+  </div>
+</div>
+
+<div class="apps-section">
+  <div class="apps-inner">
+    <div class="section-label">After-sales &amp; service</div>
     <div class="grid">
       <a href="sav-app.html" class="card" style="--accent:#e23b34">
         <div class="card-header">
-          <div class="card-num">11</div>
+          <div class="card-num">09</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <circle cx="14" cy="14" r="9" fill="none" stroke="#e23b34" stroke-width="1.5"/>
@@ -430,7 +522,7 @@ footer{
       </a>
       <a href="ahooga_max_repair.html" class="card" style="--accent:#c9991f">
         <div class="card-header">
-          <div class="card-num">12</div>
+          <div class="card-num">10</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <circle cx="14" cy="14" r="9" fill="none" stroke="#c9991f" stroke-width="1.5"/>
@@ -454,7 +546,7 @@ footer{
     <div class="grid">
       <a href="traceability.html" class="card" style="--accent:#0f9e7a">
         <div class="card-header">
-          <div class="card-num">13</div>
+          <div class="card-num">11</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <circle cx="12" cy="12" r="7" fill="none" stroke="#0f9e7a" stroke-width="1.5"/>
@@ -472,7 +564,7 @@ footer{
       </a>
       <a href="knowledge-library.html" class="card" style="--accent:#a85fd0">
         <div class="card-header">
-          <div class="card-num">14</div>
+          <div class="card-num">12</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <rect x="5" y="3" width="18" height="22" rx="2" fill="none" stroke="#a85fd0" stroke-width="1.5"/>
@@ -485,24 +577,6 @@ footer{
         <div>
           <div class="card-title">Knowledge Library</div>
           <div class="card-desc">How-to procedures for Supply, Sales, Marketing, Technical and Operations — searchable and categorised</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </a>
-      <a href="custom-colour-process-guide.html" class="card" style="--accent:#c0451f">
-        <div class="card-header">
-          <div class="card-num">15</div>
-          <div class="card-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <path d="M14 3c-5 0-9 3.6-9 8.5 0 3 2 4.5 4 4.5 1.3 0 2-.7 2-1.8 0-.6-.3-1-.6-1.4-.3-.4-.5-.7-.5-1.2 0-.9.8-1.6 1.8-1.6h2.1C19 9.5 23 8 23 11.5 23 18 19 22 14 22" stroke="#c0451f" stroke-width="1.5" stroke-linejoin="round" fill="none"/>
-              <circle cx="9.5" cy="8.5" r="1.3" fill="#c0451f"/>
-              <circle cx="14" cy="6.8" r="1.3" fill="#c0451f" opacity="0.7"/>
-              <circle cx="18.3" cy="8.6" r="1.3" fill="#c0451f" opacity="0.5"/>
-            </svg>
-          </div>
-        </div>
-        <div>
-          <div class="card-title">Custom Colour Programme</div>
-          <div class="card-desc">Ordering process for MAX custom-painted frames — every step's target and who's responsible, across Ahooga, Deco Coat and Velovisie</div>
         </div>
         <div class="card-arrow">→</div>
       </a>
