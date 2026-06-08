@@ -724,6 +724,60 @@ let registrySerials = {};  // SO# -> serial, captured by Velovisie's barcode sca
 let sentStatus = {};       // SO# -> {ts,by}, marked when the PO + order form were emailed to Deco Coat (shared)
 let customSendFilter = ''; // '' | 'ready' | 'sent' | 'nopo' — filters the Custom Colors table by send state
 function setCustomSendFilter(v){ customSendFilter = (customSendFilter===v ? '' : v); renderCustom(); }
+
+// ── Deco Coat line stage (scanned by Deco Coat, shared via the registry) ──────
+let decoStatus = {};       // SO# -> { status, ts, stages:{WAITPAINT,PAINTING,WAITSHIP,SHIPPED} }
+const DECO_STAGES = ['WAITPAINT','PAINTING','WAITSHIP','SHIPPED'];
+const DECO_STAGE_LABEL = { WAITPAINT:'Waiting to paint', PAINTING:'In painting', WAITSHIP:'Waiting to ship', SHIPPED:'Shipped' };
+function decoStageOf(o){ const k=soKey(o&&o.name); return k && decoStatus[k] ? decoStatus[k] : null; }
+
+// Learn average stage→stage durations (in ms) from every order's recorded stage timestamps.
+// Returns {d01,d12,d23,n01,n12,n23} where dNN is the mean duration and nNN the sample count.
+function learnDecoDurations(){
+  const acc = { d01:[], d12:[], d23:[] };
+  for(const k in decoStatus){
+    const s = decoStatus[k] && decoStatus[k].stages; if(!s) continue;
+    const t = c => s[c] ? Date.parse(s[c]) : null;
+    const a=t('WAITPAINT'), b=t('PAINTING'), c=t('WAITSHIP'), d=t('SHIPPED');
+    if(a!=null && b!=null && b>=a) acc.d01.push(b-a);
+    if(b!=null && c!=null && c>=b) acc.d12.push(c-b);
+    if(c!=null && d!=null && d>=c) acc.d23.push(d-c);
+  }
+  const mean = arr => arr.length ? arr.reduce((x,y)=>x+y,0)/arr.length : null;
+  return { d01:mean(acc.d01), d12:mean(acc.d12), d23:mean(acc.d23),
+           n01:acc.d01.length, n12:acc.d12.length, n23:acc.d23.length };
+}
+// Project a ship date for one order from its current stage + learned averages.
+// Returns { date:Date, learning:bool } or null when there's no stage info at all.
+function projectShipDate(o){
+  const rec = decoStageOf(o); if(!rec) return null;
+  if(rec.status==='SHIPPED') return { date: rec.stages && rec.stages.SHIPPED ? new Date(rec.stages.SHIPPED) : (rec.ts?new Date(rec.ts):null), shipped:true };
+  const L = learnDecoDurations();
+  const need = { WAITPAINT:['d01','d12','d23'], PAINTING:['d12','d23'], WAITSHIP:['d23'] }[rec.status] || [];
+  if(need.some(k => L[k]==null)) return { learning:true };          // not enough history yet
+  const enteredKey = rec.status;
+  const enteredTs = rec.stages && rec.stages[enteredKey] ? Date.parse(rec.stages[enteredKey]) : (rec.ts?Date.parse(rec.ts):Date.now());
+  const stageDur = { WAITPAINT:L.d01, PAINTING:L.d12, WAITSHIP:L.d23 }[rec.status];
+  const elapsed = Date.now() - enteredTs;
+  let remaining = Math.max(0, stageDur - elapsed);                  // time left in the current stage
+  if(rec.status==='WAITPAINT') remaining += L.d12 + L.d23;
+  else if(rec.status==='PAINTING') remaining += L.d23;
+  return { date: new Date(Date.now() + remaining), learning:false };
+}
+// Small colored badge for the current scanned stage + when it was scanned.
+function decoStageBadge(o){
+  const rec = decoStageOf(o); if(!rec) return '';
+  const color = { WAITPAINT:'#8a8a8a', PAINTING:'#c8791a', WAITSHIP:'#2f6f9e', SHIPPED:'#1a7f4b' }[rec.status] || '#8a8a8a';
+  return `<span class="badge" style="background:${color}22;color:${color};border:1px solid ${color}66">${DECO_STAGE_LABEL[rec.status]||rec.status}</span>`
+    + (rec.ts?`<div style="font-size:10px;color:var(--text3);margin-top:2px">scan · ${fmtDate(rec.ts)}</div>`:'');
+}
+// Learned "estimated ship" line for the Est. Delivery cell.
+function decoEtaHtml(o){
+  const p = projectShipDate(o); if(!p) return '';
+  if(p.shipped) return `<span class="badge" style="background:#1a7f4b22;color:#1a7f4b;border:1px solid #1a7f4b66">shipped ${p.date?fmtDate(p.date):''}</span>`;
+  if(p.learning) return `<span style="font-size:11px;color:var(--text3)">ship · learning…</span>`;
+  return `<span class="badge badge-po" title="Estimated from average Deco Coat stage timings">ship ~${fmtDate(p.date)}</span>`;
+}
 let issuedPOSupply = []; // remaining-to-receive on every open purchase order for bikes (mirrors the Coming Next app)
 let forecastMix = null;  // {color:{yellow,black,red}, rack:{'rack','no rack'}} pools = YTD invoiced + current order book
 let lotToPOMap = {};
@@ -742,6 +796,7 @@ function save() {
   try { localStorage.setItem('cxc_vv', JSON.stringify(vvStock||[])); } catch(e){}
   try { localStorage.setItem('cxc_regserials', JSON.stringify(registrySerials||{})); } catch(e){}
   try { localStorage.setItem('cxc_sent', JSON.stringify(sentStatus||{})); } catch(e){}
+  try { localStorage.setItem('cxc_decostatus', JSON.stringify(decoStatus||{})); } catch(e){}
   try { if(typeof visibleCols!=='undefined') localStorage.setItem('cxc_viscols', JSON.stringify(visibleCols)); } catch(e){}
 }
 function load() {
@@ -758,6 +813,7 @@ function load() {
     const vv = localStorage.getItem('cxc_vv'); if(vv) vvStock=JSON.parse(vv);
     const rs = localStorage.getItem('cxc_regserials'); if(rs) registrySerials=JSON.parse(rs);
     const sn = localStorage.getItem('cxc_sent'); if(sn) sentStatus=JSON.parse(sn);
+    const ds = localStorage.getItem('cxc_decostatus'); if(ds) decoStatus=JSON.parse(ds);
     const vc = localStorage.getItem('cxc_viscols'); if(vc) visibleCols={...visibleCols,...JSON.parse(vc)};
     applyConfigToUI();
   } catch(e){ console.warn(e); }
@@ -1702,6 +1758,7 @@ async function syncOdoo() {
     fillDecoCoatPOsFromSheet({silent:true});   // backfill any PO that only lives in the Deco Coat sheet
     try { await pullSerialsFromRegistry({silent:true}); } catch(e){ console.warn('VV serial sync skipped:', e&&e.message); }
     try { await pullSentStatusFromRegistry({silent:true}); } catch(e){ console.warn('sent-status sync skipped:', e&&e.message); }
+    try { await pullDecoStatusFromRegistry({silent:true}); } catch(e){ console.warn('deco-status sync skipped:', e&&e.message); }
     save();
     showView('custom');
     // If stock tab was active, refresh it now that vvStock is populated
@@ -4216,7 +4273,7 @@ function renderCustom() {
       <td style="font-size:12px">${o.sku}</td>
       <td>${o.rack}</td>
       <td>${dl}</td>
-      <td>${statusBadge}</td>
+      <td>${ decoStageOf(o) ? decoStageBadge(o) : statusBadge }</td>
       <td>
         ${ orderSerial(o)
           ? `<span class="serial-chip" style="color:var(--purple)">${orderSerial(o)}</span>`
@@ -4225,9 +4282,9 @@ function renderCustom() {
         ${o.estimatedDelivery ? `<br><span style="font-size:11px;color:var(--text3)">~${fmtDate(o.estimatedDelivery)}</span>` : ''}
       </td>
       <td style="font-size:12px">
-        ${o.estimatedDelivery
+        ${ decoEtaHtml(o) || (o.estimatedDelivery
           ? '<span class="badge badge-po">~'+fmtDate(o.estimatedDelivery)+'</span>'
-          : '<span style="color:var(--text3)">—</span>'}
+          : '<span style="color:var(--text3)">—</span>') }
       </td>
       <td style="font-size:12px">${ decoCoatPO(o)
           ? `<span class="badge badge-po">${decoCoatPO(o)}</span>`
@@ -4428,6 +4485,7 @@ async function pullSerialsFromRegistry(opts){
       if(k && v){ registrySerials[k] = v; n++; }
     }
     await pullSentStatusFromRegistry({silent:true});
+    await pullDecoStatusFromRegistry({silent:true});
     save();
     if(typeof renderCustom==='function') renderCustom();
     if(typeof renderQueue==='function') renderQueue();
@@ -4459,6 +4517,23 @@ async function pullSentStatusFromRegistry(opts){
     save();
     return n;
   }catch(e){ if(!opts.silent) console.warn('sent-status sync failed:', e&&e.message); return 0; }
+}
+
+// Pull Deco Coat line stages (with per-stage timestamps) from the shared registry.
+async function pullDecoStatusFromRegistry(opts){
+  opts = opts || {};
+  const url = (cfg.serialRegistryUrl||'').trim();
+  if(!url) return 0;
+  try{
+    const resp = await fetch(url + (url.includes('?')?'&':'?') + 'type=status', { redirect:'follow' });
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const list = await resp.json();
+    if(!Array.isArray(list)) throw new Error('unexpected response');
+    let n=0;
+    for(const r of list){ const k = soKey(r && r.so); if(k){ decoStatus[k] = { status:r.status, ts:r.ts, stages:r.stages||{} }; n++; } }
+    save();
+    return n;
+  }catch(e){ if(!opts.silent) console.warn('deco-status sync failed:', e&&e.message); return 0; }
 }
 
 // Mark one or more orders as sent to Deco Coat (writes to the shared registry).
