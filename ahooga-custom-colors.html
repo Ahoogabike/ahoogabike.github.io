@@ -155,21 +155,31 @@ main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
 .tab-btn.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
 
 @media(max-width:900px){.kpi-row{grid-template-columns:repeat(2,1fr)}}
+
+/* Process Guide tab */
+#view-guide .guide-step::before{counter-increment:step;content:counter(step);position:absolute;left:0;top:9px;width:26px;height:26px;border-radius:50%;background:var(--accent,#ffcf2e);color:#1a1a1a;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center}
+#view-guide .tabref{background:var(--accent-bg,#eef);color:var(--accent-text,#225);border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-weight:600;font-size:12px;white-space:nowrap}
+#view-guide .btnref{background:var(--bg,#f4f4f5);border:1px solid var(--border);border-radius:6px;padding:1px 7px;font-weight:600;font-size:12px;white-space:nowrap}
+#view-guide code{background:var(--bg,#f4f4f5);border:1px solid var(--border);border-radius:5px;padding:0 5px;font-size:12px}
+#view-guide .flowcard{display:flex;gap:10px;align-items:flex-start;background:var(--bg,#fafafa);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+#view-guide .flowcard .pid{flex:none;font-weight:700;font-size:11px;background:#1a1a1a;color:#fff;border-radius:6px;padding:3px 7px;font-family:ui-monospace,monospace}
+#view-guide .flowcard .fdesc{font-size:12.5px;font-weight:600;line-height:1.35}
+#view-guide .flowcard .fwho{font-size:11px;color:var(--text3);margin-top:2px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx-js-style/1.2.0/xlsx.bundle.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 <div id="app">
 <header>
-  <div class="logo">MAX <span>Planner</span></div>
+  <div class="logo">Custom <span>Colors</span></div>
   <nav>
-    <button class="nav-btn active" onclick="showView('queue')">Production Queue</button>
-    <button class="nav-btn" onclick="showView('stock')">Stock</button>
-    <button class="nav-btn" onclick="showView('serials')">Serials</button>
-    <button class="nav-btn" onclick="showView('custom')">Custom Colors</button>
+    <button class="nav-btn active" onclick="showView('custom')">Custom Colors</button>
+    <button class="nav-btn" onclick="showView('orderform')">Order Form</button>
+    <button class="nav-btn" onclick="showView('guide')">Process Guide</button>
     <button class="nav-btn" onclick="showView('settings')">Settings</button>
   </nav>
   <div class="header-right">
@@ -182,7 +192,7 @@ main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
 <main>
 
   <!-- QUEUE VIEW -->
-  <div class="view active" id="view-queue">
+  <div class="view" id="view-queue">
     <div class="kpi-row">
       <div class="kpi"><div class="kpi-label">Open orders</div><div class="kpi-value" id="kpi-open">—</div><div class="kpi-sub">awaiting production or stock</div></div>
       <div class="kpi"><div class="kpi-label">Fulfillable from stock</div><div class="kpi-value" id="kpi-stock" style="color:var(--success)">—</div><div class="kpi-sub">can ship now</div></div>
@@ -303,37 +313,32 @@ main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
   </div>
 
   <!-- CUSTOM COLORS VIEW -->
-  <div class="view" id="view-custom">
+  <div class="view active" id="view-custom">
     <div class="section-header">
       <h2>Custom Color Orders</h2>
       <span class="section-label">managed separately · serial from Decocoat</span>
       <button class="btn btn-primary btn-sm" onclick="syncDecocoat()">↻ Sync Decocoat Sheet</button>
+      <input type="file" id="decocoat-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="loadDecocoatFile(this)"/>
+      <button class="btn btn-secondary btn-sm" title="If the live sync fails (network/CORS), export the sheet from Google (File ▸ Download ▸ CSV) and load it here." onclick="document.getElementById('decocoat-file').click()">📄 Load Deco Coat file</button>
     </div>
     <div id="decocoat-alert"></div>
     <div class="alert alert-info" style="margin-bottom:16px">
-      Custom color bikes have serials assigned manually via your paint supplier (Decocoat). 
-      Serial numbers are tracked in your Sharepoint file. 
-      Future: upload weekly Excel from paint supplier or connect Google Sheets.
+      Frame serials (<code>MACU…</code>) are applied and scanned by Velovisie at assembly and flow in via
+      <strong>↻ Sync VV serials</strong>. Deco Coat painting POs come from Odoo, with the Deco Coat sheet as a fallback.
     </div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px;margin-bottom:16px">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-        <strong style="font-size:13px">Deco Coat forms</strong>
+        <strong style="font-size:13px">PO import · labels · serials</strong>
         <span style="font-size:11px;color:var(--text3)">From Odoo custom-colour orders · only those without a PO in the Decocoat file yet</span>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:8px">
-        <button class="btn btn-primary btn-sm" onclick="exportOrderForm()">⬇ Order Form — new orders</button>
-        <button class="btn btn-primary btn-sm" onclick="exportOrderForm({selected:true})">⬇ Order Form — selected <span id="of-sel-count" style="font-weight:600"></span></button>
-        <button class="btn btn-primary btn-sm" onclick="createLabels()">🏷 Create labels — new</button>
+        <button class="btn btn-success btn-sm" onclick="exportPOImport({selected:true})">⬇ PO → Odoo import (selected)</button>
+        <button class="btn btn-primary btn-sm" title="For custom orders without a PO from Odoo, look the SO up in the Deco Coat sheet and write the PO into the tab." onclick="fillDecoCoatPOsFromSheet()">🔎 Find PO in Deco Coat sheet</button>
         <button class="btn btn-primary btn-sm" onclick="createLabels({selected:true})">🏷 Labels — selected <span id="lbl-sel-count" style="font-weight:600"></span></button>
         <button class="btn btn-success btn-sm" onclick="exportUpdatedDecocoat()">⬇ Updated Decocoat file</button>
-        <button class="btn btn-success btn-sm" onclick="exportPOImport({selected:true})">⬇ PO → Odoo import (selected)</button>
-        <button class="btn btn-secondary btn-sm" onclick="assignSerials()">#️⃣ Provisional serials</button>
-        <button class="btn btn-secondary btn-sm" onclick="clearAssignedSerials()">✕ Clear provisional</button>
-        <button class="btn btn-secondary btn-sm" onclick="poPdfSelected()">⬇ PO PDF (selected)</button>
-        <button class="btn btn-secondary btn-sm" onclick="emailSupplierSelected()">✉ Email Deco Coat (selected)</button>
-        <button class="btn btn-secondary btn-sm" onclick="exportOrderForm({all:true})">⬇ All custom orders</button>
-        <button class="btn btn-secondary btn-sm" onclick="createLabels({all:true})">🏷 Labels — all custom</button>
-        <button class="btn btn-secondary btn-sm" onclick="exportOrderForm({blank:true})">⬇ Blank template</button>
+        <button class="btn btn-secondary btn-sm" title="Legacy fallback: link serials that were previously typed into the Decocoat sheet. New serials come from Velovisie's scan — use Sync VV serials." onclick="assignSerials()">#️⃣ Link Decocoat serials</button>
+        <button class="btn btn-primary btn-sm" title="Pull SO ↔ serial pairings scanned by Velovisie at the assembly line (Cloudflare registry)." onclick="pullSerialsFromRegistry()">↻ Sync VV serials</button>
+        <span style="font-size:11px;color:var(--text3);align-self:center">Order forms, PO PDF &amp; emails are in the <strong>Order Form</strong> tab.</span>
       </div>
       <div id="forms-alert" style="margin-top:8px"></div>
     </div>
@@ -346,6 +351,7 @@ main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
         <option value="hold">On hold</option>
       </select>
     </div>
+    <div id="custom-sendbar" style="margin-bottom:12px"></div>
     <div class="table-wrap">
       <table class="data-table">
         <thead>
@@ -360,7 +366,8 @@ main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
             <th>Decocoat Status</th>
             <th>Serial</th>
             <th>Est. Delivery</th>
-            <th>PO</th>
+            <th>PO Deco&nbsp;Coat</th>
+            <th>PO Okazi</th>
             <th></th>
           </tr>
         </thead>
@@ -370,6 +377,145 @@ main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
   </div>
 
   <!-- SETTINGS VIEW -->
+  <div class="view" id="view-orderform">
+    <div class="section-header">
+      <h2>Order Form</h2>
+      <span class="section-label">downloads in the exact Deco Coat format (font, colours, layout)</span>
+    </div>
+    <div class="alert alert-info" style="margin-bottom:16px">
+      Pick a custom-colour order and download its Order Form. The file is generated from the
+      real Ahooga template, so the font, colours, cell sizes and layout are identical — only the
+      order's own data is filled in. The two <strong>Frame nr.</strong> cells stay blank for Deco Coat.
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;max-width:820px">
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;margin-bottom:14px">
+        <div style="flex:1;min-width:280px">
+          <label style="display:block;font-size:12px;color:var(--text2);margin-bottom:4px">Custom color order</label>
+          <select id="of-order-select" onchange="onOrderFormPick()" style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);font-size:13px"></select>
+        </div>
+        <div style="width:150px">
+          <label style="display:block;font-size:12px;color:var(--text2);margin-bottom:4px">Week delivery</label>
+          <input type="text" id="of-week" placeholder="e.g. Week 30" oninput="renderOrderFormPreview()" style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);font-size:13px"/>
+        </div>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="display:block;font-size:12px;color:var(--text2);margin-bottom:4px">Personal text (optional)</label>
+        <input type="text" id="of-ptext" placeholder="Personal text on the frame, if any" oninput="renderOrderFormPreview()" style="width:100%;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);font-size:13px"/>
+      </div>
+      <div id="of-preview" style="margin-bottom:16px"></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="downloadOrderForm()">⬇ Download Order Form (.xlsx)</button>
+        <button class="btn btn-secondary" onclick="poPdfOrderForm()">⬇ PO PDF</button>
+        <button class="btn btn-secondary" onclick="emailDecoOrderForm()">✉ Email Deco Coat</button>
+      </div>
+      <div id="of-alert" style="margin-top:10px"></div>
+    </div>
+  </div>
+
+  <div class="view" id="view-guide">
+    <div class="section-header">
+      <h2>Custom Colour Programme — How to</h2>
+      <span class="section-label">step-by-step · prepare a bike for the custom colour process</span>
+    </div>
+    <div class="alert alert-info" style="margin-bottom:16px">
+      The custom-colour programme runs across three partners: <strong>Ahooga</strong> (sales, planning, final delivery),
+      <strong>Deco Coat</strong> (paints the frame and ships it with the config stickers) and
+      <strong>Velovisie / VV</strong> (assembles the bike, <strong>applies and registers the <code>MACU·······</code> serial</strong>,
+      and ships it back to Anderlecht). This app covers the
+      <strong>ordering &amp; tracking</strong> part — getting the PO, the order form and the labels to Deco Coat, then
+      following the frame back with the serial VV registers.
+    </div>
+
+    <!-- DO THIS IN THE APP -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 22px;margin-bottom:18px">
+      <h3 style="font-size:15px;margin:0 0 12px">Do this in the app</h3>
+      <ol style="margin:0;padding-left:0;list-style:none;counter-reset:step">
+        <li style="position:relative;padding:10px 0 10px 40px;border-bottom:1px dashed var(--border)" class="guide-step">
+          <strong>Connect &amp; Sync.</strong> In <span class="tabref">Settings</span> enter your Odoo URL, database, user and API key, then hit
+          <span class="btnref">↻ Sync</span> (top right). This pulls every open custom-colour sales order into the
+          <span class="tabref">Custom Colors</span> tab.
+        </li>
+        <li style="position:relative;padding:10px 0 10px 40px;border-bottom:1px dashed var(--border)" class="guide-step">
+          <strong>Sync the Deco Coat sheet.</strong> In <span class="tabref">Custom Colors</span> click
+          <span class="btnref">↻ Sync Decocoat Sheet</span>. This reads the Deco Coat Order Book (PO#, SO#, status, frame serials).
+          If the live sync is blocked, use <span class="btnref">📄 Load Deco Coat file</span> (File ▸ Download ▸ CSV from the sheet).
+        </li>
+        <li style="position:relative;padding:10px 0 10px 40px;border-bottom:1px dashed var(--border)" class="guide-step">
+          <strong>Get the PO onto each order.</strong>
+          For an order that <em>already</em> has a PO in the sheet → <span class="btnref">🔎 Find PO in Deco Coat sheet</span>
+          (writes the existing P0#### into the tab).
+          For a <em>brand-new</em> order with no PO yet → select it and use
+          <span class="btnref">⬇ PO → Odoo import (selected)</span>, import that file in Odoo (Purchase ▸ Orders ▸ Import),
+          then re-sync — Odoo's new P0#### flows back automatically.
+        </li>
+        <li style="position:relative;padding:10px 0 10px 40px;border-bottom:1px dashed var(--border)" class="guide-step">
+          <strong>Generate the Order Form.</strong> Go to <span class="tabref">Order Form</span>, pick the order, set the
+          <em>delivery week</em> and the <em>personal text</em> (pre-filled from the SO note if present), then
+          <span class="btnref">⬇ Download Order Form (.xlsx)</span>. It comes out in Deco Coat's exact template — only the
+          two <em>Frame nr.</em> cells are left blank for Deco Coat to fill.
+        </li>
+        <li style="position:relative;padding:10px 0 10px 40px;border-bottom:1px dashed var(--border)" class="guide-step">
+          <strong>Create the labels.</strong> In <span class="tabref">Custom Colors</span> use
+          <span class="btnref">🏷 Create labels</span> — one label per frame, pulled from the order configuration.
+        </li>
+        <li style="position:relative;padding:10px 0 10px 40px;border-bottom:1px dashed var(--border)" class="guide-step">
+          <strong>Send it all to Deco Coat.</strong> In <span class="tabref">Order Form</span> click
+          <span class="btnref">✉ Email Deco Coat</span>. It produces an <code>.eml</code> with the
+          <strong>PO PDF + order form + labels</strong> attached, addressed to Wietze. Open it, then send — and ask Deco Coat
+          to confirm the painting week.
+        </li>
+        <li style="position:relative;padding:10px 0 10px 40px;border-bottom:1px dashed var(--border)" class="guide-step">
+          <strong>Velovisie registers the serial at assembly.</strong> When the painted frame reaches the line, VV applies the
+          <code>MACU·······</code> sticker, then on the <strong>VV scan page</strong> scans the <em>SO barcode</em> on the box label
+          and the <em>serial barcode</em> on the sticker. That pairing is saved to the shared registry. Back here, click
+          <span class="btnref">↻ Sync VV serials</span> (it also runs on every Sync) and the serial appears against the order —
+          <em>the serial is only ever the one VV scanned, never invented here</em>.
+        </li>
+        <li style="position:relative;padding:10px 0 10px 40px" class="guide-step">
+          <strong>Track to delivery.</strong> The <span class="tabref">Custom Colors</span> table shows each order's Deco Coat
+          status, estimated arrival at the warehouse, the frame serial, and both POs — the blue
+          <span class="badge badge-po">Deco Coat</span> painting PO and the green <span class="badge badge-stock">Okazi</span>
+          assembly PO.
+        </li>
+      </ol>
+    </div>
+
+    <!-- FULL FLOW -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 22px;margin-bottom:18px">
+      <h3 style="font-size:15px;margin:0 0 4px">The full flow (P100 → P800)</h3>
+      <p style="font-size:12px;color:var(--text3);margin:0 0 12px">Who does what. The steps this app helps with are marked <span class="badge badge-po" style="font-size:10px">app</span>.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px">
+        <div class="flowcard"><div class="pid">P100</div><div><div class="fdesc">Receive the custom-colour Sales Order</div><div class="fwho">Ahooga · Sales</div></div></div>
+        <div class="flowcard"><div class="pid">P200A</div><div><div class="fdesc">Order book entry + labels <span class="badge badge-po" style="font-size:10px">app</span></div><div class="fwho">Ahooga · Supply</div></div></div>
+        <div class="flowcard"><div class="pid">P200B</div><div><div class="fdesc">Send the Purchase Order to Deco Coat <span class="badge badge-po" style="font-size:10px">app</span></div><div class="fwho">Ahooga · Supply</div></div></div>
+        <div class="flowcard"><div class="pid">P200C</div><div><div class="fdesc">Send the Order Form to Deco Coat <span class="badge badge-po" style="font-size:10px">app</span></div><div class="fwho">Ahooga · Supply</div></div></div>
+        <div class="flowcard"><div class="pid">P300A</div><div><div class="fdesc">Plan the bike in production</div><div class="fwho">Ahooga · Planning</div></div></div>
+        <div class="flowcard"><div class="pid">P300B</div><div><div class="fdesc">Paint the frame in the custom colour</div><div class="fwho">Deco Coat</div></div></div>
+        <div class="flowcard"><div class="pid">P400</div><div><div class="fdesc">Ship painted frame + stickers to VV</div><div class="fwho">Deco Coat</div></div></div>
+        <div class="flowcard"><div class="pid">P500</div><div><div class="fdesc">Assemble the bike · apply &amp; scan the MACU serial <span class="badge badge-po" style="font-size:10px">app</span></div><div class="fwho">Velovisie</div></div></div>
+        <div class="flowcard"><div class="pid">P600</div><div><div class="fdesc">Attach the SO sticker to the box</div><div class="fwho">Velovisie</div></div></div>
+        <div class="flowcard"><div class="pid">P700</div><div><div class="fdesc">Ship the finished bike to Anderlecht</div><div class="fwho">Velovisie</div></div></div>
+        <div class="flowcard"><div class="pid">P800</div><div><div class="fdesc">Ship the bike to the customer · close order</div><div class="fwho">Ahooga · Fulfillment</div></div></div>
+      </div>
+    </div>
+
+    <!-- DOCS -->
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 22px;margin-bottom:18px">
+      <h3 style="font-size:15px;margin:0 0 10px">What gets sent to Deco Coat</h3>
+      <ul style="margin:0;padding-left:18px;font-size:13px;line-height:1.7">
+        <li><strong>Purchase Order (PDF)</strong> — the P0#### Ahooga issues for the painting.</li>
+        <li><strong>Order Form (.xlsx)</strong> — frame colours, finishes, decal, personal text, in Deco Coat's exact template.</li>
+        <li><strong>Labels (PDF)</strong> — one per frame, from the order configuration.</li>
+      </ul>
+      <p style="font-size:12px;color:var(--text3);margin:12px 0 0">The email asks Deco Coat to confirm the painting week. Deco Coat returns the painted frame and the matching config sticker; the <code>MACU</code> serial is applied and scanned by Velovisie at assembly.</p>
+    </div>
+
+    <div class="alert" style="background:var(--surface);border:1px dashed var(--border);color:var(--text2)">
+      <strong>Two things to remember.</strong> The <em>Frame nr.</em> cells on the order form stay blank — Deco Coat fills them.
+      And the bike's serial is the single link back to its sales order, so the <strong>VV scan at assembly</strong> is what creates that link — run <span class="btnref">↻ Sync VV serials</span> (it also runs on every Sync) to keep traceability current.
+    </div>
+  </div>
+
   <div class="view" id="view-settings">
     <div class="settings-card">
       <h2>Odoo Connection</h2>
@@ -414,6 +560,11 @@ main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
         <label>Sheet GID (tab ID)</label>
         <input type="text" id="cfg-sheet-gid" placeholder="222048185"/>
         <div style="font-size:11px;color:var(--text3);margin-top:4px">Make sure the sheet is shared publicly (Anyone with the link → Viewer).</div>
+      </div>
+      <div class="field">
+        <label>VV serial registry URL (Cloudflare Worker)</label>
+        <input type="text" id="cfg-serial-registry" placeholder="https://vv-serials.yourname.workers.dev"/>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Where Velovisie's barcode scans (SO ↔ frame serial) are stored. The app reads serials from here first.</div>
       </div>
       <button class="btn btn-primary" onclick="saveSettings()">Save All Settings</button>
       <div id="settings-alert"></div>
@@ -569,6 +720,10 @@ let visibleCols = {
 let manualOrders = []; // Virtual orders (e.g. Matt Cooke reservations)
 let decocoatData = [];
 let vvStock = [];
+let registrySerials = {};  // SO# -> serial, captured by Velovisie's barcode scan (Cloudflare registry)
+let sentStatus = {};       // SO# -> {ts,by}, marked when the PO + order form were emailed to Deco Coat (shared)
+let customSendFilter = ''; // '' | 'ready' | 'sent' | 'nopo' — filters the Custom Colors table by send state
+function setCustomSendFilter(v){ customSendFilter = (customSendFilter===v ? '' : v); renderCustom(); }
 let issuedPOSupply = []; // remaining-to-receive on every open purchase order for bikes (mirrors the Coming Next app)
 let forecastMix = null;  // {color:{yellow,black,red}, rack:{'rack','no rack'}} pools = YTD invoiced + current order book
 let lotToPOMap = {};
@@ -576,25 +731,34 @@ let okaziByProduct = {}; // serial -> PO name // bikes at VV assembly with predi
 
 // ─── PERSIST ─────────────────────────────────────────────
 function save() {
-  localStorage.setItem('mxp_cfg', JSON.stringify(cfg));
-  localStorage.setItem('mxp_orders', JSON.stringify(orders)); localStorage.setItem('mxp_manual', JSON.stringify(manualOrders));
-  localStorage.setItem('mxp_stock', JSON.stringify(stock));
-  localStorage.setItem('mxp_po', JSON.stringify(poList));
-  localStorage.setItem('mxp_serials', JSON.stringify(lastSerials));
+  localStorage.setItem('cxc_cfg', JSON.stringify(cfg));
+  localStorage.setItem('cxc_orders', JSON.stringify(orders)); localStorage.setItem('cxc_manual', JSON.stringify(manualOrders));
+  localStorage.setItem('cxc_stock', JSON.stringify(stock));
+  localStorage.setItem('cxc_po', JSON.stringify(poList));
+  localStorage.setItem('cxc_serials', JSON.stringify(lastSerials));
+  // These are read back in load() but were never being written — without this the Deco Coat
+  // sheet (and its PO numbers) is lost on reload / wiped by the next Odoo sync.
+  try { localStorage.setItem('cxc_decocoat', JSON.stringify(decocoatData||[])); } catch(e){}
+  try { localStorage.setItem('cxc_vv', JSON.stringify(vvStock||[])); } catch(e){}
+  try { localStorage.setItem('cxc_regserials', JSON.stringify(registrySerials||{})); } catch(e){}
+  try { localStorage.setItem('cxc_sent', JSON.stringify(sentStatus||{})); } catch(e){}
+  try { if(typeof visibleCols!=='undefined') localStorage.setItem('cxc_viscols', JSON.stringify(visibleCols)); } catch(e){}
 }
 function load() {
   try {
     // Try localStorage first, then sessionStorage as fallback
-    const c = localStorage.getItem('mxp_cfg') || sessionStorage.getItem('mxp_cfg');
+    const c = localStorage.getItem('cxc_cfg') || sessionStorage.getItem('cxc_cfg');
     if(c) cfg={...cfg,...JSON.parse(c)};
-    const o = localStorage.getItem('mxp_orders'); if(o) orders=JSON.parse(o);
-    const s = localStorage.getItem('mxp_stock'); if(s) stock=JSON.parse(s);
-    const p = localStorage.getItem('mxp_po'); if(p) poList=JSON.parse(p);
-    const sr = localStorage.getItem('mxp_serials'); if(sr) lastSerials=JSON.parse(sr);
-    const mn = localStorage.getItem('mxp_manual'); if(mn) manualOrders=JSON.parse(mn);
-    const dc = localStorage.getItem('mxp_decocoat'); if(dc) decocoatData=JSON.parse(dc);
-    const vv = localStorage.getItem('mxp_vv'); if(vv) vvStock=JSON.parse(vv);
-    const vc = localStorage.getItem('mxp_viscols'); if(vc) visibleCols={...visibleCols,...JSON.parse(vc)};
+    const o = localStorage.getItem('cxc_orders'); if(o) orders=JSON.parse(o);
+    const s = localStorage.getItem('cxc_stock'); if(s) stock=JSON.parse(s);
+    const p = localStorage.getItem('cxc_po'); if(p) poList=JSON.parse(p);
+    const sr = localStorage.getItem('cxc_serials'); if(sr) lastSerials=JSON.parse(sr);
+    const mn = localStorage.getItem('cxc_manual'); if(mn) manualOrders=JSON.parse(mn);
+    const dc = localStorage.getItem('cxc_decocoat'); if(dc) decocoatData=JSON.parse(dc);
+    const vv = localStorage.getItem('cxc_vv'); if(vv) vvStock=JSON.parse(vv);
+    const rs = localStorage.getItem('cxc_regserials'); if(rs) registrySerials=JSON.parse(rs);
+    const sn = localStorage.getItem('cxc_sent'); if(sn) sentStatus=JSON.parse(sn);
+    const vc = localStorage.getItem('cxc_viscols'); if(vc) visibleCols={...visibleCols,...JSON.parse(vc)};
     applyConfigToUI();
   } catch(e){ console.warn(e); }
 }
@@ -614,22 +778,23 @@ function applyConfigToUI() {
   setVal('cfg-tracked-pos', (cfg.trackedPOs||[]).join(', '));
   setVal('cfg-sheet-id', cfg.decocoatSheetId||'1hsfsJyKJuJjsQcIkYjnE8OQwQqIgEF_cD5d3bPxwVFA');
   setVal('cfg-sheet-gid', cfg.decocoatGid||'222048185');
+  setVal('cfg-serial-registry', cfg.serialRegistryUrl||'');
 }
 function setVal(id, v) { const el=document.getElementById(id); if(el) el.value=v||''; }
 
 // ─── NAV ─────────────────────────────────────────────────
 function showView(name) {
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>{
+    b.classList.toggle('active', (b.getAttribute('onclick')||'')===`showView('${name}')`);
+  });
   document.getElementById('view-'+name).classList.add('active');
-  const names=['queue','po','stock','serials','custom','settings'];
-  const btns=document.querySelectorAll('.nav-btn');
-  btns[names.indexOf(name)]?.classList.add('active');
   if(name==='queue'){ matchStockToOrders(); renderQueue(); updateKPIs(); }
   if(name==='po') renderPOList();
   if(name==='stock') renderStock();
   if(name==='serials') renderSerials();
   if(name==='custom') renderCustom();
+  if(name==='orderform') renderOrderFormTab();
 }
 
 // ─── SETTINGS ────────────────────────────────────────────
@@ -646,15 +811,16 @@ function saveSettings() {
   if(tpos.length > 0) cfg.trackedPOs = tpos; // only update if field has values
   cfg.decocoatSheetId = getVal('cfg-sheet-id').trim() || '1hsfsJyKJuJjsQcIkYjnE8OQwQqIgEF_cD5d3bPxwVFA';
   cfg.decocoatGid = getVal('cfg-sheet-gid').trim() || '222048185';
+  cfg.serialRegistryUrl = getVal('cfg-serial-registry').trim();
   cfg.prefixes.yellow = getVal('cfg-prefix-yellow')||'MAYA';
   cfg.prefixes.black = getVal('cfg-prefix-black')||'MABS';
   cfg.prefixes.red = getVal('cfg-prefix-red')||'MARA';
   cfg.prefixes.custom = getVal('cfg-prefix-custom')||'MACU';
   // Save to both localStorage and sessionStorage for redundancy
   const data = JSON.stringify(cfg);
-  try { localStorage.setItem('mxp_cfg', data); } catch(e){}
-  try { sessionStorage.setItem('mxp_cfg', data); } catch(e){}
-  try { localStorage.setItem('mxp_manual', JSON.stringify(manualOrders)); } catch(e){}
+  try { localStorage.setItem('cxc_cfg', data); } catch(e){}
+  try { sessionStorage.setItem('cxc_cfg', data); } catch(e){}
+  try { localStorage.setItem('cxc_manual', JSON.stringify(manualOrders)); } catch(e){}
   showAlert('settings-alert','✓ Settings saved.','success');
 }
 function getVal(id){ return (document.getElementById(id)||{}).value||''; }
@@ -1028,7 +1194,7 @@ async function syncOdoo() {
     // line and keep the descriptive note that isn't the bike or the shipping line.
     const allLineMeta = lineIds.length ? toArr(await odooCall('sale.order.line','search_read',
       [[['id','in',lineIds]]],
-      {fields:['id','order_id','product_id','name','display_type']})) : [];
+      {fields:['id','order_id','product_id','name','display_type','sequence']})) : [];
     const bikeLineIdSet = new Set(lines.map(l=>l.id));
     const colourNoteBySO = {};
     for(const ml of allLineMeta){
@@ -1039,6 +1205,36 @@ async function syncOdoo() {
       if(/^\[[A-Z0-9]+\]/.test(nm)) continue;                      // skip other catalogue products (SKU bracket)
       const soId = toArr(ml.order_id)[0]; if(!soId) continue;
       if(!colourNoteBySO[soId] || nm.length > colourNoteBySO[soId].length) colourNoteBySO[soId] = nm;
+    }
+
+    // ── 1a-3. PERSONAL TEXT per SO ───────────────────────────────────────
+    // When an order has a "DEV personalized text" line, the actual text the customer
+    // wants on the frame is the NOTE line(s) placed directly under it.
+    const personalTextBySO = {};
+    {
+      const bySO = {};
+      for(const ml of allLineMeta){
+        const soId = toArr(ml.order_id)[0]; if(!soId) continue;
+        (bySO[soId] = bySO[soId] || []).push(ml);
+      }
+      for(const soId in bySO){
+        const arr = bySO[soId].slice().sort((a,b)=>((a.sequence||0)-(b.sequence||0))||(a.id-b.id));
+        for(let i=0;i<arr.length;i++){
+          const nm = (arr[i].name||'').replace(/\s+/g,' ').trim();
+          if(!/personali[sz]ed/i.test(nm)) continue;            // the "DEV personalized text" line
+          let txt = '';
+          for(let j=i+1;j<arr.length;j++){                       // collect the note line(s) under it
+            const t = (arr[j].name||'').replace(/\s+/g,' ').trim();
+            if(arr[j].display_type==='line_note' && t){ txt = txt ? (txt+' '+t) : t; }
+            else break;                                          // stop at the first non-note line
+          }
+          // fallback: text typed on the same line after a colon ("… text: Hello")
+          if(!txt){ const m = nm.match(/personali[sz]ed[^:]*[:\-]\s*(.+)$/i); if(m) txt = m[1].trim(); }
+          // keep ONLY the value after a "personal text:" label, if the note carries one
+          txt = txt.replace(/^\s*(?:dev\s+)?personal(?:i[sz]ed)?\s*text\s*[:\-]\s*/i, '').trim();
+          if(txt){ personalTextBySO[soId] = txt; break; }
+        }
+      }
     }
 
     // ── 1b. DELIVERY TRANSFERS — get date_deadline per SO ────────────────
@@ -1198,12 +1394,15 @@ async function syncOdoo() {
             config:(l.name||'').replace(/\s+/g,' ').trim(),
             configRaw:(l.name||''),
             colourNote: colourNoteBySO[so.id] || '',
+            personalText: personalTextBySO[so.id] || '',
             attrs: (lineAttrMap[l.id] || []).concat(productAttrMap[toArr(l.product_id)[0]] || []),
             color:detectColor(pname),
             transmission:detectTransmission(pname),
             bikeType:detectBikeType(pname),
             rack:detectRack(pname),
             qty:1,
+            delivered: delivered,        // qty_delivered on the sale order line
+            lineOrderedQty: ordered,
             // deadline = latest date to ship (from transfer date_deadline, or commitment_date)
             deadline: deadlineBySOId[so.id] || (so.commitment_date?so.commitment_date.split(' ')[0]:null),
             // scheduledDate = promised date set on purpose — never ship BEFORE this
@@ -1220,6 +1419,8 @@ async function syncOdoo() {
               return prevBike.status;
             })(),
             poRef:prevBike?prevBike.poRef:null,
+            okaziPO:prevBike?prevBike.okaziPO:null,       // PO to Okazi (assembly)
+            decoCoatPO:prevBike?prevBike.decoCoatPO:null, // PO to Deco Coat (painting)
             serialEst:prevBike?prevBike.serialEst:null,
             isUrgent:false,
             isLoui: isLoui,
@@ -1437,6 +1638,7 @@ async function syncOdoo() {
           const vvItem = vvStock.find(i=>i.poName===poName&&(i.sku===o.sku||String(i.productId)===String(o.productId)));
           o.status = 'inprod';
           o.poRef = poName;
+          o.okaziPO = poName;   // this is the Okazi (assembly) PO
           o.estimatedDelivery = vvItem?.expectedArrival || null;
           available[key]--;
           // Also decrement the other key if exists
@@ -1497,8 +1699,11 @@ async function syncOdoo() {
     // Load shared state from KV (holds, manual orders, priorities from other users)
     await loadSharedState();
     await detectDecocoatPOs();
+    fillDecoCoatPOsFromSheet({silent:true});   // backfill any PO that only lives in the Deco Coat sheet
+    try { await pullSerialsFromRegistry({silent:true}); } catch(e){ console.warn('VV serial sync skipped:', e&&e.message); }
+    try { await pullSentStatusFromRegistry({silent:true}); } catch(e){ console.warn('sent-status sync skipped:', e&&e.message); }
     save();
-    showView('queue');
+    showView('custom');
     // If stock tab was active, refresh it now that vvStock is populated
     if(currentStockTab==='summary') renderStock();
     renderPOList();
@@ -1551,6 +1756,7 @@ function matchStockToOrders() {
     if(o.status==='inprod' && o.deadline && new Date(o.deadline) < todayReset){
       o.status='queued';
       o.poRef=null;
+      o.okaziPO=null;   // released from its Okazi (assembly) PO; Deco Coat painting PO stays
     }
   }
 
@@ -1808,7 +2014,7 @@ function renderColToggles() {
 
 function toggleCol(key, show) {
   visibleCols[key] = show;
-  try { localStorage.setItem('mxp_viscols', JSON.stringify(visibleCols)); } catch(e){}
+  try { localStorage.setItem('cxc_viscols', JSON.stringify(visibleCols)); } catch(e){}
   renderColToggles();
   renderQueueHeader();
   renderQueue();
@@ -1817,7 +2023,7 @@ function toggleCol(key, show) {
 function setAllCols(show) {
   Object.keys(visibleCols).forEach(k=>visibleCols[k]=show);
   visibleCols.name=true; visibleCols.customer=true; // always keep these
-  try { localStorage.setItem('mxp_viscols', JSON.stringify(visibleCols)); } catch(e){}
+  try { localStorage.setItem('cxc_viscols', JSON.stringify(visibleCols)); } catch(e){}
   renderColToggles();
   renderQueueHeader();
   renderQueue();
@@ -2101,6 +2307,7 @@ async function accountForIssuedPOs() {
     if(m){
       o.status='inprod';
       o.poRef=m.poName;
+      o.okaziPO=m.poName;   // issued bike-supply PO = Okazi (assembly)
       o.coveredByIssuedPO=true;
       o.estimatedDelivery = m.expectedArrival || o.estimatedDelivery;
       m.remaining--;
@@ -2664,6 +2871,7 @@ function confirmProposal(p) {
     if(o){
       o.status='inprod';
       o.poRef=poRef;
+      o.okaziPO=poRef;   // proposed weekly bike PO = Okazi (assembly)
       o.estimatedDelivery=p.expectedArrival;
     }
   }
@@ -2826,7 +3034,7 @@ function confirmRegisterPO() {
   const { ref, fam, week, expectedArrival, orderIds } = _regPOData;
   for(const id of orderIds){
     const o = [...orders,...manualOrders].find(x=>x.id===id);
-    if(o){ o.status='inprod'; o.poRef=ref; o.estimatedDelivery=expectedArrival; }
+    if(o){ o.status='inprod'; o.poRef=ref; o.okaziPO=ref; o.estimatedDelivery=expectedArrival; }
   }
   poList.unshift({
     ref, week, fam,
@@ -2912,7 +3120,7 @@ function confirmRegisterPO() {
   const { ref, fam, week, expectedArrival, orderIds } = _regPOData;
   for(const id of orderIds){
     const o = [...orders,...manualOrders].find(x=>x.id===id);
-    if(o){ o.status='inprod'; o.poRef=ref; o.estimatedDelivery=expectedArrival; }
+    if(o){ o.status='inprod'; o.poRef=ref; o.okaziPO=ref; o.estimatedDelivery=expectedArrival; }
   }
   poList.unshift({
     ref, week, fam,
@@ -3585,20 +3793,79 @@ function addStockItem() {
 }
 
 // ─── DECOCOAT SYNC ───────────────────────────────────────
+// Fetches the Google Sheet as CSV. If the browser blocks Google (CORS, or the app was
+// opened as a local file so the page origin is "null"), it tries a second Google endpoint
+// and then tells the user to load a downloaded CSV/XLSX via loadDecocoatFile() instead.
 async function syncDecocoat() {
   const sheetId = cfg.decocoatSheetId || '1hsfsJyKJuJjsQcIkYjnE8OQwQqIgEF_cD5d3bPxwVFA';
   const gid = cfg.decocoatGid || '222048185';
-  const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
-
+  const direct = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+  // Try the direct CSV first; if the browser blocks Google (CORS / local-file origin),
+  // retry the SAME export URL through public CORS proxies so the sync still works.
+  const urls = [
+    direct,
+    'https://corsproxy.io/?url=' + encodeURIComponent(direct),
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(direct),
+  ];
   const alertEl = document.getElementById('decocoat-alert');
   if(alertEl) alertEl.innerHTML = '<div class="alert alert-info">Syncing Decocoat sheet…</div>';
 
-  try {
-    const resp = await fetch(url);
-    if(!resp.ok) throw new Error('Could not fetch sheet. Make sure it is shared publicly.');
-    const text = await resp.text();
+  let text = null, lastErr = null;
+  for(let u=0; u<urls.length; u++){
+    try {
+      if(alertEl && u>0) alertEl.innerHTML = `<div class="alert alert-info">Direct sync blocked — retrying via proxy…</div>`;
+      const resp = await fetch(urls[u], { redirect:'follow' });
+      if(!resp.ok) throw new Error('HTTP ' + resp.status);
+      const t = await resp.text();
+      if(!t || (/<html/i.test(t.slice(0,200)) && !/,/.test(t.slice(0,200)))) throw new Error('not CSV (login or empty)');
+      text = t; break;
+    } catch(e){ lastErr = e; }
+  }
+  if(text == null){
+    if(alertEl) alertEl.innerHTML =
+      `<div class="alert alert-danger">✗ Couldn't reach the Google Sheet (${(lastErr&&lastErr.message)||'network / CORS'}).<br>` +
+      `• Make sure the sheet is shared <strong>“Anyone with the link”</strong>.<br>` +
+      `• As a backup you can also use <strong>“📄 Load Deco Coat file”</strong> (File ▸ Download ▸ CSV from the sheet).</div>`;
+    return;
+  }
+  try { ingestDecocoatCSV(text); }
+  catch(e){ if(alertEl) alertEl.innerHTML = `<div class="alert alert-danger">✗ ${e.message}</div>`; }
+}
+
+// Load the Deco Coat sheet from a file the user downloaded from Google (CSV or XLSX).
+// This bypasses the network entirely, so it always works.
+function loadDecocoatFile(input){
+  const f = input && input.files && input.files[0]; if(!f) return;
+  const alertEl = document.getElementById('decocoat-alert');
+  const isXlsx = /\.xlsx?$/i.test(f.name);
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      let csv;
+      if(isXlsx){
+        if(typeof XLSX === 'undefined') throw new Error('Excel library still loading — try again in a second.');
+        const wb = XLSX.read(new Uint8Array(reader.result), { type:'array' });
+        // pick the order-book tab if present, else the first sheet
+        const name = wb.SheetNames.find(n=>/order\s*book|decocoat|config/i.test(n)) || wb.SheetNames[0];
+        csv = XLSX.utils.sheet_to_csv(wb.Sheets[name]);
+      } else {
+        csv = (typeof reader.result === 'string') ? reader.result : new TextDecoder().decode(reader.result);
+      }
+      ingestDecocoatCSV(csv, { source: f.name });
+    } catch(e){ if(alertEl) alertEl.innerHTML = `<div class="alert alert-danger">✗ ${e.message}</div>`; }
+    input.value = '';
+  };
+  if(isXlsx) reader.readAsArrayBuffer(f); else reader.readAsText(f);
+}
+
+// Parse Deco Coat CSV text (from the live sheet OR an uploaded file) into decocoatData,
+// then update orders, write POs, persist and re-render. Single source of truth for both paths.
+function ingestDecocoatCSV(text, opts){
+  opts = opts || {};
+  const alertEl = document.getElementById('decocoat-alert');
+  {
     const rows = parseCSV(text);
-    if(!rows.length) throw new Error('Sheet appears empty.');
+    if(!rows.length) throw new Error('Sheet/file appears empty.');
 
     // Find header row
     const header = rows[0].map(h=>h.trim().toLowerCase());
@@ -3609,13 +3876,20 @@ async function syncDecocoat() {
     const iSku = col('Bike SKU');
     const iStatus = col('Status');
     const iArrivalVV = col('arrival date at VV');
-    // PO column: header may be "PO#", "PO# Ahooga", "PO", "PO Nr", "P0#"… match flexibly.
-    let iPO = header.findIndex(h => /^p[o0](#|\b|ahooga|nr|number|$)/.test(h.replace(/\s+/g,'')));
-    if(iPO < 0){ // fallback: find the column whose cells look like P0xxxx
+    // PO column = the PO Ahooga issues to DECO COAT. Header may be "PO#", "PO# Ahooga",
+    // "PO Deco Coat", "P0#"… Pick the right one and never an Okazi/assembly PO column.
+    const norm = h => String(h||'').replace(/\s+/g,'').toLowerCase();
+    const isOkaziHdr = h => /okazi/.test(norm(h));
+    let iPO = header.findIndex(h => !isOkaziHdr(h) && /^p[o0].*(ahooga|deco)/.test(norm(h)));      // best: "PO# Ahooga" / "PO Deco Coat"
+    if(iPO < 0) iPO = header.findIndex(h => !isOkaziHdr(h) && /^p[o0](#|nr|number|$)/.test(norm(h))); // plain "PO#"/"PO"
+    if(iPO < 0){ // fallback: a column whose cells look like P0xxxx (and isn't an Okazi column)
+      let best=-1, bestHits=0;
       for(let c=0;c<header.length;c++){
-        let hits=0; for(let i=1;i<Math.min(rows.length,60);i++){ if(/^P0?\d{3,}$/i.test(String((rows[i]||[])[c]||'').trim())) hits++; }
-        if(hits>=2){ iPO=c; break; }
+        if(isOkaziHdr(header[c])) continue;
+        let hits=0; for(let i=1;i<Math.min(rows.length,200);i++){ if(/^P0?\d{3,}$/i.test(String((rows[i]||[])[c]||'').trim())) hits++; }
+        if(hits>bestHits){ bestHits=hits; best=c; }
       }
+      if(bestHits>=2) iPO=best;
     }
     const iConfig = col('Configuration');
     const iCustomer = col('Customer');
@@ -3664,7 +3938,7 @@ async function syncDecocoat() {
       for(const o of matchingOrders){
         o.serialEst = d.bikeId;
         o.estimatedDelivery = d.estimatedWarehouse;
-        if(d.poRef) o.poRef = d.poRef;
+        if(d.poRef){ o.poRef = d.poRef; o.decoCoatPO = d.poRef; }  // Decocoat-file PO = Deco Coat painting PO
         if(d.status) o.decocoatStatus = d.status;
         matched++;
       }
@@ -3681,16 +3955,17 @@ async function syncDecocoat() {
     }
 
     applyDecocoatToOrders();
+    fillDecoCoatPOsFromSheet({silent:true});   // write any sheet POs that Odoo didn't provide
     save();
     renderCustom();
     renderQueue();
     const poCount = decocoatData.filter(d=>String(d.poRef||'').trim()).length;
-    console.log(`[Decocoat] PO column index=${iPO} (${iPO>=0?header[iPO]:'NOT FOUND'}) · ${poCount} rows carry a PO#`);
-    if(alertEl) alertEl.innerHTML = `<div class="alert alert-success">✓ Synced ${decocoatData.length} rows · ${matched} orders matched · ${poCount} with PO#${iPO<0?' · ⚠ PO column not found':''}</div>`;
-    setTimeout(()=>{ if(alertEl) alertEl.innerHTML=''; }, 6000);
-
-  } catch(e) {
-    if(alertEl) alertEl.innerHTML = `<div class="alert alert-danger">✗ ${e.message}</div>`;
+    const cust = currentCustomOrders();
+    const withPO = cust.filter(o=>decoCoatPO(o)).length;
+    const src = opts.source ? ` · from ${opts.source}` : '';
+    console.log(`[Decocoat] PO column index=${iPO} (${iPO>=0?header[iPO]:'NOT FOUND'}) · ${poCount} sheet rows carry a PO# · ${withPO}/${cust.length} custom orders now have a Deco Coat PO`);
+    if(alertEl) alertEl.innerHTML = `<div class="alert alert-success">✓ Loaded ${decocoatData.length} rows${src} · ${matched} matched · ${poCount} sheet PO# · ${withPO}/${cust.length} orders linked to a Deco Coat PO${iPO<0?' · ⚠ PO column not found':''}</div>`;
+    setTimeout(()=>{ if(alertEl) alertEl.innerHTML=''; }, 8000);
   }
 }
 
@@ -3731,22 +4006,29 @@ function parseEuropeanDate(str) {
 }
 
 function parseCSV(text) {
+  // Proper CSV: handles quoted fields containing commas, newlines, and escaped "" quotes.
+  // (The old version split on every \n, so any cell with a line break — e.g. a multi-line
+  //  Configuration/Remark — broke that row in two and pushed the PO# into the wrong column.)
   const rows = [];
-  const lines = text.split('\n');
-  for(const line of lines){
-    if(!line.trim()) continue;
-    const row = [];
-    let inQuote = false, cell = '';
-    for(let i=0; i<line.length; i++){
-      const c = line[i];
-      if(c==='"') { inQuote=!inQuote; }
-      else if(c===',' && !inQuote) { row.push(cell); cell=''; }
-      else { cell+=c; }
+  let row = [], cell = '', inQuote = false;
+  text = String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  for(let i=0; i<text.length; i++){
+    const c = text[i];
+    if(inQuote){
+      if(c === '"'){
+        if(text[i+1] === '"'){ cell += '"'; i++; }  // escaped quote ""
+        else inQuote = false;
+      } else cell += c;
+    } else {
+      if(c === '"') inQuote = true;
+      else if(c === ','){ row.push(cell); cell = ''; }
+      else if(c === '\n'){ row.push(cell); rows.push(row); row = []; cell = ''; }
+      else cell += c;
     }
-    row.push(cell);
-    rows.push(row);
   }
-  return rows;
+  if(cell.length || row.length){ row.push(cell); rows.push(row); }
+  // Drop fully-empty rows
+  return rows.filter(r => r.some(x => String(x).trim() !== ''));
 }
 
 // Decocoat status counts as "already heading to VV / in production" — the bike
@@ -3822,6 +4104,7 @@ function applyDecocoatToOrders() {
       if(m){
         m.left--;
         if(!o.poRef) o.poRef = m.poName;
+        o.okaziPO = m.poName;   // issued bike PO = Okazi (assembly)
         if(!o.estimatedDelivery) o.estimatedDelivery = m.expectedArrival || addDaysStr(today, 10);
       } else {
         if(!o.poRef) o.poRef = row.poRef || null;
@@ -3864,13 +4147,32 @@ function renderCustom() {
   const search = (document.getElementById('custom-search')||{}).value?.toLowerCase()||'';
   const filter = (document.getElementById('custom-filter')||{}).value||'';
 
-  const customOrders = [...orders,...manualOrders]
+  const baseCustom = [...orders,...manualOrders].filter(o =>
+    o.color==='custom' && isMaxBike(o) && o.status!=='shipped' && !(Number(o.delivered)>0));
+
+  // Send-status summary (PO done but not yet emailed to Deco Coat is the actionable set)
+  const sb = document.getElementById('custom-sendbar');
+  if(sb){
+    const ready = baseCustom.filter(o=>decoSendState(o)==='ready').length;
+    const sent  = baseCustom.filter(o=>decoSendState(o)==='sent').length;
+    const nopo  = baseCustom.filter(o=>decoSendState(o)==='nopo').length;
+    const chip = (active,bg,border,txt,label,val) =>
+      `<button onclick="setCustomSendFilter('${val}')" style="cursor:pointer;border:1px solid ${border};background:${active?bg:'transparent'};color:${txt};border-radius:999px;padding:6px 12px;font-size:12px;font-weight:600">${label}</button>`;
+    sb.innerHTML =
+      `<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <span style="font-size:12px;color:var(--text3)">Deco Coat:</span>
+        ${chip(customSendFilter==='ready', 'rgba(200,121,26,.12)', 'rgba(200,121,26,.5)', '#a8650f', `● Ready to send · ${ready}`, 'ready')}
+        ${chip(customSendFilter==='sent',  'rgba(26,127,75,.12)',  'rgba(26,127,75,.5)',  '#1a7f4b', `✓ Sent · ${sent}`, 'sent')}
+        ${chip(customSendFilter==='nopo',  'rgba(0,0,0,.05)',      'var(--border)',        'var(--text2)', `Needs PO · ${nopo}`, 'nopo')}
+        ${customSendFilter ? `<button onclick="setCustomSendFilter('')" style="cursor:pointer;border:none;background:none;color:var(--text3);font-size:12px;text-decoration:underline">clear</button>`:''}
+      </div>`;
+  }
+
+  const customOrders = baseCustom
     .filter(o => {
-      if(o.color !== 'custom') return false;
-      if(!isMaxBike(o)) return false;
-      if(o.status === 'shipped') return false;
       if(search && !`${o.name} ${o.customer} ${o.sku}`.toLowerCase().includes(search)) return false;
       if(filter && o.status !== filter) return false;
+      if(customSendFilter && decoSendState(o) !== customSendFilter) return false;
       return true;
     })
     .sort((a,b) => a.priority - b.priority);
@@ -3879,7 +4181,7 @@ function renderCustom() {
   if(!tbody) return;
 
   if(!customOrders.length){
-    tbody.innerHTML = '<tr><td colspan="12" class="empty">No custom color orders.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="13" class="empty">No custom color orders.</td></tr>';
     return;
   }
 
@@ -3916,11 +4218,9 @@ function renderCustom() {
       <td>${dl}</td>
       <td>${statusBadge}</td>
       <td>
-        ${ realSerial(o)
-          ? `<span class="serial-chip" style="color:var(--purple)">${realSerial(o)}</span>`
-          : provSerial(o)
-            ? `<span class="serial-chip" title="Provisional — Deco Coat has not registered a serial yet" style="opacity:.6">${provSerial(o)} · prov</span>`
-            : '<span style="font-size:12px;color:var(--text3)">Pending Decocoat</span>' }
+        ${ orderSerial(o)
+          ? `<span class="serial-chip" style="color:var(--purple)">${orderSerial(o)}</span>`
+          : '<span style="font-size:12px;color:var(--text3)">— assign serial</span>' }
         ${o.decocoatStatus ? `<span style="font-size:11px;color:var(--text3);margin-left:4px">${o.decocoatStatus}</span>` : ''}
         ${o.estimatedDelivery ? `<br><span style="font-size:11px;color:var(--text3)">~${fmtDate(o.estimatedDelivery)}</span>` : ''}
       </td>
@@ -3929,10 +4229,19 @@ function renderCustom() {
           ? '<span class="badge badge-po">~'+fmtDate(o.estimatedDelivery)+'</span>'
           : '<span style="color:var(--text3)">—</span>'}
       </td>
-      <td style="font-size:12px;color:var(--text3)">${orderPO(o)||'—'}</td>
+      <td style="font-size:12px">${ decoCoatPO(o)
+          ? `<span class="badge badge-po">${decoCoatPO(o)}</span>`
+          : '<span style="color:var(--text3)">—</span>' }
+          <div style="margin-top:4px">${
+            decoSendState(o)==='sent'  ? '<span style="font-size:10px;font-weight:700;color:#1a7f4b">✓ sent</span>'
+          : decoSendState(o)==='ready' ? '<span style="font-size:10px;font-weight:700;color:#c8791a">● not sent</span>'
+          : '<span style="font-size:10px;color:var(--text3)">needs PO</span>' }</div>
+      </td>
+      <td style="font-size:12px">${ okaziPO(o)
+          ? `<span class="badge badge-stock">${okaziPO(o)}</span>`
+          : '<span style="color:var(--text3)">—</span>' }</td>
       <td>
-        ${orderPO(o) ? `<button class="btn btn-secondary btn-sm" title="Download PO ${orderPO(o)} as PDF" onclick="generatePOPdf(orderById('${o.id}'))">PO PDF</button>
-        <button class="btn btn-secondary btn-sm" title="Outlook email to Deco Coat with PO + order form" onclick="emailToSupplier(orderById('${o.id}'))">✉</button> ` : ''}${actionBtn}
+        ${actionBtn}
       </td>
     </tr>`;
   }).join('');
@@ -4067,61 +4376,135 @@ function paintCodeCell(colour){ const p = paintInfo(colour); return p ? `${p.cod
 function paintPrimerCell(colour){ const p = paintInfo(colour); return p ? p.primer : ''; }
 
 // ─── CUSTOM-FRAME SERIALS (MACU#######) ────────────────────────────────────
-// REAL serial = the one Deco Coat registered in the Decocoat sheet (Bike ID). Authoritative.
-function realSerial(o){
+// The painted-frame serial (MACU#######) is assigned by DECOCOAT during painting and
+// comes back in the Decocoat order book. The app NEVER invents one. It is only ever
+// surfaced when it is genuinely known (Decocoat file, or a serial the user pasted in).
+function orderSerial(o){
   const b = baseSO(o && o.name);
-  const d = (decocoatData||[]).find(x => baseSO(x.so)===b && /MACU\s*0*\d+/i.test(x.bikeId||''));
-  if(d){ const m = String(d.bikeId).match(/MACU\s*0*\d+/i); if(m) return m[0].replace(/\s+/g,'').toUpperCase(); }
+  const real = s => { const m = String(s||'').match(/MACU\s*0*\d+/i); return m ? m[0].replace(/\s+/g,'').toUpperCase() : ''; };
+  // 0) VV scan registry — Velovisie scans the SO + serial at the assembly line (source of truth)
+  const rk = soKey(o && o.name);
+  if(rk && registrySerials[rk]) return String(registrySerials[rk]).toUpperCase();
+  // 1) Real serial from the synced Decocoat order book (the source of truth)
+  for(const x of (decocoatData||[])){ if(baseSO(x.so)===b){ const v = real(x.bikeId); if(v) return v; } }
+  // 2) A linked serial — trusted ONLY if that exact serial actually appears in the
+  //    Decocoat file. This guarantees a leftover fabricated number can never resurface.
+  const a = (serialAssignments[b]||'').toUpperCase();
+  if(/^MACU\d/.test(a) && (decocoatData||[]).some(x => real(x.bikeId)===a)) return a;
   return '';
 }
-// PROVISIONAL serial = optional in-app placeholder for internal follow-up only. Never goes to Deco Coat.
-function provSerial(o){ return serialAssignments[baseSO(o && o.name)] || ''; }
-// The serial printed on the order form / labels = the REAL one only (the app must never invent a serial).
-function orderSerial(o){ return realSerial(o); }
-// Highest COMMITTED MACU number (assignments + Decocoat file + saved counter).
-// Deliberately ignores serialEst — those are volatile predictions and would make the sequence jump.
-function maxMACU(){
-  let max = lastSerials.MACU || 0;
-  const scan = s => { const m = String(s||'').match(/MACU\s*0*([0-9]+)/i); if(m){ const n = parseInt(m[1],10); if(n>max) max = n; } };
-  Object.values(serialAssignments).forEach(scan);
-  (decocoatData||[]).forEach(d => scan(d.bikeId));
-  return max;
-}
-// Assign the next sequential serial to every current custom order that lacks one,
-// in queue (priority) order. Stable: once assigned to an SO it never changes. Shared via KV.
+// Link REAL frame serials from the Decocoat order book to their SOs — never fabricates.
+// (Replaces the old auto-numbering, which was inventing MACU numbers on its own.)
 function assignSerials(){
-  if(!(decocoatData && decocoatData.length)){ formsAlert('Sync the Decocoat sheet first so the real serials load — otherwise provisional numbers could clash with Deco Coat\u2019s.','warn'); return; }
-  const todo = currentCustomOrders().filter(o => !realSerial(o) && !provSerial(o));
-  if(!todo.length){ formsAlert('Every current custom order already has a serial (real or provisional).','warn'); return; }
-  let n = maxMACU(), assigned = 0;
-  for(const o of todo){
-    const key = baseSO(o.name);
-    if(serialAssignments[key]) continue;   // split halves share one base SO — don't burn a number
-    n++; assigned++; serialAssignments[key] = 'MACU' + String(n).padStart(7,'0');
+  let linked = 0;
+  for(const d of (decocoatData||[])){
+    const b = baseSO(d.so);
+    const m = String(d.bikeId||'').match(/MACU\s*0*\d+/i);
+    if(b && m){ const v = m[0].replace(/\s+/g,'').toUpperCase(); if(serialAssignments[b]!==v){ serialAssignments[b]=v; linked++; } }
   }
-  if(n > (lastSerials.MACU||0)) lastSerials.MACU = n;
   save(); saveSharedState();
   if(typeof renderCustom==='function') renderCustom();
-  formsAlert(`Assigned ${assigned} PROVISIONAL serial(s) up to MACU${String(n).padStart(7,'0')} — internal follow-up only. Deco Coat\u2019s registered serials always override these.`);
+  if(typeof renderQueue==='function') renderQueue();
+  const pending = currentCustomOrders().filter(o => !orderSerial(o)).length;
+  formsAlert(linked
+    ? `Linked ${linked} real frame serial(s) from the Decocoat file.${pending?` ${pending} frame(s) still awaiting a serial from Decocoat.`:''}`
+    : `No new serials to link. Frame serials are assigned by Decocoat during painting${pending?` — ${pending} frame(s) still awaiting one.`:'.'}`);
 }
-// Wipe the in-app provisional serials (e.g. if they were created before the Decocoat sheet was synced).
-function clearAssignedSerials(){
-  const cnt = Object.keys(serialAssignments).length;
-  if(!cnt){ formsAlert('No provisional serials to clear.','warn'); return; }
-  if(typeof confirm==='function' && !confirm(`Clear ${cnt} provisional serial(s)? Real serials from the Decocoat sheet are not affected.`)) return;
-  serialAssignments = {};
-  save(); saveSharedState();
+
+// Pull SO↔serial pairings registered by Velovisie's barcode scan (Cloudflare Worker).
+// This is the live "frame serial" source of truth, ahead of the Deco Coat sheet.
+async function pullSerialsFromRegistry(opts){
+  opts = opts || {};
+  const url = (cfg.serialRegistryUrl||'').trim();
+  if(!url){ if(!opts.silent) formsAlert('No VV serial registry URL set. Add your Cloudflare Worker URL in Settings.','warn'); return 0; }
+  try{
+    const resp = await fetch(url, { redirect:'follow' });
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const list = await resp.json();
+    if(!Array.isArray(list)) throw new Error('unexpected response');
+    let n = 0;
+    for(const r of list){
+      const k = soKey(r && r.so); const v = String((r&&r.serial)||'').trim().toUpperCase();
+      if(k && v){ registrySerials[k] = v; n++; }
+    }
+    await pullSentStatusFromRegistry({silent:true});
+    save();
+    if(typeof renderCustom==='function') renderCustom();
+    if(typeof renderQueue==='function') renderQueue();
+    if(!opts.silent) formsAlert(`Synced ${n} frame serial(s) from the VV scan registry.`, n?undefined:'warn');
+    return n;
+  }catch(e){
+    if(!opts.silent) formsAlert('Could not reach the VV serial registry: '+(e&&e.message||e),'warn');
+    return 0;
+  }
+}
+
+// ── "Sent to Deco Coat" status (shared via the Cloudflare registry) ──────────
+// State per order:  'nopo' (no Deco Coat PO yet) · 'ready' (PO done, not sent) · 'sent'.
+function isSentToDeco(o){ const k = soKey(o && o.name); return !!(k && sentStatus[k]); }
+function decoSendState(o){ if(!decoCoatPO(o)) return 'nopo'; return isSentToDeco(o) ? 'sent' : 'ready'; }
+
+// Pull the shared "sent" list from the registry (the team's source of truth).
+async function pullSentStatusFromRegistry(opts){
+  opts = opts || {};
+  const url = (cfg.serialRegistryUrl||'').trim();
+  if(!url) return 0;
+  try{
+    const resp = await fetch(url + (url.includes('?')?'&':'?') + 'type=sent', { redirect:'follow' });
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    const list = await resp.json();
+    if(!Array.isArray(list)) throw new Error('unexpected response');
+    let n=0;
+    for(const r of list){ const k = soKey(r && r.so); if(k){ sentStatus[k] = { ts:r.ts, by:r.by }; n++; } }
+    save();
+    return n;
+  }catch(e){ if(!opts.silent) console.warn('sent-status sync failed:', e&&e.message); return 0; }
+}
+
+// Mark one or more orders as sent to Deco Coat (writes to the shared registry).
+async function markSentToDeco(list, opts){
+  opts = opts || {};
+  const url = (cfg.serialRegistryUrl||'').trim();
+  const orders_ = Array.isArray(list) ? list : [list];
+  for(const o of orders_){
+    const k = soKey(o && o.name); if(!k) continue;
+    sentStatus[k] = { ts:new Date().toISOString(), by:'Ahooga' };       // optimistic local update
+    if(url){
+      try{ await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ type:'sent', so:k, by:'Ahooga' }) }); }
+      catch(e){ console.warn('could not record sent for '+k+':', e&&e.message); }
+    }
+  }
+  save();
   if(typeof renderCustom==='function') renderCustom();
-  formsAlert(`Cleared ${cnt} provisional serial(s). Real Decocoat serials remain.`);
 }
 
 // Base SO number, e.g. "S23684 (1/2)" -> "S23684"
 function baseSO(s){ return (s||'').split('(')[0].trim().split(' ')[0].trim(); }
 
+// Robust sales-order key: pull the "S#####" out of any messy string.
+// Handles "S23768 (1/2)", " s23768 ", "S23768/2", non-breaking spaces, etc.
+function soKey(s){ const m = String(s==null?'':s).toUpperCase().match(/S\s*\d+/); return m ? m[0].replace(/\s+/g,'') : ''; }
+
+// Lookup table SO# -> Deco Coat PO# built from the Google Sheet.
+// A single sheet row may list several SOs ("S23768, S23769" / "S23768 (1/2)")
+// — every SO number in the cell is mapped to that row's PO#.
+function decocoatPOmap(){
+  const map = {};
+  for(const d of (decocoatData||[])){
+    const po = String(d.poRef||'').trim();
+    if(!po) continue;
+    const found = String(d.so==null?'':d.so).toUpperCase().match(/S\s*\d+/g) || [];
+    for(const s of found){ const k = s.replace(/\s+/g,''); if(!map[k]) map[k] = po; }
+  }
+  return map;
+}
+
 // All custom-colour orders held in the planner (from Odoo), not yet shipped.
+// Already-delivered lines (qty_delivered != 0) are excluded — that frame is done.
 function currentCustomOrders(){
   return [...orders,...manualOrders]
-    .filter(o => o.color === 'custom' && isMaxBike(o) && o.status !== 'shipped')
+    .filter(o => o.color === 'custom' && isMaxBike(o) && o.status !== 'shipped' && !(Number(o.delivered) > 0))
     .sort((a,b) => (a.priority||0) - (b.priority||0));
 }
 
@@ -4136,13 +4519,14 @@ function decocoatSOset(){
 function newCustomOrders(){
   // An order's form is considered ALREADY DONE once its SO has a PO in the Decocoat file.
   const done = decocoatDoneSet();
-  return currentCustomOrders().filter(o => !done.has(baseSO(o.name)));
+  return currentCustomOrders().filter(o => !done.has(soKey(o.name)));
 }
 // SOs that already have a PO# in the Decocoat file → their Order Form was already produced.
 function decocoatDoneSet(){
   const set = new Set();
   for(const d of (decocoatData||[])){
-    if(String(d.poRef||'').trim()){ const b = baseSO(d.so); if(b) set.add(b); }
+    if(!String(d.poRef||'').trim()) continue;
+    for(const sm of (String(d.so==null?'':d.so).toUpperCase().match(/S\s*\d+/g) || [])) set.add(sm.replace(/\s+/g,''));
   }
   return set;
 }
@@ -4236,6 +4620,9 @@ function orderCols(o){
   // 3) Decocoat sheet fallback for main colour
   const dc = (decocoatData||[]).find(x => baseSO(x.so) === baseSO(o && o.name));
   if(!cols.mainColor && dc) cols.mainColor = dc.colorName || '';
+  // Personal text: the note line under the "DEV personalized text" line is authoritative.
+  if(o && o.personalText && String(o.personalText).trim()) cols.personalText = String(o.personalText).trim();
+  cols.personalText = stripPTLabel(cols.personalText);   // keep only the value, never the label
   // Configuration column: the attribute lines (clean), else the note, else the line text, else Decocoat
   const desc = String(o && o.configRaw || '').split(/\n/).map(s=>s.trim()).filter(s=>/.+:.+/.test(s)).join(' · ');
   cols.configText = desc || String(o && o.colourNote || '').trim() || String(o && o.config || '').trim() || (dc ? (dc.config||'') : '');
@@ -4288,29 +4675,182 @@ function formsAlert(msg, kind){
 // Excel-safe sheet name (<=31 chars, no : \ / ? * [ ]).
 function sheetNameFor(s){ return (String(s||'Order form').replace(/[:\\\/?*\[\]]/g,'-').slice(0,31)) || 'Order form'; }
 
-// Build ONE worksheet laid out exactly like the real "Order form Ahooga" (S23973.xlsx).
+// ─── ORDER FORM TAB — download in the EXACT Deco Coat format ────────────────
+// The real Ahooga order form (S23973.xlsx) is embedded as a base64 template and
+// edited as a ZIP: only the data cells are swapped (as inline strings, keeping each
+// cell's style index), so font, colours, borders, column widths and row heights stay
+// byte-identical to the original file.
+const ORDER_FORM_TPL_B64 = "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";
+
+// Keep only the value after a "personal text:" label, wherever it sits in the string.
+function stripPTLabel(s){
+  return String(s==null?'':s).replace(/^.*?personal(?:i[sz]ed)?\s*text\s*[:\-]\s*/i, '').trim();
+}
+
+// Map an order's data onto the template's cells.
+function orderFormData(o, opts){
+  opts = opts || {};
+  const c = orderCols(o);
+  const rearName = c.rearColor || c.mainColor;
+  const decal = c.logoColor ? (c.logoSize ? `${c.logoColor} / ${c.logoSize}` : c.logoColor) : '';
+  return {
+    A4:  opts.week || '',                                   // Week delivery (Ahooga / Deco Coat)
+    B4:  decoCoatPO(o) || o.poRef || '',                    // PO# Ahooga (Deco Coat painting PO)
+    C4:  '', D4: '',                                        // Frame nr's — blank, Decocoat fills
+    A8:  paintPrimerCell(c.mainColor),                      // Main · Primer
+    B8:  paintCodeCell(c.mainColor),                        // Main · Color
+    C8:  decal,                                             // Main · Decal (logo)
+    D8:  c.mainFinish || '',                                // Main · Clearcoat
+    C10: stripPTLabel(opts.personalText!=null ? opts.personalText : (c.personalText||'')), // Personal text (value only)
+    A14: paintPrimerCell(rearName),                         // Rear · Primer
+    B14: paintCodeCell(rearName),                           // Rear · Color
+    C14: c.rearFinish || '',                                // Rear · Clearcoat
+    A17: o.name || ''                                       // Remark = SO#
+  };
+}
+
+async function buildOrderFormBlob(o, opts){
+  if(typeof JSZip === 'undefined') throw new Error('ZIP library still loading — try again in a second');
+  const bin = atob(ORDER_FORM_TPL_B64);
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  const zip = await JSZip.loadAsync(bytes);
+  const sheetPath = 'xl/worksheets/sheet1.xml';
+  let xml = await zip.file(sheetPath).async('string');
+  const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const setCell = (ref, val) => {
+    const re = new RegExp(`<c r="${ref}"([^>]*?)(/>|>[\\s\\S]*?<\\/c>)`);
+    if(!re.test(xml)) return;                 // cell not in template → skip (keeps layout intact)
+    xml = xml.replace(re, (m, attrs) => {
+      attrs = attrs.replace(/\s+t="[^"]*"/, '');   // drop any existing cell type, keep s="…"
+      return `<c r="${ref}"${attrs} t="inlineStr"><is><t xml:space="preserve">${esc(val)}</t></is></c>`;
+    });
+  };
+  const data = orderFormData(o, opts);
+  for(const ref in data) setCell(ref, data[ref]);
+  zip.file(sheetPath, xml);
+  return await zip.generateAsync({ type:'blob', mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+// Blob -> base64 (chunked, safe for large files) — used for email attachments.
+async function blobToB64(blob){
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let bin = ''; const chunk = 0x8000;
+  for(let i=0;i<bytes.length;i+=chunk){ bin += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk)); }
+  return btoa(bin);
+}
+
+async function downloadOrderForm(){
+  const sel = document.getElementById('of-order-select');
+  const o = sel && sel.value ? orderById(sel.value) : null;
+  if(!o){ ofAlert('Pick a custom color order first.','warn'); return; }
+  const opts = {
+    week: (document.getElementById('of-week')||{}).value || '',
+    personalText: (document.getElementById('of-ptext')||{}).value
+  };
+  try{
+    const blob = await buildOrderFormBlob(o, opts);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = (o.name || 'order-form') + '.xlsx';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 2000);
+    ofAlert('Downloaded order form: ' + (o.name||''), 'success');
+  }catch(e){ ofAlert('Could not build the order form: ' + (e&&e.message||e), 'warn'); }
+}
+
+function ofAlert(msg, kind){
+  const el = document.getElementById('of-alert'); if(!el) return;
+  el.innerHTML = `<div class="alert alert-${kind==='warn'?'warning':'success'}" style="margin:0">${msg}</div>`;
+}
+
+// PO PDF / Email for the order currently selected in the Order Form tab.
+function ofSelectedOrder(){ const sel = document.getElementById('of-order-select'); return sel && sel.value ? orderById(sel.value) : null; }
+function poPdfOrderForm(){
+  const o = ofSelectedOrder();
+  if(!o){ ofAlert('Pick a custom color order first.','warn'); return; }
+  if(!(decoCoatPO(o) || o.poRef)){ ofAlert('No Deco Coat PO yet for this order. Import the PO in Odoo (or sync the Deco Coat sheet), then Sync.','warn'); return; }
+  generatePOPdf(o); ofAlert('PO PDF generated for ' + (o.name||'') + '.','success');
+}
+async function emailDecoOrderForm(){
+  const o = ofSelectedOrder();
+  if(!o){ ofAlert('Pick a custom color order first.','warn'); return; }
+  if(!(decoCoatPO(o) || o.poRef)){ ofAlert('No Deco Coat PO yet for this order. Import the PO in Odoo (or sync the Deco Coat sheet), then Sync.','warn'); return; }
+  ofAlert('Building the Deco Coat email…','success');
+  try{ await emailToSupplier(o); ofAlert('Opened a Deco Coat email for ' + (o.name||'') + ' — PO PDF + order form(s) + labels attached.','success'); }
+  catch(e){ ofAlert('Could not build the email: ' + (e&&e.message||e), 'warn'); }
+}
+
+function renderOrderFormTab(){
+  const sel = document.getElementById('of-order-select');
+  if(!sel) return;
+  const list = currentCustomOrders();
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Select a custom color order —</option>' +
+    list.map(o => `<option value="${o.id}">${o.name} · ${(o.customer||'').slice(0,28)} · ${(o.sku||'').replace(/\s*\(Custom Color\)/i,'')}</option>`).join('');
+  if(cur && list.some(o=>o.id===cur)) sel.value = cur; else sel.value = '';
+  onOrderFormPick();
+}
+
+// Selecting a different order resets the editable fields to THAT order's values.
+function onOrderFormPick(){
+  const sel = document.getElementById('of-order-select');
+  const o = sel && sel.value ? orderById(sel.value) : null;
+  const pt = document.getElementById('of-ptext');
+  const wk = document.getElementById('of-week');
+  if(pt) pt.value = o ? stripPTLabel(orderCols(o).personalText || '') : '';   // always overwrite
+  if(wk) wk.value = '';                                                       // week is per-order — clear it
+  renderOrderFormPreview();
+}
+
+function renderOrderFormPreview(){
+  const sel = document.getElementById('of-order-select');
+  const box = document.getElementById('of-preview');
+  if(!sel || !box) return;
+  const o = sel.value ? orderById(sel.value) : null;
+  if(!o){ box.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0">Select an order to preview the form data.</div>'; return; }
+  const pt = document.getElementById('of-ptext');
+  const d = orderFormData(o, { week:(document.getElementById('of-week')||{}).value||'', personalText: pt ? pt.value : '' });
+  const rows = [
+    ['PO# Ahooga (Deco Coat)', d.B4],
+    ['Week delivery', d.A4],
+    ['Main · Primer', d.A8], ['Main · Color', d.B8], ['Main · Decal (logo)', d.C8], ['Main · Clearcoat', d.D8],
+    ['Personal text', d.C10],
+    ['Rear · Primer', d.A14], ['Rear · Color', d.B14], ['Rear · Clearcoat', d.C14],
+    ['Remark (SO#)', d.A17]
+  ];
+  box.innerHTML = '<div style="font-size:12px;color:var(--text3);margin-bottom:6px">Preview — this is what gets filled into the form:</div>' +
+    '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
+    rows.map(r => `<tr><td style="padding:4px 10px 4px 0;color:var(--text2);white-space:nowrap;border-bottom:1px solid var(--border)">${r[0]}</td><td style="padding:4px 0;font-weight:600;border-bottom:1px solid var(--border)">${r[1] ? String(r[1]).replace(/</g,'&lt;') : '<span style=\"color:var(--text3);font-weight:400\">— blank —</span>'}</td></tr>`).join('') +
+    '</table>';
+}
+
+// Build ONE worksheet laid out EXACTLY like the real "Order form Ahooga" (S23991.xlsx):
+// Aptos Narrow font, identical merges, row heights, column widths, fills and borders.
 function orderFormWS(o){
   const c = o ? orderCols(o) : {mainColor:'',mainFinish:'',rearColor:'',rearFinish:'',logoColor:'',logoSize:'',personalText:''};
   const rearName  = c.rearColor || c.mainColor;
-  const mainCol   = paintCodeCell(c.mainColor);                 // "MH0147 / Nightfall Blue"
+  const mainCol   = paintCodeCell(c.mainColor);                 // "MH0961 / Street Olive"
   const rearCol   = paintCodeCell(rearName);
   const mainPrim  = paintPrimerCell(c.mainColor);               // "Zwart" / "Wit"
   const rearPrim  = paintPrimerCell(rearName);
   const decal     = c.logoColor ? (c.logoSize ? `${c.logoColor} / ${c.logoSize}` : c.logoColor) : '';
-  const serial    = o ? orderSerial(o) : '';
   const ptext     = (c.personalText||'').trim();
+  const po        = o ? (decoCoatPO(o) || o.poRef || '') : '';  // Deco Coat (painting) PO
 
+  // The two "Frame nr." cells are ALWAYS blank on the form Ahooga sends (peach =
+  // "to be completed by Decocoat"); Decocoat assigns the painted-frame serial.
   const aoa = [
     ['Order form Ahooga','','',''],                                                   // 1
     ['','','',''],                                                                    // 2
     ['Week delevery','PO#  Ahooga','Frame nr.  Ahooga','Frame nr. Decocoat'],         // 3
-    ['', (o&&o.poRef)||'', serial, ''],                                               // 4
+    ['', po, '', ''],                                                                 // 4
     ['','','',''],                                                                    // 5
     ['Main frame','','',''],                                                          // 6
     ['Primer','Color','Decal (logo)','Clearcoat (finisch)'],                          // 7
     [mainPrim, mainCol, decal, c.mainFinish||''],                                     // 8
-    ['', '', 'Personal text', ''],                                                    // 9  (label)
-    ['', '', ptext, ''],                                                              // 10 (value)
+    ['', '', 'Personal text', ''],                                                    // 9
+    ['', '', ptext || '', ''],                                                        // 10
     ['','','',''],                                                                    // 11
     ['Rear frame','','',''],                                                          // 12
     ['Primer','Color','Clearcoat (finisch)',''],                                      // 13
@@ -4324,101 +4864,83 @@ function orderFormWS(o){
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!merges'] = [
-    {s:{r:0,c:0},e:{r:0,c:3}},   // A1:D1
-    {s:{r:5,c:0},e:{r:5,c:3}},   // A6:D6
-    {s:{r:11,c:0},e:{r:11,c:2}}, // A12:C12
-    {s:{r:15,c:0},e:{r:15,c:3}}, // A16:D16
+    {s:{r:0,c:0},e:{r:0,c:3}},   // A1:D1   title
+    {s:{r:5,c:0},e:{r:5,c:3}},   // A6:D6   Main frame
+    {s:{r:11,c:0},e:{r:11,c:2}}, // A12:C12 Rear frame (3 cols, exactly as the file)
+    {s:{r:15,c:0},e:{r:15,c:3}}, // A16:D16 Remark
   ];
-  ws['!cols'] = [{wch:18},{wch:20},{wch:20},{wch:20}];
-  ws['!margins'] = {left:0.4,right:0.4,top:0.5,bottom:0.5,header:0.2,footer:0.2};
-  ws['!pageSetup'] = {orientation:'portrait', fitToWidth:1, fitToHeight:0};
+  // Uniform column width (file renders 4 equal columns ≈ 210px each at 96dpi)
+  ws['!cols'] = [{wpx:170},{wpx:170},{wpx:170},{wpx:170}];
+  // Custom row heights (others use the 14.4 default)
   ws['!rows'] = [];
-  ws['!rows'][0]={hpt:18}; ws['!rows'][3]={hpt:26}; ws['!rows'][7]={hpt:52}; ws['!rows'][13]={hpt:36}; ws['!rows'][26]={hpt:29};
+  ws['!rows'][0]={hpt:18}; ws['!rows'][3]={hpt:25.8}; ws['!rows'][7]={hpt:51.6};
+  ws['!rows'][13]={hpt:36}; ws['!rows'][26]={hpt:28.8};
 
-  // ── styling (xlsx-js-style; plain SheetJS ignores .s harmlessly) ──
-  const thin = {style:'thin', color:{rgb:'FF000000'}};
-  const box  = {top:thin,bottom:thin,left:thin,right:thin};
-  const ctr  = {horizontal:'center', vertical:'center', wrapText:true};
-  const left = {horizontal:'left',   vertical:'center'};
-  const GREY='D9D9D9', BLUE='D9E1F2', PEACH='FCE4D6';   // matches the real form's theme tints
-  const fill = rgb => ({ patternType:'solid', fgColor:{rgb} });
-  const cell = a => (ws[a] || (ws[a] = {t:'s', v:''}));
-  const S = (a,s) => { const c2 = cell(a); c2.s = Object.assign(c2.s||{}, s); };
+  // ── styling — exact match of S23991.xlsx ──────────────────────────────────
+  const thin = {style:'thin', color:{rgb:'000000'}};
+  const box = {top:thin,bottom:thin,left:thin,right:thin};
+  const tb  = {top:thin,bottom:thin}, tbr = {top:thin,bottom:thin,right:thin};
+  const blr = {bottom:thin,left:thin,right:thin};
+  const tl  = {top:thin,left:thin}, t = {top:thin}, tr = {top:thin,right:thin};
+  const l   = {left:thin}, r = {right:thin};
+  const bl  = {bottom:thin,left:thin}, b = {bottom:thin}, br = {bottom:thin,right:thin};
+  const FILL = rgb => ({patternType:'solid', fgColor:{rgb}});
+  const GRAY = 'D9D9D9';   // theme0 (white) tint -0.15
+  const BLUE = 'C1E5F5';   // theme4 (accent1 156082) tint 0.8 — "by Ahooga" cells
+  const PEACH= 'FBE3D6';   // theme5 (accent2 E97132) tint 0.8 — "by Decocoat" cells
+  const F = (sz,bold) => ({name:'Aptos Narrow', sz, bold:!!bold});
+  const ctrW = {horizontal:'center', vertical:'center', wrapText:true};
+  const ctr  = {horizontal:'center', vertical:'center'};
+  const cen  = {horizontal:'center'};
+  const left = {horizontal:'left'};
+  const wrap = {wrapText:true};
+  const S=(addr,s)=>{ if(!ws[addr]) ws[addr]={t:'s',v:''}; ws[addr].s = s; };
 
-  // Title bar (grey, merged A1:D1)
-  ['A1','B1','C1','D1'].forEach(a=>S(a,{fill:fill(GREY),border:{bottom:thin}}));
-  S('A1',{font:{bold:true,sz:14},alignment:ctr});
-  // Header labels (grey)
-  ['A3','B3','C3','D3'].forEach(a=>S(a,{font:{sz:11},alignment:ctr,fill:fill(GREY),border:box}));
-  // Value row: Week/PO blue · Frame-nr cells peach (to be filled)
-  ['A4','B4'].forEach(a=>S(a,{font:{sz:20},alignment:ctr,fill:fill(BLUE),border:box}));
-  ['C4','D4'].forEach(a=>S(a,{font:{sz:20},alignment:ctr,fill:fill(PEACH),border:box}));
-  // Main frame section (grey bar) + sub-headers (grey) + values (blue)
-  ['A6','B6','C6','D6'].forEach(a=>S(a,{fill:fill(GREY),border:{bottom:thin}}));
-  S('A6',{font:{bold:true,sz:11},alignment:left});
-  ['A7','B7','C7','D7'].forEach(a=>S(a,{font:{sz:11},alignment:ctr,fill:fill(GREY),border:box}));
-  ['A8','C8','D8'].forEach(a=>S(a,{font:{sz:20},alignment:ctr,fill:fill(BLUE),border:box}));
-  S('B8',{font:{sz:14},alignment:ctr,fill:fill(BLUE),border:box});
-  // Personal text: label (grey) + value cell (blue)
-  S('C9',{font:{sz:11},alignment:ctr,fill:fill(GREY),border:box});
-  S('C10',{font:{sz:11},alignment:ctr,fill:fill(BLUE),border:box});
-  // Rear frame section (grey bar A12:C12) + sub-headers + values (blue)
-  ['A12','B12','C12'].forEach(a=>S(a,{fill:fill(GREY),border:{bottom:thin}}));
-  S('A12',{font:{bold:true,sz:11},alignment:left});
-  ['A13','B13','C13'].forEach(a=>S(a,{font:{sz:11},alignment:ctr,fill:fill(GREY),border:box}));
-  ['A14','C14'].forEach(a=>S(a,{font:{sz:20},alignment:ctr,fill:fill(BLUE),border:box}));
-  S('B14',{font:{sz:14},alignment:ctr,fill:fill(BLUE),border:box});
-  // Remark section (grey bar) + outer-bordered writing box (rows 17–25)
-  ['A16','B16','C16','D16'].forEach(a=>S(a,{fill:fill(GREY),border:box}));
-  S('A16',{font:{bold:true,sz:11},alignment:left});
-  S('A17',{font:{sz:11},alignment:left});
-  for(let r=17;r<=25;r++){
-    S('A'+r,{border:Object.assign({left:thin}, r===17?{top:thin}:{}, r===25?{bottom:thin}:{})});
-    S('D'+r,{border:Object.assign({right:thin}, r===17?{top:thin}:{}, r===25?{bottom:thin}:{})});
-    if(r===17||r===25){ const e = r===17?{top:thin}:{bottom:thin}; S('B'+r,{border:e}); S('C'+r,{border:e}); }
-  }
-  // Footer key (peach / blue)
-  S('A27',{font:{sz:11},alignment:{horizontal:'left',vertical:'center',wrapText:true},fill:fill(PEACH)});
-  S('B27',{font:{sz:11},alignment:{horizontal:'left',vertical:'center',wrapText:true},fill:fill(BLUE)});
+  // Row 1 — title (merged A1:D1)
+  S('A1',{font:F(14,true),alignment:ctrW,fill:FILL(GRAY),border:box});
+  S('B1',{font:F(11),border:tb}); S('C1',{font:F(11),border:tb}); S('D1',{font:F(11),border:tbr});
+  // Row 3 — header labels (grey, default alignment)
+  ['A3','B3','C3','D3'].forEach(a=>S(a,{font:F(11),fill:FILL(GRAY),border:box}));
+  // Row 4 — Week + PO# (blue), Frame nr's (peach, blank)
+  S('A4',{font:F(20),alignment:ctr,fill:FILL(BLUE),border:box});
+  S('B4',{font:F(20),alignment:ctr,fill:FILL(BLUE),border:box});
+  S('C4',{font:F(20),alignment:ctr,fill:FILL(PEACH),border:box});
+  S('D4',{font:F(20),alignment:ctr,fill:FILL(PEACH),border:box});
+  // Row 6 — Main frame bar (merged A6:D6)
+  S('A6',{font:F(11,true),alignment:left,fill:FILL(GRAY),border:box});
+  S('B6',{font:F(11),border:tb}); S('C6',{font:F(11),border:tb}); S('D6',{font:F(11),border:tbr});
+  // Row 7 — sub-headers (grey, centered)
+  ['A7','B7','C7','D7'].forEach(a=>S(a,{font:F(11),alignment:cen,fill:FILL(GRAY),border:box}));
+  // Row 8 — main values (blue)
+  S('A8',{font:F(20),alignment:ctr, fill:FILL(BLUE),border:box});
+  S('B8',{font:F(14),alignment:ctrW,fill:FILL(BLUE),border:box});
+  S('C8',{font:F(20),alignment:ctrW,fill:FILL(BLUE),border:box});
+  S('D8',{font:F(20),alignment:ctr, fill:FILL(BLUE),border:box});
+  // Rows 9/10 — Personal text header (grey) + value (blue)
+  S('C9', {font:F(11),alignment:cen, fill:FILL(GRAY),border:box});
+  S('C10',{font:F(11),alignment:ctrW,fill:FILL(BLUE),border:box});
+  // Row 12 — Rear frame bar (merged A12:C12; D12 stays empty/unstyled)
+  S('A12',{font:F(11,true),alignment:left,fill:FILL(GRAY),border:box});
+  S('B12',{font:F(11),border:tb}); S('C12',{font:F(11),border:tbr});
+  // Row 13 — sub-headers (A13/B13 no top border, C13 full box — as in the file)
+  S('A13',{font:F(11),alignment:cen,fill:FILL(GRAY),border:blr});
+  S('B13',{font:F(11),alignment:cen,fill:FILL(GRAY),border:blr});
+  S('C13',{font:F(11),alignment:cen,fill:FILL(GRAY),border:box});
+  // Row 14 — rear values (blue)
+  S('A14',{font:F(20),alignment:ctr, fill:FILL(BLUE),border:box});
+  S('B14',{font:F(14),alignment:ctrW,fill:FILL(BLUE),border:box});
+  S('C14',{font:F(20),alignment:ctr, fill:FILL(BLUE),border:box});
+  // Row 16 — Remark bar (merged A16:D16)
+  S('A16',{font:F(11,true),alignment:left,fill:FILL(GRAY),border:box});
+  S('B16',{font:F(11),border:tb}); S('C16',{font:F(11),border:tb}); S('D16',{font:F(11),border:tbr});
+  // Rows 17–25 — remark box outline (top on 17, left on A, right on D, bottom on 25)
+  S('A17',{font:F(11),border:tl}); S('B17',{font:F(11),border:t}); S('C17',{font:F(11),border:t}); S('D17',{font:F(11),border:tr});
+  for(let r=18;r<=24;r++){ S('A'+r,{font:F(11),border:l}); S('D'+r,{font:F(11),border:r}); }
+  S('A25',{font:F(11),border:bl}); S('B25',{font:F(11),border:b}); S('C25',{font:F(11),border:b}); S('D25',{font:F(11),border:br});
+  // Row 27 — footer legend (peach / blue, no border, wrap)
+  S('A27',{font:F(11),alignment:wrap,fill:FILL(PEACH)});
+  S('B27',{font:F(11),alignment:wrap,fill:FILL(BLUE)});
   return ws;
-}
-
-// Order Form sent to Deco Coat — one styled per-bike form sheet per order.
-// opts: {selected} ticked rows · {all} every custom order · {blank} empty template · default = new (no PO yet).
-function exportOrderForm(opts){
-  opts = opts || {};
-  if(typeof XLSX === 'undefined'){ formsAlert('Excel library still loading — try again in a second.','warn'); return; }
-
-  if(opts.blank){
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, orderFormWS(null), 'Order form');
-    XLSX.writeFile(wb, 'Order form - TEMPLATE.xlsx');
-    formsAlert('Blank Order Form template downloaded.'); return;
-  }
-
-  const list = opts.selected ? selectedCustomOrders() : (opts.all ? currentCustomOrders() : newCustomOrders());
-  if(!list.length){
-    if(opts.selected){ formsAlert('No orders selected — tick the checkboxes in the table first.','warn'); return; }
-    const total = currentCustomOrders().length;
-    formsAlert(total
-      ? `All ${total} custom-colour order(s) already have a PO in the Decocoat file — their Order Form is done. (Use “All custom orders” to export them anyway.)`
-      : 'No custom-colour orders found. Sync Odoo first.', 'warn');
-    return;
-  }
-
-  const wb = XLSX.utils.book_new();
-  const used = {};
-  for(const o of list){
-    let nm = sheetNameFor(o.name); if(used[nm]) nm = sheetNameFor(nm.slice(0,28)+'_'+(++used[nm])); used[nm]=(used[nm]||1);
-    XLSX.utils.book_append_sheet(wb, orderFormWS(o), nm);
-  }
-  const today = new Date().toISOString().slice(0,10);
-  const fname = list.length===1 ? `${sheetNameFor(list[0].name)||'Order form'}.xlsx`
-                                : `${today.replace(/-/g,'')} - Order forms (${list.length}).xlsx`;
-  XLSX.writeFile(wb, fname);
-  if(opts.selected) formsAlert(`Order Form downloaded · ${list.length} selected order(s), one form per sheet.`);
-  else { const skipped = currentCustomOrders().length - list.length;
-    formsAlert(`Order Form downloaded · ${list.length} form(s)${skipped>0&&!opts.all?` · ${skipped} already have a PO in Decocoat, skipped`:''}.`); }
 }
 
 // Odoo Purchase Order import file (.xlsx). Groups the chosen frames into ONE PO
@@ -4434,11 +4956,13 @@ function exportPOImport(opts){
     return;
   }
   const today = new Date().toISOString().slice(0,10);
-  // Unique per export: date + time + random, so several files on the same day don't share an
-  // External ID (which would make Odoo overwrite the earlier PO instead of creating a new one).
-  const stamp = new Date().toISOString().replace(/[-:T.]/g,'').slice(0,14);   // YYYYMMDDhhmmss
-  const rnd   = Math.random().toString(36).slice(2,6);
-  const extId = `AHOOGA_PO_DECOCOAT_${stamp}_${rnd}`;
+  // Unique per export: date + time + random token. Using the date alone made every export
+  // share one External ID, so a second import overwrote the first PO in Odoo. A unique id per
+  // export means each file imports as its OWN purchase order (re-importing the SAME file is still
+  // idempotent, since the id is baked into that file).
+  const stamp = new Date().toISOString().replace(/[-:T.]/g,'').slice(0,14);   // YYYYMMDDHHMMSS
+  const rand  = Math.random().toString(36).slice(2,6).toUpperCase();
+  const extId = `AHOOGA_PO_DECOCOAT_${stamp}_${rand}`;
   const VENDOR  = 'Deco Coat';   // must match the vendor name in Odoo
   const PRODUCT = '[FRNAA00260] Frame pre-assy AOFV2C (MAX) (Custom)'; // VERIFY/adjust per frame type
   const PRICE   = 159.00;        // unit price per frame (EUR)
@@ -4456,7 +4980,7 @@ function exportPOImport(opts){
   ws['!cols'] = [{wch:28},{wch:14},{wch:46},{wch:42},{wch:7},{wch:11}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'PO import');
-  XLSX.writeFile(wb, `Odoo PO import - Deco Coat - ${stamp}_${rnd}.xlsx`);
+  XLSX.writeFile(wb, `Odoo PO import - Deco Coat - ${stamp}.xlsx`);
   formsAlert(`PO import file downloaded · 1 purchase order with ${list.length} line(s) for Deco Coat. Import it in Odoo (Purchase ▸ Orders ▸ Import); Odoo assigns the P0 number, then Sync to pull it back onto the forms.`);
 }
 
@@ -4464,47 +4988,107 @@ function exportPOImport(opts){
 // ─── PO DETECTION + PO PDF + SUPPLIER EMAIL ────────────────────────────────
 let poData = {};   // PO name -> {name, dateOrder, datePlanned, partner, lines:[{name,qty,price}]}
 function orderById(id){ return [...orders,...manualOrders].find(o=>o.id===id); }
-// The Deco Coat PO for an order. Each SO has TWO POs (Deco Coat painting + Okazi assembly);
-// for the Deco Coat order form / labels / PO PDF we want the PAINTING PO, which is the
-// PO# column in the Decocoat order book. Prefer that; fall back to a detected/assigned poRef.
+// PO for an order: assigned poRef, else a PO# from the Decocoat file row.
 function orderPO(o){
+  if(o && o.poRef) return o.poRef;
   const d = (decocoatData||[]).find(x => baseSO(x.so)===baseSO(o&&o.name) && String(x.poRef||'').trim());
-  if(d) return String(d.poRef).trim();
-  return (o && o.poRef) ? o.poRef : '';
+  return d ? String(d.poRef).trim() : '';
 }
 function ordersForPO(po){ return [...orders,...manualOrders].filter(x => x.color==='custom' && orderPO(x)===po); }
 
-// After the PO import is created in Odoo, read the Deco Coat purchase orders and link
-// them back to their sales orders via the "SO#:" line in each PO line description.
+// PO Ahooga issues to DECO COAT for the painting step.
+//  1) the PO stored on the order — Odoo note wins, else a PO already written from the sheet
+//  2) a live lookup in the synced Deco Coat Google Sheet (robust SO# match) as fallback
+function decoCoatPO(o){
+  if(o && o.decoCoatPO) return o.decoCoatPO;
+  const k = soKey(o && o.name);
+  if(k){ const po = decocoatPOmap()[k]; if(po) return po; }
+  return '';
+}
+// PO Ahooga issues to OKAZI for the assembly step (once the painted frame is back).
+function okaziPO(o){ return (o && o.okaziPO) || ''; }
+
+// FALLBACK PO READER — when a custom order has no Deco Coat PO from Odoo, look its
+// sales-order number up in the synced Deco Coat Google Sheet and WRITE the PO into the
+// order so it shows in the tab and is used by PO PDF / email / "already-ordered" logic.
+function fillDecoCoatPOsFromSheet(opts){
+  opts = opts || {};
+  if(!(decocoatData && decocoatData.length)){
+    if(!opts.silent) formsAlert('Sync the Deco Coat sheet first — no sheet data is loaded yet.','warn');
+    return 0;
+  }
+  const map = decocoatPOmap();                  // SO# -> PO# from the sheet (robust, multi-SO aware)
+  let filled = 0; const missing = [];
+  for(const o of currentCustomOrders()){
+    if(o.decoCoatPO) continue;                  // already linked (Odoo note or earlier lookup)
+    const po = map[soKey(o.name)];              // is there a PO in the sheet for this SO?
+    if(po){ o.decoCoatPO = po; if(!o.poRef) o.poRef = po; filled++; }
+    else missing.push(o.name);
+  }
+  if(filled){ try{ save(); }catch(e){} }
+  if(typeof renderCustom === 'function') renderCustom();
+  if(missing.length) console.log('[Deco Coat PO] no PO in the sheet for:', missing.join(', '));
+  if(!opts.silent){
+    formsAlert(filled
+      ? `Found ${filled} PO(s) in the Deco Coat sheet and wrote them to the tab${missing.length?` · ${missing.length} order(s) still have no PO in the sheet`:''}.`
+      : (missing.length
+          ? `No PO found in the Deco Coat sheet for the ${missing.length} order(s) still missing one (list logged to the console).`
+          : 'All custom orders already have a Deco Coat PO.'),
+      filled ? undefined : 'warn');
+  }
+  return filled;
+}
+// Orders sharing the same Deco Coat (painting) PO — used to group order forms per PO.
+function ordersForDecoCoatPO(po){ return [...orders,...manualOrders].filter(x => x.color==='custom' && decoCoatPO(x)===po); }
+
+// Link each sales order to its DECO COAT (painting) purchase order.
+//  1) Going-forward source of truth: the "SO#" note on each Deco Coat PO line in Odoo.
+//  2) Cross-check the Deco Coat Google Sheet to COMPLETE past POs whose Odoo line has
+//     no "SO#" note. Odoo notes win; the sheet only fills SOs still unlinked.
 async function detectDecocoatPOs(){
   try{
-    if(!cfg || !cfg.db || !cfg.key) return 0;
     const A = v => Array.isArray(v) ? v : (v ? [v] : []);
-    const pos = A(await odooCall('purchase.order','search_read',
-      [['|',['partner_id.name','ilike','deco coat'],['partner_id.name','ilike','decocoat']]],
-      {fields:['name','partner_id','date_order','date_planned','order_line'], limit:300, order:'id desc'}));
-    if(!pos.length) return 0;
-    const lineIds = pos.flatMap(p=>A(p.order_line));
-    const lines = lineIds.length ? A(await odooCall('purchase.order.line','search_read',
-      [[['id','in',lineIds]]], {fields:['order_id','name','product_qty','price_unit']})) : [];
-    const byPO = {};
-    for(const l of lines){ const pid=A(l.order_id)[0]; (byPO[pid]=byPO[pid]||[]).push(l); }
     const soToPO = {};
-    for(const p of pos){
-      poData[p.name] = {
-        name:p.name, dateOrder:(p.date_order||'').slice(0,10), datePlanned:(p.date_planned||'').slice(0,10),
-        partner:A(p.partner_id)[1]||'Deco Coat',
-        lines:(byPO[p.id]||[]).map(l=>({name:l.name||'',qty:Number(l.product_qty)||1,price:Number(l.price_unit)||0}))
-      };
-      for(const l of (byPO[p.id]||[])){
-        const m = String(l.name||'').match(/SO#\s*[:\-]?\s*(S\d+)/i);
-        if(m) soToPO[m[1].toUpperCase()] = p.name;
+    // 1) Odoo Deco Coat purchase orders + their SO# notes
+    if(cfg && cfg.db && cfg.key){
+      try{
+        const pos = A(await odooCall('purchase.order','search_read',
+          [['|',['partner_id.name','ilike','deco coat'],['partner_id.name','ilike','decocoat']]],
+          {fields:['name','partner_id','date_order','date_planned','order_line'], limit:300, order:'id desc'}));
+        const lineIds = pos.flatMap(p=>A(p.order_line));
+        const lines = lineIds.length ? A(await odooCall('purchase.order.line','search_read',
+          [[['id','in',lineIds]]], {fields:['order_id','name','product_qty','price_unit']})) : [];
+        const byPO = {};
+        for(const l of lines){ const pid=A(l.order_id)[0]; (byPO[pid]=byPO[pid]||[]).push(l); }
+        for(const p of pos){
+          poData[p.name] = {
+            name:p.name, dateOrder:(p.date_order||'').slice(0,10), datePlanned:(p.date_planned||'').slice(0,10),
+            partner:A(p.partner_id)[1]||'Deco Coat',
+            lines:(byPO[p.id]||[]).map(l=>({name:l.name||'',qty:Number(l.product_qty)||1,price:Number(l.price_unit)||0}))
+          };
+          for(const l of (byPO[p.id]||[])){
+            for(const sm of (String(l.name||'').toUpperCase().match(/S\s*\d+/g) || [])){
+              soToPO[sm.replace(/\s+/g,'')] = p.name;   // Odoo note (wins)
+            }
+          }
+        }
+      }catch(e){ console.warn('detectDecocoatPOs odoo read failed:', e&&e.message); }
+    }
+    // 2) Backfill from the Deco Coat Google Sheet for SOs the Odoo notes didn't cover.
+    //    A sheet row may list several SOs — map each one to that row's PO#.
+    for(const d of (decocoatData||[])){
+      const po = String(d.poRef||'').trim();
+      if(!po) continue;
+      for(const sm of (String(d.so==null?'':d.so).toUpperCase().match(/S\s*\d+/g) || [])){
+        const k = sm.replace(/\s+/g,'');
+        if(!soToPO[k]) soToPO[k] = po;   // only fills gaps, never overrides Odoo
       }
     }
+    // 3) Apply the SO -> Deco Coat PO links
     let n=0;
     for(const o of [...orders,...manualOrders]){
-      const po = soToPO[baseSO(o.name).toUpperCase()];
-      if(po && o.poRef!==po){ o.poRef = po; n++; }
+      const po = soToPO[soKey(o.name)];
+      if(po){ if(o.decoCoatPO!==po) n++; o.decoCoatPO = po; o.poRef = po; }  // Deco Coat (painting) PO
     }
     if(n){ try{ save(); }catch(e){} }
     return n;
@@ -4552,8 +5136,8 @@ function buildPOPdfDoc(po){
   return doc;
 }
 function generatePOPdf(o){
-  const po = orderPO(o);
-  if(!po){ formsAlert('No PO yet for this order. Import the PO in Odoo, then Sync (it auto-detects the P0).','warn'); return; }
+  const po = decoCoatPO(o) || orderPO(o);
+  if(!po){ formsAlert('No Deco Coat PO yet for this order. Import the PO in Odoo (or sync the Deco Coat sheet), then Sync.','warn'); return; }
   if(!(window.jspdf && window.jspdf.jsPDF)){ formsAlert('PDF library still loading — try again in a second.','warn'); return; }
   buildPOPdfDoc(po).save(`Purchase Order - ${po}.pdf`);
   formsAlert(`PO PDF for ${po} downloaded.`);
@@ -4563,8 +5147,8 @@ function generatePOPdf(o){
 function poPdfSelected(){
   const sel = selectedCustomOrders();
   if(!sel.length){ formsAlert('Tick one or more orders in the table first.','warn'); return; }
-  const pos = [...new Set(sel.map(orderPO).filter(Boolean))];
-  if(!pos.length){ formsAlert('None of the selected orders has a PO yet. Import the PO file in Odoo, then Sync — the P0 is detected automatically.','warn'); return; }
+  const pos = [...new Set(sel.map(o=>decoCoatPO(o)||orderPO(o)).filter(Boolean))];
+  if(!pos.length){ formsAlert('None of the selected orders has a Deco Coat PO yet. Import the PO in Odoo (or sync the Deco Coat sheet), then Sync.','warn'); return; }
   if(!(window.jspdf && window.jspdf.jsPDF)){ formsAlert('PDF library still loading — try again in a second.','warn'); return; }
   pos.forEach(po => buildPOPdfDoc(po).save(`Purchase Order - ${po}.pdf`));
   formsAlert(`Downloaded ${pos.length} PO PDF(s): ${pos.join(', ')}.`);
@@ -4572,9 +5156,9 @@ function poPdfSelected(){
 function emailSupplierSelected(){
   const sel = selectedCustomOrders();
   if(!sel.length){ formsAlert('Tick one or more orders in the table first.','warn'); return; }
-  const pos = [...new Set(sel.map(orderPO).filter(Boolean))];
-  if(!pos.length){ formsAlert('None of the selected orders has a PO yet. Import the PO file in Odoo, then Sync first.','warn'); return; }
-  pos.forEach(po => { const rep = ordersForPO(po)[0] || sel.find(o => orderPO(o)===po); if(rep) emailToSupplier(rep); });
+  const pos = [...new Set(sel.map(o=>decoCoatPO(o)||orderPO(o)).filter(Boolean))];
+  if(!pos.length){ formsAlert('None of the selected orders has a Deco Coat PO yet. Import the PO in Odoo (or sync the Deco Coat sheet), then Sync.','warn'); return; }
+  pos.forEach(po => { const rep = ordersForDecoCoatPO(po)[0] || sel.find(o => (decoCoatPO(o)||orderPO(o))===po); if(rep) emailToSupplier(rep); });
 }
 
 // Build an Outlook-ready .eml (opens as a draft with attachments) for the supplier.
@@ -4608,11 +5192,21 @@ function buildLabelsPdfDoc(list){
       if(!first) doc.addPage(); first = false;
       doc.setFont('helvetica','normal'); doc.setFontSize(22);
       doc.text(doc.splitTextToSize(labelTextFor(o,c), 250), 20, 28);
+      // SO# barcode — VV scans this at the assembly line to register the frame serial.
+      const soCode = (o.name||'').toString().toUpperCase().replace(/\s+/g,'');
+      if(soCode){
+        try{
+          const cv = document.createElement('canvas');
+          JsBarcode(cv, soCode, {format:'CODE128', height:60, fontSize:18, margin:6, displayValue:true});
+          doc.addImage(cv.toDataURL('image/png'), 'PNG', 20, 120, 120, 32);
+        }catch(e){}
+      }
+      // Serial barcode (only once a real serial exists)
       if(serial){
         try{
           const cv = document.createElement('canvas');
           JsBarcode(cv, serial, {format:'CODE128', height:60, fontSize:18, margin:6, displayValue:true});
-          doc.addImage(cv.toDataURL('image/png'), 'PNG', 20, 150, 120, 32);
+          doc.addImage(cv.toDataURL('image/png'), 'PNG', 20, 160, 120, 32);
         }catch(e){}
       }
     }
@@ -4620,20 +5214,28 @@ function buildLabelsPdfDoc(list){
   return doc;
 }
 
-function emailToSupplier(o){
-  const po = orderPO(o);
-  if(!po){ formsAlert('No PO yet for this order. Import the PO in Odoo, then Sync (it auto-detects the P0).','warn'); return; }
+async function emailToSupplier(o){
+  const po = decoCoatPO(o) || orderPO(o);
+  if(!po){ formsAlert('No Deco Coat PO yet for this order. Import the PO in Odoo (or sync the Deco Coat sheet), then Sync.','warn'); return; }
   if(typeof XLSX==='undefined' || !(window.jspdf && window.jspdf.jsPDF)){ formsAlert('Libraries still loading — try again in a second.','warn'); return; }
-  const lns = ordersForPO(po);
+  if(typeof JSZip==='undefined'){ formsAlert('ZIP library still loading — try again in a second.','warn'); return; }
+  const lns = ordersForDecoCoatPO(po).length ? ordersForDecoCoatPO(po) : ordersForPO(po);
   const atts = [];
   // 1) PO PDF
   const pdfBytes = new Uint8Array(buildPOPdfDoc(po).output('arraybuffer'));
   let bin=''; for(let i=0;i<pdfBytes.length;i++) bin+=String.fromCharCode(pdfBytes[i]);
   atts.push({name:`Purchase Order - ${po}.pdf`, type:'application/pdf', b64:btoa(bin)});
-  // 2) Order form(s) for every SO on this PO (one sheet each)
-  const wb = XLSX.utils.book_new(); const used={};
-  for(const x of lns){ let nm=sheetNameFor(x.name); if(used[nm]) nm=sheetNameFor(nm.slice(0,28)+'_'+(++used[nm])); used[nm]=used[nm]||1; XLSX.utils.book_append_sheet(wb, orderFormWS(x), nm); }
-  atts.push({name:`Order form - ${po}.xlsx`, type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', b64:XLSX.write(wb,{bookType:'xlsx',type:'base64'})});
+  // 2) Order form(s) — built from the SAME template as the Order Form tab download,
+  //    so the attached Excel is byte-identical to what you download there. One file per SO.
+  //    For the order selected in the Order Form tab, reuse its Week / Personal text edits.
+  const selId   = (document.getElementById('of-order-select')||{}).value || '';
+  const selWeek = (document.getElementById('of-week')||{}).value || '';
+  const selPtext= document.getElementById('of-ptext') ? document.getElementById('of-ptext').value : null;
+  for(const x of lns){
+    const opts = (x.id===selId) ? {week:selWeek, personalText:selPtext} : {};
+    const blob = await buildOrderFormBlob(x, opts);
+    atts.push({name:`Order form - ${x.name}.xlsx`, type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', b64: await blobToB64(blob)});
+  }
   // 3) Labels PDF (text + barcode), one page per frame
   try{
     const lbytes = new Uint8Array(buildLabelsPdfDoc(lns).output('arraybuffer'));
@@ -4653,7 +5255,9 @@ function emailToSupplier(o){
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([eml],{type:'message/rfc822'}));
   a.download = `Deco Coat order - ${po}.eml`; a.click(); URL.revokeObjectURL(a.href);
-  formsAlert(`Outlook email (.eml) for ${po} downloaded — PO PDF + order form(s) + labels attached. Open it and hit Send.`);
+  // Auto-mark every frame on this PO as sent to Deco Coat (shared registry).
+  try { await markSentToDeco(lns); } catch(e){ console.warn('mark-sent failed', e&&e.message); }
+  formsAlert(`Outlook email (.eml) for ${po} downloaded — PO PDF + order form(s) + labels attached. Open it and hit Send. Marked as sent to Deco Coat.`);
 }
 
 // Columns follow the Decocoat order-book layout used by the sync.
@@ -4729,6 +5333,7 @@ function createLabels(opts){
   }
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const pages = labels.map(l => `<div class="label"><div class="inner"><div class="txt">${esc(l.text)}</div>`
+    + (l.so ? `<svg class="bc" data-code="${esc(l.so)}"></svg>` : '')
     + (l.serial ? `<svg class="bc" data-code="${esc(l.serial)}"></svg>` : '')
     + `</div></div>`).join('');
   const w = window.open('', '_blank');
@@ -4772,7 +5377,7 @@ if(orders.length>0){
   assignSerials();
   updateKPIs();
   renderQueue();
-  showView('queue');
+  showView('custom');
 } else {
   showView('settings');
 }
