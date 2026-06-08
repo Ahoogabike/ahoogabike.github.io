@@ -106,6 +106,10 @@
   .imp{background:var(--paper-2);border:1.5px dashed var(--velo);border-radius:12px;padding:16px 20px;margin-top:14px}
   .imp h4{font-family:'Bricolage Grotesque',sans-serif;color:var(--velo);font-size:1.02rem;margin-bottom:5px}
   .imp p{font-size:.92rem;color:var(--muted)}
+  .done{background:rgba(47,111,94,.07);border:1.5px solid rgba(47,111,94,.3);border-left:6px solid var(--velo);border-radius:12px;padding:18px 20px;margin-top:14px}
+  .done h4{font-family:'Bricolage Grotesque',sans-serif;font-size:1.05rem;color:var(--velo);margin-bottom:6px;display:flex;gap:9px;align-items:center}
+  .done p{font-size:.93rem}
+  .done .ask{margin-top:8px;font-size:.88rem;color:var(--ink)} .done .ask b{color:var(--velo)}
 
   footer{margin-top:60px;padding-top:24px;border-top:2px solid var(--ink);font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
 
@@ -119,7 +123,7 @@
   <header>
     <div class="kicker">Ahooga · Internal Operations Playbook</div>
     <h1>Custom Colour Programme — <span class="hl">Ordering Process</span></h1>
-    <p class="sub">End-to-end workflow for ordering a custom-painted (MAX Custom Colour) frame — across Ahooga, Deco Coat and Velovisie. Each step lists its target and how responsibility is shared.</p>
+    <p class="sub">End-to-end workflow for ordering a custom-painted (MAX Custom Colour) frame — across Ahooga, Deco Coat and Velovisie. Each step lists its target and how responsibility is shared. Frames are now scanned on the Deco Coat line and at Velovisie assembly, so stage and serial stay live in the Custom Colors app.</p>
     <div class="meta">
       <span class="chip"><b>Programme</b> MAX Custom Colour Frames</span>
       <span class="chip"><b>Steps</b> P100 → P800</span>
@@ -132,8 +136,8 @@
     <div class="s-head"><span class="s-num">01</span><h2>Who's involved</h2></div>
     <div class="players">
       <div class="player ah"><div class="role">Brand / Owner</div><h4>Ahooga</h4><p>Takes the sales order, processes it, plans production, and handles final delivery to the customer. HQ in Anderlecht (AH), Belgium.</p></div>
-      <div class="player dc"><div class="role">Painting partner</div><h4>Deco Coat</h4><p>Paints the frame in the custom colour, then ships the painted frame plus configuration stickers onward. Contact: Wietze Hoppe (NL).</p></div>
-      <div class="player vv"><div class="role">Assembly &amp; logistics</div><h4>Velovisie</h4><p>Assembles the bike from the painted frame and configuration sticker, labels the box, and ships the finished bike back to Anderlecht.</p></div>
+      <div class="player dc"><div class="role">Painting partner</div><h4>Deco Coat</h4><p>Paints the frame in the custom colour, then ships the painted frame plus configuration stickers onward. Scans each frame's stage on the line (waiting to paint → in painting → waiting to ship → shipped) so Ahooga sees live status and an estimated ship date. Contact: Wietze Hoppe (NL).</p></div>
+      <div class="player vv"><div class="role">Assembly &amp; logistics</div><h4>Velovisie</h4><p>Assembles the bike from the painted frame and configuration sticker, applies and registers the <span class="mono">MACU·······</span> frame serial (scanning the SO + serial to pair them), labels the box, and ships the finished bike back to Anderlecht.</p></div>
     </div>
   </section>
 
@@ -238,6 +242,19 @@
               <span class="rc r"><span class="rkey kr">R</span> <span class="who-dc">Deco Coat</span></span>
               <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
               <span class="rc i"><span class="rkey ki">I</span> <span class="who-vv">Velovisie</span></span>
+              <span class="next">→ P350</span>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="pid">P350</div>
+          <div class="card dc">
+            <div class="desc">Scan the frame's stage on the line at each station — waiting to paint → in painting → waiting to ship → shipped (Deco Coat Scan app)</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Live stage visible to Ahooga in the Custom Colors app; ship-date estimate auto-learned from scan timings.</span></div>
+            <div class="raci"><span class="rlab">RACI</span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-dc">Deco Coat</span></span>
+              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc i"><span class="rkey ki">I</span> <span class="who-ah">Planning</span></span>
               <span class="next">→ P400</span>
             </div>
           </div>
@@ -268,6 +285,19 @@
               <span class="rc r"><span class="rkey kr">R</span> <span class="who-vv">Velovisie</span></span>
               <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
               <span class="rc c"><span class="rkey kc">C</span> <span class="who-dc">Deco Coat</span></span>
+              <span class="next">→ P550</span>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="pid">P550</div>
+          <div class="card vv">
+            <div class="desc">Apply the <span class="mono">MACU·······</span> frame-serial sticker, then scan the SO + serial to register the pairing (VV Serial Scan app)</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Every bike's SO ↔ MACU serial is recorded in the shared registry, so any frame is traceable to its order.</span></div>
+            <div class="raci"><span class="rlab">RACI</span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-vv">Velovisie</span></span>
+              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc i"><span class="rkey ki">I</span> <span class="who-ah">Planning</span></span>
               <span class="next">→ P600</span>
             </div>
           </div>
@@ -362,17 +392,22 @@
   </section>
 
   <section id="gaps">
-    <div class="s-head"><span class="s-num">05</span><h2>Open points to resolve</h2></div>
-    <p class="s-lead">Operational gaps to close so the programme runs reliably.</p>
-    <div class="issue">
-      <h4>⚠ Serial number ↔ Sales Order is not linked</h4>
-      <p>Bike serial numbers (<span class="mono">MACU·······</span>) are not matched to a sales order in any document, so a physical bike can't be traced back to its SO.</p>
-      <p class="ask"><b>Action:</b> make the Order Book the single source of truth for serial ↔ SO, and a mandatory field at intake / assembly. The planner now tracks this via the Decocoat sync.</p>
+    <div class="s-head"><span class="s-num">05</span><h2>Status of past open points</h2></div>
+    <p class="s-lead">Where the programme's known gaps now stand.</p>
+    <div class="done">
+      <h4>✓ Serial ↔ Sales Order is now linked</h4>
+      <p>At assembly, Velovisie scans the SO and the <span class="mono">MACU·······</span> serial (VV Serial Scan, step P550). The pairing is saved to a shared registry that the Custom Colors app reads, so any physical bike traces back to its SO — no manual sheet entry.</p>
+      <p class="ask"><b>Owner &amp; trigger:</b> Velovisie, at assembly, for every frame — backup manual entry available in the same app and on the dashboard.</p>
+    </div>
+    <div class="done">
+      <h4>✓ Live line status &amp; ship-date estimate</h4>
+      <p>Deco Coat scans each frame's stage on the line (step P350). The Custom Colors app shows the live stage and auto-learns average stage durations to estimate when each frame will ship.</p>
+      <p class="ask"><b>Note:</b> estimates sharpen as more frames flow through and build up timing history.</p>
     </div>
     <div class="issue">
-      <h4>⚠ The serial registry is behind production</h4>
-      <p>The last registered bike was <span class="mono">MACU0000025</span>, yet many more frames have been produced.</p>
-      <p class="ask"><b>Action:</b> back-fill the missing serials against their orders, then set a clear owner and trigger for registering each new serial.</p>
+      <h4>⚠ Back-fill historic serials</h4>
+      <p>Frames produced before the scan system went live may still be missing their SO ↔ serial link.</p>
+      <p class="ask"><b>Action:</b> back-fill the older serials against their orders so the registry is complete from here on.</p>
     </div>
     <div class="imp">
       <h4>↻ Is the separate Order Form still needed?</h4>
