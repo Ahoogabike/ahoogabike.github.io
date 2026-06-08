@@ -26,7 +26,7 @@ main{padding:20px;max-width:1600px;margin:0 auto}
 .field input{padding:8px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none}
 .field input:focus{border-color:var(--accent)}
 .hint{font-size:11px;color:var(--text3);margin-top:3px}
-.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
+.kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px}
 .kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px}
 .kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:4px}
 .kpi-value{font-size:22px;font-weight:700}
@@ -47,6 +47,7 @@ tr:hover td{background:var(--surface2)}
 .b-b2c{background:var(--accent-bg);color:var(--accent)}
 .b-b2r{background:var(--success-bg);color:var(--success)}
 .b-pos{background:var(--warn-bg);color:var(--warn)}
+.b-repair{background:#efe6fb;color:#6b3fb0}
 .b-delivered{background:var(--success-bg);color:var(--success)}
 .b-pending{background:var(--warn-bg);color:var(--warn)}
 .alert{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:12px}
@@ -102,8 +103,9 @@ img,svg,canvas,video{max-width:100%;height:auto}
   <!-- SAV RATES TAB -->
   <div class="view" id="view-rates">
     <div style="background:var(--accent-bg);border:1px solid rgba(26,79,160,0.15);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--accent)">
-      <strong>How this works:</strong> SAV rate = parts sold after-sales ÷ bikes produced that use that part × 100.
-      A rate of 5% means 5 replacement parts were sold per 100 bikes produced.
+      <strong>How this works:</strong> SAV rate = parts replaced after-sales ÷ bikes produced that use that part × 100.
+      "Parts replaced" counts both parts sold via sale orders <em>and</em> parts installed via Repair Orders (warranty replacements — the "Add" lines).
+      A rate of 5% means 5 replacement parts per 100 bikes produced.
       Trend shows whether the rate is increasing (⚠ possible quality issue) or decreasing (✓ improving).
     </div>
 
@@ -114,6 +116,7 @@ img,svg,canvas,video{max-width:100%;height:auto}
         <option value="">All channels</option>
         <option value="b2c">B2C only</option>
         <option value="b2r">B2R only</option>
+        <option value="repair">Repair orders only</option>
       </select>
       <div class="sep"></div>
       <label style="font-size:12px;color:var(--text2)">Sort:</label>
@@ -172,6 +175,7 @@ img,svg,canvas,video{max-width:100%;height:auto}
       <div class="kpi"><div class="kpi-label">Unique parts</div><div class="kpi-value" id="k-parts">—</div><div class="kpi-sub">different components</div></div>
       <div class="kpi"><div class="kpi-label">B2C sales</div><div class="kpi-value" id="k-b2c" style="color:var(--accent)">—</div><div class="kpi-sub">online + POS</div></div>
       <div class="kpi"><div class="kpi-label">B2R sales</div><div class="kpi-value" id="k-b2r" style="color:var(--success)">—</div><div class="kpi-sub">resellers</div></div>
+      <div class="kpi"><div class="kpi-label">Repair parts</div><div class="kpi-value" id="k-repair" style="color:#6b3fb0">—</div><div class="kpi-sub">warranty repairs</div></div>
     </div>
 
     <div class="toolbar">
@@ -183,6 +187,7 @@ img,svg,canvas,video{max-width:100%;height:auto}
         <option value="online">Online only</option>
         <option value="pos_louise">POS Louise</option>
         <option value="pos_paris">POS Paris</option>
+        <option value="repair">Repair orders (warranty)</option>
       </select>
       <select id="d-status" onchange="renderDashboard()">
         <option value="">All orders</option>
@@ -211,11 +216,12 @@ img,svg,canvas,video{max-width:100%;height:auto}
           <th style="text-align:right">Total Delivered</th>
           <th style="text-align:right">B2C Delivered</th>
           <th style="text-align:right">B2R Delivered</th>
+          <th style="text-align:right">Repair</th>
           <th style="text-align:right">Pending</th>
           <th style="text-align:right">Orders</th>
           <th>Last sold</th>
         </tr></thead>
-        <tbody id="dash-tbody"><tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text3)">Connect and load data.</td></tr></tbody>
+        <tbody id="dash-tbody"><tr><td colspan="11" style="text-align:center;padding:32px;color:var(--text3)">Connect and load data.</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -231,6 +237,7 @@ img,svg,canvas,video{max-width:100%;height:auto}
         <option value="online">Online</option>
         <option value="pos_louise">POS Louise</option>
         <option value="pos_paris">POS Paris</option>
+        <option value="repair">Repair orders</option>
       </select>
       <select id="det-status" onchange="renderDetail()">
         <option value="">All orders</option>
@@ -273,7 +280,7 @@ let sortKey='date'; let sortDir=-1;
 
 // Sales team IDs: 1=B2R, 5=Online, 3=POS Louise, 8=POS Paris, 7=Marketing
 const TEAM_MAP={1:'b2r',5:'online',3:'pos_louise',8:'pos_paris',7:'marketing'};
-const TEAM_LABELS={'b2r':'B2R','online':'Online','pos_louise':'POS Louise','pos_paris':'POS Paris','marketing':'Marketing'};
+const TEAM_LABELS={'b2r':'B2R','online':'Online','pos_louise':'POS Louise','pos_paris':'POS Paris','marketing':'Marketing','repair':'Repair'};
 const B2C_TEAMS=['online','pos_louise','pos_paris'];
 
 let BOM_DATA = [];
@@ -563,6 +570,7 @@ function calcRates(){
   const filteredLines=allLines.filter(l=>{
     if(rChannel==='b2c'&&!l.isB2C)return false;
     if(rChannel==='b2r'&&l.channel!=='b2r')return false;
+    if(rChannel==='repair'&&l.channel!=='repair')return false;
     return l.delivered>0;
   });
 
@@ -767,6 +775,95 @@ async function loadProductionData(){
   console.log('[SAV] Production from serials: '+total+' bikes across '+Object.keys(bikeTemplateProdCount).length+' models');
 }
 
+// ── REPAIR ORDERS ─────────────────────────────────────────
+// For a period, warranty parts were replaced via Repair Orders instead of
+// sale orders. Each repair "Add" line is a new part installed to replace a
+// defective one — i.e. an after-sales (SAV) part. We pull those and fold them
+// into allLines with channel 'repair' so they count toward SAV totals & rates.
+async function loadRepairData(){
+  try{
+    // 1. Repair orders that have been worked on (parts actually consumed)
+    let repairs=[];
+    try{
+      repairs=await odoo('repair.order','search_read',
+        [[['state','in',['under_repair','done']]]],
+        {fields:['name','schedule_date','partner_id','product_id','lot_id','under_warranty','state'],limit:20000});
+    }catch(e){
+      // Fallback for DBs that don't expose schedule_date / under_warranty
+      console.warn('[SAV] repair.order full read failed, retrying minimal:',e.message);
+      repairs=await odoo('repair.order','search_read',
+        [[['state','in',['under_repair','done']]]],
+        {fields:['name','partner_id','product_id','state'],limit:20000});
+    }
+    if(!repairs.length){ console.log('[SAV] No repair orders found'); return 0; }
+
+    const repairMap={};
+    for(const r of repairs){
+      repairMap[r.id]={
+        name:r.name||'',
+        date:r.schedule_date?String(r.schedule_date).split(' ')[0]:null,
+        customer:arr(r.partner_id)[1]||'',
+        underWarranty:!!r.under_warranty,
+      };
+    }
+    const repairIds=repairs.map(r=>r.id);
+
+    // 2. Parts ADDED during repair = the new parts installed (the SAV replacements).
+    //    repair_line_type 'add' (vs 'remove' = the defective part taken out).
+    let moves=[];
+    try{
+      moves=await odoo('stock.move','search_read',
+        [[['repair_id','in',repairIds],['repair_line_type','=','add']]],
+        {fields:['product_id','product_uom_qty','quantity','repair_id'],limit:50000});
+    }catch(e){
+      // Older Odoo used quantity_done instead of quantity
+      console.warn('[SAV] stock.move quantity read failed, retrying quantity_done:',e.message);
+      moves=await odoo('stock.move','search_read',
+        [[['repair_id','in',repairIds],['repair_line_type','=','add']]],
+        {fields:['product_id','product_uom_qty','quantity_done','repair_id'],limit:50000});
+    }
+
+    let added=0;
+    for(const m of moves){
+      const done=parseFloat(m.quantity!=null?m.quantity:m.quantity_done)||0;
+      const demand=parseFloat(m.product_uom_qty)||0;
+      const used=done>0?done:demand;          // count parts installed; fall back to demand
+      if(used<=0) continue;
+      const repId=arr(m.repair_id)[0];
+      const rep=repairMap[repId]; if(!rep) continue;
+      const code=(arr(m.product_id)[1]||'').match(/^\[([^\]]+)\]/)?.[1]||'';
+      if(!code) continue;
+      if(/^AHF[MA]/i.test(code)) continue;     // skip complete bikes
+      const bom=BOM_MAP[code];
+      allLines.push({
+        soId:repId,
+        soName:rep.name,
+        orderName:rep.name,
+        customer:rep.customer,
+        channel:'repair',
+        isB2C:false,
+        date:rep.date,
+        pn:code,
+        partName:bom?.name||(arr(m.product_id)[1]||'').replace(/^\[[^\]]+\]\s*/,'')||code,
+        category:bom?.category||'Other',
+        supplier:bom?.supplier||'',
+        ordered:demand,
+        delivered:used,
+        pending:0,
+        isDelivered:true,
+        isRepair:true,
+        underWarranty:rep.underWarranty,
+      });
+      added++;
+    }
+    console.log('[SAV] Loaded '+added+' repair part line(s) from '+repairs.length+' repair order(s)');
+    return added;
+  }catch(e){
+    console.warn('[SAV] Repair data load failed:',e.message);
+    return 0;
+  }
+}
+
 async function loadData(){
   const user=document.getElementById('cfg-user').value.trim();
   const key=document.getElementById('cfg-key').value.trim();
@@ -856,6 +953,11 @@ async function loadData(){
       });
     }
 
+    // 4. Load repair-order parts (warranty replacements done via Repair Orders
+    //    instead of sale orders) and append them as SAV lines.
+    alert_('Loading repair orders…','info');
+    const repairCount=await loadRepairData();
+
     populateFilters();
     renderDashboard();
     renderDetail();
@@ -863,7 +965,7 @@ async function loadData(){
 
     document.getElementById('conn-pill').textContent=`${allLines.length} lines · ${new Date().toLocaleTimeString()}`;
     document.getElementById('conn-pill').className='pill ok';
-    alert_(`✓ Loaded ${allLines.length} SAV lines. Loading production data…`,'success');
+    alert_(`✓ Loaded ${allLines.length} SAV lines (incl. ${repairCount} repair-order parts). Loading production data…`,'success');
 
     // Also load production data for rate calculation
     try{
@@ -884,11 +986,13 @@ function updateKPIs(){
   const parts=new Set(allLines.map(l=>l.pn)).size;
   const b2cQty=allLines.filter(l=>l.isB2C).reduce((s,l)=>s+l.delivered,0);
   const b2rQty=allLines.filter(l=>l.channel==='b2r').reduce((s,l)=>s+l.delivered,0);
+  const repairQty=allLines.filter(l=>l.channel==='repair').reduce((s,l)=>s+l.delivered,0);
   document.getElementById('k-lines').textContent=allLines.length.toLocaleString();
   document.getElementById('k-qty').textContent=totalQty.toLocaleString();
   document.getElementById('k-parts').textContent=parts.toLocaleString();
   document.getElementById('k-b2c').textContent=b2cQty.toLocaleString();
   document.getElementById('k-b2r').textContent=b2rQty.toLocaleString();
+  document.getElementById('k-repair').textContent=repairQty.toLocaleString();
 }
 
 function populateFilters(){
@@ -922,6 +1026,7 @@ function filterLines(searchId,channelId,statusId,yearId,fromId,toId){
       if(channel==='online'&&l.channel!=='online')return false;
       if(channel==='pos_louise'&&l.channel!=='pos_louise')return false;
       if(channel==='pos_paris'&&l.channel!=='pos_paris')return false;
+      if(channel==='repair'&&l.channel!=='repair')return false;
     }
     if(status==='delivered'&&l.delivered<=0)return false;
     if(status==='pending'&&l.pending<=0)return false;
@@ -941,11 +1046,12 @@ function renderDashboard(){
   // Group by part
   const byPart={};
   for(const l of lines){
-    if(!byPart[l.pn])byPart[l.pn]={pn:l.pn,name:l.partName,category:l.category,supplier:l.supplier,totalDelivered:0,b2cDelivered:0,b2rDelivered:0,pending:0,orders:new Set(),lastDate:null};
+    if(!byPart[l.pn])byPart[l.pn]={pn:l.pn,name:l.partName,category:l.category,supplier:l.supplier,totalDelivered:0,b2cDelivered:0,b2rDelivered:0,repairDelivered:0,pending:0,orders:new Set(),lastDate:null};
     const p=byPart[l.pn];
     p.totalDelivered+=l.delivered;
     if(l.isB2C)p.b2cDelivered+=l.delivered;
     if(l.channel==='b2r')p.b2rDelivered+=l.delivered;
+    if(l.channel==='repair')p.repairDelivered+=l.delivered;
     p.pending+=l.pending;
     p.orders.add(l.orderName);
     if(l.date&&(!p.lastDate||l.date>p.lastDate))p.lastDate=l.date;
@@ -959,7 +1065,7 @@ function renderDashboard(){
   else if(sort==='category')parts.sort((a,b)=>a.category.localeCompare(b.category));
 
   const tbody=document.getElementById('dash-tbody');
-  if(!parts.length){tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text3)">No SAV sales found.</td></tr>';return;}
+  if(!parts.length){tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--text3)">No SAV sales found.</td></tr>';return;}
 
   tbody.innerHTML=parts.map(p=>`<tr>
     <td style="font-family:monospace;font-size:11px;color:var(--text3)">${p.pn}</td>
@@ -969,6 +1075,7 @@ function renderDashboard(){
     <td style="text-align:right;font-weight:700;color:var(--accent)">${p.totalDelivered.toLocaleString()}</td>
     <td style="text-align:right;color:var(--accent)">${p.b2cDelivered.toLocaleString()}</td>
     <td style="text-align:right;color:var(--success)">${p.b2rDelivered.toLocaleString()}</td>
+    <td style="text-align:right;color:#6b3fb0">${p.repairDelivered?p.repairDelivered.toLocaleString():'—'}</td>
     <td style="text-align:right;color:${p.pending>0?'var(--warn)':'var(--text3)'}">${p.pending>0?p.pending.toLocaleString():'—'}</td>
     <td style="text-align:right;color:var(--text3)">${p.orders}</td>
     <td style="font-size:12px">${fd(p.lastDate)}</td>
@@ -999,6 +1106,7 @@ function renderDetail(){
     if(ch==='online')return'<span class="badge b-b2c">Online</span>';
     if(ch==='pos_louise')return'<span class="badge b-pos">POS Louise</span>';
     if(ch==='pos_paris')return'<span class="badge b-pos">POS Paris</span>';
+    if(ch==='repair')return'<span class="badge b-repair">Repair</span>';
     return`<span class="badge" style="background:var(--surface2)">${ch}</span>`;
   };
 
@@ -1043,6 +1151,7 @@ function calcRates(){
   const filteredLines=allLines.filter(l=>{
     if(rChannel==='b2c'&&!l.isB2C)return false;
     if(rChannel==='b2r'&&l.channel!=='b2r')return false;
+    if(rChannel==='repair'&&l.channel!=='repair')return false;
     return l.delivered>0;
   });
 
