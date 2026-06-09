@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Deco Coat — Location Barcodes</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<style>
+  body{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a1a;margin:0;padding:24px;background:#f4f1e8}
+  .bar{max-width:760px;margin:0 auto 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  h1{font-size:20px;margin:0}
+  p{color:#555;font-size:13px;margin:0;flex:1;min-width:240px}
+  button{font:inherit;font-weight:700;border:none;border-radius:10px;padding:11px 16px;background:#c0451f;color:#fff;cursor:pointer}
+  .sheet{max-width:760px;margin:0 auto}
+  .loc{background:#fff;border:2px solid #1a1a1a;border-radius:14px;padding:22px;margin-bottom:18px;text-align:center;page-break-inside:avoid}
+  .loc .stage{font-size:30px;font-weight:800;letter-spacing:-.01em;margin-bottom:2px}
+  .loc .sub{font-size:14px;color:#666;margin-bottom:14px}
+  .loc svg{max-width:100%}
+  @media print{ body{background:#fff;padding:0} .bar{display:none} .loc{margin:0 0 24px} }
+</style>
+</head>
+<body>
+  <div class="bar">
+    <h1>Deco Coat — Line location barcodes</h1>
+    <p>Print this, then stick one barcode at each zone of the line. Deco Coat scans the order's SO barcode, then the barcode of the zone the frame is in.</p>
+    <button onclick="window.print()">🖨 Print / Save as PDF</button>
+  </div>
+  <div class="sheet" id="sheet"></div>
+
+<script>
+  const STAGES = [
+    { code:'WAITPAINT', label:'WAITING TO BE PAINTED', sub:'frame in queue, not yet painted' },
+    { code:'PAINTING',  label:'IN PAINTING',           sub:'frame on the painting line' },
+    { code:'WAITSHIP',  label:'WAITING TO BE SHIPPED',  sub:'painted, ready to leave' },
+    { code:'SHIPPED',   label:'SHIPPED',               sub:'left Deco Coat → Velovisie' },
+  ];
+  document.getElementById('sheet').innerHTML = STAGES.map(s =>
+    `<div class="loc">
+       <div class="stage">${s.label}</div>
+       <div class="sub">${s.sub}</div>
+       <svg class="bc" data-code="DCLOC|${s.code}"></svg>
+     </div>`).join('');
+  document.querySelectorAll('svg.bc').forEach(el=>{
+    try{ JsBarcode(el, el.getAttribute('data-code'), {format:'CODE128', height:90, fontSize:20, margin:8, displayValue:true}); }catch(e){}
+  });
+</script>
+</body>
+</html>

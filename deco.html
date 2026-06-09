@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>Deco Coat · Ahooga Custom Colour</title>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<style>
+  :root{ --bg:#14130f; --panel:#1d1c17; --panel2:#242219; --line:#34322a; --ink:#f4f1e8; --muted:#a39e8d;
+         --accent:#c0451f; --ok:#3ec46d;
+         --wait:#8a8a8a; --paint:#c8791a; --ship:#2f6f9e; --done:#1a7f4b; }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+       padding:0 16px 48px;max-width:1100px;margin:0 auto}
+  header{padding:20px 0 8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  header .logo{font-weight:800;letter-spacing:-.02em;font-size:20px}
+  header .logo span{color:var(--accent)}
+  header .tag{margin-left:auto;font-size:11px;color:var(--muted);font-family:ui-monospace,monospace}
+  nav.tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:18px;overflow-x:auto}
+  nav.tabs button{font:inherit;font-weight:700;background:none;border:none;color:var(--muted);
+    padding:12px 14px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+  nav.tabs button.active{color:var(--ink);border-bottom-color:var(--accent)}
+  .tab{display:none}.tab.active{display:block;animation:fade .2s}
+  @keyframes fade{from{opacity:.4}to{opacity:1}}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  button.btn{font:inherit;font-weight:700;border:none;border-radius:11px;padding:11px 15px;cursor:pointer}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn-ok{background:var(--ok);color:#06210f}
+  .btn-sm{padding:7px 11px;font-size:13px;border-radius:9px}
+  .muted{color:var(--muted)}
+  .hint{font-size:12px;color:var(--muted)}
+  .msg{border-radius:12px;padding:12px 14px;font-size:14px;margin-bottom:14px;display:none}
+  .msg.ok{display:block;background:#10331e;border:1px solid #2c6b40;color:#bff0cf}
+  .msg.err{display:block;background:#3a1c12;border:1px solid #7a3320;color:#f4c4b2}
+  .setup{background:#3a1c12;border:1px solid #7a3320;color:#f4c4b2;border-radius:12px;padding:12px 14px;font-size:13px;margin-bottom:14px}
+
+  /* dashboard board */
+  .board{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .col{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;min-height:120px}
+  .col-head{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.06em;padding:4px 4px 10px;border-bottom:1px solid var(--line);margin-bottom:10px}
+  .col-head .swatch{width:10px;height:10px;border-radius:3px;flex:none}
+  .col-head .cnt{margin-left:auto;background:var(--panel2);border-radius:20px;padding:1px 9px;font-size:12px;color:var(--muted)}
+  .bcard{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:11px;margin-bottom:9px}
+  .bcard .so{font-weight:800;font-size:15px;font-family:ui-monospace,monospace}
+  .bcard .fr{font-size:11px;color:var(--muted);font-family:ui-monospace,monospace;margin-top:2px}
+  .bcard .when{font-size:10.5px;color:var(--muted);margin-top:5px}
+  .bcard .moves{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
+  .moves button{font:inherit;font-size:10px;font-weight:700;border:1px solid var(--line);background:#000;color:var(--muted);
+    border-radius:7px;padding:5px 7px;cursor:pointer}
+  .moves button.cur{background:var(--accent);color:#fff;border-color:var(--accent);cursor:default}
+  .col-empty{font-size:12px;color:var(--muted);text-align:center;padding:14px 0}
+
+  /* scan tab */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px}
+  .slot{display:flex;align-items:center;gap:12px}
+  .slot .n{flex:none;width:28px;height:28px;border-radius:50%;background:var(--line);color:var(--ink);
+           display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+  .slot.done .n{background:var(--ok);color:#06210f}
+  .slot .lab{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .slot .val{font-size:20px;font-weight:700;font-family:ui-monospace,monospace;margin-top:1px;word-break:break-all}
+  .slot .val.empty{color:var(--muted);font-weight:400;font-size:14px;font-family:inherit}
+  .slot input{width:100%;background:#000;border:1px solid var(--line);border-radius:9px;color:var(--ink);
+              font-size:18px;font-family:ui-monospace,monospace;padding:8px 10px;margin-top:4px}
+  #reader{border-radius:14px;overflow:hidden;margin-bottom:8px;background:#000}#reader:empty{display:none}
+  .stages{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+  .stage{border:1px solid var(--line);background:#000;color:var(--ink);border-radius:12px;padding:14px 10px;font-size:14px;text-align:center;cursor:pointer}
+  .stage.sel{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .stage small{display:block;font-size:10px;font-weight:400;color:var(--muted);margin-top:3px}
+  .stage.sel small{color:rgba(255,255,255,.85)}
+  .frame-known{font-size:12px;color:var(--ok);margin-top:6px;display:none}
+  h3{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:18px 0 8px}
+  .rec{display:flex;gap:10px;align-items:baseline;font-family:ui-monospace,monospace;font-size:13px;padding:9px 0;border-bottom:1px solid var(--line)}
+  .rec .so{color:var(--accent);font-weight:700}.rec .st{font-weight:700}.rec .t{margin-left:auto;color:var(--muted);font-size:11px}
+
+  /* locations tab */
+  .loc{background:#fff;color:#1a1a1a;border:2px solid #1a1a1a;border-radius:14px;padding:20px;margin-bottom:16px;text-align:center}
+  .loc .stage-t{font-size:26px;font-weight:800;margin-bottom:2px}
+  .loc .sub{font-size:13px;color:#666;margin-bottom:12px}
+  .loc svg{max-width:100%}
+
+  @media (max-width:760px){ .board{grid-template-columns:1fr 1fr} }
+  @media (max-width:460px){ .board{grid-template-columns:1fr} .stages{grid-template-columns:1fr} body{padding:0 12px 40px} }
+  @media print{
+    body{background:#fff;color:#000;padding:0;max-width:none}
+    header,nav.tabs,#loc-print-bar,.msg,#setup-warn{display:none!important}
+    .tab{display:none!important}#tab-loc{display:block!important}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Deco Coat · <span>Ahooga Custom Colour</span></div>
+  <div class="tag">frame line</div>
+</header>
+
+<nav class="tabs">
+  <button id="t-dash" class="active" onclick="showTab('dash')">📋 Dashboard</button>
+  <button id="t-scan" onclick="showTab('scan')">📷 Scan</button>
+  <button id="t-loc"  onclick="showTab('loc')">🏷 Locations</button>
+</nav>
+
+<div id="setup-warn" class="setup" style="display:none">⚠ Not configured — set <b>WORKER_URL</b> at the top of the script.</div>
+<div id="msg" class="msg"></div>
+
+<!-- ───────── DASHBOARD ───────── -->
+<section id="tab-dash" class="tab active">
+  <div class="row" style="margin-bottom:14px">
+    <div>
+      <div style="font-size:17px;font-weight:800">Frames at Deco Coat</div>
+      <div class="hint" id="dash-sub">Loading…</div>
+    </div>
+    <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="loadStatus(true)">↻ Refresh</button>
+    <label class="hint row" style="gap:6px"><input type="checkbox" id="show-shipped" onchange="renderDash()"> show shipped</label>
+  </div>
+  <div class="board" id="board"></div>
+</section>
+
+<!-- ───────── SCAN ───────── -->
+<section id="tab-scan" class="tab">
+  <div class="card">
+    <div class="slot" id="slot-so">
+      <div class="n">1</div>
+      <div style="flex:1">
+        <div class="lab">Order (SO)</div>
+        <div id="so-val" class="val empty">scan the box label…</div>
+        <input id="so-in" inputmode="text" placeholder="or type S23911" style="display:none"/>
+        <div id="frame-known" class="frame-known">✓ frame already linked — just set the stage</div>
+      </div>
+    </div>
+    <div class="slot" id="slot-frame" style="margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
+      <div class="n">2</div>
+      <div style="flex:1">
+        <div class="lab">Unpainted frame ID <span class="muted" style="text-transform:none;letter-spacing:0">· first scan only</span></div>
+        <div id="frame-val" class="val empty">scan the frame's barcode / QR…</div>
+        <input id="frame-in" inputmode="text" placeholder="or type the frame ID" style="display:none"/>
+      </div>
+    </div>
+  </div>
+
+  <div id="reader"></div>
+  <div id="cam-hint" class="hint" style="text-align:center;margin-bottom:10px"></div>
+
+  <button id="scan-btn" class="btn btn-primary" style="width:100%">📷 Scan (SO · frame · location)</button>
+  <div class="row" style="margin-top:8px">
+    <button id="manual-btn" class="btn btn-ghost btn-sm">⌨ Type SO</button>
+    <button id="manualf-btn" class="btn btn-ghost btn-sm">⌨ Type frame</button>
+    <button id="reset-btn" class="btn btn-ghost btn-sm">↺ Reset</button>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="lab" style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">Stage — scan the location barcode, or tap</div>
+    <div class="stages" id="stages"></div>
+  </div>
+
+  <button id="submit-btn" class="btn btn-ok" style="width:100%" disabled>✓ Update stage</button>
+
+  <h3>Recent updates</h3>
+  <div id="recent"><div class="hint">—</div></div>
+</section>
+
+<!-- ───────── LOCATIONS ───────── -->
+<section id="tab-loc" class="tab">
+  <div class="row" id="loc-print-bar" style="margin-bottom:14px">
+    <div class="hint" style="flex:1;min-width:220px">Print these and stick one at each zone of the line. Deco Coat scans the order's SO, then the barcode of the zone the frame is in.</div>
+    <button class="btn btn-primary btn-sm" onclick="window.print()">🖨 Print / Save as PDF</button>
+  </div>
+  <div id="loc-sheet"></div>
+</section>
+
+<script>
+/* ─────────────  CONFIG  ─────────────
+   WORKER_URL : your Cloudflare Worker URL (same one as the VV scan / app)
+   WRITE_KEY  : same string you set as WRITE_KEY in the Worker, or '' if none
+*/
+const WORKER_URL = "https://vv-serials.massimiliano-d74.workers.dev";
+const WRITE_KEY  = "";
+/* ──────────────────────────────────── */
+
+const STAGES = [
+  { code:'WAITPAINT', label:'Waiting to paint', short:'Wait',   sub:'in queue',        color:'var(--wait)' },
+  { code:'PAINTING',  label:'In painting',      short:'Paint',  sub:'on the line',     color:'var(--paint)' },
+  { code:'WAITSHIP',  label:'Waiting to ship',  short:'Ready',  sub:'painted, ready',  color:'var(--ship)' },
+  { code:'SHIPPED',   label:'Shipped',          short:'Shipped',sub:'left to VV',      color:'var(--done)' },
+];
+const stageOf = c => STAGES.find(s=>s.code===c) || {label:c,short:c,color:'var(--muted)'};
+const $ = id => document.getElementById(id);
+if(!WORKER_URL){ $('setup-warn').style.display='block'; }
+
+let statusList = [];   // [{so,status,ts,frameId,stages}]
+function showMsg(t,k){ const m=$('msg'); m.textContent=t; m.className='msg '+k; if(k==='ok') setTimeout(()=>{m.className='msg';},3500); }
+function flash(){ try{ navigator.vibrate && navigator.vibrate(50);}catch(e){} }
+function ago(ts){ if(!ts) return ''; const d=Date.now()-Date.parse(ts); const m=Math.round(d/60000);
+  if(m<1) return 'just now'; if(m<60) return m+'m ago'; const h=Math.round(m/60); if(h<24) return h+'h ago';
+  return new Date(ts).toLocaleDateString([], {month:'short',day:'numeric'}); }
+const cleanSO = s => { const m=String(s).toUpperCase().match(/S\s*\d{3,}/); return m?m[0].replace(/\s+/g,''):String(s).trim().toUpperCase(); };
+const cleanFrame = s => String(s).trim().toUpperCase().replace(/\s+/g,'');
+function looksLikeSO(s){ return /^\s*S\s*\d{3,}\s*$/i.test(String(s)); }
+function frameForSO(so){ const r=statusList.find(x=>x.so===so); return r&&r.frameId?r.frameId:''; }
+
+/* ---------- tabs ---------- */
+function showTab(name){
+  ['dash','scan','loc'].forEach(t=>{
+    $('tab-'+t).classList.toggle('active', t===name);
+    $('t-'+t).classList.toggle('active', t===name);
+  });
+  if(name!=='scan') stopCam();
+  if(name==='dash') loadStatus(false);
+}
+
+/* ---------- data ---------- */
+async function loadStatus(force){
+  if(!WORKER_URL) return;
+  if($('dash-sub')) $('dash-sub').textContent = 'Loading…';
+  try{
+    const resp = await fetch(WORKER_URL+'?type=status'); statusList = await resp.json();
+    if(!Array.isArray(statusList)) statusList=[];
+    renderDash(); renderRecent();
+  }catch(e){ if($('dash-sub')) $('dash-sub').textContent='Could not reach the registry.'; }
+}
+async function postStatus(so, stage, frameId){
+  const headers={'Content-Type':'application/json'}; if(WRITE_KEY) headers['x-api-key']=WRITE_KEY;
+  const payload={ type:'status', so, by:'DecoCoat' };
+  if(stage) payload.status=stage; if(frameId) payload.frameId=frameId;
+  const resp = await fetch(WORKER_URL, { method:'POST', headers, body:JSON.stringify(payload) });
+  const data = await resp.json(); if(!resp.ok) throw new Error(data.error||('HTTP '+resp.status));
+  return data;
+}
+
+/* ---------- dashboard ---------- */
+async function moveStage(so, stage){
+  try{ await postStatus(so, stage); flash(); showMsg('✓ '+so+' → '+stageOf(stage).label,'ok'); await loadStatus(true); }
+  catch(e){ showMsg('Could not update '+so+': '+(e&&e.message||e),'err'); }
+}
+window.moveStage = moveStage;
+function renderDash(){
+  const showShipped = $('show-shipped').checked;
+  const inHouse = statusList.filter(r=> r.status && r.status!=='SHIPPED');
+  $('dash-sub').textContent = inHouse.length + ' frame'+(inHouse.length===1?'':'s')+' in house'
+    + (showShipped ? ' · showing shipped too' : '');
+  $('board').innerHTML = STAGES.map(s=>{
+    if(s.code==='SHIPPED' && !showShipped) {
+      const n = statusList.filter(r=>r.status==='SHIPPED').length;
+      return `<div class="col"><div class="col-head"><span class="swatch" style="background:${s.color}"></span>${s.label}<span class="cnt">${n}</span></div>
+        <div class="col-empty">tick “show shipped”.</div></div>`;
+    }
+    const items = statusList.filter(r=>r.status===s.code).sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
+    const cards = items.map(r=>{
+      const moves = STAGES.map(t=> t.code===r.status
+        ? `<button class="cur" title="current">${t.short}</button>`
+        : `<button onclick="moveStage('${r.so}','${t.code}')" title="move to ${t.label}">${t.short}</button>`).join('');
+      return `<div class="bcard">
+        <div class="so">${r.so}</div>
+        ${r.frameId?`<div class="fr">frame · ${r.frameId}</div>`:'<div class="fr" style="opacity:.55">no frame ID yet</div>'}
+        <div class="when">updated ${ago(r.ts)}</div>
+        <div class="moves">${moves}</div>
+      </div>`;
+    }).join('');
+    return `<div class="col"><div class="col-head"><span class="swatch" style="background:${s.color}"></span>${s.label}<span class="cnt">${items.length}</span></div>
+      ${cards || '<div class="col-empty">—</div>'}</div>`;
+  }).join('');
+}
+
+/* ---------- scan ---------- */
+let st = { so:'', frameId:'', stage:'', scanner:null, scanning:false, manual:false, manualf:false };
+$('stages').innerHTML = STAGES.map(s =>
+  `<div class="stage" data-code="${s.code}" onclick="pickStage('${s.code}')">${s.label}<small>${s.sub}</small></div>`).join('');
+function renderScan(){
+  $('so-val').textContent = st.so || 'scan the box label…';
+  $('so-val').className='val'+(st.so?'':' empty'); $('slot-so').classList.toggle('done',!!st.so);
+  $('frame-val').textContent = st.frameId || 'scan the frame\u2019s barcode / QR…';
+  $('frame-val').className='val'+(st.frameId?'':' empty'); $('slot-frame').classList.toggle('done',!!st.frameId);
+  const known = st.so && frameForSO(st.so);
+  $('frame-known').style.display = known ? 'block' : 'none';
+  document.querySelectorAll('.stage').forEach(el=>el.classList.toggle('sel', el.getAttribute('data-code')===st.stage));
+  $('submit-btn').disabled = !(st.so && (st.stage || st.frameId));
+  $('scan-btn').textContent = st.scanning ? '■ Stop camera' : '📷 Scan (SO · frame · location)';
+}
+window.pickStage = c => { st.stage=c; flash(); renderScan(); };
+function parseLocation(text){ const up=String(text).toUpperCase(); const m=up.match(/DCLOC[|\-: ]+([A-Z]+)/);
+  const code=m?m[1]:up.replace(/[^A-Z]/g,''); return STAGES.find(s=>s.code===code)?code:''; }
+const SUPPORTED = (typeof Html5QrcodeSupportedFormats!=='undefined')
+  ? [Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.CODE_39, Html5QrcodeSupportedFormats.QR_CODE] : undefined;
+function onDetected(text){
+  const raw=String(text).trim(); if(!raw) return;
+  const stage=parseLocation(raw);
+  if(stage){ st.stage=stage; flash(); renderScan(); $('cam-hint').textContent='Stage set. Update, or keep scanning.'; return; }
+  if(looksLikeSO(raw) && !st.so){ st.so=cleanSO(raw); flash(); renderScan();
+    $('cam-hint').textContent = frameForSO(st.so) ? 'Order set — frame already linked. Scan a location or tap a stage.' : 'Order set. Scan the frame barcode, then a location.'; return; }
+  const v=cleanFrame(raw);
+  if(v && v!==st.so){ st.frameId=v; flash(); renderScan(); $('cam-hint').textContent='Frame ID set. Scan a location or tap a stage.'; return; }
+}
+async function startCam(){
+  if(typeof Html5Qrcode==='undefined'){ showMsg('Scanner still loading (or offline). Type the SO / frame and tap a stage.','err'); return; }
+  if(!st.scanner) st.scanner = new Html5Qrcode("reader", SUPPORTED?{formatsToSupport:SUPPORTED,verbose:false}:{verbose:false});
+  try{ st.scanning=true; renderScan();
+    await st.scanner.start({facingMode:"environment"},{fps:12,qrbox:{width:300,height:200},aspectRatio:1.3}, onDetected, ()=>{});
+    $('cam-hint').textContent = !st.so?'Point at the SO barcode on the box label.':(!st.frameId?'Scan the frame\u2019s barcode / QR.':'Scan a location barcode (or tap a stage).');
+  }catch(e){ st.scanning=false; renderScan(); showMsg('Camera unavailable: '+(e&&e.message||e)+'. Type the SO / frame and tap a stage. (Camera needs an https page.)','err'); }
+}
+async function stopCam(){ if(st.scanner&&st.scanning){ try{await st.scanner.stop();}catch(e){} } st.scanning=false; if($('cam-hint'))$('cam-hint').textContent=''; renderScan(); }
+$('scan-btn').onclick = ()=>{ st.scanning?stopCam():startCam(); };
+$('manual-btn').onclick = ()=>{ st.manual=!st.manual; $('so-val').style.display=st.manual?'none':'block'; $('so-in').style.display=st.manual?'block':'none'; if(st.manual){stopCam();$('so-in').value=st.so;} };
+$('manualf-btn').onclick = ()=>{ st.manualf=!st.manualf; $('frame-val').style.display=st.manualf?'none':'block'; $('frame-in').style.display=st.manualf?'block':'none'; if(st.manualf){stopCam();$('frame-in').value=st.frameId;} };
+$('so-in').oninput = e=>{ st.so=cleanSO(e.target.value); renderScan(); };
+$('frame-in').oninput = e=>{ st.frameId=cleanFrame(e.target.value); renderScan(); };
+$('reset-btn').onclick = ()=>{ stopCam(); st.so='';st.frameId='';st.stage=''; $('so-in').value='';$('frame-in').value=''; $('msg').className='msg'; renderScan(); };
+$('submit-btn').onclick = async ()=>{
+  if(!WORKER_URL){ showMsg('Set WORKER_URL in this file first.','err'); return; }
+  $('submit-btn').disabled=true; $('submit-btn').textContent='Saving…';
+  try{
+    await postStatus(st.so, st.stage||'', st.frameId||'');
+    const lab = st.stage ? stageOf(st.stage).label : 'frame recorded';
+    showMsg('✓ '+st.so+(st.frameId?' · frame '+st.frameId:'')+' → '+lab,'ok');
+    st.so='';st.frameId='';st.stage=''; $('so-in').value='';$('frame-in').value=''; renderScan();
+    await loadStatus(true);
+  }catch(e){ showMsg('Could not save: '+(e&&e.message||e),'err'); }
+  $('submit-btn').textContent='✓ Update stage'; renderScan();
+};
+function renderRecent(){
+  const list=[...statusList].sort((a,b)=>(b.ts||'').localeCompare(a.ts||'')).slice(0,12);
+  $('recent').innerHTML = list.map(r=>{
+    const fr=r.frameId?`<span class="muted">frame ${r.frameId}</span>`:'';
+    return `<div class="rec"><span class="so">${r.so}</span><span class="st">${stageOf(r.status).label}</span>${fr}<span class="t">${ago(r.ts)}</span></div>`;
+  }).join('') || '<div class="hint">No updates yet.</div>';
+}
+
+/* ---------- locations ---------- */
+const LOC = [
+  { code:'WAITPAINT', label:'WAITING TO BE PAINTED', sub:'frame in queue, not yet painted' },
+  { code:'PAINTING',  label:'IN PAINTING',           sub:'frame on the painting line' },
+  { code:'WAITSHIP',  label:'WAITING TO BE SHIPPED',  sub:'painted, ready to leave' },
+  { code:'SHIPPED',   label:'SHIPPED',               sub:'left Deco Coat → Velovisie' },
+];
+$('loc-sheet').innerHTML = LOC.map(s=>
+  `<div class="loc"><div class="stage-t">${s.label}</div><div class="sub">${s.sub}</div><svg class="bc" data-code="DCLOC|${s.code}"></svg></div>`).join('');
+function renderBarcodes(){ if(typeof JsBarcode==='undefined') return;
+  document.querySelectorAll('svg.bc').forEach(el=>{ try{ JsBarcode(el, el.getAttribute('data-code'), {format:'CODE128',height:90,fontSize:20,margin:8,displayValue:true}); }catch(e){} }); }
+
+/* init */
+renderScan(); renderBarcodes(); loadStatus(false);
+setInterval(()=>{ if($('tab-dash').classList.contains('active')) loadStatus(false); }, 30000);
+</script>
+</body>
+</html>
