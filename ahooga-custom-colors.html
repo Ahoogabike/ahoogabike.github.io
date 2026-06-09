@@ -364,7 +364,7 @@ main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
             <th>Rack</th>
             <th>Deadline</th>
             <th>Decocoat Status</th>
-            <th>Serial</th>
+            <th>Serial&nbsp;/ Frame</th>
             <th>Est. Delivery</th>
             <th>PO Deco&nbsp;Coat</th>
             <th>PO Okazi</th>
@@ -730,6 +730,65 @@ let decoStatus = {};       // SO# -> { status, ts, stages:{WAITPAINT,PAINTING,WA
 const DECO_STAGES = ['WAITPAINT','PAINTING','WAITSHIP','SHIPPED'];
 const DECO_STAGE_LABEL = { WAITPAINT:'Waiting to paint', PAINTING:'In painting', WAITSHIP:'Waiting to ship', SHIPPED:'Shipped' };
 function decoStageOf(o){ const k=soKey(o&&o.name); return k && decoStatus[k] ? decoStatus[k] : null; }
+function frameIdOf(o){ const r=decoStageOf(o); return r && r.frameId ? r.frameId : ''; }
+
+// ── Ahooga website colour palette (name → hex), used to draw the colour dots ──
+const AHOOGA_PALETTE = {
+  'parisian white':'#F3F1EA','atomium grey':'#C6C7C9','berlin steel grey':'#7E8794',
+  'nightfall blue':'#172339','midnight black':'#101012','cherry red':'#7C1E2A',
+  'skyline blue':'#A9DBF4','electric blue':'#1E33BC','magma red':'#B23A31',
+  'belgian chocolate':'#493935','purple pulse':'#6E2070','poppy pink':'#E8547E',
+  'lemon glow':'#DCE89B','taxi yellow':'#F1C535','golden hour':'#DB9A52',
+  'bay breeze blue':'#1E89A0','mint vibe':'#85BD94','central park green':'#0B6B3B',
+  'street olive':'#4E4F2A','urban reef blue':'#3C5359'
+};
+function colourHex(name){ return name ? (AHOOGA_PALETTE[String(name).trim().toLowerCase()]||'') : ''; }
+function titleWords(s){ return String(s).replace(/\b\w/g,c=>c.toUpperCase()); }
+function attrVal(o, re){ const a=(o.attrs||[]).find(x=>re.test(x.attr||'')); return a?(a.val||'').trim():''; }
+
+// Work out main + rear colour (and finish) for an order, from Odoo attributes,
+// falling back to scanning the free-text colour note for known palette names.
+function parseOrderColours(o){
+  let mainName = attrVal(o,/main.*colo|colo.*main|front.*colo/i);
+  let rearName = attrVal(o,/rear.*colo|colo.*rear|back.*colo/i);
+  let mainFin  = attrVal(o,/main.*finish|front.*finish/i) || attrVal(o,/^finish$|frame finish/i);
+  let rearFin  = attrVal(o,/rear.*finish|back.*finish/i);
+  if(!mainName || !rearName){
+    const note=(o.colourNote||'').toLowerCase();
+    const found=[];
+    for(const k in AHOOGA_PALETTE){ const idx=note.indexOf(k); if(idx>=0) found.push({k,idx}); }
+    found.sort((a,b)=>a.idx-b.idx);
+    if(!mainName && found[0]) mainName = titleWords(found[0].k);
+    if(!rearName && found[1]) rearName = titleWords(found[1].k);
+    if(!mainFin){ if(/matte/.test(note)) mainFin='Matte'; else if(/gloss/.test(note)) mainFin='Glossy'; }
+  }
+  const mk = (name,fin)=> name ? { name, hex:colourHex(name), finish:fin||'' } : null;
+  return { main: mk(mainName, mainFin), rear: mk(rearName, rearFin||mainFin),
+           hasText: !!(o.personalText && o.personalText.trim()) };
+}
+
+// Push each custom order's colour config to the shared registry so the Deco Coat
+// board can show the dots. Only posts what changed since last time.
+async function pushConfigToRegistry(opts){
+  opts = opts || {};
+  const url=(cfg.serialRegistryUrl||'').trim(); if(!url) return 0;
+  let snap={}; try{ snap=JSON.parse(localStorage.getItem('cxc_cfgpushed')||'{}'); }catch(e){}
+  const custom=[...orders,...manualOrders].filter(o=>o.color==='custom'&&isMaxBike(o));
+  let n=0;
+  for(const o of custom){
+    const k=soKey(o.name); if(!k) continue;
+    const c=parseOrderColours(o);
+    const decoPO = decoCoatPO(o) || '';
+    if(!c.main && !c.rear && !c.hasText && !decoPO) continue;
+    const payload={ type:'config', so:k, main:c.main, rear:c.rear, hasText:c.hasText, decoPO };
+    const h=JSON.stringify(payload);
+    if(snap[k]===h) continue;
+    try{ await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:h}); snap[k]=h; n++; }catch(e){}
+  }
+  try{ localStorage.setItem('cxc_cfgpushed', JSON.stringify(snap)); }catch(e){}
+  if(!opts.silent && n) formsAlert(`Pushed colour info for ${n} order(s) to the Deco Coat board.`);
+  return n;
+}
 
 // Learn average stage→stage durations (in ms) from every order's recorded stage timestamps.
 // Returns {d01,d12,d23,n01,n12,n23} where dNN is the mean duration and nNN the sample count.
@@ -1759,6 +1818,7 @@ async function syncOdoo() {
     try { await pullSerialsFromRegistry({silent:true}); } catch(e){ console.warn('VV serial sync skipped:', e&&e.message); }
     try { await pullSentStatusFromRegistry({silent:true}); } catch(e){ console.warn('sent-status sync skipped:', e&&e.message); }
     try { await pullDecoStatusFromRegistry({silent:true}); } catch(e){ console.warn('deco-status sync skipped:', e&&e.message); }
+    try { await pushConfigToRegistry({silent:true}); } catch(e){ console.warn('config push skipped:', e&&e.message); }
     save();
     showView('custom');
     // If stock tab was active, refresh it now that vvStock is populated
@@ -4278,6 +4338,7 @@ function renderCustom() {
         ${ orderSerial(o)
           ? `<span class="serial-chip" style="color:var(--purple)">${orderSerial(o)}</span>`
           : '<span style="font-size:12px;color:var(--text3)">— assign serial</span>' }
+        ${ frameIdOf(o) ? `<div style="font-size:10px;color:var(--text3);margin-top:3px">frame&nbsp;ID&nbsp;·&nbsp;<span style="font-family:ui-monospace,monospace;color:var(--text2)">${frameIdOf(o)}</span></div>` : '' }
         ${o.decocoatStatus ? `<span style="font-size:11px;color:var(--text3);margin-left:4px">${o.decocoatStatus}</span>` : ''}
         ${o.estimatedDelivery ? `<br><span style="font-size:11px;color:var(--text3)">~${fmtDate(o.estimatedDelivery)}</span>` : ''}
       </td>
@@ -4530,7 +4591,7 @@ async function pullDecoStatusFromRegistry(opts){
     const list = await resp.json();
     if(!Array.isArray(list)) throw new Error('unexpected response');
     let n=0;
-    for(const r of list){ const k = soKey(r && r.so); if(k){ decoStatus[k] = { status:r.status, ts:r.ts, stages:r.stages||{} }; n++; } }
+    for(const r of list){ const k = soKey(r && r.so); if(k){ decoStatus[k] = { status:r.status, ts:r.ts, stages:r.stages||{}, frameId:r.frameId||'' }; n++; } }
     save();
     return n;
   }catch(e){ if(!opts.silent) console.warn('deco-status sync failed:', e&&e.message); return 0; }

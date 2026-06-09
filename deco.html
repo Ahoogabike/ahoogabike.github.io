@@ -43,8 +43,21 @@
     letter-spacing:.06em;padding:4px 4px 10px;border-bottom:1px solid var(--line);margin-bottom:10px}
   .col-head .swatch{width:10px;height:10px;border-radius:3px;flex:none}
   .col-head .cnt{margin-left:auto;background:var(--panel2);border-radius:20px;padding:1px 9px;font-size:12px;color:var(--muted)}
-  .bcard{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:11px;margin-bottom:9px}
+  .bcard{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:11px;margin-bottom:9px;cursor:grab;user-select:none}
+  .bcard:active{cursor:grabbing}
+  .bcard.dragging{opacity:.4}
+  .col.over{outline:2px dashed var(--accent);outline-offset:-4px;background:rgba(192,69,31,.07)}
   .bcard .so{font-weight:800;font-size:15px;font-family:ui-monospace,monospace}
+  .bc-top{display:flex;align-items:center;gap:8px}
+  .dots{display:inline-flex;align-items:center;gap:5px;margin-left:auto}
+  .dot{width:16px;height:16px;border-radius:50%;display:inline-block;border:1px solid rgba(255,255,255,.4);box-shadow:0 0 0 1px rgba(0,0,0,.3)}
+  .dot.matte{border-style:dashed;opacity:.92}
+  .dot.unknown{display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#000;background:#cfcabb}
+  .tchip{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 3px;border-radius:4px;background:var(--accent);color:#fff;font-size:10px;font-weight:800}
+  .cnames{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.35}
+  .pobadge{display:inline-block;font-family:ui-monospace,monospace;font-size:10.5px;font-weight:700;color:var(--ink);
+    background:#2a2820;border:1px solid var(--line);border-radius:6px;padding:2px 7px;margin-top:6px}
+  .pobadge b{color:var(--accent);font-weight:700}
   .bcard .fr{font-size:11px;color:var(--muted);font-family:ui-monospace,monospace;margin-top:2px}
   .bcard .when{font-size:10.5px;color:var(--muted);margin-top:5px}
   .bcard .moves{display:flex;flex-wrap:wrap;gap:5px;margin-top:9px}
@@ -111,6 +124,7 @@
     <div>
       <div style="font-size:17px;font-weight:800">Frames at Deco Coat</div>
       <div class="hint" id="dash-sub">Loading…</div>
+      <div class="hint" style="margin-top:2px">Drag a card between columns to change its stage — or tap the buttons.</div>
     </div>
     <button class="btn btn-ghost btn-sm" style="margin-left:auto" onclick="loadStatus(true)">↻ Refresh</button>
     <label class="hint row" style="gap:6px"><input type="checkbox" id="show-shipped" onchange="renderDash()"> show shipped</label>
@@ -128,6 +142,7 @@
         <div id="so-val" class="val empty">scan the box label…</div>
         <input id="so-in" inputmode="text" placeholder="or type S23911" style="display:none"/>
         <div id="frame-known" class="frame-known">✓ frame already linked — just set the stage</div>
+        <div id="scan-colours" style="margin-top:7px"></div>
       </div>
     </div>
     <div class="slot" id="slot-frame" style="margin-top:14px;border-top:1px solid var(--line);padding-top:14px">
@@ -190,6 +205,29 @@ const $ = id => document.getElementById(id);
 if(!WORKER_URL){ $('setup-warn').style.display='block'; }
 
 let statusList = [];   // [{so,status,ts,frameId,stages}]
+let configBySO = {};   // so -> {main:{name,hex,finish}, rear:{...}, hasText}
+function dotFor(d){
+  if(!d) return '';
+  if(d.hex) return `<span class="dot ${/(matte)/i.test(d.finish||'')?'matte':''}" style="background:${d.hex}" title="${d.name||''}${d.finish?' · '+d.finish:''}"></span>`;
+  if(d.name) return `<span class="dot unknown" title="${d.name}">?</span>`;
+  return '';
+}
+function dotsHtml(so){
+  const c=configBySO[so]; if(!c) return '';
+  const dots = dotFor(c.main)+dotFor(c.rear);
+  const t = c.hasText ? `<span class="tchip" title="has personalised text">T</span>` : '';
+  return (dots||t) ? `<span class="dots">${dots}${t}</span>` : '';
+}
+function namesHtml(so){
+  const c=configBySO[so]; if(!c) return '';
+  const part=d=> d&&d.name ? d.name+(d.finish?` (${d.finish.toLowerCase()})`:'') : '';
+  const a=part(c.main), b=part(c.rear); const arr=[a,b].filter(Boolean);
+  return arr.length ? `<div class="cnames">${arr.join(' · ')}${c.hasText?' · <b style="color:var(--accent)">text</b>':''}</div>` : '';
+}
+function poHtml(so){
+  const c=configBySO[so]; if(!c || !c.decoPO) return '';
+  return `<div class="pobadge">PO&nbsp;·&nbsp;<b>${c.decoPO}</b></div>`;
+}
 function showMsg(t,k){ const m=$('msg'); m.textContent=t; m.className='msg '+k; if(k==='ok') setTimeout(()=>{m.className='msg';},3500); }
 function flash(){ try{ navigator.vibrate && navigator.vibrate(50);}catch(e){} }
 function ago(ts){ if(!ts) return ''; const d=Date.now()-Date.parse(ts); const m=Math.round(d/60000);
@@ -215,9 +253,13 @@ async function loadStatus(force){
   if(!WORKER_URL) return;
   if($('dash-sub')) $('dash-sub').textContent = 'Loading…';
   try{
-    const resp = await fetch(WORKER_URL+'?type=status'); statusList = await resp.json();
-    if(!Array.isArray(statusList)) statusList=[];
-    renderDash(); renderRecent();
+    const [s,c] = await Promise.all([
+      fetch(WORKER_URL+'?type=status').then(r=>r.json()),
+      fetch(WORKER_URL+'?type=config').then(r=>r.json()).catch(()=>[])
+    ]);
+    statusList = Array.isArray(s)?s:[];
+    configBySO = {}; if(Array.isArray(c)) c.forEach(r=>{ if(r&&r.so) configBySO[r.so]=r; });
+    renderDash(); renderRecent(); renderScan();
   }catch(e){ if($('dash-sub')) $('dash-sub').textContent='Could not reach the registry.'; }
 }
 async function postStatus(so, stage, frameId){
@@ -235,6 +277,18 @@ async function moveStage(so, stage){
   catch(e){ showMsg('Could not update '+so+': '+(e&&e.message||e),'err'); }
 }
 window.moveStage = moveStage;
+
+/* drag & drop between columns */
+let dragSO = null;
+window.dragStart = (e, so)=>{ dragSO=so; try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',so); }catch(_){} e.currentTarget.classList.add('dragging'); };
+window.dragEnd = (e)=>{ e.currentTarget.classList.remove('dragging'); document.querySelectorAll('.col.over').forEach(c=>c.classList.remove('over')); dragSO=null; };
+window.dragOver = (e)=>{ e.preventDefault(); try{ e.dataTransfer.dropEffect='move'; }catch(_){} e.currentTarget.classList.add('over'); };
+window.dragLeave = (e)=>{ const col=e.currentTarget; if(!col.contains(e.relatedTarget)) col.classList.remove('over'); };
+window.dropCard = (e, stage)=>{ e.preventDefault(); e.currentTarget.classList.remove('over');
+  const so = dragSO || (e.dataTransfer && e.dataTransfer.getData('text/plain')); dragSO=null;
+  if(!so) return; const rec=statusList.find(r=>r.so===so); if(rec && rec.status===stage) return;  // dropped in same column
+  moveStage(so, stage);
+};
 function renderDash(){
   const showShipped = $('show-shipped').checked;
   const inHouse = statusList.filter(r=> r.status && r.status!=='SHIPPED');
@@ -243,23 +297,25 @@ function renderDash(){
   $('board').innerHTML = STAGES.map(s=>{
     if(s.code==='SHIPPED' && !showShipped) {
       const n = statusList.filter(r=>r.status==='SHIPPED').length;
-      return `<div class="col"><div class="col-head"><span class="swatch" style="background:${s.color}"></span>${s.label}<span class="cnt">${n}</span></div>
-        <div class="col-empty">tick “show shipped”.</div></div>`;
+      return `<div class="col" data-stage="SHIPPED" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropCard(event,'SHIPPED')"><div class="col-head"><span class="swatch" style="background:${s.color}"></span>${s.label}<span class="cnt">${n}</span></div>
+        <div class="col-empty">drop here to ship<br><span style="opacity:.7">(tick “show shipped” to list)</span></div></div>`;
     }
     const items = statusList.filter(r=>r.status===s.code).sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
     const cards = items.map(r=>{
       const moves = STAGES.map(t=> t.code===r.status
         ? `<button class="cur" title="current">${t.short}</button>`
         : `<button onclick="moveStage('${r.so}','${t.code}')" title="move to ${t.label}">${t.short}</button>`).join('');
-      return `<div class="bcard">
-        <div class="so">${r.so}</div>
+      return `<div class="bcard" draggable="true" ondragstart="dragStart(event,'${r.so}')" ondragend="dragEnd(event)">
+        <div class="bc-top"><span class="so">${r.so}</span>${dotsHtml(r.so)}</div>
+        ${namesHtml(r.so)}
+        ${poHtml(r.so)}
         ${r.frameId?`<div class="fr">frame · ${r.frameId}</div>`:'<div class="fr" style="opacity:.55">no frame ID yet</div>'}
         <div class="when">updated ${ago(r.ts)}</div>
         <div class="moves">${moves}</div>
       </div>`;
     }).join('');
-    return `<div class="col"><div class="col-head"><span class="swatch" style="background:${s.color}"></span>${s.label}<span class="cnt">${items.length}</span></div>
-      ${cards || '<div class="col-empty">—</div>'}</div>`;
+    return `<div class="col" data-stage="${s.code}" ondragover="dragOver(event)" ondragleave="dragLeave(event)" ondrop="dropCard(event,'${s.code}')"><div class="col-head"><span class="swatch" style="background:${s.color}"></span>${s.label}<span class="cnt">${items.length}</span></div>
+      ${cards || '<div class="col-empty">drop here</div>'}</div>`;
   }).join('');
 }
 
@@ -274,6 +330,7 @@ function renderScan(){
   $('frame-val').className='val'+(st.frameId?'':' empty'); $('slot-frame').classList.toggle('done',!!st.frameId);
   const known = st.so && frameForSO(st.so);
   $('frame-known').style.display = known ? 'block' : 'none';
+  const sc=$('scan-colours'); if(sc) sc.innerHTML = (st.so && configBySO[st.so]) ? (dotsHtml(st.so)+namesHtml(st.so)+poHtml(st.so)) : '';
   document.querySelectorAll('.stage').forEach(el=>el.classList.toggle('sel', el.getAttribute('data-code')===st.stage));
   $('submit-btn').disabled = !(st.so && (st.stage || st.frameId));
   $('scan-btn').textContent = st.scanning ? '■ Stop camera' : '📷 Scan (SO · frame · location)';
