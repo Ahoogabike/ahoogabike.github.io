@@ -28,8 +28,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   .slot .val.empty{color:var(--muted);font-weight:400;font-size:14px;font-family:inherit}
   .slot input{width:100%;background:#000;border:1px solid var(--line);border-radius:9px;color:var(--ink);
               font-size:18px;font-family:ui-monospace,monospace;padding:8px 10px;margin-top:4px}
-  #reader{border-radius:14px;overflow:hidden;margin-bottom:8px;background:#000;min-height:0}
-  #reader:empty{display:none}
+  #reader{display:none;width:100%;min-height:240px;background:#000;border-radius:14px;overflow:hidden;margin-bottom:8px}
+  #reader video,#reader canvas{width:100%!important;height:auto!important;display:block;border-radius:14px}
   .hint{font-size:12px;color:var(--muted);text-align:center;margin:4px 0 12px}
   button{font:inherit;font-weight:700;border:none;border-radius:12px;padding:15px;width:100%;cursor:pointer}
   .btn-primary{background:var(--accent);color:#191712}
@@ -156,7 +156,8 @@ async function startCam(){
     showMsg('This browser blocks camera access. Try the device’s default browser, or type manually.','err'); return;
   }
   if(!state.scanner) state.scanner = new Html5Qrcode("reader", SUPPORTED?{ formatsToSupport: SUPPORTED, verbose:false }:{ verbose:false });
-  const conf={ fps:12, qrbox:{width:300,height:170}, aspectRatio:1.4 };
+  const conf={ fps:12, qrbox:(w,h)=>{ const m=Math.floor(Math.min(w,h)*0.8); return {width:m,height:Math.floor(m*0.62)}; } };
+  const R=$('reader'); R.style.display='block'; void R.offsetWidth;
   state.scanning = true; render(); $('cam-hint').textContent='Starting camera…';
   try{
     await state.scanner.start({ facingMode:"environment" }, conf, (t)=>onDetected(t), ()=>{});
@@ -169,7 +170,7 @@ async function startCam(){
       await state.scanner.start(back.id, conf, (t)=>onDetected(t), ()=>{});
       $('cam-hint').textContent = 'Point at the barcode.';
     }catch(e2){
-      state.scanning=false; render();
+      state.scanning=false; R.style.display='none'; render();
       const name=(e2&&(e2.name||e2.message))||String(e2);
       let tip='';
       if(/NotAllowed|Permission|denied/i.test(name)) tip=' — allow camera for this site in browser settings, then tap Scan again.';
@@ -181,7 +182,7 @@ async function startCam(){
 }
 async function stopCam(){
   if(state.scanner && state.scanning){ try{ await state.scanner.stop(); }catch(e){} }
-  state.scanning=false; $('cam-hint').textContent=''; render();
+  state.scanning=false; const R=$('reader'); if(R){R.style.display='none';R.innerHTML='';} $('cam-hint').textContent=''; render();
 }
 
 $('scan-btn').onclick = ()=>{ state.scanning ? stopCam() : startCam(); };

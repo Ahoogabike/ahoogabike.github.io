@@ -83,7 +83,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   .slot .val.empty{color:var(--muted);font-weight:400;font-size:14px;font-family:inherit}
   .slot input{width:100%;background:#000;border:1px solid var(--line);border-radius:9px;color:var(--ink);
               font-size:18px;font-family:ui-monospace,monospace;padding:8px 10px;margin-top:4px}
-  #reader{border-radius:14px;overflow:hidden;margin-bottom:8px;background:#000}#reader:empty{display:none}
+  #reader{display:none;width:100%;min-height:240px;background:#000;border-radius:14px;overflow:hidden;margin-bottom:8px}
+  #reader video,#reader canvas{width:100%!important;height:auto!important;display:block;border-radius:14px}
   .stages{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
   .stage{border:1px solid var(--line);background:#000;color:var(--ink);border-radius:12px;padding:14px 10px;font-size:14px;text-align:center;cursor:pointer}
   .stage.sel{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -371,7 +372,8 @@ async function startCam(){
     showMsg('This browser blocks camera access. Try the device’s default browser, or use manual entry.','err'); return;
   }
   if(!st.scanner) st.scanner = new Html5Qrcode("reader", SUPPORTED?{formatsToSupport:SUPPORTED,verbose:false}:{verbose:false});
-  const conf={ fps:12, qrbox:{width:300,height:200}, aspectRatio:1.3 };
+  const conf={ fps:12, qrbox:(w,h)=>{ const m=Math.floor(Math.min(w,h)*0.8); return {width:m,height:Math.floor(m*0.62)}; } };
+  const R=$('reader'); R.style.display='block'; void R.offsetWidth;   // make the box visible & sized BEFORE start
   st.scanning=true; renderScan(); $('cam-hint').textContent='Starting camera…';
   try{
     await st.scanner.start({ facingMode:"environment" }, conf, onDetected, ()=>{});
@@ -385,18 +387,18 @@ async function startCam(){
       await st.scanner.start(back.id, conf, onDetected, ()=>{});
       $('cam-hint').textContent = 'Point at the SO, frame, or location barcode.';
     }catch(e2){
-      st.scanning=false; renderScan();
+      st.scanning=false; R.style.display='none'; renderScan();
       const name=(e2&&(e2.name||e2.message))||String(e2);
       let tip='';
       if(/NotAllowed|Permission|denied/i.test(name)) tip=' — camera permission was blocked. Allow camera for this site in the browser settings, then tap Scan again.';
       else if(/NotFound|Requested device/i.test(name)) tip=' — no camera was found.';
-      else if(/NotReadable|in use|busy/i.test(name)) tip=' — the camera is busy in another app. Close other camera apps and retry.';
+      else if(/NotReadable|in use|busy|Could not start video/i.test(name)) tip=' — the camera is busy in another app. Close other camera apps and retry.';
       else if(/secure|https/i.test(name)) tip=' — the page must be opened over https.';
       showMsg('Camera could not start ('+name+')'+tip+' You can still use manual entry below.','err');
     }
   }
 }
-async function stopCam(){ if(st.scanner&&st.scanning){ try{await st.scanner.stop();}catch(e){} } st.scanning=false; if($('cam-hint'))$('cam-hint').textContent=''; renderScan(); }
+async function stopCam(){ if(st.scanner&&st.scanning){ try{await st.scanner.stop();}catch(e){} } st.scanning=false; const R=$('reader'); if(R){R.style.display='none';R.innerHTML='';} if($('cam-hint'))$('cam-hint').textContent=''; renderScan(); }
 $('scan-btn').onclick = ()=>{ st.scanning?stopCam():startCam(); };
 $('manual-btn').onclick = ()=>{ st.manual=!st.manual; $('so-val').style.display=st.manual?'none':'block'; $('so-in').style.display=st.manual?'block':'none'; if(st.manual){stopCam();$('so-in').value=st.so;} };
 $('manualf-btn').onclick = ()=>{ st.manualf=!st.manualf; $('frame-val').style.display=st.manualf?'none':'block'; $('frame-in').style.display=st.manualf?'block':'none'; if(st.manualf){stopCam();$('frame-in').value=st.frameId;} };
