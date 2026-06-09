@@ -743,6 +743,22 @@ const AHOOGA_PALETTE = {
   'street olive':'#4E4F2A','urban reef blue':'#3C5359'
 };
 function colourHex(name){ return name ? (AHOOGA_PALETTE[String(name).trim().toLowerCase()]||'') : ''; }
+
+// ── Deco Coat colour reference (paint code + primer), from the Order Book "Color Sheet" ──
+// Keyed by Ahooga colour name. Update here if the Color Sheet changes.
+const COLOUR_REF = {
+  'urban reef blue':{ref:'RAL 6004',primer:'Zwart'}, 'midnight black':{ref:'RAL 9005',primer:'Zwart'},
+  'cherry red':{ref:'MH1101',primer:'Zwart'}, 'belgian chocolate':{ref:'MH0963',primer:'Zwart'},
+  'lemon glow':{ref:'MH0957',primer:'Wit'}, 'berlin steel grey':{ref:'MH0964',primer:'Zwart'},
+  'electric blue':{ref:'MH0950',primer:'Zwart'}, 'taxi yellow':{ref:'MH0956',primer:'Wit'},
+  'nightfall blue':{ref:'MH0147',primer:'Zwart'}, 'golden hour':{ref:'MH0958',primer:'Wit'},
+  'central park green':{ref:'RAL6016',primer:'Zwart'}, 'mint vibe':{ref:'MH0955',primer:'Wit'},
+  'poppy pink':{ref:'MH1118',primer:'Wit'}, 'street olive':{ref:'MH0961',primer:'Zwart'},
+  'purple pulse':{ref:'MH0949',primer:'Zwart'}, 'skyline blue':{ref:'MH0953',primer:'Wit'},
+  'bay breeze blue':{ref:'MH0954',primer:'Wit'}, 'atomium grey':{ref:'029/90045',primer:''},
+  'magma red':{ref:'RAL3002',primer:''}, 'parisian white':{ref:'MH0250',primer:'Wit'}
+};
+function colourRef(name){ return name ? (COLOUR_REF[String(name).trim().toLowerCase()]||{ref:'',primer:''}) : {ref:'',primer:''}; }
 function titleWords(s){ return String(s).replace(/\b\w/g,c=>c.toUpperCase()); }
 function attrVal(o, re){ const a=(o.attrs||[]).find(x=>re.test(x.attr||'')); return a?(a.val||'').trim():''; }
 
@@ -762,7 +778,7 @@ function parseOrderColours(o){
     if(!rearName && found[1]) rearName = titleWords(found[1].k);
     if(!mainFin){ if(/matte/.test(note)) mainFin='Matte'; else if(/gloss/.test(note)) mainFin='Glossy'; }
   }
-  const mk = (name,fin)=> name ? { name, hex:colourHex(name), finish:fin||'' } : null;
+  const mk = (name,fin)=>{ if(!name) return null; const r=colourRef(name); return { name, hex:colourHex(name), finish:fin||'', ref:r.ref, primer:r.primer }; };
   return { main: mk(mainName, mainFin), rear: mk(rearName, rearFin||mainFin),
            hasText: !!(o.personalText && o.personalText.trim()) };
 }

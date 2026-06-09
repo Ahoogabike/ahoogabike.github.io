@@ -54,7 +54,8 @@
   .dot.matte{border-style:dashed;opacity:.92}
   .dot.unknown{display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#000;background:#cfcabb}
   .tchip{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 3px;border-radius:4px;background:var(--accent);color:#fff;font-size:10px;font-weight:800}
-  .cnames{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.35}
+  .cnames{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.4}
+  .cnames .cl{display:inline-block;min-width:34px;color:var(--ink);font-weight:700}
   .pobadge{display:inline-block;font-family:ui-monospace,monospace;font-size:10.5px;font-weight:700;color:var(--ink);
     background:#2a2820;border:1px solid var(--line);border-radius:6px;padding:2px 7px;margin-top:6px}
   .pobadge b{color:var(--accent);font-weight:700}
@@ -218,11 +219,18 @@ function dotsHtml(so){
   const t = c.hasText ? `<span class="tchip" title="has personalised text">T</span>` : '';
   return (dots||t) ? `<span class="dots">${dots}${t}</span>` : '';
 }
+function colourLine(label, d){
+  if(!d || !d.name) return '';
+  const bits=[ d.name + (d.finish?` (${d.finish.toLowerCase()})`:'') ];
+  if(d.ref) bits.push(`<b style="color:var(--ink)">${d.ref}</b>`);
+  if(d.primer && d.primer!=='x') bits.push(`primer ${d.primer}`);
+  return `<div class="cnames"><span class="cl">${label}</span> ${bits.join(' · ')}</div>`;
+}
 function namesHtml(so){
   const c=configBySO[so]; if(!c) return '';
-  const part=d=> d&&d.name ? d.name+(d.finish?` (${d.finish.toLowerCase()})`:'') : '';
-  const a=part(c.main), b=part(c.rear); const arr=[a,b].filter(Boolean);
-  return arr.length ? `<div class="cnames">${arr.join(' · ')}${c.hasText?' · <b style="color:var(--accent)">text</b>':''}</div>` : '';
+  let h = colourLine('Main', c.main) + colourLine('Rear', c.rear);
+  if(c.hasText) h += `<div class="cnames"><span class="cl">Text</span> <b style="color:var(--accent)">yes</b></div>`;
+  return h;
 }
 function poHtml(so){
   const c=configBySO[so]; if(!c || !c.decoPO) return '';
