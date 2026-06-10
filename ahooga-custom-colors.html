@@ -338,6 +338,7 @@ main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
         <button class="btn btn-success btn-sm" onclick="exportUpdatedDecocoat()">⬇ Updated Decocoat file</button>
         <button class="btn btn-secondary btn-sm" title="Legacy fallback: link serials that were previously typed into the Decocoat sheet. New serials come from Velovisie's scan — use Sync VV serials." onclick="assignSerials()">#️⃣ Link Decocoat serials</button>
         <button class="btn btn-primary btn-sm" title="Pull SO ↔ serial pairings scanned by Velovisie at the assembly line (Cloudflare registry)." onclick="pullSerialsFromRegistry()">↻ Sync VV serials</button>
+        <button class="btn btn-primary btn-sm" title="Send each custom order's colours, codes, PO and text flag to the Deco Coat board so the dots show on the cards." onclick="pushColoursNow()">🎨 Push colours to Deco Coat</button>
         <span style="font-size:11px;color:var(--text3);align-self:center">Order forms, PO PDF &amp; emails are in the <strong>Order Form</strong> tab.</span>
       </div>
       <div id="forms-alert" style="margin-top:8px"></div>
@@ -819,6 +820,39 @@ async function pushConfigToRegistry(opts){
   try{ localStorage.setItem('cxc_cfgpushed', JSON.stringify(snap)); }catch(e){}
   if(!opts.silent && n) formsAlert(`Pushed colour info for ${n} order(s) to the Deco Coat board.`);
   return n;
+}
+
+// Manual, visible colour push with a clear diagnostic — bypasses the dedupe.
+async function pushColoursNow(){
+  const url=(cfg.serialRegistryUrl||'').trim();
+  if(!url){ formsAlert('No registry/Worker URL is set. Open Settings and paste your Worker URL (https://vv-serials.…workers.dev), then try again.'); return; }
+  const custom=[...orders,...manualOrders].filter(o=>o.color==='custom'&&isMaxBike(o));
+  if(!custom.length){ formsAlert('No custom-colour orders are loaded yet. Hit ↻ Sync first to pull orders from Odoo, then push colours.'); return; }
+  try{ localStorage.removeItem('cxc_cfgpushed'); }catch(e){}   // force a full re-push
+  let n=0, withColour=0;
+  for(const o of custom){
+    const k=soKey(o.name); if(!k) continue;
+    const cols = orderCols(o);
+    let mainName = cols.mainColor, rearName = cols.rearColor || cols.mainColor;
+    let mainFin  = cols.mainFinish, rearFin = cols.rearFinish || cols.mainFinish;
+    if(!colourHex(mainName)){
+      const note=String(o.colourNote||'').toLowerCase(); const found=[];
+      for(const key in AHOOGA_PALETTE){ const i=note.indexOf(key); if(i>=0) found.push({key,i}); }
+      found.sort((a,b)=>a.i-b.i);
+      if(found[0]) mainName=titleWords(found[0].key);
+      if(found[1]) rearName=titleWords(found[1].key); else if(found[0]&&!colourHex(rearName)) rearName=titleWords(found[0].key);
+    }
+    const mk=(name,fin)=>{ if(!name) return null; const r=colourRef(name); return {name,hex:colourHex(name),finish:fin||'',ref:r.ref,primer:r.primer}; };
+    const main=mk(mainName,mainFin), rear=mk(rearName,rearFin);
+    const hasText=!!(cols.personalText&&String(cols.personalText).trim());
+    const decoPO=decoCoatPO(o)||'';
+    if(main||rear) withColour++;
+    if(!main&&!rear&&!hasText&&!decoPO) continue;
+    try{ const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'config',so:k,main,rear,hasText,decoPO})});
+         if(resp.ok) n++; }catch(e){}
+  }
+  if(n===0) formsAlert(`Tried ${custom.length} custom order(s) but none were saved. The Worker may not be redeployed with colour support, or it can't be reached. Open ${url}?type=config in a browser to check.`);
+  else formsAlert(`Pushed ${n} order(s) to the Deco Coat board (${withColour} with colours). Hard-refresh the Deco Coat app to see the dots. Check: ${url}?type=config`);
 }
 
 // Learn average stage→stage durations (in ms) from every order's recorded stage timestamps.
