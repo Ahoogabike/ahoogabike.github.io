@@ -793,10 +793,25 @@ async function pushConfigToRegistry(opts){
   let n=0;
   for(const o of custom){
     const k=soKey(o.name); if(!k) continue;
-    const c=parseOrderColours(o);
+    const cols = orderCols(o);                                  // same colour reader as the Order Form
+    let mainName = cols.mainColor, rearName = cols.rearColor || cols.mainColor;
+    let mainFin  = cols.mainFinish, rearFin = cols.rearFinish || cols.mainFinish;
+    // If the names aren't recognised palette colours, scan the note for known palette names.
+    if(!colourHex(mainName)){
+      const note=String(o.colourNote||'').toLowerCase(); const found=[];
+      for(const key in AHOOGA_PALETTE){ const i=note.indexOf(key); if(i>=0) found.push({key,i}); }
+      found.sort((a,b)=>a.i-b.i);
+      if(found[0]) mainName = titleWords(found[0].key);
+      if(found[1]) rearName = titleWords(found[1].key);
+      else if(found[0] && !colourHex(rearName)) rearName = titleWords(found[0].key);
+    }
+    const mk = (name,fin)=>{ if(!name) return null; const r=colourRef(name); return { name, hex:colourHex(name), finish:fin||'', ref:r.ref, primer:r.primer }; };
+    const main = mk(mainName, mainFin);
+    const rear = mk(rearName, rearFin);
+    const hasText = !!(cols.personalText && String(cols.personalText).trim());
     const decoPO = decoCoatPO(o) || '';
-    if(!c.main && !c.rear && !c.hasText && !decoPO) continue;
-    const payload={ type:'config', so:k, main:c.main, rear:c.rear, hasText:c.hasText, decoPO };
+    if(!main && !rear && !hasText && !decoPO) continue;
+    const payload={ type:'config', so:k, main, rear, hasText, decoPO };
     const h=JSON.stringify(payload);
     if(snap[k]===h) continue;
     try{ await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:h}); snap[k]=h; n++; }catch(e){}
