@@ -755,8 +755,8 @@ const COLOUR_REF = {
   'central park green':{ref:'RAL6016',primer:'Zwart'}, 'mint vibe':{ref:'MH0955',primer:'Wit'},
   'poppy pink':{ref:'MH1118',primer:'Wit'}, 'street olive':{ref:'MH0961',primer:'Zwart'},
   'purple pulse':{ref:'MH0949',primer:'Zwart'}, 'skyline blue':{ref:'MH0953',primer:'Wit'},
-  'bay breeze blue':{ref:'MH0954',primer:'Wit'}, 'atomium grey':{ref:'029/90045',primer:''},
-  'magma red':{ref:'RAL3002',primer:''}, 'parisian white':{ref:'MH0250',primer:'Wit'}
+  'bay breeze blue':{ref:'MH0954',primer:'Wit'}, 'atomium grey':{ref:'029/90045',primer:'x'},
+  'magma red':{ref:'RAL3002',primer:'x'}, 'parisian white':{ref:'MH0250',primer:'Wit'}
 };
 function colourRef(name){ return name ? (COLOUR_REF[String(name).trim().toLowerCase()]||{ref:'',primer:''}) : {ref:'',primer:''}; }
 function titleWords(s){ return String(s).replace(/\b\w/g,c=>c.toUpperCase()); }
@@ -4485,25 +4485,12 @@ const ORDER_FORM_HEADERS = ['Prod Week','PO#','SO#','Bike SKU','Configuration','
   'Main Frame custom color','Main frame finish effect','Rear frame custom color','Rear frame finish effect',
   'Ahooga Logo color','Ahooga Logo Size','Personal Text','Color number','Primer','Color number/primer2','Primer2','Logo'];
 
-// Deco Coat "Color Sheet" lookup: Ahooga colour name -> paint code + primer.
-// (Replicates the Color Sheet tab so the Order Form's paint columns auto-fill.)
-const COLOR_SHEET = {
-  'Urban Reef Blue':{code:'RAL 6004',primer:'Zwart'}, 'Midnight Black':{code:'RAL 9005',primer:'Zwart'},
-  'Cherry red':{code:'MH1101',primer:'Zwart'}, 'Belgian Chocolate':{code:'MH0963',primer:'Zwart'},
-  'Lemon Glow':{code:'MH0957',primer:'Wit'}, 'Berlin Steel Grey':{code:'MH0964',primer:'Zwart'},
-  'Electric Blue':{code:'MH0950',primer:'Zwart'}, 'Taxi Yellow':{code:'MH0956',primer:'Wit'},
-  'Nightfall Blue':{code:'MH0147',primer:'Zwart'}, 'Golden Hour':{code:'MH0958',primer:'Wit'},
-  'Central Park Green':{code:'RAL6016',primer:'Zwart'}, 'Mint Vibe':{code:'MH0955',primer:'Wit'},
-  'Poppy Pink':{code:'MH1118',primer:'Wit'}, 'Street Olive':{code:'MH0961',primer:'Zwart'},
-  'Purple Pulse':{code:'MH0949',primer:'Zwart'}, 'Skyline Blue':{code:'MH0951',primer:'Zwart'},
-  'Bay Breeze Blue':{code:'MH0954',primer:'Wit'}, 'Atomium Grey':{code:'029/90045',primer:'x'},
-  'Magma Red':{code:'RAL3002',primer:'x'}, 'Parisian White':{code:'MH0250',primer:'Wit'}
-};
+// Order Form paint columns use the SAME single source of truth as the board
+// (COLOUR_REF, mirrored from the Order Book "Color Sheet"). No second table to drift.
 function paintInfo(name){
   if(!name) return null;
-  const key = _k(name);
-  for(const k in COLOR_SHEET){ if(_k(k) === key) return COLOR_SHEET[k]; }
-  return null;
+  const r = COLOUR_REF[String(name).trim().toLowerCase()];
+  return r ? { code:r.ref, primer:r.primer } : null;
 }
 // "MH0951 / Skyline Blue" (blank if the colour isn't in the Color Sheet — don't guess).
 function paintCodeCell(colour){ const p = paintInfo(colour); return p ? `${p.code} / ${String(colour).trim()}` : ''; }
