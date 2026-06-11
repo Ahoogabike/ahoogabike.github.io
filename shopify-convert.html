@@ -326,9 +326,10 @@ function detailHtml(o){
     return `<tr><td>${l.is_shipping?'🚚 ':''}${esc(l.source)}</td><td class="mono">${esc(ref)}${l.mapped?'':'<span class="flag">no mapping</span>'}</td><td class="num">×${l.qty}</td><td class="num">${money(l.price,o.currency)}</td></tr>`;
   }).join('');
   const warn=(o.unmapped&&o.unmapped.length)?`<div class="alert warn">${o.unmapped.length} item(s) have no Odoo product yet: <b>${o.unmapped.map(esc).join(', ')}</b>. Add them in the Mappings tab.</div>`:'';
+  const emailBtn=o.pickup?`<button class="btn ghost" onclick="event.stopPropagation();emailDealer('${esc(o.name)}')">✉ Email dealer</button>`:'';
   return client+ship+wh+
     `<table class="lines"><thead><tr><th>Shopify line</th><th>Odoo product</th><th class="num">Qty</th><th class="num">Unit</th></tr></thead><tbody>${rows}</tbody></table>`+
-    warn+`<div style="margin-top:8px">${convertBtn(o)}</div>`;
+    warn+`<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">${convertBtn(o)}${emailBtn}</div>`;
 }
 
 /* ── convert one order into an Odoo draft (ported from the Python export) ── */
@@ -366,6 +367,59 @@ async function createDealerCredit(o,dealerId){
   const rec=await odoo('account.move','read',[[mid],['name','state']]);
   return {id:mid,name:(rec&&rec[0]&&rec[0].name)||('#'+mid),state:(rec&&rec[0]&&rec[0].state)||'draft'};
 }
+/* ── "Online" sales team (resolved once by name, cached) ── */
+let _teamId;
+async function onlineTeamId(){
+  if(_teamId!==undefined) return _teamId;
+  try{
+    let ids=await odoo('crm.team','search',[[['name','=','Online']]],{limit:1});
+    if(!ids||!ids.length) ids=await odoo('crm.team','search',[[['name','ilike','online']]],{limit:1});
+    _teamId=(ids&&ids.length)?ids[0]:null;
+  }catch(e){ _teamId=null; }
+  return _teamId;
+}
+
+/* ── Draft a ready-to-send email to the pickup dealer about the credit note ── */
+async function emailDealer(name){
+  const o=ORDERS.find(x=>x.name===name); if(!o)return;
+  if(!o.pickup){ alert_('This is not a pickup-at-dealer order.','warn'); return; }
+  const hit=DEALERS[(o.dealer||'').trim().toLowerCase()];
+  if(!hit){ alert_('Match the pickup dealer to an Odoo contact first (Mappings tab).','warn'); return; }
+  try{
+    const prt=await odoo('res.partner','read',[[hit.id],['name','email']]);
+    const dealer=(prt&&prt[0])||{}; const to=dealer.email||'';
+    const ref='DEALER-CREDIT '+o.name;
+    let cn=await odoo('account.move','search_read',[[['move_type','=','out_refund'],['ref','=',ref]]],{fields:['name','amount_total','state'],limit:1});
+    cn=(cn&&cn[0])||null;
+    const net=Math.max((Number(o.total||0)||0)-(Number(o.tax||0)||0),0);
+    const exVat=Math.round(net*DEALER_CREDIT.pct)/100;
+    const cnLine = cn
+      ? `Credit note ${cn.name} (${cn.state}) for ${money(cn.amount_total,o.currency)} has been created in Odoo.`
+      : `A dealer-compensation credit note of about ${money(exVat,o.currency)} (ex VAT) will be created in Odoo once this order is converted.`;
+    const subject=`Ahooga – dealer delivery compensation – ${o.name}`;
+    const body=[
+      `Hello ${dealer.name||''}`.trim()+',',
+      ``,
+      `Thank you for handling the pickup of order ${o.name}${o.customer?` for ${o.customer}`:''}.`,
+      ``,
+      cnLine,
+      ``,
+      `Order summary:`,
+      `- Order: ${o.name}`,
+      `- Customer: ${o.customer||''}`,
+      `- Order total: ${money(o.total,o.currency)}`,
+      `- Dealer compensation: ${DEALER_CREDIT.pct}% of the ex-VAT amount (${money(exVat,o.currency)} ex VAT)`,
+      ``,
+      `Kind regards,`,
+      `Ahooga`
+    ].join('\n');
+    const a=document.createElement('a');
+    a.href=`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    document.body.appendChild(a); a.click(); a.remove();
+    alert_('Opened a pre-filled email'+(to?(' to '+to):' (no email on the dealer contact — add a recipient in your mail app)')+'.','ok');
+  }catch(e){ alert_('Could not draft the dealer email: '+e.message,'err'); }
+}
+
 async function convertOrder(name){
   const o=ORDERS.find(x=>x.name===name); if(!o)return;
   if(statusCache[name]){ alert_(name+' is already in Odoo ('+statusCache[name]+').','warn'); return; }
@@ -384,6 +438,7 @@ async function convertOrder(name){
     if(missing.length) throw new Error('No Odoo product for: '+[...new Set(missing)].join(', ')+'. Add them in the Mappings tab.');
     const partnerId=await resolvePartner(o.customer,o.email,o.client);
     const vals={partner_id:partnerId,client_order_ref:o.name,origin:'Shopify '+o.name,warehouse_id:warehouseId(o),order_line};
+    const tid=await onlineTeamId(); if(tid) vals.team_id=tid;   // always book under the "Online" sales team
     let dealerPartner=null;
     if(o.pickup&&Number(o.shipping_cost||0)===0){
       const hit=DEALERS[(o.dealer||'').trim().toLowerCase()];
