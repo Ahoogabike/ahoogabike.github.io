@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script src="mxp-auth.js"></script>
 <script src="ahooga-auth.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -86,7 +85,7 @@ td.num{text-align:right;font-family:'Space Mono',monospace;white-space:nowrap}
 </head>
 <body>
 <header>
-  <div class="logo">Sh<span class="b">oo</span>pify Convert <span class="tag">Shopify → Odoo</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑06‑11b</span></div>
+  <div class="logo">Sh<span class="b">oo</span>pify Convert <span class="tag">Shopify → Odoo</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑06‑11c</span></div>
   <div id="conn-pill" class="pill">Not connected</div>
 </header>
 
@@ -267,6 +266,8 @@ async function loadStatuses(){
 /* ── rules mirrored for display only ── */
 function warehouseName(o){ if(o.pickup){ const loc=(o.dealer||'').toLowerCase(); if(loc.includes('ahooga')&&(loc.includes('store')||loc.includes('brussels')||loc.includes('louise'))) return 'Louise'; } return 'Ahooga Anderlecht'; }
 function warehouseId(o){ return warehouseName(o)==='Louise'?WAREHOUSE.louiseId:WAREHOUSE.defaultId; }
+/* An Ahooga-owned store (Brussels / Louise) is NOT an external dealer: keep the customer's delivery address, no dealer credit note. */
+function isOwnStore(o){ if(!o||!o.pickup) return false; const loc=(o.dealer||'').toLowerCase(); return loc.includes('ahooga')&&(loc.includes('store')||loc.includes('brussels')||loc.includes('louise')); }
 
 /* ── convert button (shown on the row and in the detail) ── */
 function convertBtn(o){
@@ -316,9 +317,13 @@ function detailHtml(o){
   const cAddr=[c.street,c.street2,[c.zip,c.city].filter(Boolean).join(' '),c.country_code].filter(Boolean).join(', ');
   const client=`<div class="info"><b>Client (Odoo customer):</b> ${esc(o.customer)}${cAddr?' — '+esc(cAddr):''}${c.phone?' · ☎ '+esc(c.phone):''}${o.email?'<br><span class="muted">'+esc(o.email)+'</span>':''}</div>`;
   let ship;
-  if(o.pickup){ const matched=DEALERS[(o.dealer||'').trim().toLowerCase()];
-    ship=`<div class="info">🏬 <b>Pickup at dealer:</b> ${esc(o.dealer||'(unknown)')}${o.dealer_address?' ('+esc(o.dealer_address)+')':''}. `+
-      (matched?`Delivery address → <b>${esc(matched.name)}</b>.`:`<span style="color:var(--red)">Not matched to an Odoo contact yet — set it in the Mappings tab.</span>`)+`</div>`;
+  if(o.pickup){
+    if(isOwnStore(o)){
+      ship=`<div class="info">🏬 <b>Pickup at own store:</b> ${esc(o.dealer||'(unknown)')}${o.dealer_address?' ('+esc(o.dealer_address)+')':''}. Delivery address kept as the customer${o.customer?' (<b>'+esc(o.customer)+'</b>)':''}. <span class="muted">Own shop — no dealer compensation.</span></div>`;
+    } else { const matched=DEALERS[(o.dealer||'').trim().toLowerCase()];
+      ship=`<div class="info">🏬 <b>Pickup at dealer:</b> ${esc(o.dealer||'(unknown)')}${o.dealer_address?' ('+esc(o.dealer_address)+')':''}. `+
+        (matched?`Delivery address → <b>${esc(matched.name)}</b>.`:`<span style="color:var(--red)">Not matched to an Odoo contact yet — set it in the Mappings tab.</span>`)+`</div>`;
+    }
   } else { ship=`<div class="info"><b>Ship to:</b> ${esc(o.shipping_address||'(none)')}${o.shipping_method?' · '+esc(o.shipping_method):''}</div>`; }
   const wh=`<div class="info"><b>Warehouse:</b> ${esc(warehouseName(o))}</div>`;
   const rows=(o.mapped_lines||[]).map(l=>{
@@ -327,7 +332,7 @@ function detailHtml(o){
     return `<tr><td>${l.is_shipping?'🚚 ':''}${esc(l.source)}</td><td class="mono">${esc(ref)}${l.mapped?'':'<span class="flag">no mapping</span>'}</td><td class="num">×${l.qty}</td><td class="num">${money(l.price,o.currency)}</td></tr>`;
   }).join('');
   const warn=(o.unmapped&&o.unmapped.length)?`<div class="alert warn">${o.unmapped.length} item(s) have no Odoo product yet: <b>${o.unmapped.map(esc).join(', ')}</b>. Add them in the Mappings tab.</div>`:'';
-  const emailBtn=o.pickup?`<button class="btn ghost" onclick="event.stopPropagation();emailDealer('${esc(o.name)}')">✉ Email dealer</button>`:'';
+  const emailBtn=(o.pickup&&!isOwnStore(o))?`<button class="btn ghost" onclick="event.stopPropagation();emailDealer('${esc(o.name)}')">✉ Email dealer</button>`:'';
   return client+ship+wh+
     `<table class="lines"><thead><tr><th>Shopify line</th><th>Odoo product</th><th class="num">Qty</th><th class="num">Unit</th></tr></thead><tbody>${rows}</tbody></table>`+
     warn+`<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">${convertBtn(o)}${emailBtn}</div>`;
@@ -441,7 +446,7 @@ async function convertOrder(name){
     const vals={partner_id:partnerId,client_order_ref:o.name,origin:'Shopify '+o.name,warehouse_id:warehouseId(o),order_line};
     const tid=await onlineTeamId(); if(tid) vals.team_id=tid;   // always book under the "Online" sales team
     let dealerPartner=null;
-    if(o.pickup&&Number(o.shipping_cost||0)===0){
+    if(o.pickup&&Number(o.shipping_cost||0)===0&&!isOwnStore(o)){
       const hit=DEALERS[(o.dealer||'').trim().toLowerCase()];
       if(!hit) throw new Error('Pickup dealer “'+(o.dealer||'?')+'” is not matched to an Odoo contact yet. Match it in the Mappings tab.');
       vals.partner_shipping_id=hit.id; dealerPartner=hit.id;
@@ -491,9 +496,14 @@ function renderMaps(){
     <div id="unmapped-list">${items.length?items.map(it=>mapItemRow(it)).join(''):'<div class="muted" style="font-size:12.5px">Nothing to map right now. 🎉</div>'}</div>
     <h3 style="margin:22px 0 8px;font-size:14px">Pickup dealers ${dealers.length?`(${dealers.length})`:''}</h3>
     <div id="dealer-list">${dealers.length?dealers.map(d=>dealerRow(d)).join(''):'<div class="muted" style="font-size:12.5px">All pickup locations are matched.</div>'}</div>
+    <h3 style="margin:22px 0 8px;font-size:14px">Matched pickup locations (${Object.keys(DEALERS).length})</h3>
+    <div style="font-size:12.5px;border:1px solid var(--line);border-radius:9px">
+      ${Object.entries(DEALERS).length?Object.entries(DEALERS).map(([k,val],i)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line-soft)"><span style="flex:1">🏬 ${esc(k)} → <b>${esc((val&&val.name)||'')}</b></span><button class="btn ghost" style="padding:3px 9px;font-size:11px" onclick="deleteDealer(${i})">✕ unmatch</button></div>`).join(''):'<div class="muted" style="padding:6px 10px">No pickup locations matched yet.</div>'}
+    </div>
     <h3 style="margin:22px 0 8px;font-size:14px">All current mappings (${MAPPING.length})</h3>
-    <div style="font-size:12px;max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:9px">
-      ${MAPPING.map(m=>`<div style="padding:6px 10px;border-bottom:1px solid var(--line-soft)"><span class="mono" style="color:var(--blue)">${esc(m.odoo_reference)}</span> ← ${esc(m.shopify_sku||m.shopify_name)}</div>`).join('')}
+    <div class="fld" style="margin-bottom:6px"><input id="map-filter" placeholder="Filter mappings…" oninput="filterMaps(this.value)"/></div>
+    <div id="map-list" style="font-size:12px;max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:9px">
+      ${MAPPING.map((m,i)=>`<div class="map-line" data-text="${esc(((m.odoo_reference||'')+' '+(m.shopify_sku||m.shopify_name||'')).toLowerCase())}" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line-soft)"><span style="flex:1"><span class="mono" style="color:var(--blue)">${esc(m.odoo_reference)}</span> ← ${esc(m.shopify_sku||m.shopify_name)}${m.note?` <span class="muted">· ${esc(m.note)}</span>`:''}</span><button class="btn ghost" style="padding:3px 9px;font-size:11px" onclick="deleteMap(${i})">✕</button></div>`).join('')}
     </div>`;
 }
 function mapItemRow(it){
@@ -553,7 +563,26 @@ async function addDealer(loc,id,name){
   alert_('Matched pickup “'+loc+'” → '+name+'.'+(saved?'':' (saved on this device only — shared storage unreachable)'), saved?'ok':'warn');
 }
 
-/* ── Price alerts: Shopify catalogue price vs Odoo sales price for every mapping ── */
+function filterMaps(q){ q=(q||'').toLowerCase().trim(); document.querySelectorAll('#map-list .map-line').forEach(el=>{ el.style.display=(!q||((el.getAttribute('data-text')||'').includes(q)))?'':'none'; }); }
+async function deleteMap(i){
+  const m=MAPPING[i]; if(!m)return;
+  if(!confirm('Remove this mapping?\n\n'+(m.odoo_reference||'')+'  \u2190  '+(m.shopify_sku||m.shopify_name||'')))return;
+  MAPPING.splice(i,1);
+  computeAll(); renderOrders(); renderMaps();
+  const saved=await kvPut(MAP_KEY,MAPPING);
+  alert_('Removed mapping \u201c'+(m.shopify_sku||m.shopify_name||m.odoo_reference)+'\u201d.'+(saved?' The item reappears under Unmapped products so you can re-map it.':' (saved on this device only \u2014 shared storage unreachable)'), saved?'ok':'warn');
+}
+async function deleteDealer(i){
+  const entries=Object.entries(DEALERS); const e=entries[i]; if(!e)return;
+  const [key,val]=e;
+  if(!confirm('Unmatch this pickup location?\n\n'+key+'  \u2192  '+((val&&val.name)||'')))return;
+  delete DEALERS[key];
+  renderMaps(); renderOrders();
+  const saved=await kvPut(DEALER_KEY,DEALERS);
+  alert_('Unmatched \u201c'+key+'\u201d.'+(saved?' It reappears under Pickup dealers so you can re-match it.':' (saved on this device only \u2014 shared storage unreachable)'), saved?'ok':'warn');
+}
+
+/* \u2500\u2500 Price alerts: Shopify catalogue price vs Odoo sales price for every mapping \u2500\u2500 */
 let PRICE_ROWS=null, PA_SHOWALL=false;
 function norm(s){ return (s||'').toLowerCase().replace(/\s+/g,' ').trim(); }
 function paBadge(n){ const b=$('pa-badge'); if(!b)return; b.textContent=n?String(n):''; }
@@ -635,7 +664,7 @@ function showTab(t){
   if(t==='prices') loadPriceAlerts();
 }
 
-try{ console.log("Shopify Convert build 2026-06-11b loaded OK"); }catch(e){}
+try{ console.log("Shopify Convert build 2026-06-11c loaded OK"); }catch(e){}
 </script>
 </body>
 </html>
