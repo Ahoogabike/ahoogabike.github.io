@@ -208,8 +208,8 @@ async function odoo(model,method,args,kwargs={}){
 }
 
 /* ── KV through the planner-proxy ── */
-async function kvGet(key){ const r=await fetch(`${CF_WORKER}/kv/${encodeURIComponent(key)}`); if(!r.ok)return null; const t=await r.text(); try{return JSON.parse(t);}catch{return t;} }
-async function kvPut(key,obj){ try{ const r=await fetch(`${CF_WORKER}/kv/${encodeURIComponent(key)}`,{method:'PUT',headers:{'Content-Type':'text/plain'},body:JSON.stringify(obj)}); return r.ok; }catch(e){ return false; } }
+async function kvGet(key){ try{ const r=await fetch(`${SHOP_WORKER}/kv/${encodeURIComponent(key)}`); if(!r.ok)return null; const t=await r.text(); if(t==='null'||t==='')return null; try{return JSON.parse(t);}catch{return t;} }catch(e){ return null; } }
+async function kvPut(key,obj){ try{ const r=await fetch(`${SHOP_WORKER}/kv/${encodeURIComponent(key)}`,{method:'PUT',headers:{'Content-Type':'text/plain'},body:JSON.stringify(obj)}); if(!r.ok)return false; const j=await r.json().catch(()=>({})); return j.ok!==false; }catch(e){ return false; } }
 
 /* ── connect + load ── */
 (function prefill(){ try{ const c=localStorage.getItem('mxp_cfg'); if(c){ const cfg=JSON.parse(c); if(cfg.user)$('cfg-user').value=cfg.user; if(cfg.key)$('cfg-key').value=cfg.key; } }catch(e){} })();
