@@ -85,7 +85,7 @@ td.num{text-align:right;font-family:'Space Mono',monospace;white-space:nowrap}
 </head>
 <body>
 <header>
-  <div class="logo">Sh<span class="b">oo</span>pify Convert <span class="tag">Shopify → Odoo</span></div>
+  <div class="logo">Sh<span class="b">oo</span>pify Convert <span class="tag">Shopify → Odoo</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑06‑11b</span></div>
   <div id="conn-pill" class="pill">Not connected</div>
 </header>
 
@@ -118,6 +118,7 @@ td.num{text-align:right;font-family:'Space Mono',monospace;white-space:nowrap}
   </div>
 </div>
 <script>
+console.log("Shopify Convert build 2026-06-11b | KV ->", SHOP_WORKER);
 /* Shopify Convert — hosted front-end.
  * Orders + line preview come from the Shopify worker; Odoo reads/writes go through
  * the planner-proxy (same as your other tools); the mapping lives in Cloudflare KV. */
@@ -209,7 +210,7 @@ async function odoo(model,method,args,kwargs={}){
 
 /* ── KV through the planner-proxy ── */
 async function kvGet(key){ try{ const r=await fetch(`${SHOP_WORKER}/kv/${encodeURIComponent(key)}`); if(!r.ok)return null; const t=await r.text(); if(t==='null'||t==='')return null; try{return JSON.parse(t);}catch{return t;} }catch(e){ return null; } }
-async function kvPut(key,obj){ try{ const r=await fetch(`${SHOP_WORKER}/kv/${encodeURIComponent(key)}`,{method:'PUT',headers:{'Content-Type':'text/plain'},body:JSON.stringify(obj)}); if(!r.ok)return false; const j=await r.json().catch(()=>({})); return j.ok!==false; }catch(e){ return false; } }
+async function kvPut(key,obj){ try{ const r=await fetch(`${SHOP_WORKER}/kv/${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(obj)}); if(!r.ok)return false; const j=await r.json().catch(()=>({})); return j.ok!==false; }catch(e){ return false; } }
 
 /* ── connect + load ── */
 (function prefill(){ try{ const c=localStorage.getItem('mxp_cfg'); if(c){ const cfg=JSON.parse(c); if(cfg.user)$('cfg-user').value=cfg.user; if(cfg.key)$('cfg-key').value=cfg.key; } }catch(e){} })();
