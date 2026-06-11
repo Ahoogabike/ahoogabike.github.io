@@ -6,18 +6,18 @@
        <script src="mxp-auth.js"></script>
 
    What it does:
-   - index.html (the login page): shows ONLY the login form until the user
-     is logged in. Once Odoo credentials are saved, the homepage (hero,
-     app cards, etc.) is revealed. If the user had been bounced here from a
-     specific app, they're sent back to that app instead.
-   - App pages: if not logged in, the user is bounced to index.html to log
-     in (and afterwards returned to the app they wanted).
-   - App pages stay "connected" and re-sync with Odoo every 5 minutes
-     (300 s). A sync cycle is skipped while the user is typing/editing or
-     has a dialog open, so in-progress work is never wiped.
+   - index.html (login page): shows ONLY the login form until logged in,
+     then reveals the homepage. If the user had been bounced here from an
+     app, sends them back to that app after login.
+   - App pages: if not logged in, bounce to index.html to log in (and
+     return afterwards). Once logged in, the page is fed the shared Odoo
+     login automatically, connects itself, and HIDES its own connection /
+     settings tab (so nobody has to type credentials in each app).
+   - App pages re-sync with Odoo every 5 minutes (300 s), skipping a cycle
+     while the user is typing/editing so in-progress work is never wiped.
 
-   Credentials are read from localStorage key "mxp_cfg" = {user, key},
-   exactly as index.html already saves them. Nothing else changes.
+   Credentials live in localStorage key "mxp_cfg" = {user, key}, exactly as
+   index.html already saves them.
    ===================================================================== */
 (function () {
   "use strict";
@@ -25,16 +25,17 @@
   var SYNC_MS = 300000;          // 5 minutes
   var REDIRECT_TTL_MS = 600000;  // honour a "return to app" request for 10 min
 
-  function hasCreds() {
+  function getCfg() {
     try {
       var c = localStorage.getItem("mxp_cfg");
-      if (!c) return false;
+      if (!c) return null;
       var g = JSON.parse(c);
-      return !!(g && g.user && g.key);
+      return (g && g.user && g.key) ? g : null;
     } catch (e) {
-      return false;
+      return null;
     }
   }
+  function hasCreds() { return !!getCfg(); }
 
   function pageName() {
     return (location.pathname.split("/").pop() || "").toLowerCase();
@@ -43,10 +44,10 @@
   var page = pageName();
   var isLoginPage = page === "" || page === "index.html";
 
-  /* ---------------- Login page (index.html) ---------------- */
+  /* =================================================================
+     LOGIN PAGE (index.html)
+     ================================================================= */
   if (isLoginPage) {
-    // Hide the homepage content until logged in — only the login form shows.
-    // (Class is added to <html> the moment credentials exist.)
     try {
       var css =
         "html:not(.mxp-authed) .hero," +
@@ -63,8 +64,6 @@
     function reveal() {
       document.documentElement.classList.add("mxp-authed");
     }
-
-    // If the user was bounced here from an app, send them back after login.
     function maybeReturn() {
       try {
         var raw = localStorage.getItem("mxp_redirect");
@@ -81,24 +80,24 @@
       return false;
     }
 
-    if (hasCreds()) reveal(); // already logged in -> show homepage immediately
-
-    // Watch for the moment credentials get saved, then reveal / redirect.
+    if (hasCreds()) reveal();
     var ticks = 0;
     var iv = setInterval(function () {
       ticks++;
       if (hasCreds()) {
         reveal();
-        maybeReturn();      // jumps to the app they came from, if any
+        maybeReturn();
         clearInterval(iv);
       } else if (ticks > 600) {
-        clearInterval(iv);  // give up polling after ~5 min
+        clearInterval(iv);
       }
     }, 500);
     return;
   }
 
-  /* ---------------- App pages: require login ---------------- */
+  /* =================================================================
+     APP PAGES — require login
+     ================================================================= */
   if (!hasCreds()) {
     try {
       localStorage.setItem(
@@ -106,13 +105,96 @@
         JSON.stringify({ to: page + location.search, ts: Date.now() })
       );
     } catch (e) {}
-    // Hide the page immediately to avoid a flash of the app before redirect.
     try { document.documentElement.style.display = "none"; } catch (e) {}
     location.replace("index.html");
     return;
   }
 
-  /* ---------------- Auto-sync every 5 minutes ---------------- */
+  /* ---- Hide each app's own connection / settings UI (flash-free) ---- */
+  try {
+    var hideCss =
+      "#view-settings,#nav-settings,#conn-panel,#gear,#settings{display:none!important}";
+    var hs = document.createElement("style");
+    hs.textContent = hideCss;
+    (document.head || document.documentElement).appendChild(hs);
+  } catch (e) {}
+
+  // Push the shared login into whatever credential fields the app uses.
+  function fillCreds() {
+    var g = getCfg();
+    if (!g) return;
+    var map = { "cfg-user": g.user, "cfg-key": g.key };
+    Object.keys(map).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && map[id] != null && el.value !== map[id]) {
+        el.value = map[id];
+        try {
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+        } catch (e) {}
+      }
+    });
+  }
+
+  // Trigger the app's own connect/load routine (covers every app variant).
+  function initialConnect() {
+    var fns = ["connectAndLoad", "loadData", "syncOdoo", "testConnection",
+               "loadAll", "syncAll"];
+    for (var i = 0; i < fns.length; i++) {
+      if (typeof window[fns[i]] === "function") {
+        try { window[fns[i]](); } catch (e) {}
+        return;
+      }
+    }
+  }
+
+  // Hide the connection panel / settings tab / gear button everywhere.
+  function hideConnectionUI() {
+    try {
+      var u = document.getElementById("cfg-user");
+      if (u) {
+        var p = u.closest("#view-settings, #settings, #conn-panel, .connect, .conn-panel");
+        if (p) p.style.display = "none";
+      }
+      var tabs = document.querySelectorAll(".nav-btn, .tab, .tab-btn, [role='tab'], nav button");
+      for (var i = 0; i < tabs.length; i++) {
+        var t = (tabs[i].textContent || "").replace(/[^a-z]/gi, "").toLowerCase();
+        if (t === "settings" || t === "connection") tabs[i].style.display = "none";
+      }
+      var gear = document.getElementById("gear");
+      if (gear) gear.style.display = "none";
+      // If a now-hidden settings view was the active one, switch to a real tab.
+      var active = document.querySelector("#view-settings.active, #view-settings.show, #settings.active");
+      if (active) {
+        var first = document.querySelector(".nav-btn:not(#nav-settings), .tab:not(#nav-settings)");
+        if (first) { try { first.click(); } catch (e) {} }
+      }
+    } catch (e) {}
+  }
+
+  // Run hide as early as possible (no flash), fill creds early too.
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", function () {
+      hideConnectionUI();
+      fillCreds();
+    });
+  } else {
+    hideConnectionUI();
+    fillCreds();
+  }
+
+  // After the app has fully initialised, re-assert credentials, connect, and
+  // re-hide (in case the app re-rendered its nav). Delay lets the app's own
+  // startup run first so our values win.
+  window.addEventListener("load", function () {
+    setTimeout(function () {
+      fillCreds();
+      initialConnect();
+      hideConnectionUI();
+    }, 800);
+  });
+
+  /* ---- Auto-sync every 5 minutes ---- */
   function userIsEditing() {
     try {
       var ae = document.activeElement;
@@ -130,13 +212,9 @@
   }
 
   function runSync() {
-    if (userIsEditing()) return;        // protect in-progress work
-    if (document.hidden) return;        // don't sync a backgrounded tab
-    if (!hasCreds()) {                   // credentials cleared elsewhere -> re-gate
-      location.replace("index.html");
-      return;
-    }
-    // Call whichever refresh function this particular app defines.
+    if (userIsEditing()) return;
+    if (document.hidden) return;
+    if (!hasCreds()) { location.replace("index.html"); return; }
     var fns = ["loadData", "syncOdoo", "connectAndLoad", "refresh",
                "refreshSerials", "loadAll", "reload", "syncAll"];
     for (var i = 0; i < fns.length; i++) {
