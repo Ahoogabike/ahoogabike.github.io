@@ -188,19 +188,27 @@ async function connectAndLoad(){
 }
 
 async function ensureMapping(){
-  let m=await kvGet(MAP_KEY);
-  if(!Array.isArray(m)){ MAPPING=DEFAULT_MAPPING.slice(); await kvPut(MAP_KEY,MAPPING); }
-  else MAPPING=m;
+  try{
+    let m=await kvGet(MAP_KEY);
+    if(!Array.isArray(m)){ MAPPING=DEFAULT_MAPPING.slice(); try{ await kvPut(MAP_KEY,MAPPING); }catch(e){} }
+    else MAPPING=m;
+  }catch(e){ MAPPING=DEFAULT_MAPPING.slice(); }   // KV unreachable -> use built-in defaults
 }
-async function ensureDealers(){ const d=await kvGet(DEALER_KEY); DEALERS=(d&&typeof d==='object'&&!Array.isArray(d))?d:{}; }
+async function ensureDealers(){ try{ const d=await kvGet(DEALER_KEY); DEALERS=(d&&typeof d==='object'&&!Array.isArray(d))?d:{}; }catch(e){ DEALERS={}; } }
 
 async function loadOrders(){
   const {user,key}=creds(); if(!user||!key){ alert_('Enter your Odoo email and API key.','warn'); return; }
   setPill('loading');
+  await ensureMapping(); await ensureDealers();      // best-effort; never blocks order loading
+  let r;
   try{
-    await ensureMapping(); await ensureDealers();
-    const r=await fetch(`${SHOP_WORKER}/orders`,{headers:{'X-Odoo-User':user,'X-Odoo-Key':key}});
-    const j=await r.json().catch(()=>({error:'bad response'}));
+    r=await fetch(`${SHOP_WORKER}/orders`,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({user,key})});
+  }catch(e){
+    alert_('Could not reach the Shopify worker at '+SHOP_WORKER+'. Make sure the worker is deployed (its /health URL should return ok). ['+e.message+']','err');
+    setPill('err'); return;
+  }
+  try{
+    const j=await r.json().catch(()=>({error:'The worker did not return readable data.'}));
     if(!r.ok||j.error) throw new Error(j.error||('HTTP '+r.status));
     ORDERS=j.orders||[];
     await loadStatuses();
