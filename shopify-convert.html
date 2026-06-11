@@ -118,7 +118,6 @@ td.num{text-align:right;font-family:'Space Mono',monospace;white-space:nowrap}
   </div>
 </div>
 <script>
-console.log("Shopify Convert build 2026-06-11b | KV ->", SHOP_WORKER);
 /* Shopify Convert — hosted front-end.
  * Orders + line preview come from the Shopify worker; Odoo reads/writes go through
  * the planner-proxy (same as your other tools); the mapping lives in Cloudflare KV. */
@@ -635,6 +634,7 @@ function showTab(t){
   if(t==='prices') loadPriceAlerts();
 }
 
+try{ console.log("Shopify Convert build 2026-06-11b loaded OK"); }catch(e){}
 </script>
 </body>
 </html>
