@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script src="mxp-auth.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Ahooga Parts Stock</title>
@@ -73,6 +72,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .col-and{background:rgba(60,52,137,0.05)}
 .col-loui{background:rgba(26,79,160,0.05)}
 .col-vv{background:rgba(15,110,86,0.06)}
+.col-vvr{background:rgba(60,52,137,0.07)}
 .col-type{background:rgba(122,78,10,0.05)}
 tr.grp th{background:var(--surface2);color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:0.03em;text-align:center;border-bottom:1px solid var(--border);padding:5px 8px;cursor:default}
 tr.grp th.col-type{color:var(--warn)}
@@ -140,7 +140,7 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
   <div class="view active" id="view-stock">
     <div class="explain">
       <strong>Theoretical vs. real stock, per part.</strong> Scope: only parts that belong to a <strong>MAX bike BoM</strong> — every component reached by exploding the bike Bills of Material (all sub-assembly levels), the same parts the Traceability app reaches.<br>
-      <code>Theoretical = Received − Consumed in production − Sold after-sales</code> is the total quantity that should physically exist. <strong>Received</strong> is Odoo PO receipts plus any value you type in the <strong>± Adj</strong> column (for parts received without a PO or before Odoo started) — adjustments are saved to the shared cloud store (Cloudflare KV) so they persist across devices and teammates. On-hand is split into the <strong>AND</strong> warehouses (all combined) and <strong>LOUI</strong>, the locations Odoo can see — neither includes the <strong>VV</strong> assembly stock. So <code>Theoretical at VV = Theoretical − (AND + LOUI)</code> estimates how many units sit at VV (invisible to Odoo). A <strong>negative</strong> VV value means Odoo already shows more than the theoretical total — a data gap (scrap, manual adjustments, miscounts), not real VV stock. Manufactured <strong>sub-assemblies</strong> are tagged and read negative because they are built in-house, not purchased.
+      <code>Theoretical = Received − Consumed in production − Sold after-sales</code> is the total quantity that should physically exist. <strong>Received</strong> is Odoo PO receipts plus any value you type in the <strong>± Adj</strong> column (for parts received without a PO or before Odoo started) — adjustments are saved to the shared cloud store (Cloudflare KV) so they persist across devices and teammates. On-hand is split into the <strong>AND</strong> warehouses (all combined) and <strong>LOUI</strong>, the locations Odoo can see — neither includes the <strong>VV</strong> assembly stock. So <code>Theoretical at VV = Theoretical − (AND + LOUI)</code> estimates how many units sit at VV (invisible to Odoo). A <strong>negative</strong> VV value means Odoo already shows more than the theoretical total — a data gap (scrap, manual adjustments, miscounts), not real VV stock. Manufactured <strong>sub-assemblies</strong> are tagged and read negative because they are built in-house, not purchased. The last column, <strong>Velovisie (Odoo real)</strong>, is the actual on-hand at the Velovisie subcontracting location as Odoo records it — the real counterpart to compare against the estimated Theoretical at VV.
     </div>
 
     <div class="kpis">
@@ -152,6 +152,7 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
       <div class="kpi"><div class="kpi-label">AND stock</div><div class="kpi-value" id="k-and" style="color:var(--purple)">—</div></div>
       <div class="kpi"><div class="kpi-label">LOUI stock</div><div class="kpi-value" id="k-loui" style="color:var(--accent)">—</div></div>
       <div class="kpi"><div class="kpi-label">Est. at VV</div><div class="kpi-value" id="k-vv" style="color:var(--teal)">—</div></div>
+      <div class="kpi"><div class="kpi-label">Velovisie (Odoo)</div><div class="kpi-value" id="k-vvr" style="color:var(--purple)">—</div></div>
     </div>
 
     <div class="toolbar">
@@ -187,7 +188,7 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
             <th colspan="2">Received</th>
             <th class="col-type" colspan="7">Consumed in production — total, then by bike type (BoM × bikes produced)</th>
             <th></th>
-            <th colspan="4">Stock &amp; VV</th>
+            <th colspan="5">Stock &amp; VV</th>
           </tr>
           <tr>
             <th onclick="setSort('partNo')"   id="sh-partNo">Part #</th>
@@ -207,10 +208,11 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
             <th class="num col-and" onclick="setSort('andQty')" id="sh-andQty" title="On-hand across all AND warehouses combined">AND<br><span style="font-weight:400;font-size:9px">on-hand</span></th>
             <th class="num col-loui" onclick="setSort('louiQty')" id="sh-louiQty" title="On-hand in the LOUI warehouse">LOUI<br><span style="font-weight:400;font-size:9px">on-hand</span></th>
             <th class="num col-vv" onclick="setSort('vv')" id="sh-vv" title="Theoretical − (AND + LOUI) = units expected at VV (invisible to Odoo)">Theoretical<br><span style="font-weight:400;font-size:9px">at VV</span></th>
+            <th class="num col-vvr" onclick="setSort('vvReal')" id="sh-vvReal" title="Real on-hand at the Velovisie subcontracting location, as registered in Odoo (stock.quant)">Velovisie<br><span style="font-weight:400;font-size:9px">Odoo real</span></th>
           </tr>
         </thead>
         <tbody id="t-body">
-          <tr><td colspan="17" style="text-align:center;padding:32px;color:var(--text3)">Go to <strong>⚙ Connection</strong> to connect and load parts.</td></tr>
+          <tr><td colspan="18" style="text-align:center;padding:32px;color:var(--text3)">Go to <strong>⚙ Connection</strong> to connect and load parts.</td></tr>
         </tbody>
       </table>
     </div>
@@ -245,8 +247,9 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
           <th class="num col-and">AND</th>
           <th class="num col-loui">LOUI</th>
           <th class="num col-vv">Theoretical at VV</th>
+          <th class="num col-vvr">Velovisie (Odoo)</th>
         </tr></thead>
-        <tbody id="sum-tbody"><tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text3)">Connect and load parts first.</td></tr></tbody>
+        <tbody id="sum-tbody"><tr><td colspan="11" style="text-align:center;padding:32px;color:var(--text3)">Connect and load parts first.</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -626,7 +629,7 @@ async function loadData(){
     const ids=[...partIds];
     if(!ids.length){
       alert_('No MAX bike BoMs found in Odoo — nothing to count. Check that bike BoMs exist and their product names contain "MAX".','warn');
-      document.getElementById('t-body').innerHTML='<tr><td colspan="17" style="text-align:center;padding:32px;color:var(--text3)">No MAX bike BoM components found.</td></tr>';
+      document.getElementById('t-body').innerHTML='<tr><td colspan="18" style="text-align:center;padding:32px;color:var(--text3)">No MAX bike BoM components found.</td></tr>';
       return;
     }
     const idChunks=chunk(ids,300);
@@ -693,7 +696,15 @@ async function loadData(){
     console.log('[PartStock] AND locations:',andLocNames);
     console.log('[PartStock] LOUI locations:',louiLocNames);
 
-    const andMap={}, louiMap={};
+    // Velovisie subcontracting location — real on-hand Odoo records at the subcontractor
+    const VV_TOKENS=['VELOVISIE'];
+    const vvLocsAll=await odoo('stock.location','search_read',
+      [[['complete_name','ilike','velovisie']]],{fields:['id','complete_name'],limit:2000});
+    const vvLocIds=vvLocsAll.map(l=>l.id);
+    const vvLocNames=vvLocsAll.map(l=>l.complete_name);
+    console.log('[PartStock] Velovisie locations:',vvLocNames);
+
+    const andMap={}, louiMap={}, vvRealMap={};
     async function fillLoc(locIds,target){
       if(!locIds.length) return;
       for(const c of idChunks){
@@ -712,9 +723,10 @@ async function loadData(){
         {fields:['display_name','default_code','categ_id','type']});
       for(const p of prods) info[p.id]=p;
     }
-    alert_(`<span class="spinner"></span> Step 5/5 — On-hand by location: AND (${andLocIds.length} loc) + LOUI (${louiLocIds.length} loc)…`,'info');
+    alert_(`<span class="spinner"></span> Step 5/5 — On-hand by location: AND (${andLocIds.length}) + LOUI (${louiLocIds.length}) + Velovisie (${vvLocIds.length})…`,'info');
     await fillLoc(andLocIds,andMap);
     await fillLoc(louiLocIds,louiMap);
+    await fillLoc(vvLocIds,vvRealMap);
 
     // 6 ── INCOMING component POs (confirmed, not yet received) with planned dates
     alert_('<span class="spinner"></span> Incoming component deliveries (open POs)…','info');
@@ -783,10 +795,11 @@ async function loadData(){
       const louiQty=louiMap[id]||0;
       const odoo=andQty+louiQty;
       const vv=theo-odoo;
+      const vvReal=vvRealMap[id]||0;
       const row={
         id,partNo,partName,
         category:arr(pi.categ_id)[1]||'—',
-        receivedPO,recvAdj:adj,received,consumed,sav,theo,andQty,louiQty,odoo,vv,
+        receivedPO,recvAdj:adj,received,consumed,sav,theo,andQty,louiQty,odoo,vv,vvReal,
         isSub:subIds.has(id),
         bomFams:ALL_FAM.filter(k=>famParts[k]&&famParts[k].has(id))
       };
@@ -821,7 +834,8 @@ async function loadData(){
     document.getElementById('conn-pill').className='pill ok';
     const andNames=andLocNames.join(', ')||'none';
     const louiNames=louiLocNames.join(', ')||'none';
-    alert_(`✓ Loaded ${rows.length} parts from ${bikeBomCount} MAX bike BoM(s); ${totalBikes.toLocaleString()} bikes produced. AND locations: ${andNames}. LOUI locations: ${louiNames}. If a location is missing or wrong, tell me its exact name.`,'success');
+    const vvNames=vvLocNames.join(', ')||'none — check the location name contains "Velovisie"';
+    alert_(`✓ Loaded ${rows.length} parts from ${bikeBomCount} MAX bike BoM(s); ${totalBikes.toLocaleString()} bikes produced. AND: ${andNames}. LOUI: ${louiNames}. Velovisie: ${vvNames}.`,'success');
   }catch(e){
     alert_('Error: '+e.message,'danger');
     console.error(e);
@@ -987,9 +1001,10 @@ function render(){
   document.getElementById('k-and').textContent=Math.round(rows.reduce((s,r)=>s+(r.andQty||0),0)).toLocaleString();
   document.getElementById('k-loui').textContent=Math.round(rows.reduce((s,r)=>s+(r.louiQty||0),0)).toLocaleString();
   document.getElementById('k-vv').textContent=Math.round(rows.reduce((s,r)=>s+(r.vv||0),0)).toLocaleString();
+  const kvvr=document.getElementById('k-vvr'); if(kvvr) kvvr.textContent=Math.round(rows.reduce((s,r)=>s+(r.vvReal||0),0)).toLocaleString();
 
   // sort indicators
-  ['partNo','partName','category','received','recvAdj','consumed',...FAM_KEYS,'sav','theo','andQty','louiQty','vv'].forEach(k=>{
+  ['partNo','partName','category','received','recvAdj','consumed',...FAM_KEYS,'sav','theo','andQty','louiQty','vv','vvReal'].forEach(k=>{
     const el=document.getElementById('sh-'+k);if(!el)return;
     el.classList.toggle('sorted',sortKey===k);
     el.querySelectorAll('.arr').forEach(n=>n.remove());
@@ -1000,7 +1015,7 @@ function render(){
   updateAdjIndicator();
 
   const tb=document.getElementById('t-body');
-  if(!data.length){tb.innerHTML='<tr><td colspan="17" style="text-align:center;padding:28px;color:var(--text3)">No parts match the current filters.</td></tr>';return;}
+  if(!data.length){tb.innerHTML='<tr><td colspan="18" style="text-align:center;padding:28px;color:var(--text3)">No parts match the current filters.</td></tr>';return;}
 
   tb.innerHTML=data.map(r=>`<tr>
     <td style="font-family:monospace;font-size:11px;color:var(--text3)">${esc(r.partNo)||'—'}</td>
@@ -1015,6 +1030,7 @@ function render(){
     <td class="num col-and ${r.andQty<0?'neg':''}">${r.andQty?fmt(r.andQty):(r.andQty===0?'0':'—')}</td>
     <td class="num col-loui ${r.louiQty<0?'neg':''}">${r.louiQty?fmt(r.louiQty):(r.louiQty===0?'0':'—')}</td>
     <td class="num col-vv ${vvClass(r.vv)}">${r.vv===null?'—':(r.vv>0?'+':'')+fmt(r.vv)}</td>
+    <td class="num col-vvr ${r.vvReal<0?'neg':''}">${r.vvReal?fmt(r.vvReal):(r.vvReal===0?'0':'—')}</td>
   </tr>`).join('');
 }
 
@@ -1041,7 +1057,7 @@ function renderSummary(){
   const data=getSummaryData();
   const cnt=document.getElementById('sum-count');
   if(cnt) cnt.textContent=`${data.length} parts below ${VV_THRESHOLD} at VV`;
-  if(!data.length){tb.innerHTML=`<tr><td colspan="10" style="text-align:center;padding:28px;color:var(--text3)">No parts below ${VV_THRESHOLD} at VV.</td></tr>`;return;}
+  if(!data.length){tb.innerHTML=`<tr><td colspan="11" style="text-align:center;padding:28px;color:var(--text3)">No parts below ${VV_THRESHOLD} at VV.</td></tr>`;return;}
   tb.innerHTML=data.map(r=>`<tr>
     <td style="font-family:monospace;font-size:11px;color:var(--text3)">${esc(r.partNo)||'—'}</td>
     <td style="min-width:220px;white-space:normal;line-height:1.3;font-weight:500">${esc(r.partName)}${r.isSub?' <span class="badge">sub-assembly</span>':''}</td>
@@ -1053,6 +1069,7 @@ function renderSummary(){
     <td class="num col-and ${r.andQty<0?'neg':''}">${r.andQty?fmt(r.andQty):'0'}</td>
     <td class="num col-loui ${r.louiQty<0?'neg':''}">${r.louiQty?fmt(r.louiQty):'0'}</td>
     <td class="num col-vv ${vvClass(r.vv)}">${(r.vv>0?'+':'')+fmt(r.vv)}</td>
+    <td class="num col-vvr ${r.vvReal<0?'neg':''}">${r.vvReal?fmt(r.vvReal):'0'}</td>
   </tr>`).join('');
 }
 
@@ -1193,10 +1210,10 @@ function exportCSV(){
   const data=getFiltered();
   const hdr=['Part #','Part Name','Category','Received (PO)','Received adj.','Received (effective)','Consumed (production)',
     ...FAMILIES.map(f=>'Consumed '+f.label),
-    'After-sales','Theoretical stock','AND on-hand','LOUI on-hand','Theoretical at VV (Theo - AND - LOUI)'];
+    'After-sales','Theoretical stock','AND on-hand','LOUI on-hand','Theoretical at VV (Theo - AND - LOUI)','Velovisie on-hand (Odoo real)'];
   const csv=[hdr,...data.map(r=>[r.partNo,r.partName,r.category,r.receivedPO,r.recvAdj||0,r.received,r.consumed,
     ...FAM_KEYS.map(k=>Math.round(r[k]||0)),
-    r.sav,r.theo,r.andQty,r.louiQty,r.vv===null?'':r.vv])]
+    r.sav,r.theo,r.andQty,r.louiQty,r.vv===null?'':r.vv,r.vvReal])]
     .map(row=>row.map(c=>{const s=String(c??'');return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
