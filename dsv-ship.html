@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="ahooga-auth.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>DSV Ship — Ahooga</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
+:root{
+  --paper:#f7f4ec;--paper-2:#efe9dc;--card:#fff;--line:#e4ddcd;--line-soft:#eee8da;
+  --ink:#1d1c16;--ink-dim:#6b6557;--ink-faint:#9a9384;--gold:#c9991f;--pink:#ea1d5e;
+  --blue:#2b7fd6;--green:#2e8c3c;--red:#c01650;--radius:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Archivo',system-ui,sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased}
+.mono{font-family:'Space Mono',monospace}
+header{display:flex;align-items:center;justify-content:space-between;padding:0 28px;height:64px;background:rgba(255,255,255,.8);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30}
+.logo{display:flex;align-items:center;gap:12px;font-weight:900;letter-spacing:-.5px;font-size:18px}
+.logo .b{color:var(--pink)}
+.logo .tag{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);border-left:1px solid var(--line);padding-left:12px}
+.pills{display:flex;gap:8px;align-items:center}
+.pill{font-family:'Space Mono',monospace;font-size:11px;padding:5px 11px;border-radius:20px;background:var(--paper-2);color:var(--ink-faint);border:1px solid var(--line)}
+.pill.ok{background:rgba(46,140,60,.1);color:var(--green);border-color:rgba(46,140,60,.3)}
+.pill.err{background:rgba(234,29,94,.08);color:var(--red);border-color:rgba(234,29,94,.3)}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 28px 60px}
+.connect{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;background:var(--paper-2);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:20px}
+.fld{display:flex;flex-direction:column;flex:1;min-width:200px}
+.fld label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--ink-faint);margin-bottom:6px}
+.fld input{padding:10px 12px;border:1px solid var(--line);border-radius:9px;font-family:'Space Mono',monospace;font-size:13px;background:#fff;outline:none}
+.fld input:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(43,127,214,.14)}
+.btn{padding:10px 18px;border:0;border-radius:9px;cursor:pointer;font-family:'Archivo';font-weight:800;font-size:13px;color:#fff;background:linear-gradient(100deg,var(--pink),var(--gold) 140%);box-shadow:0 4px 14px rgba(234,29,94,.2);white-space:nowrap}
+.btn:hover{filter:brightness(1.05)}
+.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:none}
+.btn.blue{background:var(--blue);box-shadow:0 4px 14px rgba(43,127,214,.2)}
+.btn.sm{padding:6px 12px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.tabs{display:flex;gap:6px;margin-bottom:18px;border-bottom:1px solid var(--line)}
+.tab{padding:10px 16px;border:0;background:none;cursor:pointer;font-family:'Archivo';font-weight:700;font-size:14px;color:var(--ink-faint);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.active{color:var(--ink);border-bottom-color:var(--pink)}
+.view{display:none}.view.active{display:block}
+.alert{padding:11px 14px;border-radius:9px;font-size:13px;margin-bottom:14px}
+.alert.ok{background:rgba(46,140,60,.1);color:var(--green);border:1px solid rgba(46,140,60,.3)}
+.alert.warn{background:rgba(201,153,31,.12);color:#8a6a12;border:1px solid rgba(201,153,31,.35)}
+.alert.err{background:rgba(234,29,94,.08);color:var(--red);border:1px solid rgba(234,29,94,.3)}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+.row{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:10px;overflow:hidden}
+.row-head{display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer}
+.row-head:hover{background:var(--paper-2)}
+.r-name{font-weight:800;font-family:'Space Mono',monospace;font-size:13px;min-width:96px}
+.r-cust{font-weight:600;flex:1;min-width:120px}
+.r-meta{font-size:12px;color:var(--ink-dim)}
+.badge{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.badge.ready{background:rgba(43,127,214,.1);color:var(--blue)}
+.badge.wait{background:rgba(201,153,31,.14);color:#8a6a12}
+.badge.done{background:var(--paper-2);color:var(--ink-dim)}
+.badge.booked{background:rgba(46,140,60,.12);color:var(--green)}
+.detail{border-top:1px solid var(--line);padding:14px 16px;background:#fcfbf7;display:none}
+.detail.open{display:block}
+.info{font-size:12.5px;color:var(--ink-dim);margin:4px 0}
+.info b{color:var(--ink)}
+.grid2{display:flex;gap:12px;flex-wrap:wrap;margin:10px 0}
+.box{flex:1;min-width:220px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px}
+.box h4{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-faint);margin-bottom:8px}
+.minif{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.minif .fld{min-width:90px}
+.minif .fld input{padding:7px 9px;font-size:12px}
+.chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-dim);margin-top:8px}
+.link{color:var(--blue);word-break:break-all}
+.kvline{display:flex;gap:8px;font-size:12.5px;padding:2px 0}
+.kvline span:first-child{color:var(--ink-faint);min-width:120px}
+.muted{color:var(--ink-faint)}
+.empty{text-align:center;color:var(--ink-faint);padding:40px;font-size:13px}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid var(--line);border-top-color:var(--pink);border-radius:50%;animation:s .7s linear infinite;vertical-align:-2px}
+@keyframes s{to{transform:rotate(360deg)}}
+.cap{font-size:11px;color:var(--ink-faint);margin-top:4px}
+pre.code{background:#1d1c16;color:#e8e4d6;font-family:'Space Mono',monospace;font-size:11.5px;padding:12px;border-radius:9px;overflow:auto;white-space:pre-wrap;word-break:break-word}
+table.evt{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+table.evt th{text-align:left;color:var(--ink-faint);font-size:10px;text-transform:uppercase;letter-spacing:.1em;padding:4px 6px;border-bottom:1px solid var(--line)}
+table.evt td{padding:5px 6px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">DSV <span class="b">Ship</span> <span class="tag">Odoo → DSV</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑06‑15</span></div>
+  <div class="pills">
+    <span id="dsv-pill" class="pill">DSV: ?</span>
+    <span id="conn-pill" class="pill">Not connected</span>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="connect">
+    <div class="fld"><label>Odoo Email</label><input id="cfg-user" placeholder="yourname@ahooga.bike"/></div>
+    <div class="fld"><label>Odoo Password / API key</label><input id="cfg-key" type="password" placeholder="your odoo password"/></div>
+    <button class="btn" onclick="connectAndLoad()">Connect &amp; load deliveries →</button>
+    <button class="btn ghost" onclick="loadDeliveries()">Refresh</button>
+  </div>
+
+  <div id="alert"></div>
+
+  <div class="tabs">
+    <button class="tab active" id="nav-deliveries" onclick="showTab('deliveries')">Deliveries</button>
+    <button class="tab" id="nav-track" onclick="showTab('track')">Track</button>
+    <button class="tab" id="nav-settings" onclick="showTab('settings')">Settings</button>
+  </div>
+
+  <div class="view active" id="view-deliveries">
+    <div class="toolbar">
+      <label class="muted" style="font-size:12.5px"><input type="checkbox" id="hide-booked" onchange="renderDeliveries()"/> hide already-booked</label>
+      <span class="muted" style="font-size:12.5px" id="del-count"></span>
+    </div>
+    <div id="del-list"><div class="empty">Enter your Odoo email + password, then “Connect &amp; load deliveries”.</div></div>
+  </div>
+
+  <div class="view" id="view-track">
+    <div class="toolbar">
+      <div class="fld" style="max-width:340px"><label>DSV Booking ID</label><input id="trk-id" placeholder="e.g. 40288888880001206469"/></div>
+      <button class="btn blue sm" onclick="doTrack()">Track →</button>
+    </div>
+    <div id="trk-body"><div class="empty">Enter a DSV booking ID to fetch its latest status &amp; events.</div></div>
+  </div>
+
+  <div class="view" id="view-settings">
+    <div id="settings-body"></div>
+  </div>
+</div>
+<script>
+/* DSV Ship — hosted front-end.
+ * Deliveries are read from Odoo through the planner-proxy (same pattern as your other tools).
+ * DSV bookings/labels/tracking go through the ahooga-dsv-proxy worker, which keeps the DSV
+ * OAuth credentials + subscription keys server-side and solves browser CORS. */
+const CF_WORKER   = 'https://ahooga-planner-proxy.massimiliano-d74.workers.dev';
+const ODOO_URL    = 'https://ahooga.odoo.com';
+const ODOO_DB     = 'logicasoft-aho-18-0-21599177';
+const DSV_WORKER_DEFAULT = 'https://ahooga-dsv-proxy.massimiliano-d74.workers.dev';
+let   DSV_WORKER = (function(){ try{ return localStorage.getItem('dsv_worker')||DSV_WORKER_DEFAULT; }catch(e){ return DSV_WORKER_DEFAULT; } })();
+
+let odooUid=null, DELIVERIES=[], _ccache={};
+
+const $ = (id)=>document.getElementById(id);
+const cssId = (s)=>(s||'').replace(/[^a-z0-9]/gi,'');
+const esc = (s)=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const num = (x)=> (x==null||x===''?0:Number(x));
+
+function setPill(state){ const p=$('conn-pill'); if(state==='ok'){p.textContent='✓ Connected';p.className='pill ok';} else if(state==='err'){p.textContent='Connection error';p.className='pill err';} else if(state==='loading'){p.innerHTML='<span class="spin"></span> Loading…';p.className='pill';} else {p.textContent='Not connected';p.className='pill';} }
+function alert_(msg,type){ $('alert').innerHTML=`<div class="alert ${type}">${msg}</div>`; if(type==='ok') setTimeout(()=>{$('alert').innerHTML='';},6000); window.scrollTo({top:0,behavior:'smooth'}); }
+function creds(){ return { user:$('cfg-user').value.trim(), key:$('cfg-key').value.trim() }; }
+
+/* ── Odoo client through the planner-proxy ── */
+function proxyUrl(path){ return `${CF_WORKER}/odoo/${encodeURIComponent(ODOO_URL+path)}`; }
+function v(x){
+  if(x===null||x===undefined) return '<value><boolean>0</boolean></value>';
+  if(typeof x==='boolean') return `<value><boolean>${x?1:0}</boolean></value>`;
+  if(typeof x==='number'&&Number.isInteger(x)) return `<value><int>${x}</int></value>`;
+  if(typeof x==='number') return `<value><double>${x}</double></value>`;
+  if(Array.isArray(x)) return `<value><array><data>${x.map(v).join('')}</data></array></value>`;
+  if(typeof x==='object'){ const m=Object.entries(x).map(([k,vv])=>`<member><name>${k}</name>${v(vv)}</member>`).join(''); return `<value><struct>${m}</struct></value>`; }
+  return `<value><string>${String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</string></value>`;
+}
+function parseXml(xml){
+  const doc=new DOMParser().parseFromString(xml,'text/xml');
+  if(doc.querySelector('fault')) throw new Error('Odoo: '+(doc.querySelector('faultString')?.textContent?.substring(0,200)||'fault'));
+  function pv(n){ if(!n)return null; const c=n.firstElementChild; if(!c)return n.textContent;
+    switch(c.tagName){
+      case'int':case'i4':case'i8':return parseInt(c.textContent);
+      case'double':return parseFloat(c.textContent);
+      case'boolean':return c.textContent==='1';
+      case'string':return c.textContent;
+      case'nil':return null;
+      case'array':return Array.from(c.querySelector('data')?.children||[]).map(pv);
+      case'struct':{const o={};c.querySelectorAll(':scope>member').forEach(m=>{o[m.querySelector('name').textContent]=pv(m.querySelector('value'))});return o;}
+      default:return c.textContent;
+    } }
+  return pv(doc.querySelector('methodResponse>params>param>value'));
+}
+async function odoo(model,method,args,kwargs={}){
+  const {user,key}=creds();
+  if(!odooUid){
+    const b=`<?xml version="1.0"?><methodCall><methodName>authenticate</methodName><params>${[v(ODOO_DB),v(user),v(key),v({})].map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+    const r=await fetch(proxyUrl('/xmlrpc/2/common'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+    odooUid=parseXml(await r.text());
+    if(!odooUid||typeof odooUid!=='number') throw new Error('Odoo authentication failed — check your email and password/API key.');
+  }
+  const params=[v(ODOO_DB),v(odooUid),v(key),v(model),v(method),v(args),v(kwargs)];
+  const b=`<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>${params.map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+  const r=await fetch(proxyUrl('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+  return parseXml(await r.text());
+}
+
+/* ── DSV worker client ── */
+async function dsv(path,body){
+  const r=await fetch(`${DSV_WORKER}${path}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});
+  const t=await r.text();
+  let j; try{ j=JSON.parse(t); }catch(e){ j={ok:false,error:'DSV worker returned non-JSON: '+t.slice(0,200)}; }
+  if(!r.ok && j && j.error==null) j.error='HTTP '+r.status;
+  return j;
+}
+async function dsvPing(){
+  const p=$('dsv-pill');
+  try{
+    const r=await fetch(`${DSV_WORKER}/health`); const j=await r.json().catch(()=>({}));
+    if(r.ok&&(j.ok||j.status==='ok')){ p.textContent='DSV: '+(j.env||'ready'); p.className='pill ok'; }
+    else { p.textContent='DSV: not ready'; p.className='pill err'; }
+  }catch(e){ p.textContent='DSV: unreachable'; p.className='pill err'; }
+}
+
+(function prefill(){ try{ const c=localStorage.getItem('mxp_cfg'); if(c){ const cfg=JSON.parse(c); if(cfg.user)$('cfg-user').value=cfg.user; if(cfg.key)$('cfg-key').value=cfg.key; } }catch(e){} })();
+
+async function connectAndLoad(){
+  const {user,key}=creds(); if(!user||!key){ alert_('Enter your Odoo email and password.','warn'); return; }
+  odooUid=null; setPill('loading');
+  try{
+    try{ const c=localStorage.getItem('mxp_cfg'); const cfg=c?JSON.parse(c):{}; cfg.user=user; cfg.key=key; localStorage.setItem('mxp_cfg',JSON.stringify(cfg)); }catch(e){}
+    await odoo('res.users','search_read',[[['id','=',1]]],{fields:['name'],limit:1});
+    await loadDeliveries();
+  }catch(e){ alert_('Could not connect: '+esc(e.message),'err'); setPill('err'); }
+}
+
+async function loadDeliveries(){
+  const {user,key}=creds(); if(!user||!key){ alert_('Enter your Odoo email and password.','warn'); return; }
+  setPill('loading');
+  try{
+    const fields=['name','state','origin','scheduled_date','date_done','partner_id','carrier_id','carrier_tracking_ref','weight'];
+    const pickings=await odoo('stock.picking','search_read',
+      [[['picking_type_code','=','outgoing'],['state','in',['assigned','confirmed','done']]]],
+      {fields,limit:80,order:'scheduled_date desc'});
+    DELIVERIES=pickings||[];
+    const pids=[...new Set(DELIVERIES.map(d=>Array.isArray(d.partner_id)?d.partner_id[0]:null).filter(Boolean))];
+    const partners={};
+    if(pids.length){
+      const recs=await odoo('res.partner','read',[pids,['name','street','street2','zip','city','country_id','phone','email']]);
+      (recs||[]).forEach(r=>{ partners[r.id]=r; });
+      const cids=[...new Set((recs||[]).map(r=>Array.isArray(r.country_id)?r.country_id[0]:null).filter(Boolean))];
+      if(cids.length){ const cs=await odoo('res.country','read',[cids,['code']]); (cs||[]).forEach(c=>{ _ccache[c.id]=c.code; }); }
+    }
+    DELIVERIES.forEach(d=>{ const pid=Array.isArray(d.partner_id)?d.partner_id[0]:null; d.partner=pid?partners[pid]:null; });
+    setPill('ok'); renderDeliveries();
+    if(!DELIVERIES.length) alert_('No outgoing deliveries in “ready / waiting / done” were found.','warn');
+  }catch(e){ alert_('Could not load deliveries: '+esc(e.message),'err'); setPill('err'); }
+}
+
+function stateBadge(d){
+  if(d.carrier_tracking_ref) return '<span class="badge booked">DSV · '+esc(d.carrier_tracking_ref)+'</span>';
+  if(d.state==='assigned') return '<span class="badge ready">Ready</span>';
+  if(d.state==='confirmed') return '<span class="badge wait">Waiting</span>';
+  if(d.state==='done') return '<span class="badge done">Done</span>';
+  return '<span class="badge done">'+esc(d.state)+'</span>';
+}
+function addrLine(p){
+  if(!p) return '(no address)';
+  const cc=Array.isArray(p.country_id)?(_ccache[p.country_id[0]]||p.country_id[1]):'';
+  return [p.street,p.street2,[p.zip,p.city].filter(Boolean).join(' '),cc].filter(Boolean).join(', ');
+}
+
+function renderDeliveries(){
+  const box=$('del-list'); const hide=$('hide-booked').checked;
+  let list=DELIVERIES.slice(); if(hide) list=list.filter(d=>!d.carrier_tracking_ref);
+  $('del-count').textContent=`${list.length} shown · ${DELIVERIES.length} loaded`;
+  if(!list.length){ box.innerHTML='<div class="empty">Nothing to show.</div>'; return; }
+  box.innerHTML=list.map(d=>{
+    const id=cssId(d.name);
+    const cust=Array.isArray(d.partner_id)?d.partner_id[1]:'(no customer)';
+    const when=(d.scheduled_date||d.date_done||'').replace('T',' ').slice(0,16);
+    return `<div class="row">
+      <div class="row-head" onclick="toggle('${id}')">
+        <span class="r-name">${esc(d.name)}</span>
+        <span class="r-cust">${esc(cust)}</span>
+        <span class="r-meta">${esc(when)}</span>
+        <span class="r-meta mono">${d.weight?Number(d.weight).toFixed(1)+' kg':''}</span>
+        ${stateBadge(d)}
+        <span style="flex:1"></span>
+        ${d.carrier_tracking_ref?'<span class="muted" style="font-size:12px">booked</span>':'<button class="btn blue sm" onclick="event.stopPropagation();toggle(\''+id+'\',true)">Book DSV →</button>'}
+      </div>
+      <div class="detail" id="d-${id}"></div>
+    </div>`;
+  }).join('');
+}
+function toggle(id,forceOpen){
+  const el=$('d-'+id); if(!el)return;
+  if(el.classList.contains('open')&&!forceOpen){ el.classList.remove('open'); el.innerHTML=''; return; }
+  const d=DELIVERIES.find(x=>cssId(x.name)===id); if(!d)return;
+  el.innerHTML=detailHtml(d,id); el.classList.add('open');
+}
+function detailHtml(d,id){
+  const p=d.partner||{};
+  const cust=Array.isArray(d.partner_id)?d.partner_id[1]:'';
+  const booked=!!d.carrier_tracking_ref;
+  const ship=`<div class="box"><h4>Ship to</h4>
+    <div class="info"><b>${esc(cust)}</b></div>
+    <div class="info">${esc(addrLine(p))}</div>
+    ${p.phone?'<div class="info">☎ '+esc(p.phone)+'</div>':''}
+    ${p.email?'<div class="info muted">'+esc(p.email)+'</div>':''}
+    ${d.origin?'<div class="info muted">Source: '+esc(d.origin)+'</div>':''}</div>`;
+  const form=`<div class="box"><h4>DSV booking — Road (EU)</h4>
+    <div class="minif">
+      <div class="fld"><label>Packages</label><input id="pk-${id}" value="1" inputmode="numeric"/></div>
+      <div class="fld"><label>Total weight (kg)</label><input id="wt-${id}" value="${d.weight?Number(d.weight).toFixed(1):''}" inputmode="decimal"/></div>
+      <div class="fld" style="flex:2"><label>Reference</label><input id="rf-${id}" value="${esc(d.name)}"/></div>
+    </div>
+    <label class="chk"><input type="checkbox" id="ab-${id}"/> Submit as <b>final booking</b> (unchecked = draft in myDSV)</label>
+    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
+      ${booked
+        ? '<button class="btn ghost sm" disabled>✓ Already booked ('+esc(d.carrier_tracking_ref)+')</button>'
+        : '<button class="btn blue sm bk-'+id+'" onclick="bookDelivery(\''+id+'\')">Book with DSV →</button>'}
+    </div>
+    <div class="cap">Books a Road (EU) shipment via the DSV API, then writes the booking ID, attaches the label PDF, and posts a note on this delivery in Odoo.</div>
+    <div id="bk-out-${id}" style="margin-top:10px"></div>
+  </div>`;
+  return `<div class="grid2">${ship}${form}</div>`;
+}
+
+async function bookDelivery(id){
+  const d=DELIVERIES.find(x=>cssId(x.name)===id); if(!d)return;
+  const p=d.partner||{};
+  const out=$('bk-out-'+id);
+  const btns=Array.prototype.slice.call(document.querySelectorAll('.bk-'+id));
+  btns.forEach(b=>{ b.disabled=true; b.innerHTML='<span class="spin"></span> Booking…'; });
+  out.innerHTML='';
+  try{
+    const cc=Array.isArray(p.country_id)?(_ccache[p.country_id[0]]||''):'';
+    const payload={
+      reference: ($('rf-'+id)?.value||d.name).trim(),
+      packages: Math.max(1, parseInt($('pk-'+id)?.value||'1')||1),
+      totalWeight: num($('wt-'+id)?.value||d.weight||0),
+      autobook: !!$('ab-'+id)?.checked,
+      cargoDesc: (d.origin||'Goods'),
+      consignee: {
+        name: Array.isArray(d.partner_id)?d.partner_id[1]:'',
+        street: p.street||'', street2: p.street2||'',
+        zip: p.zip||'', city: p.city||'', countryCode: cc,
+        phone: p.phone||'', email: p.email||''
+      }
+    };
+    const res=await dsv('/book',payload);
+    if(!res.ok){ throw new Error(res.error||'DSV booking failed.'); }
+    const bookingId=res.bookingId; const trackingUrl=res.trackingUrl||'';
+    if(!bookingId) throw new Error('DSV did not return a booking ID. Raw: '+JSON.stringify(res).slice(0,200));
+
+    await odoo('stock.picking','write',[[d.id],{carrier_tracking_ref:String(bookingId)}]);
+    let labelMsg='';
+    if(res.labelBase64){
+      try{
+        await odoo('ir.attachment','create',[{
+          name:'DSV-'+bookingId+'.pdf', type:'binary', mimetype:'application/pdf',
+          datas:res.labelBase64, res_model:'stock.picking', res_id:d.id
+        }]);
+        labelMsg=' Label attached.';
+      }catch(e){ labelMsg=' (label attach failed: '+e.message+')'; }
+    }
+    const body='<p><b>DSV shipment '+(res.draft?'draft':'booked')+'.</b><br/>Booking ID: <b>'+esc(String(bookingId))+'</b>'
+      +(trackingUrl?'<br/>Tracking: <a href="'+esc(trackingUrl)+'">'+esc(trackingUrl)+'</a>':'')+'</p>';
+    try{ await odoo('stock.picking','message_post',[[d.id]],{body}); }catch(e){}
+
+    d.carrier_tracking_ref=String(bookingId);
+    out.innerHTML='<div class="alert ok">✓ '+(res.draft?'Draft created':'Booked')+'. DSV ID <b>'+esc(String(bookingId))+'</b>.'+esc(labelMsg)+'</div>'
+      +(trackingUrl?'<div class="kvline"><span>Tracking link</span><a class="link" href="'+esc(trackingUrl)+'" target="_blank">'+esc(trackingUrl)+'</a></div>':'')
+      +'<div class="kvline"><span>Send to client</span><span class="mono">'+esc(String(bookingId))+'</span></div>';
+    renderDeliveries();
+    alert_('✓ '+d.name+' → DSV '+(res.draft?'draft':'booking')+' '+bookingId+'.','ok');
+  }catch(e){
+    out.innerHTML='<div class="alert err">Booking failed: '+esc(e.message)+'</div>';
+    btns.forEach(b=>{ b.disabled=false; b.textContent='Book with DSV →'; });
+  }
+}
+
+async function doTrack(){
+  const id=$('trk-id').value.trim(); const body=$('trk-body');
+  if(!id){ body.innerHTML='<div class="empty">Enter a DSV booking ID.</div>'; return; }
+  body.innerHTML='<div class="empty"><span class="spin"></span> Fetching shipment status…</div>';
+  try{
+    const res=await dsv('/track',{bookingId:id});
+    if(!res.ok) throw new Error(res.error||'Tracking failed.');
+    const status=res.status||'(unknown)';
+    const events=res.events||[];
+    let html='<div class="row" style="padding:14px 16px"><div class="info"><b>Status:</b> '+esc(status)+'</div>';
+    if(res.shipmentId) html+='<div class="info muted">Shipment: '+esc(res.shipmentId)+'</div>';
+    if(events.length){
+      html+='<table class="evt"><thead><tr><th>When</th><th>Event</th><th>Location</th></tr></thead><tbody>'
+        +events.map(e=>`<tr><td class="mono">${esc((e.date||'').replace('T',' ').slice(0,16))}</td><td>${esc(e.description||'')}</td><td>${esc(e.location||'')}</td></tr>`).join('')
+        +'</tbody></table>';
+    }
+    html+='</div>';
+    body.innerHTML=html;
+  }catch(e){ body.innerHTML='<div class="alert err">'+esc(e.message)+'</div>'; }
+}
+
+function renderSettings(){
+  $('settings-body').innerHTML=`
+    <div class="box" style="max-width:760px">
+      <h4>DSV worker</h4>
+      <div class="info">The app talks to DSV through your <b>ahooga-dsv-proxy</b> Cloudflare Worker, which holds the DSV credentials and subscription keys as secrets.</div>
+      <div class="minif" style="margin-top:10px">
+        <div class="fld" style="flex:3"><label>DSV worker URL</label><input id="set-worker" value="${esc(DSV_WORKER)}"/></div>
+        <button class="btn blue sm" onclick="saveWorker()">Save &amp; test</button>
+      </div>
+      <div class="cap">Default: ${esc(DSV_WORKER_DEFAULT)}</div>
+    </div>
+    <div class="box" style="max-width:760px;margin-top:12px">
+      <h4>How it works</h4>
+      <div class="info">1. <b>Deliveries</b> are read from Odoo (<span class="mono">stock.picking</span>, outgoing) via the planner-proxy.</div>
+      <div class="info">2. <b>Book with DSV</b> sends consignee + packages to the worker, which books a Road (EU) shipment.</div>
+      <div class="info">3. On success the app writes <span class="mono">carrier_tracking_ref</span>, attaches the label PDF, and posts a chatter note with the tracking link.</div>
+      <div class="cap">Tip: leave “final booking” unchecked while testing — bookings land as drafts in myDSV. Tick it to book for real.</div>
+    </div>`;
+}
+async function saveWorker(){
+  const u=$('set-worker').value.trim().replace(/\/+$/,'');
+  if(!u){ alert_('Enter a worker URL.','warn'); return; }
+  DSV_WORKER=u; try{ localStorage.setItem('dsv_worker',u); }catch(e){}
+  await dsvPing(); alert_('Saved DSV worker URL.','ok');
+}
+
+function showTab(t){
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  $('view-'+t).classList.add('active'); $('nav-'+t).classList.add('active');
+  if(t==='settings') renderSettings();
+}
+
+dsvPing();
+try{ console.log('DSV Ship build 2026-06-15 loaded OK'); }catch(e){}
+</script>
+</body>
+</html>
