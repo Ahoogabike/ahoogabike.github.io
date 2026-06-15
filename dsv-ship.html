@@ -89,7 +89,7 @@ td.num{text-align:right;font-family:'Space Mono',monospace;white-space:nowrap}
 </head>
 <body>
 <header>
-  <div class="logo">DSV <span class="b">Ship</span> <span class="tag">Odoo → DSV</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑06‑15b</span></div>
+  <div class="logo">DSV <span class="b">Ship</span> <span class="tag">Odoo → DSV</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑06‑15d</span></div>
   <div class="pills">
     <span id="dsv-pill" class="pill">DSV: ?</span>
     <span id="conn-pill" class="pill">Not connected</span>
@@ -385,32 +385,42 @@ function detailHtml(d,id){
     ${p.email?'<div class="info muted">'+esc(p.email)+'</div>':''}
     <div class="info">${so?'Sales order / source: <b>'+esc(so)+'</b>':'<span class="muted">No linked sales order</span>'}</div></div>`;
 
+  const defs=getDefaults(); const pickup=getPickup();
+  const pickTxt = pickup&&(pickup.city||pickup.street) ? esc([pickup.name,pickup.street,[pickup.zip,pickup.city].filter(Boolean).join(' '),pickup.countryCode].filter(Boolean).join(', ')) : '<span class="muted">DSV account default</span>';
   const dsvPreview=`<div class="box dsv-box"><h4>What gets pushed to DSV</h4>
     <div class="kvline"><span>Reference</span><span class="mono">${esc(d.name)}</span></div>
     <div class="kvline"><span>Transport mode</span><span>Road (EU)</span></div>
-    <div class="kvline"><span>Product code</span><span class="mono">CMG</span> <span class="muted">(default)</span></div>
-    <div class="kvline"><span>Incoterm</span><span class="mono">DAP</span> <span class="muted">(default)</span></div>
+    <div class="kvline"><span>Product code</span><span class="mono">${esc(defs.productCode)}</span></div>
+    <div class="kvline"><span>Incoterm</span><span class="mono">DAP</span></div>
     <div class="kvline"><span>Packages</span><span class="mono" id="pkprev-${id}">1</span></div>
-    <div class="kvline"><span>Package type</span><span class="mono">CTN</span> <span class="muted">(default)</span></div>
-    <div class="kvline"><span>Package size</span><span class="mono">40×30×30 cm</span> <span class="muted">(default)</span></div>
+    <div class="kvline"><span>Package type</span><span class="mono">${esc(defs.packageType)}</span></div>
+    <div class="kvline"><span>Package size</span><span class="mono">${esc(defs.length)}x${esc(defs.width)}x${esc(defs.height)} cm</span></div>
     <div class="kvline"><span>Total weight</span><span class="mono" id="wtprev-${id}">${wtGuess?wtGuess.toFixed(1):''} kg</span></div>
-    <div class="kvline"><span>Consignee</span><span>${esc(cust)} — ${esc([p.zip,p.city,cc].filter(Boolean).join(' '))}</span></div>
-    <div class="cap">Defaults (product/incoterm/package type &amp; size) are set in the worker and can be customised later per product.</div></div>`;
+    <div class="kvline"><span>Pickup point</span><span>${pickTxt}</span></div>
+    <div class="kvline"><span>Consignee</span><span>${esc(cust)} - ${esc([p.zip,p.city,cc].filter(Boolean).join(' '))}</span></div>
+    <div class="cap">Product / package / pickup defaults are editable in <b>Settings</b>.</div></div>`;
 
-  const form=`<div class="box full"><h4>Book this transfer with DSV</h4>
-    <div class="minif">
-      <div class="fld"><label>Packages</label><input id="pk-${id}" value="1" inputmode="numeric" oninput="document.getElementById('pkprev-${id}').textContent=this.value"/></div>
-      <div class="fld"><label>Total weight (kg)</label><input id="wt-${id}" value="${wtGuess?wtGuess.toFixed(1):''}" inputmode="decimal" oninput="document.getElementById('wtprev-${id}').textContent=this.value+' kg'"/></div>
-      <div class="fld" style="flex:2"><label>Reference</label><input id="rf-${id}" value="${esc(d.name)}"/></div>
-    </div>
-    <label class="chk"><input type="checkbox" id="ab-${id}"/> Submit as <b>final booking</b> (unchecked = draft in myDSV)</label>
-    <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap">
-      ${booked?'<button class="btn ghost sm" disabled>✓ Already booked ('+esc(d.carrier_tracking_ref)+')</button>'
-              :'<button class="btn blue sm bk-'+id+'" onclick="bookDelivery(\''+id+'\')">Book with DSV →</button>'}
-    </div>
-    <div id="bk-out-${id}" style="margin-top:10px"></div></div>`;
+  const actions = booked
+    ? `<div class="box full"><h4>Booked - DSV ${esc(d.carrier_tracking_ref)}</h4>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn blue sm" onclick="printLabel('${id}')">Print label</button>
+          <button class="btn ghost sm" onclick="returnLabel('${id}')">Create return label</button>
+          <button class="btn ghost sm" onclick="unbookDelivery('${id}')">Mark unbooked</button>
+        </div>
+        <div class="cap">"Mark unbooked" clears the DSV reference in Odoo so you can re-book. It does not cancel the shipment at DSV - do that in myDSV.</div>
+        <div id="bk-out-${id}" style="margin-top:10px"></div></div>`
+    : `<div class="box full"><h4>Book this transfer with DSV</h4>
+        <div class="minif">
+          <div class="fld"><label>Packages</label><input id="pk-${id}" value="1" inputmode="numeric" oninput="var e=document.getElementById('pkprev-${id}');if(e)e.textContent=this.value"/></div>
+          <div class="fld"><label>Total weight (kg)</label><input id="wt-${id}" value="${wtGuess?wtGuess.toFixed(1):''}" inputmode="decimal" oninput="var e=document.getElementById('wtprev-${id}');if(e)e.textContent=this.value+' kg'"/></div>
+          <div class="fld" style="flex:2"><label>Reference</label><input id="rf-${id}" value="${esc(d.name)}"/></div>
+        </div>
+        <label class="chk"><input type="checkbox" id="ab-${id}"/> Submit as <b>final booking</b> (unchecked = draft in myDSV)</label>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn blue sm bk-${id}" onclick="bookDelivery('${id}')">Book with DSV →</button></div>
+        <div class="cap">Books a Road (EU) shipment, writes the booking ID, attaches the label PDF, and posts a note on this transfer.</div>
+        <div id="bk-out-${id}" style="margin-top:10px"></div></div>`;
 
-  return `<div class="grid2">${contents}</div><div class="grid2">${ship}${dsvPreview}</div><div class="grid2">${form}</div>`;
+  return `<div class="grid2">${contents}</div><div class="grid2">${ship}${dsvPreview}</div><div class="grid2">${actions}</div>`;
 }
 
 async function bookDelivery(id){
@@ -422,12 +432,16 @@ async function bookDelivery(id){
   out.innerHTML='';
   try{
     const cc=Array.isArray(p.country_id)?(_ccache[p.country_id[0]]||''):'';
+    const defs=getDefaults(); const pickup=getPickup();
     const payload={
       reference: ($('rf-'+id)?.value||d.name).trim(),
       packages: Math.max(1, parseInt($('pk-'+id)?.value||'1')||1),
       totalWeight: num($('wt-'+id)?.value||d.weight||0),
       autobook: !!$('ab-'+id)?.checked,
       cargoDesc: (soOf(d)||'Goods'),
+      productCode: defs.productCode, packageType: defs.packageType,
+      length: defs.length, width: defs.width, height: defs.height,
+      pickup: pickup||undefined,
       consignee: { name: Array.isArray(d.partner_id)?d.partner_id[1]:'', street: p.street||'', street2: p.street2||'',
         zip: p.zip||'', city: p.city||'', countryCode: cc, phone: p.phone||'', email: p.email||'' }
     };
@@ -438,8 +452,8 @@ async function bookDelivery(id){
     await odoo('stock.picking','write',[[d.id],{carrier_tracking_ref:String(bookingId)}]);
     let labelMsg='';
     if(res.labelBase64){ try{ await odoo('ir.attachment','create',[{name:'DSV-'+bookingId+'.pdf',type:'binary',mimetype:'application/pdf',datas:res.labelBase64,res_model:'stock.picking',res_id:d.id}]); labelMsg=' Label attached.'; }catch(e){ labelMsg=' (label attach failed: '+e.message+')'; } }
-    const body='<p><b>DSV shipment '+(res.draft?'draft':'booked')+'.</b><br/>Booking ID: <b>'+esc(String(bookingId))+'</b>'+(trackingUrl?'<br/>Tracking: <a href="'+esc(trackingUrl)+'">'+esc(trackingUrl)+'</a>':'')+'</p>';
-    try{ await odoo('stock.picking','message_post',[[d.id]],{body}); }catch(e){}
+    const body='DSV shipment '+(res.draft?'draft created':'booked')+'. Booking ID: '+String(bookingId)+(trackingUrl?'. Tracking: '+trackingUrl:'');
+    try{ await odoo('stock.picking','message_post',[[d.id]],{body,message_type:'comment',subtype_xmlid:'mail.mt_note'}); }catch(e){}
     d.carrier_tracking_ref=String(bookingId);
     out.innerHTML='<div class="alert ok">✓ '+(res.draft?'Draft created':'Booked')+'. DSV ID <b>'+esc(String(bookingId))+'</b>.'+esc(labelMsg)+'</div>'
       +(trackingUrl?'<div class="kvline"><span>Tracking link</span><a class="link" href="'+esc(trackingUrl)+'" target="_blank">'+esc(trackingUrl)+'</a></div>':'')
@@ -447,6 +461,60 @@ async function bookDelivery(id){
     renderDeliveries();
     alert_('✓ '+d.name+' → DSV '+(res.draft?'draft':'booking')+' '+bookingId+'.','ok');
   }catch(e){ out.innerHTML='<div class="alert err">Booking failed: '+esc(e.message)+'</div>'; btns.forEach(b=>{ b.disabled=false; b.textContent='Book with DSV →'; }); }
+}
+
+/* ── defaults + pickup (editable in Settings, stored on this device) ── */
+function getDefaults(){ try{ return Object.assign({productCode:'CMG',packageType:'CTN',length:40,width:30,height:30}, JSON.parse(localStorage.getItem('dsv_defaults')||'{}')); }catch(e){ return {productCode:'CMG',packageType:'CTN',length:40,width:30,height:30}; } }
+function getPickup(){ try{ const v=JSON.parse(localStorage.getItem('dsv_pickup')||'null'); return (v&&typeof v==='object')?v:null; }catch(e){ return null; } }
+
+/* ── open a base64 PDF in a new tab (for printing) ── */
+function openPdf(b64,name){
+  try{
+    const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0));
+    const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+    const w=window.open(url,'_blank');
+    if(!w){ const a=document.createElement('a'); a.href=url; a.download=(name||'label')+'.pdf'; document.body.appendChild(a); a.click(); a.remove(); }
+  }catch(e){ alert_('Could not open the PDF: '+esc(e.message),'err'); }
+}
+
+async function printLabel(id){
+  const d=DELIVERIES.find(x=>cssId(x.name)===id); if(!d||!d.carrier_tracking_ref) return;
+  const out=$('bk-out-'+id); if(out) out.innerHTML='<div class="info"><span class="spin"></span> Fetching label…</div>';
+  try{
+    const res=await dsv('/label',{bookingId:d.carrier_tracking_ref});
+    if(!res.ok||!res.labelBase64) throw new Error(res.error||'No label available yet — try again shortly.');
+    openPdf(res.labelBase64,'DSV-'+d.carrier_tracking_ref);
+    if(out) out.innerHTML='<div class="alert ok">Label opened in a new tab — print it from there.</div>';
+  }catch(e){ if(out) out.innerHTML='<div class="alert err">'+esc(e.message)+'</div>'; }
+}
+
+async function unbookDelivery(id){
+  const d=DELIVERIES.find(x=>cssId(x.name)===id); if(!d)return;
+  if(!confirm('Mark '+d.name+' as unbooked?\n\nThis clears the DSV reference in Odoo so it can be re-booked.\nIt does NOT cancel the shipment at DSV — cancel that in myDSV.')) return;
+  const prev=d.carrier_tracking_ref;
+  try{
+    await odoo('stock.picking','write',[[d.id],{carrier_tracking_ref:false}]);
+    try{ await odoo('stock.picking','message_post',[[d.id]],{body:'DSV booking unlinked in app (was '+prev+'). Cancel the shipment in myDSV if needed.',message_type:'comment',subtype_xmlid:'mail.mt_note'}); }catch(e){}
+    d.carrier_tracking_ref=false; renderDeliveries(); alert_('✓ '+d.name+' marked unbooked.','ok');
+  }catch(e){ alert_('Could not unbook: '+esc(e.message),'err'); }
+}
+
+async function returnLabel(id){
+  const d=DELIVERIES.find(x=>cssId(x.name)===id); if(!d)return;
+  if(!confirm('Create a RETURN shipment (customer → Ahooga) and open its label for '+d.name+'?')) return;
+  const p=d.partner||{}; const cc=Array.isArray(p.country_id)?(_ccache[p.country_id[0]]||''):''; const defs=getDefaults();
+  const out=$('bk-out-'+id); if(out) out.innerHTML='<div class="info"><span class="spin"></span> Creating return shipment…</div>';
+  try{
+    const payload={ reference:'RET-'+d.name, isReturn:true, autobook:true, packages:1,
+      totalWeight: num(d.weight||0)||1, cargoDesc:('Return '+(soOf(d)||'')).slice(0,30),
+      productCode:defs.productCode, packageType:defs.packageType, length:defs.length, width:defs.width, height:defs.height,
+      consignee:{ name:Array.isArray(d.partner_id)?d.partner_id[1]:'', street:p.street||'', zip:p.zip||'', city:p.city||'', countryCode:cc, phone:p.phone||'', email:p.email||'' } };
+    const res=await dsv('/book',payload);
+    if(!res.ok) throw new Error(res.error||'Return booking failed.');
+    if(res.labelBase64) openPdf(res.labelBase64,'DSV-return-'+res.bookingId);
+    try{ await odoo('stock.picking','message_post',[[d.id]],{body:'DSV RETURN label created. Return booking ID: '+res.bookingId,message_type:'comment',subtype_xmlid:'mail.mt_note'}); }catch(e){}
+    if(out) out.innerHTML='<div class="alert ok">✓ Return shipment <b>'+esc(String(res.bookingId))+'</b> created'+(res.labelBase64?' — label opened in a new tab.':' (label not ready yet — use Print label shortly).')+'</div>';
+  }catch(e){ if(out) out.innerHTML='<div class="alert err">Return label: '+esc(e.message)+'</div>'; }
 }
 
 async function doTrack(){
@@ -472,10 +540,32 @@ function renderSettings(){
       <div class="minif" style="margin-top:10px"><div class="fld" style="flex:3"><label>DSV worker URL</label><input id="set-worker" value="${esc(DSV_WORKER)}"/></div>
         <button class="btn blue sm" onclick="saveWorker()">Save &amp; test</button></div>
       <div class="cap">Default: ${esc(DSV_WORKER_DEFAULT)}</div></div>
+    ${(function(){const f=getDefaults();return `
+    <div class="box" style="max-width:760px;margin-top:12px"><h4>Booking defaults (sent with every booking)</h4>
+      <div class="minif">
+        <div class="fld"><label>Product code</label><input id="def-pc" value="${esc(f.productCode)}"/></div>
+        <div class="fld"><label>Package type</label><input id="def-pt" value="${esc(f.packageType)}"/></div>
+        <div class="fld"><label>Length cm</label><input id="def-l" value="${esc(f.length)}" inputmode="numeric"/></div>
+        <div class="fld"><label>Width cm</label><input id="def-w" value="${esc(f.width)}" inputmode="numeric"/></div>
+        <div class="fld"><label>Height cm</label><input id="def-h" value="${esc(f.height)}" inputmode="numeric"/></div>
+        <button class="btn blue sm" onclick="saveDefaults()">Save defaults</button>
+      </div>
+      <div class="cap">Product code (e.g. CMG = Road groupage), package type (e.g. CTN carton, EUR pallet, CLL colli) and the default box size used when Odoo has no dimensions.</div></div>`;})()}
+    ${(function(){const k=getPickup()||{};return `
+    <div class="box" style="max-width:760px;margin-top:12px"><h4>Pickup point (where DSV collects)</h4>
+      <div class="minif">
+        <div class="fld" style="flex:2"><label>Name</label><input id="pu-name" value="${esc(k.name||'')}"/></div>
+        <div class="fld" style="flex:2"><label>Street</label><input id="pu-street" value="${esc(k.street||'')}"/></div>
+        <div class="fld"><label>Zip</label><input id="pu-zip" value="${esc(k.zip||'')}"/></div>
+        <div class="fld"><label>City</label><input id="pu-city" value="${esc(k.city||'')}"/></div>
+        <div class="fld"><label>Country</label><input id="pu-cc" value="${esc(k.countryCode||'')}" placeholder="BE"/></div>
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px"><button class="btn blue sm" onclick="savePickup()">Save pickup</button><button class="btn ghost sm" onclick="clearPickup()">Use DSV account default</button></div>
+      <div class="cap">Leave empty to use the pickup address registered on your DSV account. Set it here to override (e.g. if the warehouse changes).</div></div>`;})()}
     <div class="box" style="max-width:760px;margin-top:12px"><h4>How it works</h4>
       <div class="info">1. <b>Transfers</b> read from Odoo (<span class="mono">stock.picking</span>) via the planner-proxy — choose outgoing/internal up top.</div>
-      <div class="info">2. Click a transfer to see its validated contents (products, serials, weight) and exactly what gets sent to DSV.</div>
-      <div class="info">3. <b>Book with DSV</b> → writes <span class="mono">carrier_tracking_ref</span>, attaches the label PDF, posts a chatter note.</div>
+      <div class="info">2. Click a transfer to see its validated contents and exactly what gets sent to DSV.</div>
+      <div class="info">3. <b>Book with DSV</b> → writes <span class="mono">carrier_tracking_ref</span>, attaches the label PDF, posts a chatter note. Then Print label, Create return label, or Mark unbooked.</div>
       <div class="cap">Leave “final booking” unchecked while testing — bookings land as drafts in myDSV.</div></div>`;
 }
 async function saveWorker(){
@@ -483,6 +573,19 @@ async function saveWorker(){
   DSV_WORKER=u; try{ localStorage.setItem('dsv_worker',u); }catch(e){}
   await dsvPing(); alert_('Saved DSV worker URL.','ok');
 }
+function saveDefaults(){
+  const def={ productCode:($('def-pc').value||'CMG').trim(), packageType:($('def-pt').value||'CTN').trim(),
+    length:num($('def-l').value)||40, width:num($('def-w').value)||30, height:num($('def-h').value)||30 };
+  try{ localStorage.setItem('dsv_defaults',JSON.stringify(def)); }catch(e){}
+  alert_('Saved booking defaults.','ok');
+}
+function savePickup(){
+  const k={ name:($('pu-name').value||'').trim(), street:($('pu-street').value||'').trim(), zip:($('pu-zip').value||'').trim(),
+    city:($('pu-city').value||'').trim(), countryCode:($('pu-cc').value||'').trim().toUpperCase() };
+  try{ localStorage.setItem('dsv_pickup',JSON.stringify(k)); }catch(e){}
+  alert_('Saved pickup point.','ok');
+}
+function clearPickup(){ try{ localStorage.removeItem('dsv_pickup'); }catch(e){} renderSettings(); alert_('Pickup reset to DSV account default.','ok'); }
 
 function showTab(t){
   document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
