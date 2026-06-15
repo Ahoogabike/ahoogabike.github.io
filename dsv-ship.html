@@ -85,11 +85,13 @@ table.tbl th{text-align:left;color:var(--ink-faint);font-size:10px;text-transfor
 table.tbl td{padding:5px 6px;border-bottom:1px solid var(--line-soft);vertical-align:top}
 td.num{text-align:right;font-family:'Space Mono',monospace;white-space:nowrap}
 .dsv-box{background:rgba(43,127,214,.05);border:1px solid rgba(43,127,214,.25)}
+table.pkg input,table.pkg select{padding:5px 6px;border:1px solid var(--line);border-radius:7px;font-family:'Space Mono',monospace;font-size:12px;background:#fff;width:54px}
+table.pkg select{width:72px}
 </style>
 </head>
 <body>
 <header>
-  <div class="logo">DSV <span class="b">Ship</span> <span class="tag">Odoo → DSV</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑06‑15d</span></div>
+  <div class="logo">DSV <span class="b">Ship</span> <span class="tag">Odoo → DSV</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑06‑15e</span></div>
   <div class="pills">
     <span id="dsv-pill" class="pill">DSV: ?</span>
     <span id="conn-pill" class="pill">Not connected</span>
@@ -159,7 +161,8 @@ const ODOO_DB     = 'logicasoft-aho-18-0-21599177';
 const DSV_WORKER_DEFAULT = 'https://ahooga-dsv-proxy.massimiliano-d74.workers.dev';
 let   DSV_WORKER = (function(){ try{ return localStorage.getItem('dsv_worker')||DSV_WORKER_DEFAULT; }catch(e){ return DSV_WORKER_DEFAULT; } })();
 
-let odooUid=null, DELIVERIES=[], _ccache={}, _hasSaleId=true;
+let odooUid=null, DELIVERIES=[], _ccache={}, _hasSaleId=true, PKGROWS={};
+const DSV_PKG_TYPES=['CTN','EUR','PLL','CLL','BAG','CAS','DRM','PKG','PLT'];
 
 const $ = (id)=>document.getElementById(id);
 const cssId = (s)=>(s||'').replace(/[^a-z0-9]/gi,'');
@@ -331,6 +334,7 @@ async function toggle(id,forceOpen){
     try{ await loadPickingDetail(d); d._loaded=true; }
     catch(e){ d._lines=[]; d._loadErr=e.message; d._loaded=true; }
   }
+  if(!PKGROWS[id]) PKGROWS[id]=buildRows(d);
   el.innerHTML=detailHtml(d,id);
 }
 
@@ -342,7 +346,70 @@ async function loadPickingDetail(d){
   const pids=[...new Set(d._lines.map(m=>Array.isArray(m.product_id)?m.product_id[0]:null).filter(Boolean))];
   d._wt={};
   if(pids.length){ const ps=await odoo('product.product','read',[pids,['weight','default_code']]); (ps||[]).forEach(p=>{ d._wt[p.id]={weight:p.weight,code:p.default_code}; }); }
+  // packages used on the transfer → pull their type + dimensions (size mapping)
+  d._odooPkgs=[];
+  try{
+    const pkgIds=[...new Set(d._lines.map(m=>Array.isArray(m.result_package_id)?m.result_package_id[0]:null).filter(Boolean))];
+    if(pkgIds.length){
+      const pks=await odoo('stock.quant.package','read',[pkgIds,['name','package_type_id','shipping_weight']]);
+      const tids=[...new Set((pks||[]).map(x=>Array.isArray(x.package_type_id)?x.package_type_id[0]:null).filter(Boolean))];
+      let types={};
+      if(tids.length){ const ts=await odoo('stock.package.type','read',[tids,['name','packaging_length','width','height']]); (ts||[]).forEach(t=>{types[t.id]=t;}); }
+      d._odooPkgs=(pks||[]).map(pk=>{ const t=Array.isArray(pk.package_type_id)?types[pk.package_type_id[0]]:null;
+        const serials=(d._lines||[]).filter(m=>Array.isArray(m.result_package_id)&&m.result_package_id[0]===pk.id&&isBike(m,d)).map(serialOf).filter(Boolean);
+        return { name:pk.name, typeName:Array.isArray(pk.package_type_id)?pk.package_type_id[1]:'',
+          l:t?t.packaging_length:0, w:t?t.width:0, h:t?t.height:0, weight:pk.shipping_weight||0, serials }; });
+    }
+  }catch(e){ d._odooPkgs=[]; }
+  // serials of bike lines (for the goods description when there are no packed packages)
+  d._bikeSerials=(d._lines||[]).filter(m=>isBike(m,d)).map(serialOf).filter(Boolean);
 }
+
+/* ── package rows (multi-package) ── */
+function guessDsvType(name,def){ const n=(name||'').toLowerCase(); if(n.includes('euro')) return 'EUR'; if(n.includes('pallet')||n.includes('palet')) return 'PLL'; if(n.includes('carton')||n.includes('box')||n.includes('doos')||n.includes('karton')) return 'CTN'; if(n.includes('colli')) return 'CLL'; return def||'CTN'; }
+/* a move line counts as a "bike" if its product code starts with a bike prefix or the name says bike */
+const BIKE_PREFIXES=['AHF','AHM','MARA'];
+function serialOf(m){ return (Array.isArray(m.lot_id)?m.lot_id[1]:'')||m.lot_name||''; }
+function isBike(m,d){
+  const pid=Array.isArray(m.product_id)?m.product_id[0]:null;
+  const code=((pid&&d._wt&&d._wt[pid]?d._wt[pid].code:'')||'').toUpperCase();
+  const name=(Array.isArray(m.product_id)?m.product_id[1]:'').toLowerCase();
+  return BIKE_PREFIXES.some(pfx=>code.startsWith(pfx)) || name.includes('bike');
+}
+function buildRows(d){
+  const defs=getDefaults();
+  if(d._odooPkgs&&d._odooPkgs.length){
+    return d._odooPkgs.map(pk=>({ type:guessDsvType(pk.typeName,defs.packageType), qty:1, weight: pk.weight||0, l: pk.l||defs.length, w: pk.w||defs.width, h: pk.h||defs.height,
+      desc: (pk.serials&&pk.serials.length?('S/N '+pk.serials.join(',')):'').slice(0,30) }));
+  }
+  const wt=d.weight&&Number(d.weight)>0?Number(d.weight):0;
+  const desc=(d._bikeSerials&&d._bikeSerials.length?('S/N '+d._bikeSerials.join(',')):'').slice(0,30);
+  return [{ type:defs.packageType, qty:1, weight:wt, l:defs.length, w:defs.width, h:defs.height, desc }];
+}
+function pkgRowsHtml(id){
+  const rows=PKGROWS[id]||[];
+  const opt=(sel)=>DSV_PKG_TYPES.map(t=>`<option value="${t}"${t===sel?' selected':''}>${t}</option>`).join('');
+  const body=rows.map((r,i)=>`<tr>
+    <td><select id="prt-${id}-${i}">${opt(r.type)}</select></td>
+    <td><input id="prq-${id}-${i}" value="${esc(r.qty)}" inputmode="numeric"/></td>
+    <td><input id="prw-${id}-${i}" value="${esc(r.weight)}" inputmode="decimal"/></td>
+    <td><input id="prl-${id}-${i}" value="${esc(r.l)}" inputmode="numeric"/></td>
+    <td><input id="prW-${id}-${i}" value="${esc(r.w)}" inputmode="numeric"/></td>
+    <td><input id="prh-${id}-${i}" value="${esc(r.h)}" inputmode="numeric"/></td>
+    <td><input id="prd-${id}-${i}" value="${esc(r.desc||'')}" style="width:150px" placeholder="goods / serial"/></td>
+    <td>${rows.length>1?'<button class="btn ghost sm" style="padding:3px 8px" onclick="pkgDel(\''+id+'\','+i+')">×</button>':''}</td></tr>`).join('');
+  return `<table class="tbl pkg"><thead><tr><th>Type</th><th>Qty</th><th>Weight kg</th><th>L cm</th><th>W cm</th><th>H cm</th><th>Goods description</th><th></th></tr></thead><tbody>${body}</tbody></table>`;
+}
+function pkgRead(id){
+  const rows=PKGROWS[id]||[]; const out=[];
+  for(let i=0;i<rows.length;i++){ const t=$('prt-'+id+'-'+i); if(!t) continue;
+    out.push({ type:t.value, qty:parseInt(($('prq-'+id+'-'+i)||{}).value)||1, weight:num(($('prw-'+id+'-'+i)||{}).value), l:num(($('prl-'+id+'-'+i)||{}).value), w:num(($('prW-'+id+'-'+i)||{}).value), h:num(($('prh-'+id+'-'+i)||{}).value), desc:(($('prd-'+id+'-'+i)||{}).value)||'' }); }
+  if(out.length) PKGROWS[id]=out;
+  return PKGROWS[id]||[];
+}
+function pkgRerender(id){ const c=$('pkgs-'+id); if(c) c.innerHTML=pkgRowsHtml(id); }
+function pkgAdd(id){ pkgRead(id); const defs=getDefaults(); PKGROWS[id].push({type:defs.packageType,qty:1,weight:0,l:defs.length,w:defs.width,h:defs.height,desc:''}); pkgRerender(id); }
+function pkgDel(id,i){ pkgRead(id); PKGROWS[id].splice(i,1); if(!PKGROWS[id].length){const defs=getDefaults();PKGROWS[id]=[{type:defs.packageType,qty:1,weight:0,l:defs.length,w:defs.width,h:defs.height,desc:''}];} pkgRerender(id); }
 
 function contentsTable(d){
   if(d._loadErr) return '<div class="info" style="color:var(--red)">Could not load contents: '+esc(d._loadErr)+'</div>';
@@ -392,10 +459,7 @@ function detailHtml(d,id){
     <div class="kvline"><span>Transport mode</span><span>Road (EU)</span></div>
     <div class="kvline"><span>Product code</span><span class="mono">${esc(defs.productCode)}</span></div>
     <div class="kvline"><span>Incoterm</span><span class="mono">DAP</span></div>
-    <div class="kvline"><span>Packages</span><span class="mono" id="pkprev-${id}">1</span></div>
-    <div class="kvline"><span>Package type</span><span class="mono">${esc(defs.packageType)}</span></div>
-    <div class="kvline"><span>Package size</span><span class="mono">${esc(defs.length)}x${esc(defs.width)}x${esc(defs.height)} cm</span></div>
-    <div class="kvline"><span>Total weight</span><span class="mono" id="wtprev-${id}">${wtGuess?wtGuess.toFixed(1):''} kg</span></div>
+    <div class="kvline"><span>Packages</span><span class="mono">${(PKGROWS[id]||[]).length} line(s) — see editor below</span></div>
     <div class="kvline"><span>Pickup point</span><span>${pickTxt}</span></div>
     <div class="kvline"><span>Consignee</span><span>${esc(cust)} - ${esc([p.zip,p.city,cc].filter(Boolean).join(' '))}</span></div>
     <div class="cap">Product / package / pickup defaults are editable in <b>Settings</b>.</div></div>`;
@@ -410,14 +474,13 @@ function detailHtml(d,id){
         <div class="cap">"Mark unbooked" clears the DSV reference in Odoo so you can re-book. It does not cancel the shipment at DSV - do that in myDSV.</div>
         <div id="bk-out-${id}" style="margin-top:10px"></div></div>`
     : `<div class="box full"><h4>Book this transfer with DSV</h4>
-        <div class="minif">
-          <div class="fld"><label>Packages</label><input id="pk-${id}" value="1" inputmode="numeric" oninput="var e=document.getElementById('pkprev-${id}');if(e)e.textContent=this.value"/></div>
-          <div class="fld"><label>Total weight (kg)</label><input id="wt-${id}" value="${wtGuess?wtGuess.toFixed(1):''}" inputmode="decimal" oninput="var e=document.getElementById('wtprev-${id}');if(e)e.textContent=this.value+' kg'"/></div>
-          <div class="fld" style="flex:2"><label>Reference</label><input id="rf-${id}" value="${esc(d.name)}"/></div>
-        </div>
+        <div class="info" style="margin-bottom:6px"><b>Packages</b> — pre-filled from Odoo package types where available. Edit sizes/weights, or add lines for multiple boxes.</div>
+        <div id="pkgs-${id}">${pkgRowsHtml(id)}</div>
+        <div style="margin-top:6px"><button class="btn ghost sm" onclick="pkgAdd('${id}')">+ Add package</button></div>
+        <div class="minif" style="margin-top:10px"><div class="fld" style="flex:2"><label>Reference</label><input id="rf-${id}" value="${esc(d.name)}"/></div></div>
         <label class="chk"><input type="checkbox" id="ab-${id}"/> Submit as <b>final booking</b> (unchecked = draft in myDSV)</label>
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn blue sm bk-${id}" onclick="bookDelivery('${id}')">Book with DSV →</button></div>
-        <div class="cap">Books a Road (EU) shipment, writes the booking ID, attaches the label PDF, and posts a note on this transfer.</div>
+        <div class="cap">Sizes in cm. Package type/size pre-filled from Odoo package types; falls back to your Settings defaults when Odoo has none.</div>
         <div id="bk-out-${id}" style="margin-top:10px"></div></div>`;
 
   return `<div class="grid2">${contents}</div><div class="grid2">${ship}${dsvPreview}</div><div class="grid2">${actions}</div>`;
@@ -433,15 +496,16 @@ async function bookDelivery(id){
   try{
     const cc=Array.isArray(p.country_id)?(_ccache[p.country_id[0]]||''):'';
     const defs=getDefaults(); const pickup=getPickup();
+    const rows=pkgRead(id);
+    const packagesList=rows.map(r=>({ packageType:r.type, quantity:Math.max(1,r.qty||1), totalWeight:Number(r.weight)||0, length:Number(r.l)||defs.length, width:Number(r.w)||defs.width, height:Number(r.h)||defs.height, description:((r.desc||soOf(d)||'Goods')).slice(0,30) }));
+    const totalWeight=packagesList.reduce((s,r)=>s+(Number(r.totalWeight)||0),0);
     const payload={
       reference: ($('rf-'+id)?.value||d.name).trim(),
-      packages: Math.max(1, parseInt($('pk-'+id)?.value||'1')||1),
-      totalWeight: num($('wt-'+id)?.value||d.weight||0),
       autobook: !!$('ab-'+id)?.checked,
       cargoDesc: (soOf(d)||'Goods'),
       productCode: defs.productCode, packageType: defs.packageType,
-      length: defs.length, width: defs.width, height: defs.height,
       pickup: pickup||undefined,
+      packagesList, totalWeight,
       consignee: { name: Array.isArray(d.partner_id)?d.partner_id[1]:'', street: p.street||'', street2: p.street2||'',
         zip: p.zip||'', city: p.city||'', countryCode: cc, phone: p.phone||'', email: p.email||'' }
     };
