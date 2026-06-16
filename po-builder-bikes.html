@@ -174,6 +174,10 @@ table.grid tr.caprow input::-webkit-outer-spin-button,table.grid tr.caprow input
       <div id="wheel-po-list"></div>
     </div>
   </div>
+  <!-- Issue-PO modal -->
+  <div id="po-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:300;align-items:flex-start;justify-content:center;padding:60px 16px;overflow:auto">
+    <div id="po-modal-body" style="background:var(--surface);border-radius:10px;padding:20px;max-width:520px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25)"></div>
+  </div>
 </main>
 
 <script>
@@ -248,6 +252,7 @@ let weeks=[];                                        // [{monday:Date, iso, mont
 let yearGrid={};                                     // sku -> [qty per week index]
 let componentSupply=null;                            // buildable-at-VV data from Parts Stock (component_supply)
 let wheelStock=null;                                 // wheels already on hand (front/rear) from Parts Stock
+let wheelMap=null;                                   // bike-family → wheel-SKU usage (per-SKU planning)
 let compLimitByWeek={};                              // week index -> {fam: bindingComponentId} (capped that week)
 let unbuildableByFam={};                             // fam -> {qty, binding} that no components allow in horizon
 
@@ -458,6 +463,7 @@ async function loadData(){
 
     componentSupply=await kvGet('component_supply');   // what Parts Stock says is buildable at Velovisie
     wheelStock=await kvGet('wheel_stock');             // wheels already on hand — net the wheel plan against these
+    wheelMap=await kvGet('wheel_map');                 // which wheel SKU each bike family uses (per-SKU)
     const pb=await kvGet('production_basis');
     if(pb && (pb.unmatchedBySku || pb.freeStockBySku || pb.incomingBySku)){
       unmatchedBySku=pb.unmatchedBySku||{}; freeStockBySku=pb.freeStockBySku||{};
@@ -671,11 +677,108 @@ function buildYearPlan(){
   for(const s of SKUS){ const a=yearGrid[s.key]; for(let i=0;i<a.length;i++) a[i]=Math.round(a[i]); }
 }
 
+// ── ISSUE PO IN ODOO (draft RFQ) — per week, both tabs ──
+let _poDraft=null, skuToProduct=null, lastWheelDemand=null, lastWheelWheels=null;
+function esc(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+async function resolveBikeProducts(){
+  if(skuToProduct) return;
+  skuToProduct={};
+  const prods=await odoo('product.product','search_read',[[['categ_id.complete_name','ilike','Bikes'],['name','ilike','MAX']]],{fields:['id','name'],limit:5000});
+  for(const p of prods){ const k=skuKeyForName(p.name||''); if(k && !(k in skuToProduct)) skuToProduct[k]=p.id; }
+}
+async function issueBikePO(wi){
+  const m=document.getElementById('po-modal'), body=document.getElementById('po-modal-body');
+  body.innerHTML='<div style="padding:20px;text-align:center">Resolving bike products…</div>'; m.style.display='flex';
+  try{ await resolveBikeProducts(); }catch(e){ body.innerHTML='<div style="padding:16px;color:var(--danger)">Could not read products: '+esc(e.message)+'</div>'; return; }
+  const lines=[]; let unresolved=0;
+  for(const sk of SKUS){ const q=Math.round((yearGrid[sk.key]&&yearGrid[sk.key][wi])||0); if(q<=0) continue; const pid=skuToProduct[sk.key]||null; if(!pid) unresolved+=q; lines.push({pid, qty:q, name:`${sk.label} · ${sk.col} · ${sk.rkl}`+(pid?'':' (no Odoo product)')}); }
+  openPoModal({title:`Bike PO (Okazi) — ${weeks[wi].label}`, lines, vendorName:'Okazi', dateStr:ymd(weeks[wi].monday), unresolved});
+}
+async function issueWheelPO(wi){
+  if(!lastWheelDemand){ alert('Open the wheel plan first.'); return; }
+  const lines=[]; for(const pid in lastWheelDemand){ const q=Math.round(lastWheelDemand[pid][wi]||0); if(q>0){ const w=lastWheelWheels&&lastWheelWheels[pid]; lines.push({pid:Number(pid), qty:q, name:(w?(w.code||w.name):('#'+pid))}); } }
+  openPoModal({title:`Wheel PO (MTB) — ${weeks[wi].label}`, lines, vendorName:'MTB', dateStr:ymd(weeks[wi].monday), unresolved:0});
+}
+async function openPoModal(o){
+  const m=document.getElementById('po-modal'), body=document.getElementById('po-modal-body');
+  body.innerHTML='<div style="padding:20px;text-align:center">Looking up vendor…</div>'; m.style.display='flex';
+  let vendors=[]; try{ vendors=await odoo('res.partner','search_read',[[['supplier_rank','>',0]]],{fields:['name'],order:'name',limit:400}); }catch(e){}
+  let def=null; for(const v of vendors){ if((v.name||'').toLowerCase().includes(o.vendorName.toLowerCase())){ def=v.id; break; } }
+  _poDraft={lines:o.lines, dateStr:o.dateStr};
+  const vOpts=vendors.map(v=>`<option value="${v.id}" ${v.id===def?'selected':''}>${esc(v.name)}</option>`).join('');
+  const totalQ=o.lines.reduce((a,l)=>a+l.qty,0);
+  body.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>${esc(o.title)}</b><button class="btn btn-secondary" style="padding:3px 9px" onclick="document.getElementById('po-modal').style.display='none'">Close</button></div>
+    <div style="font-size:13px;margin-bottom:10px">${o.lines.length} line(s) · ${totalQ} units${o.unresolved?` · <span style="color:var(--danger)">${o.unresolved} not matched to an Odoo product (skipped)</span>`:''}</div>
+    <div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text2);font-weight:600">Vendor</label><br><select id="po-vendor" style="width:100%;padding:6px;border:1px solid var(--border2);border-radius:6px">${vOpts||'<option value="">— none found —</option>'}</select></div>
+    <div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text2);font-weight:600">Planned date</label><br><input type="date" id="po-date" value="${o.dateStr}" style="padding:6px;border:1px solid var(--border2);border-radius:6px"/></div>
+    <div style="max-height:190px;overflow:auto;border:1px solid var(--border);border-radius:6px;margin-bottom:8px">${o.lines.map(l=>`<div style="display:flex;justify-content:space-between;padding:3px 8px;font-size:12px;${l.pid?'':'color:var(--danger)'}"><span>${esc(l.name)}</span><b>${l.qty}</b></div>`).join('')}</div>
+    <div id="po-msg" style="font-size:12px;margin-bottom:8px"></div>
+    <button class="btn btn-primary" id="po-go" onclick="submitPO()">Create draft PO in Odoo</button>`;
+}
+async function submitPO(){
+  if(!_poDraft) return;
+  const vendor=parseInt(document.getElementById('po-vendor').value);
+  const date=document.getElementById('po-date').value||ymd(new Date());
+  const msg=document.getElementById('po-msg');
+  const lines=_poDraft.lines.filter(l=>l.pid);
+  if(!vendor){ msg.innerHTML='<span style="color:var(--danger)">Pick a vendor.</span>'; return; }
+  if(!lines.length){ msg.innerHTML='<span style="color:var(--danger)">No lines matched to an Odoo product.</span>'; return; }
+  document.getElementById('po-go').disabled=true; msg.textContent='Creating draft PO…';
+  try{
+    const ol=lines.map(l=>[0,0,{product_id:l.pid, product_qty:l.qty, date_planned:date+' 08:00:00'}]);
+    const poId=await odoo('purchase.order','create',[{partner_id:vendor, date_order:ymd(new Date())+' 08:00:00', order_line:ol}]);
+    let name='#'+poId; try{ const rd=await odoo('purchase.order','read',[[poId]],{fields:['name']}); if(rd&&rd[0]&&rd[0].name) name=rd[0].name; }catch(e){}
+    msg.innerHTML=`✓ Draft PO <b>${esc(name)}</b> created. <a href="${ODOO_URL}/odoo/purchase/${poId}" target="_blank" style="color:var(--accent);font-weight:600">Open in Odoo ↗</a> — review &amp; confirm there.`;
+    setTimeout(()=>document.getElementById('po-modal').style.display='none', 2600);
+  }catch(e){ document.getElementById('po-go').disabled=false; msg.innerHTML='<span style="color:var(--danger)">Failed: '+esc(e.message)+'</span>'; }
+}
+
 function renderWheels(){
   const grid=document.getElementById('wheel-grid'); if(!grid) return;
   const kpis=document.getElementById('wheel-kpis'), poList=document.getElementById('wheel-po-list');
   if(!weeks.length){ grid.innerHTML='<div class="hint" style="padding:16px">Build the year plan first (Plan to year-end tab).</div>'; if(kpis)kpis.innerHTML=''; if(poList)poList.innerHTML=''; return; }
   const N=weeks.length, ci=currentWeekIndex();
+  const wm=wheelMap, BATCH=WHEEL_PO_FRONT||150;
+  const leadW=(wm&&wm.leadWeeks!=null)?wm.leadWeeks:WHEEL_LEAD_WEEKS;
+  // ── per-wheel-SKU plan (matches the bike BoM) ──
+  if(wm && wm.wheels && Object.keys(wm.wheels).length){
+    const CODE={'emax|alfine':'EMA','emax|derailleur':'EMD','amax|alfine':'AMA','amax|derailleur':'AMD','emax|nexus':'EMN','amax|nexus':'AMN'};
+    const bikesByCode={};
+    for(const s of SKUS){ const code=CODE[s.fam]; if(!code) continue; if(!bikesByCode[code]) bikesByCode[code]=Array(N).fill(0); for(let wi=0;wi<N;wi++) bikesByCode[code][wi]+=(yearGrid[s.key]&&yearGrid[s.key][wi])||0; }
+    const wheelIds=Object.keys(wm.wheels), byWheel=(wheelStock&&wheelStock.byWheel)||{};
+    const demand={}; for(const pid of wheelIds) demand[pid]=Array(N).fill(0);
+    let overdue=0;
+    for(const code in (wm.byFam||{})){ const bb=bikesByCode[code]; if(!bb) continue;
+      for(const pid in wm.byFam[code]){ const per=wm.byFam[code][pid]||0; if(!per) continue; if(!demand[pid]) demand[pid]=Array(N).fill(0);
+        for(let wi=0;wi<N;wi++){ const q=per*(bb[wi]||0); if(!q) continue; let awi=wi-leadW; if(awi<0){awi=0; overdue+=q;} demand[pid][awi]+=q; } } }
+    const pos=[]; let coveredW=0, onOrderW=0, grossW=0;
+    for(const pid of wheelIds){ const bw=byWheel[pid]||{}; let stk=Math.max(0,(bw.onhand||0)+(bw.onorder||0)); onOrderW+=Math.max(0,bw.onorder||0);
+      const arr=demand[pid]; grossW+=arr.reduce((a,b)=>a+b,0);
+      const s0=stk; for(let i=0;i<N;i++){ const c=Math.min(arr[i],stk); arr[i]-=c; stk-=c; } coveredW+=(s0-stk);
+      let cum=0,cap=0; for(let awi=0;awi<N;awi++){ cum+=arr[awi]; let g=0; while(cap<cum-1e-9 && g++<5000){ pos.push({pid, wi:awi, overdue:(awi<leadW && overdue>0)}); cap+=BATCH; } } }
+    const head=`<tr><th class="sku">Wheel (assemble at MTB)</th>${weeks.map((w,wi)=>`<th class="wk ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}" title="${w.monday.toLocaleDateString('en-GB')}">${w.label}</th>`).join('')}<th class="total">Total</th></tr>`;
+    const sideCol={front:'var(--accent)', rear:'var(--purple)'};
+    const body=wheelIds.map(pid=>{ const arr=demand[pid], tot=arr.reduce((a,b)=>a+b,0), w=wm.wheels[pid], col=sideCol[w.side]||'var(--text2)';
+      return `<tr><td class="sku"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${col};margin-right:5px"></span>${w.code||('#'+pid)} <span style="font-size:10px;color:var(--text3)">${(w.side||'')}</span><div style="font-size:10px;color:var(--text3);font-weight:400">${(w.name||'').replace(/^\[[^\]]*\]\s*/,'').slice(0,40)}</div></td>${arr.map((v,wi)=>`<td class="${v?'has':'zero'} ${wi===ci?'cur':''}">${v?fmt(Math.round(v)):''}</td>`).join('')}<td class="total">${fmt(Math.round(tot))}</td></tr>`; }).join('');
+    const poPerWeek=Array(N).fill(0); for(const p of pos) poPerWeek[p.wi]++;
+    const poRow=`<tr><td class="sku" style="font-size:11px;color:var(--text2)">Wheel POs (×${BATCH}/type)</td>${poPerWeek.map((c,wi)=>`<td class="${c?'has':'zero'} ${wi===ci?'cur':''}" style="text-align:center;font-weight:700;color:var(--accent)">${c||''}</td>`).join('')}<td class="total">${pos.length}</td></tr>`;
+    const wheelHas=Array(N).fill(false); for(const pid of wheelIds){ for(let wi=0;wi<N;wi++) if(demand[pid][wi]>0.5) wheelHas[wi]=true; }
+    const issueRow=`<tr><td class="sku" style="font-size:11px;color:var(--text2)">Issue PO →</td>${weeks.map((wk,wi)=>wheelHas[wi]?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue MTB wheel PO for ${wk.label}" onclick="issueWheelPO(${wi})">⇩ PO</button></td>`:'<td></td>').join('')}<td class="total"></td></tr>`;
+    lastWheelDemand=demand; lastWheelWheels=wm.wheels;
+    grid.innerHTML=`<table class="grid"><thead>${head}</thead><tbody>${body}${poRow}${issueRow}</tbody></table>`;
+    const k=(l,v,sub,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${v}</div>${sub?`<div class="kpi-label" style="margin-top:4px">${sub}</div>`:''}</div>`;
+    if(kpis) kpis.innerHTML=
+      k('Wheels to assemble', fmt(Math.round(grossW-coveredW)), wheelIds.length+' wheel types · net of stock','var(--teal)')+
+      k('Wheel POs (×'+BATCH+')', pos.length, 'per wheel type','var(--accent)')+
+      k('Lead before bikes', leadW+' wks', '2 wk build + 1 wk ship','var(--purple)')+
+      k('Covered', fmt(Math.round(coveredW)), 'on hand + on order','var(--teal)')+
+      (overdue>0 ? k('Start now', fmt(Math.round(overdue)), 'wheels for near-term bikes','var(--danger)') : k('Schedule','✓ ahead','wheels lead bikes','var(--success)'));
+    if(poList) poList.innerHTML = pos.length
+      ? '<div style="display:flex;flex-wrap:wrap;gap:8px">'+pos.map(p=>{ const w=wm.wheels[p.pid]; return `<div class="kpi" style="min-width:150px"><div class="kpi-label">${w.code||('#'+p.pid)}${p.overdue?' · ⚠ ASAP':''}</div><div style="font-weight:700">${weeks[p.wi].label}</div><div class="hint">${BATCH} units · ${w.side||''}</div></div>`; }).join('')+'</div>'
+      : '<div class="hint">No wheels needed — bikes covered by existing wheel stock.</div>';
+    return;
+  }
+  // ── fallback: aggregate front/rear (Parts Stock hasn\'t published wheel_map yet) ──
   // bikes built per week (from the bike plan)
   const bikes=weeks.map((_,wi)=>SKUS.reduce((a,s)=>a+((yearGrid[s.key]&&yearGrid[s.key][wi])||0),0));
   // wheels to assemble in week awi = bikes built in week awi+lead (1 front + 1 rear per bike)
@@ -747,7 +850,8 @@ function renderYear(){
     }).join('')}<td class="total"></td></tr>`;
   const modelsRow=`<tr><th class="sku" style="font-size:11px;color:var(--text2)">Models / wk</th>${weeks.map((wk,wi)=>{ if(isBlocked(wi)) return `<td class="blocked"></td>`; const n=FAMILIES.filter(f=>SKUS.filter(s=>s.fam===f.key).reduce((a,s)=>a+(yearGrid[s.key][wi]||0),0)>0).length; return `<td style="text-align:center;font-size:11px;color:${n>2?'var(--danger)':'var(--text3)'}">${n||''}</td>`; }).join('')}<td class="total"></td></tr>`;
   const foot=`<tr><th class="sku">Total</th>${colTot.map((c,wi)=>`<td class="total ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''} ${(!isBlocked(wi)&&c>effCap(wi)+0.5)?'over':''}">${fmt(c)}</td>`).join('')}<td class="total">${fmt(grand)}</td></tr>`;
-  document.getElementById('year-grid').innerHTML=`<table class="grid"><thead>${head}</thead><tbody>${capRow}${body}</tbody><tfoot>${modelsRow}${foot}</tfoot></table>`;
+  const issueRow=`<tr><th class="sku" style="font-size:11px;color:var(--text2)">Issue PO →</th>${weeks.map((wk,wi)=>(!isBlocked(wi)&&colTot[wi]>0.5)?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue Okazi bike PO for ${wk.label}" onclick="issueBikePO(${wi})">⇩ PO</button></td>`:'<td></td>').join('')}<td class="total"></td></tr>`;
+  document.getElementById('year-grid').innerHTML=`<table class="grid"><thead>${head}</thead><tbody>${capRow}${body}</tbody><tfoot>${modelsRow}${foot}${issueRow}</tfoot></table>`;
 
   // blocked-week chips + deadline note
   const chips=[...blockedWeeks].sort().map(d=>`<span class="chip">${new Date(d+'T00:00:00').toLocaleDateString('en-GB')}<button onclick="unblockKey('${d}')" title="unblock">×</button></span>`).join('');
