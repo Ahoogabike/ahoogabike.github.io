@@ -937,20 +937,40 @@ async function loadData(){
     await fillLoc(vvLocIds,vvRealMap);
     await fillLoc(mtbLocIds,mtbMap);
 
-    // 6 ── INCOMING component POs (confirmed, not yet received) with planned dates
-    alert_('<span class="spinner"></span> Incoming component deliveries (open POs)…','info');
+    // 6 ── INCOMING via open RECEIPTS (stock.move). Date rule:
+    //      • PO with a SINGLE receipt  → use the PO line's expected date (the buyer's ETA)
+    //      • PO with SEVERAL receipts (partial shipments / backorders) → use each receipt's own date
+    alert_('<span class="spinner"></span> Incoming component deliveries (open receipts)…','info');
     incomingByPart={};
+    let openMoves=[];
     for(const c of idChunks){
-      const pol=await odoo('purchase.order.line','search_read',
-        [[['product_id','in',c],['order_id.state','=','purchase']]],
-        {fields:['product_id','product_qty','qty_received','date_planned','order_id']});
-      for(const l of pol){
-        const p=arr(l.product_id); if(!p[0]) continue;
-        const rem=(parseFloat(l.product_qty)||0)-(parseFloat(l.qty_received)||0);
-        if(rem<=0) continue;
-        const d=(l.date_planned||'').split(' ')[0]||null;
-        (incomingByPart[p[0]]=incomingByPart[p[0]]||[]).push({date:d, qty:rem, ref:(arr(l.order_id)[1]||'PO')});
-      }
+      const moves=await odoo('stock.move','search_read',
+        [[['product_id','in',c],['state','not in',['done','cancel','draft']],['picking_id.picking_type_id.code','=','incoming']]],
+        {fields:['product_id','product_uom_qty','date','origin','picking_id','purchase_line_id']});
+      openMoves.push(...moves);
+    }
+    // resolve PO line -> {orderId, datePlanned}, and order -> total receipt count
+    const lineIds=[...new Set(openMoves.map(m=>arr(m.purchase_line_id)[0]).filter(Boolean))];
+    const lineInfo={};
+    for(const c of chunk(lineIds,300)){
+      const pls=await odoo('purchase.order.line','read',[c],{fields:['order_id','date_planned']});
+      for(const pl of pls) lineInfo[pl.id]={orderId:arr(pl.order_id)[0], datePlanned:(pl.date_planned||'').split(' ')[0]||null};
+    }
+    const orderIds=[...new Set(Object.values(lineInfo).map(x=>x.orderId).filter(v=>v!=null))];
+    const orderReceipts={};
+    for(const c of chunk(orderIds,300)){
+      const pos=await odoo('purchase.order','read',[c],{fields:['picking_ids']});
+      for(const po of pos) orderReceipts[po.id]=(po.picking_ids||[]).length;
+    }
+    for(const m of openMoves){
+      const p=arr(m.product_id); if(!p[0]) continue;
+      const rem=parseFloat(m.product_uom_qty)||0; if(rem<=0) continue;
+      const lineId=arr(m.purchase_line_id)[0];
+      const li=lineId?lineInfo[lineId]:null;
+      const rc=(li&&li.orderId!=null)?(orderReceipts[li.orderId]||1):1;
+      const d=(rc<=1 && li && li.datePlanned) ? li.datePlanned        // single receipt → PO expected date
+                                              : ((m.date||'').split(' ')[0]||null);   // several receipts → this receipt's date
+      (incomingByPart[p[0]]=incomingByPart[p[0]]||[]).push({date:d, qty:rem, ref:(m.origin||arr(m.picking_id)[1]||'Receipt')});
     }
 
     // ── PER-BIKE-TYPE CONSUMPTION (BoM explosion × bikes produced) ──
