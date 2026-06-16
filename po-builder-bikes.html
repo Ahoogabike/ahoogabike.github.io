@@ -683,8 +683,11 @@ function esc(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'
 async function resolveBikeProducts(){
   if(skuToProduct) return;
   skuToProduct={};
-  const prods=await odoo('product.product','search_read',[[['categ_id.complete_name','ilike','Bikes'],['name','ilike','MAX']]],{fields:['id','name'],limit:5000});
-  for(const p of prods){ const k=skuKeyForName(p.name||''); if(k && !(k in skuToProduct)) skuToProduct[k]=p.id; }
+  // Bike variants are coded AHFAM… (A-MAX) / AHFMC… (E-MAX). Match on display_name so the colour
+  // attribute (e.g. "Bumblebee" / "Cosmic Black") is included — it isn't always in the plain name.
+  const prods=await odoo('product.product','search_read',[['|',['default_code','=like','AHFAM%'],['default_code','=like','AHFMC%']]],{fields:['id','display_name','default_code','name'],limit:5000});
+  for(const p of prods){ const k=skuKeyForName(p.display_name||p.name||''); if(k && !(k in skuToProduct)) skuToProduct[k]=p.id; }
+  console.log('[PObuilder] bike products resolved:', Object.keys(skuToProduct).length, 'of', prods.length, 'variants');
 }
 async function issueBikePO(wi){
   const m=document.getElementById('po-modal'), body=document.getElementById('po-modal-body');
@@ -977,7 +980,13 @@ function showTab(name){
   document.getElementById('view-week').classList.toggle('active', name==='week');
   document.getElementById('view-year').classList.toggle('active', name==='year');
   document.getElementById('view-wheels').classList.toggle('active', name==='wheels');
-  if(name==='wheels') renderWheels();
+  if(name==='wheels') refreshWheelData();
+}
+// Pull the latest wheel map + wheel stock from the store each time the wheel tab opens,
+// so per-SKU planning appears as soon as Parts Stock republishes (no full reload needed).
+async function refreshWheelData(){
+  try{ const [wm,wsd]=await Promise.all([kvGet('wheel_map'), kvGet('wheel_stock')]); if(wm) wheelMap=wm; if(wsd) wheelStock=wsd; }catch(e){ console.warn('wheel data refresh failed', e); }
+  renderWheels();
 }
 
 // ── CSV EXPORT (year plan) ───────────────────────────────────
