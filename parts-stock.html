@@ -946,7 +946,7 @@ async function loadData(){
     for(const c of idChunks){
       const moves=await odoo('stock.move','search_read',
         [[['product_id','in',c],['state','not in',['done','cancel','draft']],['picking_id.picking_type_id.code','=','incoming']]],
-        {fields:['product_id','product_uom_qty','date','origin','picking_id','purchase_line_id']});
+        {fields:['product_id','product_uom_qty','date','origin','picking_id','purchase_line_id','location_dest_id']});
       openMoves.push(...moves);
     }
     // resolve PO line -> {orderId, datePlanned}, and order -> total receipt count
@@ -968,8 +968,11 @@ async function loadData(){
       const lineId=arr(m.purchase_line_id)[0];
       const li=lineId?lineInfo[lineId]:null;
       const rc=(li&&li.orderId!=null)?(orderReceipts[li.orderId]||1):1;
-      const d=(rc<=1 && li && li.datePlanned) ? li.datePlanned        // single receipt → PO expected date
-                                              : ((m.date||'').split(' ')[0]||null);   // several receipts → this receipt's date
+      const recvDate=(m.date||'').split(' ')[0]||null;               // the receipt's expected arrival date
+      const isAndDest=andLocIds.includes(arr(m.location_dest_id)[0]); // destined to Warehouse Anderlecht?
+      const d = isAndDest ? recvDate                                  // → always use the receipt's expected date
+              : ((rc<=1 && li && li.datePlanned) ? li.datePlanned     // single receipt elsewhere → PO expected date
+                                                 : recvDate);         // several receipts → this receipt's date
       (incomingByPart[p[0]]=incomingByPart[p[0]]||[]).push({date:d, qty:rem, ref:(m.origin||arr(m.picking_id)[1]||'Receipt')});
     }
 
