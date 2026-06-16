@@ -120,6 +120,7 @@ table.grid tr.caprow input::-webkit-outer-spin-button,table.grid tr.caprow input
   <div class="tabs">
     <button class="tab active" id="tab-week" onclick="showTab('week')">⚡ This week</button>
     <button class="tab" id="tab-year" onclick="showTab('year')">📅 Plan to year-end</button>
+    <button class="tab" id="tab-wheels" onclick="showTab('wheels')">🛞 Wheels · MTB</button>
   </div>
 
   <!-- THIS WEEK -->
@@ -161,6 +162,18 @@ table.grid tr.caprow input::-webkit-outer-spin-button,table.grid tr.caprow input
       <div class="table-wrap"><div id="year-grid"></div></div>
     </div>
   </div>
+
+  <!-- WHEELS · MTB -->
+  <div class="view" id="view-wheels">
+    <div class="kpis" id="wheel-kpis"></div>
+    <div class="section">
+      <div class="section-title">Wheel assembly at MTB <span class="tag" style="background:var(--teal-bg,#e1f5ee);color:var(--teal,#0f6e56)">3 weeks ahead of bikes</span></div>
+      <div class="section-note">Each MAX bike needs one front + one rear wheel, assembled at <b>MTB Maastricht</b> (≈2 wk build + 1 wk ship). The wheels for a bike built in a given week must be assembled <b>3 weeks earlier</b>. Wheels are ordered in batches of <b>150 front + 150 rear</b> (300) per PO. Demand is driven by the bike plan in the “Plan to year-end” tab — adjust that and this updates.</div>
+      <div class="table-wrap"><div id="wheel-grid"></div></div>
+      <div class="section-title" style="margin-top:18px">Suggested wheel POs</div>
+      <div id="wheel-po-list"></div>
+    </div>
+  </div>
 </main>
 
 <script>
@@ -175,6 +188,8 @@ const IS_ONLINE = location.hostname!=='localhost' && location.hostname!=='127.0.
 let odooUid=null;
 let blockedWeeks=new Set();   // Monday dates (YYYY-MM-DD, local) blocked for production
 let weekCaps={};              // Monday date (YYYY-MM-DD) -> max bikes that week (per-week override)
+const WHEEL_LEAD_WEEKS=3;     // MTB wheels: 2 wk build + 1 wk ship → assemble this many weeks before the bike week
+const WHEEL_PO_FRONT=150, WHEEL_PO_REAR=150;   // one wheel PO = 150 front + 150 rear (300 wheels)
 
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 //                Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec  (same tiered shape as the forecast)
@@ -232,6 +247,7 @@ let orderbook=[];                                    // [{sku, remaining, due}]
 let weeks=[];                                        // [{monday:Date, iso, month, label, weight}]
 let yearGrid={};                                     // sku -> [qty per week index]
 let componentSupply=null;                            // buildable-at-VV data from Parts Stock (component_supply)
+let wheelStock=null;                                 // wheels already on hand (front/rear) from Parts Stock
 let compLimitByWeek={};                              // week index -> {fam: bindingComponentId} (capped that week)
 let unbuildableByFam={};                             // fam -> {qty, binding} that no components allow in horizon
 
@@ -441,6 +457,7 @@ async function loadData(){
     }
 
     componentSupply=await kvGet('component_supply');   // what Parts Stock says is buildable at Velovisie
+    wheelStock=await kvGet('wheel_stock');             // wheels already on hand — net the wheel plan against these
     const pb=await kvGet('production_basis');
     if(pb && (pb.unmatchedBySku || pb.freeStockBySku || pb.incomingBySku)){
       unmatchedBySku=pb.unmatchedBySku||{}; freeStockBySku=pb.freeStockBySku||{};
@@ -515,6 +532,7 @@ function recompute(){
   buildYearPlan();
   renderYear();
   renderWeek();
+  renderWheels();
   const fcTot=Object.values(forwardBySku).reduce((a,b)=>a+(b||0),0);
   const dl=getDeadline().toLocaleDateString('en-GB');
   const avail=availableWeekIdx().length;
@@ -651,6 +669,59 @@ function buildYearPlan(){
 
   // round to whole bikes
   for(const s of SKUS){ const a=yearGrid[s.key]; for(let i=0;i<a.length;i++) a[i]=Math.round(a[i]); }
+}
+
+function renderWheels(){
+  const grid=document.getElementById('wheel-grid'); if(!grid) return;
+  const kpis=document.getElementById('wheel-kpis'), poList=document.getElementById('wheel-po-list');
+  if(!weeks.length){ grid.innerHTML='<div class="hint" style="padding:16px">Build the year plan first (Plan to year-end tab).</div>'; if(kpis)kpis.innerHTML=''; if(poList)poList.innerHTML=''; return; }
+  const N=weeks.length, ci=currentWeekIndex();
+  // bikes built per week (from the bike plan)
+  const bikes=weeks.map((_,wi)=>SKUS.reduce((a,s)=>a+((yearGrid[s.key]&&yearGrid[s.key][wi])||0),0));
+  // wheels to assemble in week awi = bikes built in week awi+lead (1 front + 1 rear per bike)
+  const front=Array(N).fill(0), rear=Array(N).fill(0); let overdue=0;
+  for(let wi=0; wi<N; wi++){
+    const b=bikes[wi]; if(b<=0) continue;
+    let awi=wi-WHEEL_LEAD_WEEKS;
+    if(awi<0){ awi=0; overdue+=b; }     // wheels for near-term bikes must start now
+    front[awi]+=b; rear[awi]+=b;
+  }
+  // net against wheels already in stock (real VV count + finished at MTB) — don't rebuild what we have
+  const ws=wheelStock||{}; let stkF=Math.max(0,(ws.front||0)+(ws.frontIncoming||0)), stkR=Math.max(0,(ws.rear||0)+(ws.rearIncoming||0));
+  const onOrderW=(Math.max(0,ws.frontIncoming||0)+Math.max(0,ws.rearIncoming||0));
+  const stkF0=stkF, stkR0=stkR;
+  for(let i=0;i<N;i++){ const cF=Math.min(front[i],stkF); front[i]-=cF; stkF-=cF; const cR=Math.min(rear[i],stkR); rear[i]-=cR; stkR-=cR; }
+  const coveredWheels=(stkF0-stkF)+(stkR0-stkR);
+  // schedule 150/150 POs so cumulative assembled keeps ahead of cumulative (net) demand
+  const pos=[]; let cumF=0, cumR=0, capF=0, capR=0;
+  for(let awi=0; awi<N; awi++){
+    cumF+=front[awi]; cumR+=rear[awi];
+    let guard=0;
+    while((capF<cumF-1e-9 || capR<cumR-1e-9) && guard++<5000){
+      pos.push({wi:awi, overdue:(awi<=WHEEL_LEAD_WEEKS && overdue>0)});
+      capF+=WHEEL_PO_FRONT; capR+=WHEEL_PO_REAR;
+    }
+  }
+  const poPerWeek=Array(N).fill(0); for(const p of pos) poPerWeek[p.wi]++;
+  // calendar table (reuse the .grid table styling)
+  const head=`<tr><th class="sku">Wheels → assemble at MTB</th>${weeks.map((w,wi)=>`<th class="wk ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}" title="${w.monday.toLocaleDateString('en-GB')}">${w.label}</th>`).join('')}<th class="total">Total</th></tr>`;
+  const rowOf=(label,arr,col)=>{ const tot=arr.reduce((a,b)=>a+b,0); return `<tr><td class="sku">${label}</td>${arr.map((v,wi)=>`<td class="${v?'has':'zero'} ${wi===ci?'cur':''}" ${v&&col?`style="color:${col}"`:''}>${v?fmt(Math.round(v)):''}</td>`).join('')}<td class="total">${fmt(Math.round(tot))}</td></tr>`; };
+  const poRow=`<tr><td class="sku" style="font-size:11px;color:var(--text2)">Wheel POs (×300)</td>${poPerWeek.map((c,wi)=>`<td class="${c?'has':'zero'} ${wi===ci?'cur':''}" style="text-align:center;font-weight:700;color:var(--accent)">${c||''}</td>`).join('')}<td class="total">${pos.length}</td></tr>`;
+  grid.innerHTML=`<table class="grid"><thead>${head}</thead><tbody>${rowOf('Front wheels',front,'var(--accent)')}${rowOf('Rear wheels',rear,'var(--purple)')}${poRow}</tbody></table>`;
+  // KPIs
+  const totalBikes=bikes.reduce((a,b)=>a+b,0);
+  const k=(l,v,sub,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${v}</div>${sub?`<div class="kpi-label" style="margin-top:4px">${sub}</div>`:''}</div>`;
+  if(kpis) kpis.innerHTML=
+    k('Wheels to assemble', fmt(Math.round(totalBikes*2)), `${fmt(totalBikes)} front + ${fmt(totalBikes)} rear`,'var(--teal)')+
+    k('Wheel POs (×300)', pos.length, '150 front + 150 rear each','var(--accent)')+
+    k('Lead before bikes', WHEEL_LEAD_WEEKS+' wks', '2 wk build + 1 wk ship','var(--purple)')+
+    k('Covered', fmt(Math.round(coveredWheels)), 'wheels on hand + on order','var(--teal)')+
+    k('On order at MTB', fmt(Math.round(onOrderW)), 'open wheel POs, not received','var(--accent)')+
+    (overdue>0 ? k('Start now', fmt(Math.round(overdue*2)), 'wheels for near-term bikes','var(--danger)') : k('Schedule','✓ ahead','wheels lead bikes','var(--success)'));
+  // PO list
+  if(poList) poList.innerHTML = pos.length
+    ? '<div style="display:flex;flex-wrap:wrap;gap:8px">'+pos.map((p,i)=>`<div class="kpi" style="min-width:140px"><div class="kpi-label">PO #${i+1}${p.overdue?' · ⚠ ASAP':''}</div><div style="font-weight:700">${weeks[p.wi].label}</div><div class="hint">150 front + 150 rear</div></div>`).join('')+'</div>'
+    : '<div class="hint">No wheels needed — no bikes planned.</div>';
 }
 
 function renderYear(){
@@ -798,8 +869,11 @@ function renderWeek(){
 function showTab(name){
   document.getElementById('tab-week').classList.toggle('active', name==='week');
   document.getElementById('tab-year').classList.toggle('active', name==='year');
+  document.getElementById('tab-wheels').classList.toggle('active', name==='wheels');
   document.getElementById('view-week').classList.toggle('active', name==='week');
   document.getElementById('view-year').classList.toggle('active', name==='year');
+  document.getElementById('view-wheels').classList.toggle('active', name==='wheels');
+  if(name==='wheels') renderWheels();
 }
 
 // ── CSV EXPORT (year plan) ───────────────────────────────────

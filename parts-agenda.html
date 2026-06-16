@@ -111,6 +111,10 @@ a.odoo-link{color:var(--accent);font-weight:600;text-decoration:none}
       <code>📦 Order</code> — the VV+AND pipeline runs out, so a component PO must be placed (shown as an <b>order-by</b> date for <span class="tag sea">sea</span> and a later <span class="tag air">air</span> fallback);
       <code>🔀 Move</code> — Velovisie will run short while Anderlecht still has stock, so a transfer must be done — sized to cover ~8 weeks of production (or whatever AND holds), allowing the ~3-day move. Snooze or mark done; that's shared with the team. Hit <b>Create PO</b> to open a draft RFQ in Odoo.
     </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="btn btn-sm btn-primary" id="set-components" onclick="setAgendaSet('components')">🔧 Components · VV</button>
+      <button class="btn btn-sm btn-secondary" id="set-wheels" onclick="setAgendaSet('wheels')">🛞 Wheels · MTB</button>
+    </div>
     <div class="kpis" id="ag-kpis"></div>
     <div class="toolbar">
       <input type="text" id="ag-search" placeholder="🔍 part name / number…" style="min-width:200px;flex:1" oninput="renderAgenda()"/>
@@ -171,7 +175,8 @@ const ODOO_DB ='logicasoft-aho-18-0-21599177';
 const CF_WORKER='https://ahooga-planner-proxy.massimiliano-d74.workers.dev';
 const LS_USER='ahooga_agenda_user', LS_KEY='ahooga_agenda_key';
 let odooUid=null;
-let deadlines=null;                                       // {updated, transferLeadDays, items:[...]}
+let deadlines=null;                                       // active dataset (components or wheels)
+let dsComponents=null, dsWheels=null, agendaSet='components';
 let leadCfg={seaDefault:90, airDefault:30, byPart:{}, odoo:{}};   // byPart[pid]={sea,air}; odoo[pid]={delay,vendor}
 let snooze={};
 let calDate=new Date();
@@ -244,8 +249,9 @@ function showTab(t){
 // ── LOAD ──
 async function loadAll(toast){
   document.getElementById('conn-pill').textContent='loading…'; document.getElementById('conn-pill').className='pill';
-  const [d,cfg,sn]=await Promise.all([ kvGetStore('parts_deadlines'), kvGetStore('parts_lead_cfg'), kvGetStore('parts_agenda_snooze') ]);
-  deadlines=d||{items:[]};
+  const [d,wd,cfg,sn]=await Promise.all([ kvGetStore('parts_deadlines'), kvGetStore('wheel_deadlines'), kvGetStore('parts_lead_cfg'), kvGetStore('parts_agenda_snooze') ]);
+  dsComponents=d||{items:[]}; dsWheels=wd||{items:[]};
+  deadlines=(agendaSet==='wheels'?dsWheels:dsComponents)||{items:[]};
   if(cfg) leadCfg={seaDefault:cfg.seaDefault??90, airDefault:cfg.airDefault??30, byPart:cfg.byPart||{}, odoo:cfg.odoo||{}};
   snooze=sn||{};
   document.getElementById('lt-sea').value=leadCfg.seaDefault; document.getElementById('lt-air').value=leadCfg.airDefault;
@@ -253,11 +259,18 @@ async function loadAll(toast){
   document.getElementById('conn-pill').textContent= n? `${n} tasks · ${when}` : 'no forecast yet';
   document.getElementById('conn-pill').className= n?'pill ok':'pill err';
   if(!n) alert_('No forecast found yet. Open the <b>Parts Stock</b> app and load it once — it publishes the deadlines this agenda reads.','warn');
-  renderAgenda(); renderCalendar(); renderLeadTable();
+  updateSetButtons(); renderAgenda(); renderCalendar(); renderLeadTable();
   if(toast && n) alert_('Agenda refreshed.','success');
 }
 
 function transferLead(){ return (deadlines && deadlines.transferLeadDays!=null)? deadlines.transferLeadDays : 3; }
+function setAgendaSet(x){ agendaSet=x; deadlines=(x==='wheels'?dsWheels:dsComponents)||{items:[]}; updateSetButtons(); renderAgenda(); renderCalendar(); renderLeadTable(); }
+function updateSetButtons(){
+  const cN=(dsComponents&&dsComponents.items)?dsComponents.items.length:0, wN=(dsWheels&&dsWheels.items)?dsWheels.items.length:0;
+  const bc=document.getElementById('set-components'), bw=document.getElementById('set-wheels');
+  if(bc){ bc.textContent=`🔧 Components · VV · ${cN}`; bc.className='btn btn-sm '+(agendaSet==='components'?'btn-primary':'btn-secondary'); }
+  if(bw){ bw.textContent=`🛞 Wheels · MTB · ${wN}`; bw.className='btn btn-sm '+(agendaSet==='wheels'?'btn-primary':'btn-secondary'); }
+}
 function leadFor(it,mode){
   const bp=leadCfg.byPart[it.pid]||{};
   if(bp[mode]!=null && bp[mode]!=='') return bp[mode];
@@ -318,10 +331,10 @@ function itemHtml(it){
   const dueTxt = du==null?'' : (du<0?`<span class="tag over">${-du}d overdue</span>`:(du===0?'today':`in ${du}d`));
   let sub='', dateBlock='', actions='';
   if(it.type==='order'){
-    sub=`Order <b>${fmt(it.qty)}</b> · runs out at VV <b>${fmtD(it.neededDate)}</b> · ${esc(it.category)}`;
+    const loc=it.tier==='MTB'?'MTB':'VV'; sub=`Order <b>${fmt(it.qty)}</b> · runs out at ${loc} <b>${fmtD(it.neededDate)}</b> · ${esc(it.category)}`;
     dateBlock=`<div class="item-date"><span class="tag sea">sea</span> <b>${fmtD(it.orderBySea)}</b><br><span class="tag air">air</span> ${fmtD(it.orderByAir)}<div style="margin-top:3px">${dueTxt}</div></div>`;
   } else {
-    sub=`Move <b>${fmt(it.qty)}</b> from AND → Velovisie · needed at VV <b>${fmtD(it.neededDate)}</b> · ${esc(it.category)}`;
+    const dest=it.moveTo==='MTB'?'MTB':'Velovisie'; sub=`Move <b>${fmt(it.qty)}</b> from AND → ${dest} · needed at ${dest} <b>${fmtD(it.neededDate)}</b> · ${esc(it.category)}`;
     dateBlock=`<div class="item-date">move by <b>${fmtD(it.moveBy)}</b><div style="margin-top:3px">${dueTxt}</div></div>`;
   }
   const s=snooze[it.id]||{};
@@ -455,7 +468,7 @@ async function openPO(id){
   const vOpts=vendors.map(x=>`<option value="${x.id}" data-price="${x.price}" ${x.id===defVendor?'selected':''}>${esc(x.name)}${x.price?(' · €'+x.price):''}</option>`).join('');
   body.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px"><b>Create draft PO</b><button class="btn btn-secondary btn-sm" onclick="document.getElementById('po-modal').classList.remove('open')">Close</button></div>
-    <div style="font-size:13px;margin-bottom:14px">${esc(it.name)}<div style="font-size:12px;color:var(--text3)">${esc(it.category)} · runs out at VV ${fmtD(it.neededDate)}</div></div>
+    <div style="font-size:13px;margin-bottom:14px">${esc(it.name)}<div style="font-size:12px;color:var(--text3)">${esc(it.category)} · runs out at ${it.tier==='MTB'?'MTB':'VV'} ${fmtD(it.neededDate)}</div></div>
     <div class="field"><label>Vendor</label><select id="po-vendor" onchange="poVendorChange()">${vOpts||'<option value="">— no vendor found —</option>'}</select></div>
     <div class="field"><label>Quantity</label><input type="number" id="po-qty" min="1" value="${Math.max(1,it.qty)}"/></div>
     <div class="field"><label>Unit price (optional)</label><input type="number" id="po-price" min="0" step="0.01" value="${defPrice||''}"/></div>

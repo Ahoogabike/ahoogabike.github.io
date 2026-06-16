@@ -379,7 +379,7 @@ function fcInspect(pid){
        <button class="btn btn-secondary" style="flex:none" onclick="document.getElementById('fc-modal').style.display='none'">Close</button>
      </div>
      <div style="margin-top:12px;font-size:13px;line-height:1.7">
-       <div>On-hand now — AND: <b>${fmt(Math.round(r.andQty||0))}</b> · VV: <b>${fmt(Math.round(r.vv||0))}</b> · combined: <b>${fmt(Math.round((r.andQty||0)+(r.vv||0)))}</b></div>
+       <div>On-hand now — AND: <b>${fmt(Math.round(r.andQty||0))}</b> · VV (real): <b>${fmt(Math.round(r.vvReal||0))}</b> · combined: <b>${fmt(Math.round((r.andQty||0)+(r.vvReal||0)))}</b></div>
        <div>Total incoming on open POs: <b>${fmt(Math.round(inc))}</b></div>
        <div>Consumed by the plan, future bikes (all weeks): <b>${fmt(Math.round(cons-inprodC))}</b></div>
        <div>Running Okazi POs — in production now, parts not yet consumed: <b>${fmt(Math.round(inprodC))}</b> <span style="color:var(--text3)">→ burned in week 1</span></div>
@@ -476,7 +476,7 @@ async function publishPartsDeadlines(){
       const pid=r.id;
       let inprodCons=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
       const consArr=wks.map((_,wi)=>{ let c=0; for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; return c; });
-      let vv=(r.vv||0), andP=(r.andQty||0);
+      let vv=(r.vvReal||0), andP=(r.andQty||0);
       const overdue=incBeforeFirst(pid);
       let shortWi=-1, minLevel=vv+andP, totCons=0; const moves=[];
       for(let wi=0; wi<wks.length; wi++){
@@ -518,7 +518,7 @@ async function publishComponentSupply(){
     const stock={}, incoming={}, names={};
     for(const r of rows){
       const pid=r.id; if(!used.has(Number(pid))) continue;
-      stock[pid]=(r.vv||0)+(r.andQty||0)-(inprodCons[pid]||0);
+      stock[pid]=(r.vvReal||0)+(r.andQty||0)-(inprodCons[pid]||0);
       names[pid]=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
       const inc=incomingByPart[pid];
       if(inc && inc.length) incoming[pid]=inc.map(d=>({date:addDays(d.date,TRANSFER_LEAD_DAYS), qty:d.qty}));  // available at VV = AND receipt + transfer lead
@@ -546,6 +546,72 @@ async function kvSetStore(key,value){
     return true;
   }catch(e){ console.warn('[PartStock] store set failed:',e.message); return false; }
 }
+// Publish wheels already on hand (real VV count + finished wheels at MTB) so the PO Builder's wheel
+// tab nets demand against existing stock and doesn't rebuild wheels we already have.
+async function publishWheelStock(){
+  try{
+    let front=0, rear=0, frontInc=0, rearInc=0; const byWheel={};
+    for(const r of rows){
+      if(!r.isWheel) continue;
+      const onhand=(r.vvReal||0)+(r.mtbQty||0);                                   // counted at VV + finished wheels still at MTB
+      const onorder=(incomingByPart[r.id]||[]).reduce((a,d)=>a+(d.qty||0),0);      // wheels on open POs to MTB, not yet received
+      const code=r.partNo||'', nm=r.partName||'';
+      const isFront=/^WHF/i.test(code)||/front/i.test(nm);
+      const isRear =/^WHR/i.test(code)||/rear/i.test(nm);
+      if(isFront){ front+=onhand; frontInc+=onorder; } else if(isRear){ rear+=onhand; rearInc+=onorder; }
+      byWheel[r.id]={name:`${code?('['+code+'] '):''}${nm}`, onhand, onorder, side:isFront?'front':(isRear?'rear':'?')};
+    }
+    await kvSetStore('wheel_stock', {updated:new Date().toISOString(), front, rear, frontIncoming:frontInc, rearIncoming:rearInc, byWheel});
+    console.log('[PartStock] wheel_stock published — front',front,'(+'+frontInc+' on order) rear',rear,'(+'+rearInc+' on order)');
+  }catch(e){ console.warn('[PartStock] publishWheelStock failed:', e.message); }
+}
+// ── PUBLISH WHEEL DEADLINES (MTB tier, for the Wheels agenda) ─
+// Wheel sub-parts are consumed by wheel assembly at MTB, which runs WHEEL_LEAD_WEEKS before the bikes.
+// Same two-pool logic as the VV components: MTB is the consumption pool, AND is the replenishment buffer.
+async function publishWheelDeadlines(){
+  try{
+    if(!rows.length || !productionPlan || !productionPlan.weeks || !productionPlan.weeks.length) return;
+    const wks=productionPlan.weeks, byFam=productionPlan.byFam||{};
+    const out={ updated:new Date().toISOString(), transferLeadDays:3, tier:'MTB', weeks:wks.map(w=>w.monday), items:[] };
+    if(!mtbWheelTmpls.size){ await kvSetStore('wheel_deadlines', out); return; }
+    // wheel products that bikes use, and each wheel's exploded component usage
+    const isWheelPid=(pid)=> mtbWheelTmpls.has(prodToTmpl[pid]);
+    const wheelPids=new Set();
+    for(const fam in usagePerBikeByFam){ for(const pid in usagePerBikeByFam[fam]){ if(isWheelPid(Number(pid))) wheelPids.add(Number(pid)); } }
+    const wheelBom={}; for(const wp of wheelPids){ const t=prodToTmpl[wp]; wheelBom[wp]=(t!=null)?explodeUsage(t,bomByTmpl,prodToTmpl,true):{}; }
+    // MTB component consumption per week, shifted WHEEL_LEAD_WEEKS earlier than the bike week
+    const mtbCons={};
+    const ensure=(pid)=>{ if(!mtbCons[pid]) mtbCons[pid]=Array(wks.length).fill(0); return mtbCons[pid]; };
+    for(const fam in byFam){ const fu=usagePerBikeByFam[fam]||{};
+      for(const wp of wheelPids){ const perBike=fu[wp]||0; if(!perBike) continue; const bom=wheelBom[wp]||{};
+        for(let wi=0; wi<wks.length; wi++){ const wheels=perBike*(byFam[fam][wi]||0); if(!wheels) continue; const awi=Math.max(0, wi-WHEEL_LEAD_WEEKS);
+          for(const comp in bom){ ensure(comp)[awi]+= wheels*bom[comp]; } } } }
+    const incForWeek=(pid,wi)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[wi].monday, end=wks[wi+1]?wks[wi+1].monday:null; let s=0; for(const d of list){ if(!d.date){ if(wi===0) s+=d.qty; continue; } if(d.date>=start && (!end||d.date<end)) s+=d.qty; } return s; };
+    const incBeforeFirst=(pid)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[0].monday; let s=0; for(const d of list){ if(d.date && d.date<start) s+=d.qty; } return s; };
+    for(const r of rows){
+      if(!wheelComponentIds.has(r.id)) continue;            // only wheel sub-parts
+      const cons=mtbCons[r.id]; if(!cons) continue;
+      if(cons.reduce((a,b)=>a+b,0)<=0.0001) continue;
+      let mtb=(r.mtbQty||0), andP=(r.andQty||0);
+      const overdue=incBeforeFirst(r.id);
+      let shortWi=-1, minLevel=mtb+andP; const moves=[];
+      for(let wi=0; wi<wks.length; wi++){
+        let arrv=incForWeek(r.id,wi); if(wi===0) arrv+=overdue;
+        andP+=arrv; mtb-=cons[wi];
+        let xfer=0; if(mtb<0 && andP>0){ let future=0; for(let j=wi+1;j<=wi+MOVE_COVER_WEEKS&&j<cons.length;j++) future+=cons[j]; xfer=Math.min(-mtb+future, andP); mtb+=xfer; andP-=xfer; }
+        if(xfer>0) moves.push({wi, qty:Math.ceil(xfer)});
+        const combined=mtb+andP;
+        if(combined<minLevel) minLevel=combined;
+        if(combined<0 && shortWi<0) shortWi=wi;
+      }
+      const nm=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
+      if(shortWi>=0) out.items.push({type:'order', id:'worder:'+r.id, pid:r.id, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[shortWi].monday, qty:Math.max(1,Math.ceil(-minLevel)), tier:'MTB'});
+      for(const mv of moves) out.items.push({type:'move', id:'wmove:'+r.id+':'+wks[mv.wi].monday, pid:r.id, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[mv.wi].monday, qty:mv.qty, tier:'MTB', moveTo:'MTB'});
+    }
+    await kvSetStore('wheel_deadlines', out);
+    console.log('[PartStock] wheel_deadlines published:', out.items.length, 'items');
+  }catch(e){ console.warn('[PartStock] publishWheelDeadlines failed:', e.message); }
+}
 
 // ── CONNECT ──────────────────────────────────────────────────
 async function connectAndLoad(){
@@ -572,6 +638,7 @@ async function connectAndLoad(){
 // ── BIKE FAMILIES ────────────────────────────────────────────
 // Six families, ignoring rack/colour. Classified from the bike's template name.
 const MOVE_COVER_WEEKS=8;   // an AND→VV move tops Velovisie up for at least this many weeks of production
+const WHEEL_LEAD_WEEKS=3;   // MTB wheels: assembled this many weeks before the bike (2 wk build + 1 wk ship)
 const FAMILIES=[
   {key:'AMN',label:'A-MAX Nexus',     plat:'A-MAX',drive:'NEXUS'},
   {key:'AMA',label:'A-MAX Alfine',    plat:'A-MAX',drive:'ALFINE'},
@@ -960,6 +1027,8 @@ async function loadData(){
 
     publishComponentSupply();   // close the loop: tell the PO Builder what's buildable at VV
     publishPartsDeadlines();    // feed the Parts Agenda: order-by + AND→VV move-by dates
+    publishWheelStock();        // feed the PO Builder wheel tab: wheels already on hand
+    publishWheelDeadlines();    // feed the Wheels agenda: MTB wheel-component order/move tasks
 
     render();
     renderSummary();
@@ -1262,7 +1331,7 @@ function renderForecast(){
 
   const proj=rows.map(r=>{
     const pid=r.id;
-    let vv=(r.vv||0);                       // Velovisie pool — parts already at the assembler
+    let vv=(r.vvReal||0);                   // Velovisie pool — REAL counted on-hand at Velovisie (stock.quant)
     let andP=(r.andQty||0);                 // Anderlecht (AND) warehouse pool — feeds VV via transfer
     const overdue=incBeforeFirst(pid);      // component POs already past their date → arrive (into AND) in week 1
     let inprodCons=0;                       // parts burned by bikes in running Okazi POs (not yet built)
@@ -1283,7 +1352,7 @@ function renderForecast(){
       if(combined<minLevel) minLevel=combined;
       cells.push({level:vv, and:andP, arr:arrv, xfer:xfer, combined:combined, ip:(wi===0?inprodCons:0)});
     }
-    return {r, cells, firstNeg, minLevel, totCons, start:(r.vv||0), startAnd:(r.andQty||0)};
+    return {r, cells, firstNeg, minLevel, totCons, start:(r.vvReal||0), startAnd:(r.andQty||0)};
   }).filter(p=>{
     if(hideSub && p.r.isSub) return false;                 // built in-house, not purchased
     return model ? usedByModel(p.r.id) : p.totCons>0.0001;
