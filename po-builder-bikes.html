@@ -194,6 +194,9 @@ let blockedWeeks=new Set();   // Monday dates (YYYY-MM-DD, local) blocked for pr
 let weekCaps={};              // Monday date (YYYY-MM-DD) -> max bikes that week (per-week override)
 const WHEEL_LEAD_WEEKS=3;     // MTB wheels: 2 wk build + 1 wk ship → assemble this many weeks before the bike week
 const WHEEL_PO_FRONT=150, WHEEL_PO_REAR=150;   // one wheel PO = 150 front + 150 rear (300 wheels)
+const WHEEL_FRONT={amax:'WHFWA00060', emax:'WHFWA00090'};   // front wheel SKU by platform
+const WHEEL_REAR ={alfine:'WHRWA00110', derailleur:'WHRWA00140'};   // rear wheel SKU by transmission
+const WHEEL_SIDE_OF=(c)=> /^WHF/i.test(c)?'front':'rear';
 
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 //                Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec  (same tiered shape as the forecast)
@@ -678,7 +681,7 @@ function buildYearPlan(){
 }
 
 // ── ISSUE PO IN ODOO (draft RFQ) — per week, both tabs ──
-let _poDraft=null, skuToProduct=null, lastWheelDemand=null, lastWheelWheels=null;
+let _poDraft=null, skuToProduct=null, lastWheelDemand=null, lastWheelWheels=null, wheelSkuProducts=null, lastWheelProducts=null;
 function esc(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 async function resolveBikeProducts(){
   if(skuToProduct) return;
@@ -697,10 +700,23 @@ async function issueBikePO(wi){
   for(const sk of SKUS){ const q=Math.round((yearGrid[sk.key]&&yearGrid[sk.key][wi])||0); if(q<=0) continue; const pid=skuToProduct[sk.key]||null; if(!pid) unresolved+=q; lines.push({pid, qty:q, name:`${sk.label} · ${sk.col} · ${sk.rkl}`+(pid?'':' (no Odoo product)')}); }
   openPoModal({title:`Bike PO (Okazi) — ${weeks[wi].label}`, lines, vendorName:'Okazi', dateStr:ymd(weeks[wi].monday), unresolved});
 }
+async function resolveWheelProducts(){
+  if(wheelSkuProducts) return;
+  const codes=[...new Set([...Object.values(WHEEL_FRONT),...Object.values(WHEEL_REAR)])];
+  wheelSkuProducts={};
+  try{
+    const prods=await odoo('product.product','search_read',[[['default_code','in',codes]]],{fields:['id','default_code','display_name','name'],limit:50});
+    for(const p of prods){ const c=p.default_code; if(c) wheelSkuProducts[c]={id:p.id, name:p.display_name||p.name||c, side:WHEEL_SIDE_OF(c)}; }
+    console.log('[PObuilder] wheel products resolved:', Object.keys(wheelSkuProducts).length, 'of', codes.length);
+  }catch(e){ console.warn('resolveWheelProducts failed', e.message); }
+}
 async function issueWheelPO(wi){
   if(!lastWheelDemand){ alert('Open the wheel plan first.'); return; }
-  const lines=[]; for(const pid in lastWheelDemand){ const q=Math.round(lastWheelDemand[pid][wi]||0); if(q>0){ const w=lastWheelWheels&&lastWheelWheels[pid]; lines.push({pid:Number(pid), qty:q, name:(w?(w.code||w.name):('#'+pid))}); } }
-  openPoModal({title:`Wheel PO (MTB) — ${weeks[wi].label}`, lines, vendorName:'MTB', dateStr:ymd(weeks[wi].monday), unresolved:0});
+  // Sweep up ALL not-yet-ordered wheels due from the start through this week into one PO.
+  // (demand is already net of stock + open POs, so it's exactly what's still outstanding.)
+  const lines=[]; let unresolved=0;
+  for(const c in lastWheelDemand){ let q=0; for(let w=0; w<=wi; w++) q+=lastWheelDemand[c][w]||0; q=Math.round(q); if(q<=0) continue; const p=(lastWheelProducts&&lastWheelProducts[c])||null; const pid=p?p.id:null; if(!pid) unresolved+=q; lines.push({pid, qty:q, name:c+(pid?'':' (not resolved — connect to Odoo)')}); }
+  openPoModal({title:`Wheel PO (MTB) — all wheels due through ${weeks[wi].label}`, lines, vendorName:'MTB', dateStr:ymd(weeks[wi].monday), unresolved});
 }
 async function openPoModal(o){
   const m=document.getElementById('po-modal'), body=document.getElementById('po-modal-body');
@@ -740,95 +756,48 @@ function renderWheels(){
   const grid=document.getElementById('wheel-grid'); if(!grid) return;
   const kpis=document.getElementById('wheel-kpis'), poList=document.getElementById('wheel-po-list');
   if(!weeks.length){ grid.innerHTML='<div class="hint" style="padding:16px">Build the year plan first (Plan to year-end tab).</div>'; if(kpis)kpis.innerHTML=''; if(poList)poList.innerHTML=''; return; }
-  const N=weeks.length, ci=currentWeekIndex();
-  const wm=wheelMap, BATCH=WHEEL_PO_FRONT||150;
-  const leadW=(wm&&wm.leadWeeks!=null)?wm.leadWeeks:WHEEL_LEAD_WEEKS;
-  // ── per-wheel-SKU plan (matches the bike BoM) ──
-  if(wm && wm.wheels && Object.keys(wm.wheels).length){
-    const CODE={'emax|alfine':'EMA','emax|derailleur':'EMD','amax|alfine':'AMA','amax|derailleur':'AMD','emax|nexus':'EMN','amax|nexus':'AMN'};
-    const bikesByCode={};
-    for(const s of SKUS){ const code=CODE[s.fam]; if(!code) continue; if(!bikesByCode[code]) bikesByCode[code]=Array(N).fill(0); for(let wi=0;wi<N;wi++) bikesByCode[code][wi]+=(yearGrid[s.key]&&yearGrid[s.key][wi])||0; }
-    const wheelIds=Object.keys(wm.wheels), byWheel=(wheelStock&&wheelStock.byWheel)||{};
-    const demand={}; for(const pid of wheelIds) demand[pid]=Array(N).fill(0);
-    let overdue=0;
-    for(const code in (wm.byFam||{})){ const bb=bikesByCode[code]; if(!bb) continue;
-      for(const pid in wm.byFam[code]){ const per=wm.byFam[code][pid]||0; if(!per) continue; if(!demand[pid]) demand[pid]=Array(N).fill(0);
-        for(let wi=0;wi<N;wi++){ const q=per*(bb[wi]||0); if(!q) continue; let awi=wi-leadW; if(awi<0){awi=0; overdue+=q;} demand[pid][awi]+=q; } } }
-    const pos=[]; let coveredW=0, onOrderW=0, grossW=0;
-    for(const pid of wheelIds){ const bw=byWheel[pid]||{}; let stk=Math.max(0,(bw.onhand||0)+(bw.onorder||0)); onOrderW+=Math.max(0,bw.onorder||0);
-      const arr=demand[pid]; grossW+=arr.reduce((a,b)=>a+b,0);
-      const s0=stk; for(let i=0;i<N;i++){ const c=Math.min(arr[i],stk); arr[i]-=c; stk-=c; } coveredW+=(s0-stk);
-      let cum=0,cap=0; for(let awi=0;awi<N;awi++){ cum+=arr[awi]; let g=0; while(cap<cum-1e-9 && g++<5000){ pos.push({pid, wi:awi, overdue:(awi<leadW && overdue>0)}); cap+=BATCH; } } }
-    const head=`<tr><th class="sku">Wheel (assemble at MTB)</th>${weeks.map((w,wi)=>`<th class="wk ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}" title="${w.monday.toLocaleDateString('en-GB')}">${w.label}</th>`).join('')}<th class="total">Total</th></tr>`;
-    const sideCol={front:'var(--accent)', rear:'var(--purple)'};
-    const body=wheelIds.map(pid=>{ const arr=demand[pid], tot=arr.reduce((a,b)=>a+b,0), w=wm.wheels[pid], col=sideCol[w.side]||'var(--text2)';
-      return `<tr><td class="sku"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${col};margin-right:5px"></span>${w.code||('#'+pid)} <span style="font-size:10px;color:var(--text3)">${(w.side||'')}</span><div style="font-size:10px;color:var(--text3);font-weight:400">${(w.name||'').replace(/^\[[^\]]*\]\s*/,'').slice(0,40)}</div></td>${arr.map((v,wi)=>`<td class="${v?'has':'zero'} ${wi===ci?'cur':''}">${v?fmt(Math.round(v)):''}</td>`).join('')}<td class="total">${fmt(Math.round(tot))}</td></tr>`; }).join('');
-    const poPerWeek=Array(N).fill(0); for(const p of pos) poPerWeek[p.wi]++;
-    const poRow=`<tr><td class="sku" style="font-size:11px;color:var(--text2)">Wheel POs (×${BATCH}/type)</td>${poPerWeek.map((c,wi)=>`<td class="${c?'has':'zero'} ${wi===ci?'cur':''}" style="text-align:center;font-weight:700;color:var(--accent)">${c||''}</td>`).join('')}<td class="total">${pos.length}</td></tr>`;
-    const wheelHas=Array(N).fill(false); for(const pid of wheelIds){ for(let wi=0;wi<N;wi++) if(demand[pid][wi]>0.5) wheelHas[wi]=true; }
-    const issueRow=`<tr><td class="sku" style="font-size:11px;color:var(--text2)">Issue PO →</td>${weeks.map((wk,wi)=>wheelHas[wi]?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue MTB wheel PO for ${wk.label}" onclick="issueWheelPO(${wi})">⇩ PO</button></td>`:'<td></td>').join('')}<td class="total"></td></tr>`;
-    lastWheelDemand=demand; lastWheelWheels=wm.wheels;
-    grid.innerHTML=`<table class="grid"><thead>${head}</thead><tbody>${body}${poRow}${issueRow}</tbody></table>`;
-    const k=(l,v,sub,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${v}</div>${sub?`<div class="kpi-label" style="margin-top:4px">${sub}</div>`:''}</div>`;
-    if(kpis) kpis.innerHTML=
-      k('Wheels to assemble', fmt(Math.round(grossW-coveredW)), wheelIds.length+' wheel types · net of stock','var(--teal)')+
-      k('Wheel POs (×'+BATCH+')', pos.length, 'per wheel type','var(--accent)')+
-      k('Lead before bikes', leadW+' wks', '2 wk build + 1 wk ship','var(--purple)')+
-      k('Covered', fmt(Math.round(coveredW)), 'on hand + on order','var(--teal)')+
-      (overdue>0 ? k('Start now', fmt(Math.round(overdue)), 'wheels for near-term bikes','var(--danger)') : k('Schedule','✓ ahead','wheels lead bikes','var(--success)'));
-    if(poList) poList.innerHTML = pos.length
-      ? '<div style="display:flex;flex-wrap:wrap;gap:8px">'+pos.map(p=>{ const w=wm.wheels[p.pid]; return `<div class="kpi" style="min-width:150px"><div class="kpi-label">${w.code||('#'+p.pid)}${p.overdue?' · ⚠ ASAP':''}</div><div style="font-weight:700">${weeks[p.wi].label}</div><div class="hint">${BATCH} units · ${w.side||''}</div></div>`; }).join('')+'</div>'
-      : '<div class="hint">No wheels needed — bikes covered by existing wheel stock.</div>';
-    return;
+  const N=weeks.length, ci=currentWeekIndex(), BATCH=WHEEL_PO_FRONT||150, leadW=WHEEL_LEAD_WEEKS;
+  const frontCodes=[...new Set(Object.values(WHEEL_FRONT))], rearCodes=[...new Set(Object.values(WHEEL_REAR))];
+  const codes=[...frontCodes,...rearCodes];
+  const prod=wheelSkuProducts||{}, byWheel=(wheelStock&&wheelStock.byWheel)||{};
+  // demand per wheel SKU per assembly week — front by platform, rear by transmission, shifted lead weeks
+  const demand={}; for(const c of codes) demand[c]=Array(N).fill(0);
+  let overdue=0;
+  for(const sku of SKUS){
+    const fc=WHEEL_FRONT[sku.bt], rc=WHEEL_REAR[sku.tr]; if(!fc&&!rc) continue;
+    for(let wi=0;wi<N;wi++){ const q=(yearGrid[sku.key]&&yearGrid[sku.key][wi])||0; if(!q) continue; let awi=wi-leadW; if(awi<0){ awi=0; overdue+=q*((fc?1:0)+(rc?1:0)); } if(fc) demand[fc][awi]+=q; if(rc) demand[rc][awi]+=q; }
   }
-  // ── fallback: aggregate front/rear (Parts Stock hasn\'t published wheel_map yet) ──
-  // bikes built per week (from the bike plan)
-  const bikes=weeks.map((_,wi)=>SKUS.reduce((a,s)=>a+((yearGrid[s.key]&&yearGrid[s.key][wi])||0),0));
-  // wheels to assemble in week awi = bikes built in week awi+lead (1 front + 1 rear per bike)
-  const front=Array(N).fill(0), rear=Array(N).fill(0); let overdue=0;
-  for(let wi=0; wi<N; wi++){
-    const b=bikes[wi]; if(b<=0) continue;
-    let awi=wi-WHEEL_LEAD_WEEKS;
-    if(awi<0){ awi=0; overdue+=b; }     // wheels for near-term bikes must start now
-    front[awi]+=b; rear[awi]+=b;
+  // net each wheel against its own stock (on hand + on order); batch 150/type
+  const pos=[]; let coveredW=0, onOrderW=0, grossW=0;
+  for(const c of codes){
+    const pid=prod[c]&&prod[c].id; const bw=(pid&&byWheel[pid])||{};
+    let stk=Math.max(0,(bw.onhand||0)+(bw.onorder||0)); onOrderW+=Math.max(0,bw.onorder||0);
+    const arr=demand[c]; grossW+=arr.reduce((a,b)=>a+b,0);
+    const s0=stk; for(let i=0;i<N;i++){ const cc=Math.min(arr[i],stk); arr[i]-=cc; stk-=cc; } coveredW+=(s0-stk);
+    let cum=0,cap=0; for(let awi=0;awi<N;awi++){ cum+=arr[awi]; let g=0; while(cap<cum-1e-9 && g++<5000){ pos.push({code:c, wi:awi, overdue:(awi<leadW && overdue>0)}); cap+=BATCH; } }
   }
-  // net against wheels already in stock (real VV count + finished at MTB) — don't rebuild what we have
-  const ws=wheelStock||{}; let stkF=Math.max(0,(ws.front||0)+(ws.frontIncoming||0)), stkR=Math.max(0,(ws.rear||0)+(ws.rearIncoming||0));
-  const onOrderW=(Math.max(0,ws.frontIncoming||0)+Math.max(0,ws.rearIncoming||0));
-  const stkF0=stkF, stkR0=stkR;
-  for(let i=0;i<N;i++){ const cF=Math.min(front[i],stkF); front[i]-=cF; stkF-=cF; const cR=Math.min(rear[i],stkR); rear[i]-=cR; stkR-=cR; }
-  const coveredWheels=(stkF0-stkF)+(stkR0-stkR);
-  // schedule 150/150 POs so cumulative assembled keeps ahead of cumulative (net) demand
-  const pos=[]; let cumF=0, cumR=0, capF=0, capR=0;
-  for(let awi=0; awi<N; awi++){
-    cumF+=front[awi]; cumR+=rear[awi];
-    let guard=0;
-    while((capF<cumF-1e-9 || capR<cumR-1e-9) && guard++<5000){
-      pos.push({wi:awi, overdue:(awi<=WHEEL_LEAD_WEEKS && overdue>0)});
-      capF+=WHEEL_PO_FRONT; capR+=WHEEL_PO_REAR;
-    }
-  }
+  lastWheelDemand=demand; lastWheelProducts=prod;
+  const head=`<tr><th class="sku">Wheel (assemble at MTB)</th>${weeks.map((w,wi)=>`<th class="wk ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}" title="${w.monday.toLocaleDateString('en-GB')}">${w.label}</th>`).join('')}<th class="total">Total</th></tr>`;
+  const body=codes.map(c=>{ const arr=demand[c], tot=arr.reduce((a,b)=>a+b,0), p=prod[c]||{}, side=WHEEL_SIDE_OF(c), col=side==='front'?'var(--accent)':'var(--purple)';
+    const nm=(p.name||'').replace(/^\[[^\]]*\]\s*/,'').slice(0,46);
+    return `<tr><td class="sku"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${col};margin-right:5px"></span>${c} <span style="font-size:10px;color:var(--text3)">${side}</span>${nm?`<div style="font-size:10px;color:var(--text3);font-weight:400">${nm}</div>`:''}</td>${arr.map((v,wi)=>`<td class="${v?'has':'zero'} ${wi===ci?'cur':''}">${v?fmt(Math.round(v)):''}</td>`).join('')}<td class="total">${fmt(Math.round(tot))}</td></tr>`;
+  }).join('');
   const poPerWeek=Array(N).fill(0); for(const p of pos) poPerWeek[p.wi]++;
-  // calendar table (reuse the .grid table styling)
-  const head=`<tr><th class="sku">Wheels → assemble at MTB</th>${weeks.map((w,wi)=>`<th class="wk ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}" title="${w.monday.toLocaleDateString('en-GB')}">${w.label}</th>`).join('')}<th class="total">Total</th></tr>`;
-  const rowOf=(label,arr,col)=>{ const tot=arr.reduce((a,b)=>a+b,0); return `<tr><td class="sku">${label}</td>${arr.map((v,wi)=>`<td class="${v?'has':'zero'} ${wi===ci?'cur':''}" ${v&&col?`style="color:${col}"`:''}>${v?fmt(Math.round(v)):''}</td>`).join('')}<td class="total">${fmt(Math.round(tot))}</td></tr>`; };
-  const poRow=`<tr><td class="sku" style="font-size:11px;color:var(--text2)">Wheel POs (×300)</td>${poPerWeek.map((c,wi)=>`<td class="${c?'has':'zero'} ${wi===ci?'cur':''}" style="text-align:center;font-weight:700;color:var(--accent)">${c||''}</td>`).join('')}<td class="total">${pos.length}</td></tr>`;
-  const wmDiag = !wheelMap ? 'wheel_map NOT FOUND in the shared store — open Parts Stock and load it once.' : (!(wheelMap.wheels && Object.keys(wheelMap.wheels).length) ? 'wheel_map found but lists 0 wheels — MTB-wheel detection tagged none (check the wheel vendor = MTB Maastricht).' : 'wheel_map OK ('+Object.keys(wheelMap.wheels).length+' wheels)');
-  grid.innerHTML=`<div class="hint" style="padding:8px 6px;color:var(--warn);background:var(--warn-bg,#faeeda);border-radius:6px;margin-bottom:8px">⚠ Showing the front/rear summary instead of the 4 part numbers. <b>${wmDiag}</b> <button class="btn btn-secondary" style="padding:2px 8px;margin-left:6px" onclick="refreshWheelData()">↻ Reload wheel data</button></div><table class="grid"><thead>${head}</thead><tbody>${rowOf('Front wheels',front,'var(--accent)')}${rowOf('Rear wheels',rear,'var(--purple)')}${poRow}</tbody></table>`;
-  // KPIs
-  const totalBikes=bikes.reduce((a,b)=>a+b,0);
+  const poRow=`<tr><td class="sku" style="font-size:11px;color:var(--text2)">Wheel POs (×${BATCH}/type)</td>${poPerWeek.map((c,wi)=>`<td class="${c?'has':'zero'} ${wi===ci?'cur':''}" style="text-align:center;font-weight:700;color:var(--accent)">${c||''}</td>`).join('')}<td class="total">${pos.length}</td></tr>`;
+  const wheelHas=Array(N).fill(false); for(const c of codes){ for(let wi=0;wi<N;wi++) if(demand[c][wi]>0.5) wheelHas[wi]=true; }
+  const issueRow=`<tr><td class="sku" style="font-size:11px;color:var(--text2)">Issue PO →</td>${weeks.map((wk,wi)=>wheelHas[wi]?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue one PO for all wheels due through ${wk.label} (cumulative · net of stock &amp; open POs)" onclick="issueWheelPO(${wi})">⇩ PO</button></td>`:'<td></td>').join('')}<td class="total"></td></tr>`;
+  const note = codes.some(c=>!prod[c]) ? `<div class="hint" style="padding:6px 4px;color:var(--warn)">Connect to Odoo (⚙) and reopen this tab to enable the ⇩ PO buttons — wheel products not resolved yet.</div>` : '';
+  grid.innerHTML=`${note}<table class="grid"><thead>${head}</thead><tbody>${body}${poRow}${issueRow}</tbody></table>`;
   const k=(l,v,sub,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${v}</div>${sub?`<div class="kpi-label" style="margin-top:4px">${sub}</div>`:''}</div>`;
   if(kpis) kpis.innerHTML=
-    k('Wheels to assemble', fmt(Math.round(totalBikes*2)), `${fmt(totalBikes)} front + ${fmt(totalBikes)} rear`,'var(--teal)')+
-    k('Wheel POs (×300)', pos.length, '150 front + 150 rear each','var(--accent)')+
-    k('Lead before bikes', WHEEL_LEAD_WEEKS+' wks', '2 wk build + 1 wk ship','var(--purple)')+
-    k('Covered', fmt(Math.round(coveredWheels)), 'wheels on hand + on order','var(--teal)')+
-    k('On order at MTB', fmt(Math.round(onOrderW)), 'open wheel POs, not received','var(--accent)')+
-    (overdue>0 ? k('Start now', fmt(Math.round(overdue*2)), 'wheels for near-term bikes','var(--danger)') : k('Schedule','✓ ahead','wheels lead bikes','var(--success)'));
-  // PO list
+    k('Wheels to assemble', fmt(Math.round(grossW-coveredW)), codes.length+' wheel types · net of stock','var(--teal)')+
+    k('Wheel POs (×'+BATCH+')', pos.length, 'per wheel type','var(--accent)')+
+    k('Lead before bikes', leadW+' wks', '2 wk build + 1 wk ship','var(--purple)')+
+    k('Covered', fmt(Math.round(coveredW)), 'on hand + on order','var(--teal)')+
+    (overdue>0 ? k('Start now', fmt(Math.round(overdue)), 'wheels for near-term bikes','var(--danger)') : k('Schedule','✓ ahead','wheels lead bikes','var(--success)'));
   if(poList) poList.innerHTML = pos.length
-    ? '<div style="display:flex;flex-wrap:wrap;gap:8px">'+pos.map((p,i)=>`<div class="kpi" style="min-width:140px"><div class="kpi-label">PO #${i+1}${p.overdue?' · ⚠ ASAP':''}</div><div style="font-weight:700">${weeks[p.wi].label}</div><div class="hint">150 front + 150 rear</div></div>`).join('')+'</div>'
-    : '<div class="hint">No wheels needed — no bikes planned.</div>';
+    ? '<div style="display:flex;flex-wrap:wrap;gap:8px">'+pos.map(p=>`<div class="kpi" style="min-width:150px"><div class="kpi-label">${p.code}${p.overdue?' · ⚠ ASAP':''}</div><div style="font-weight:700">${weeks[p.wi].label}</div><div class="hint">${BATCH} units · ${WHEEL_SIDE_OF(p.code)}</div></div>`).join('')+'</div>'
+    : '<div class="hint">No wheels needed — bikes covered by existing wheel stock.</div>';
 }
 
 function renderYear(){
@@ -986,7 +955,8 @@ function showTab(name){
 // Pull the latest wheel map + wheel stock from the store each time the wheel tab opens,
 // so per-SKU planning appears as soon as Parts Stock republishes (no full reload needed).
 async function refreshWheelData(){
-  try{ const [wm,wsd]=await Promise.all([kvGet('wheel_map'), kvGet('wheel_stock')]); if(wm) wheelMap=wm; if(wsd) wheelStock=wsd; }catch(e){ console.warn('wheel data refresh failed', e); }
+  try{ const wsd=await kvGet('wheel_stock'); if(wsd) wheelStock=wsd; }catch(e){}
+  try{ await resolveWheelProducts(); }catch(e){}
   renderWheels();
 }
 
