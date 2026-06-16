@@ -71,6 +71,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
 .col-real{background:rgba(60,52,137,0.05)}
 .col-and{background:rgba(60,52,137,0.05)}
 .col-loui{background:rgba(26,79,160,0.05)}
+.col-mtb{background:rgba(15,110,86,0.06)}
 .col-vv{background:rgba(15,110,86,0.06)}
 .col-vvr{background:rgba(60,52,137,0.07)}
 .col-type{background:rgba(122,78,10,0.05)}
@@ -210,6 +211,7 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
             <th class="num col-theo" onclick="setSort('theo')" id="sh-theo" title="Received − Consumed − After-sales">Theoretical</th>
             <th class="num col-and" onclick="setSort('andQty')" id="sh-andQty" title="On-hand across all AND warehouses combined">AND<br><span style="font-weight:400;font-size:9px">on-hand</span></th>
             <th class="num col-loui" onclick="setSort('louiQty')" id="sh-louiQty" title="On-hand in the LOUI warehouse">LOUI<br><span style="font-weight:400;font-size:9px">on-hand</span></th>
+            <th class="num col-mtb" onclick="setSort('mtbQty')" id="sh-mtbQty" title="On-hand at the MTB Maastricht wheel-assembly location (wheel components + finished wheels)">MTB<br><span style="font-weight:400;font-size:9px">on-hand</span></th>
             <th class="num col-vv" onclick="setSort('vv')" id="sh-vv" title="Theoretical − (AND + LOUI) = units expected at VV (invisible to Odoo)">Theoretical<br><span style="font-weight:400;font-size:9px">at VV</span></th>
             <th class="num col-vvr" onclick="setSort('vvReal')" id="sh-vvReal" title="Real on-hand at the Velovisie subcontracting location, as registered in Odoo (stock.quant)">Velovisie<br><span style="font-weight:400;font-size:9px">Odoo real</span></th>
           </tr>
@@ -260,7 +262,7 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
   <!-- FORWARD STOCK TAB -->
   <div class="view" id="view-forecast">
     <div class="explain">
-      <strong>Forward component stock — week by week.</strong> Models the real two-stage flow: incoming component POs (from the <strong>PO Tracker</strong>) are received into the <strong>Anderlecht (AND)</strong> warehouse, then moved to <strong>Velovisie (VV)</strong> for assembly. Each cell is the combined pipeline stock <code>AND + VV</code> after that week's consumption from the <strong>PO Builder — Bikes</strong> plan (bikes/week × per-bike BoM usage, averaged per family). <code>(+n)</code> = a component PO arriving into AND that week; <code>⇄n</code> = the AND→VV transfer needed to keep the assembler supplied — sized to cover ~8 weeks of build (or whatever AND holds), allow ~3 days for the move; <code>⚙n</code> in week 1 = parts consumed by bikes already in production at Okazi (running POs, not yet built — the future PO-Builder bikes are the weekly plan). A <strong style="color:#8b1f1f">red / negative</strong> cell means <strong>both</strong> AND and VV are exhausted — place or pull a PO forward. POs already received (including those delivered straight to VV via subcontracting) drop out of the open-PO feed and are already reflected in current stock. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
+      <strong>Forward component stock — week by week.</strong> Models the real two-stage flow: incoming component POs (from the <strong>PO Tracker</strong>) are received into the <strong>Anderlecht (AND)</strong> warehouse, then moved to <strong>Velovisie (VV)</strong> for assembly. Each cell is the stock <strong>at Velovisie</strong> after that week's consumption, replenished from AND via the <code>⇄</code> transfer, from the <strong>PO Builder — Bikes</strong> plan (bikes/week × per-bike BoM usage, averaged per family). <code>(+n)</code> = a component PO arriving into AND that week; <code>⇄n</code> = the AND→VV transfer needed to keep the assembler supplied — sized to cover ~8 weeks of build (or whatever AND holds), allow ~3 days for the move; <code>⚙n</code> in week 1 = parts consumed by bikes already in production at Okazi (running POs, not yet built — the future PO-Builder bikes are the weekly plan). A <strong style="color:#8b1f1f">red / negative</strong> cell means <strong>both</strong> AND and VV are exhausted — place or pull a PO forward. POs already received (including those delivered straight to VV via subcontracting) drop out of the open-PO feed and are already reflected in current stock. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
     </div>
     <div class="kpis" id="fc-kpis"></div>
     <div class="toolbar">
@@ -331,6 +333,8 @@ let incomingByPart={};      // productId -> [{date:'YYYY-MM-DD'|null, qty}]
 let productionPlan=null;    // {weeks:[{monday,label,iso}], byFam:{EMA:[],EMD:[],AMA:[],AMD:[]}, ...}
 let productionBasis=null;   // {inprodBySku, unmatchedBySku, ...} published by Max Planner
 let inprodByFam={};         // famKey -> count of bikes in running Okazi POs (not yet built/consumed)
+let mtbWheelTmpls=new Set();// template ids of wheel assemblies built at MTB (consumed as finished wheels at VV)
+let wheelComponentIds=new Set();// parts consumed into wheels at MTB → their VV theoretical is 0 (they live at MTB, not VV)
 let fcCollapsed={};         // group name -> true if collapsed in the Forward stock tab
 
 // Best-effort mapping of a component to an area of the bike (EN/FR/NL keywords).
@@ -660,7 +664,7 @@ async function collectBomGraph(){
 
 // Per-bike usage of every part for one finished unit of `tmplId` (full explosion,
 // counting sub-assemblies AND their children). Returns { productId: qtyPerBike }.
-function explodeUsage(tmplId,bomByTmpl,prodToTmpl){
+function explodeUsage(tmplId,bomByTmpl,prodToTmpl,fullExplode){
   const acc={};
   (function rec(tid,factor,depth,seen){
     const bom=bomByTmpl[tid];
@@ -670,7 +674,8 @@ function explodeUsage(tmplId,bomByTmpl,prodToTmpl){
       const perUnit=(ln.qty/base)*factor;
       acc[ln.pid]=(acc[ln.pid]||0)+perUnit;
       const ct=prodToTmpl[ln.pid];
-      if(ct&&bomByTmpl[ct]&&!seen.has(ct)) rec(ct,perUnit,depth+1,new Set(seen).add(ct));
+      // Stop at MTB wheel assemblies: at Velovisie the bike consumes the finished wheel, not its parts.
+      if(ct&&bomByTmpl[ct]&&!seen.has(ct) && (fullExplode || !mtbWheelTmpls.has(ct))) rec(ct,perUnit,depth+1,new Set(seen).add(ct));
     }
   })(tmplId,1,0,new Set([tmplId]));
   return acc;
@@ -713,6 +718,29 @@ async function loadData(){
     // 1 ── BOM UNIVERSE: components of every MAX bike (incl. sub-assemblies), with quantities
     alert_('<span class="spinner"></span> Step 1/5 — Exploding MAX bike BoMs…','info');
     const {partIds,subIds,bomByTmpl,prodToTmpl,bikeBoms,bikeBomCount}=await collectBomGraph();
+
+    // ── Identify MTB wheel assemblies (vendor = MTB Maastricht) ──
+    // A sub-assembly whose vendor/subcontractor is MTB is built at MTB; VV then consumes the finished
+    // wheel, and its components are tracked separately at MTB.
+    mtbWheelTmpls=new Set();
+    try{
+      const siMap={};   // tmplId -> vendor name
+      for(const c of chunk([...subIds],200)){
+        const si=await odoo('product.supplierinfo','search_read',[[['product_id','in',c]]],{fields:['product_id','partner_id'],order:'sequence,min_qty'});
+        for(const x of si){ const t=prodToTmpl[arr(x.product_id)[0]]; if(t!=null && siMap[t]==null) siMap[t]=arr(x.partner_id)[1]||''; }
+      }
+      const missTmpls=[...new Set([...subIds].map(p=>prodToTmpl[p]).filter(t=>t!=null && siMap[t]==null))];
+      for(const c of chunk(missTmpls,200)){
+        const si=await odoo('product.supplierinfo','search_read',[[['product_tmpl_id','in',c]]],{fields:['product_tmpl_id','partner_id'],order:'sequence,min_qty'});
+        for(const x of si){ const t=arr(x.product_tmpl_id)[0]; if(t!=null && siMap[t]==null) siMap[t]=arr(x.partner_id)[1]||''; }
+      }
+      for(const t in siMap){ if(/mtb|maastricht/i.test(siMap[t]||'')) mtbWheelTmpls.add(Number(t)); }
+      console.log('[PartStock] MTB wheel templates:', mtbWheelTmpls.size);
+    }catch(e){ console.warn('[PartStock] MTB wheel detection failed:', e.message); }
+    // parts that go into wheels at MTB → not present as themselves at Velovisie
+    wheelComponentIds=new Set();
+    for(const t of mtbWheelTmpls){ const wu=explodeUsage(t,bomByTmpl,prodToTmpl,true); for(const pid in wu) wheelComponentIds.add(Number(pid)); }
+    console.log('[PartStock] wheel-component parts (VV theoretical forced to 0):', wheelComponentIds.size);
     const ids=[...partIds];
     if(!ids.length){
       alert_('No MAX bike BoMs found in Odoo — nothing to count. Check that bike BoMs exist and their product names contain "MAX".','warn');
@@ -791,7 +819,14 @@ async function loadData(){
     const vvLocNames=vvLocsAll.map(l=>l.complete_name);
     console.log('[PartStock] Velovisie locations:',vvLocNames);
 
-    const andMap={}, louiMap={}, vvRealMap={};
+    // MTB Maastricht subcontracting location — wheels assembled here; holds wheel-component stock
+    const mtbLocsAll=await odoo('stock.location','search_read',
+      [['|',['complete_name','ilike','mtb'],['complete_name','ilike','maastricht']]],{fields:['id','complete_name'],limit:2000});
+    const mtbLocIds=mtbLocsAll.map(l=>l.id);
+    const mtbLocNames=mtbLocsAll.map(l=>l.complete_name);
+    console.log('[PartStock] MTB locations:',mtbLocNames);
+
+    const andMap={}, louiMap={}, vvRealMap={}, mtbMap={};
     async function fillLoc(locIds,target){
       if(!locIds.length) return;
       for(const c of idChunks){
@@ -814,6 +849,7 @@ async function loadData(){
     await fillLoc(andLocIds,andMap);
     await fillLoc(louiLocIds,louiMap);
     await fillLoc(vvLocIds,vvRealMap);
+    await fillLoc(mtbLocIds,mtbMap);
 
     // 6 ── INCOMING component POs (confirmed, not yet received) with planned dates
     alert_('<span class="spinner"></span> Incoming component deliveries (open POs)…','info');
@@ -881,13 +917,15 @@ async function loadData(){
       const andQty=andMap[id]||0;
       const louiQty=louiMap[id]||0;
       const odoo=andQty+louiQty;
-      const vv=theo-odoo;
+      const vv=wheelComponentIds.has(id)?0:(theo-odoo);   // wheel sub-parts are consumed into wheels at MTB → 0 at VV
       const vvReal=vvRealMap[id]||0;
+      const mtbQty=mtbMap[id]||0;
       const row={
         id,partNo,partName,
         category:arr(pi.categ_id)[1]||'—',
-        receivedPO,recvAdj:adj,received,consumed,sav,theo,andQty,louiQty,odoo,vv,vvReal,
+        receivedPO,recvAdj:adj,received,consumed,sav,theo,andQty,louiQty,odoo,vv,vvReal,mtbQty,
         isSub:subIds.has(id),
+        isWheel:mtbWheelTmpls.has(prodToTmpl[id]),
         bomFams:ALL_FAM.filter(k=>famParts[k]&&famParts[k].has(id))
       };
       FAM_KEYS.forEach(k=>{ row[k]=famConsumed[k][id]||0; });
@@ -1127,6 +1165,7 @@ function render(){
     <td class="num col-theo theo ${r.theo<0?'neg':''}">${fmt(r.theo)}</td>
     <td class="num col-and ${r.andQty<0?'neg':''}">${r.andQty?fmt(r.andQty):(r.andQty===0?'0':'—')}</td>
     <td class="num col-loui ${r.louiQty<0?'neg':''}">${r.louiQty?fmt(r.louiQty):(r.louiQty===0?'0':'—')}</td>
+    <td class="num col-mtb ${r.mtbQty<0?'neg':''}">${r.mtbQty?fmt(r.mtbQty):(r.mtbQty===0?'0':'—')}</td>
     <td class="num col-vv ${vvClass(r.vv)}">${r.vv===null?'—':(r.vv>0?'+':'')+fmt(r.vv)}</td>
     <td class="num col-vvr ${r.vvReal<0?'neg':''}">${r.vvReal?fmt(r.vvReal):(r.vvReal===0?'0':'—')}</td>
   </tr>`).join('');
@@ -1273,7 +1312,7 @@ function renderForecast(){
 
   const groupBy=(document.getElementById('fc-group')||{}).value||'area';
   const nWk=wks.length;
-  const head=`<tr><th class="fc-part">Component</th><th class="fc-w" title="Combined AND + VV component stock now (start)">On-hand now<br><span style="font-weight:400;font-size:9px">AND+VV</span></th>${wks.map(w=>`<th class="fc-w" title="${esc(w.monday)}">${esc(w.label)}</th>`).join('')}</tr>`;
+  const head=`<tr><th class="fc-part">Component</th><th class="fc-w" title="Component stock at Velovisie now (start). AND replenishes via the ⇄ transfer.">VV now<br><span style="font-weight:400;font-size:9px">at Velovisie</span></th>${wks.map(w=>`<th class="fc-w" title="${esc(w.monday)}">${esc(w.label)}</th>`).join('')}</tr>`;
 
   const rowHtml=(p)=>{
     const tds=p.cells.map(c=>{
@@ -1281,10 +1320,10 @@ function renderForecast(){
       const arrTxt=a>0?`<span class="fc-arr">(+${fmt(a)})</span>`:'';
       const xferTxt=x>0?`<span class="fc-xfer" title="Move ${fmt(x)} from AND → VV this week (allow ~3 days for the transfer)">⇄${fmt(x)}</span>`:'';
       const ipTxt=ip>0?`<span class="fc-ip" title="${fmt(ip)} consumed by bikes already in production at Okazi (running POs, not yet built)">⚙${fmt(ip)}</span>`:'';
-      return `<td class="${c.combined<0?'fc-neg':''}" title="VV ${fmt(Math.round(c.level))} · AND ${fmt(Math.round(c.and))}">${fmt(Math.round(c.combined))}${arrTxt}${xferTxt}${ipTxt}</td>`;
+      return `<td class="${c.level<0?'fc-neg':''}" title="At Velovisie ${fmt(Math.round(c.level))} · still in AND ${fmt(Math.round(c.and))}">${fmt(Math.round(c.level))}${arrTxt}${xferTxt}${ipTxt}</td>`;
     }).join('');
     const nm=`${p.r.partNo?('['+esc(p.r.partNo)+'] '):''}${esc(p.r.partName)}`;
-    return `<tr><td class="fc-part" title="Click for incoming-PO breakdown · ${esc(p.r.category)}" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" onclick="fcInspect(${p.r.id})">${nm}</td><td class="fc-w" style="font-weight:600" title="VV ${fmt(Math.round(p.start))} · AND ${fmt(Math.round(p.startAnd))}">${fmt(Math.round(p.start+p.startAnd))}</td>${tds}</tr>`;
+    return `<tr><td class="fc-part" title="Click for incoming-PO breakdown · ${esc(p.r.category)}" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" onclick="fcInspect(${p.r.id})">${nm}</td><td class="fc-w" style="font-weight:600" title="At Velovisie ${fmt(Math.round(p.start))} · in AND (replenishment) ${fmt(Math.round(p.startAnd))}">${fmt(Math.round(p.start))}</td>${tds}</tr>`;
   };
 
   let body='';
