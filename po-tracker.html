@@ -366,6 +366,9 @@ async function loadData(){
     for(const line of lines){
       const poId=arr(line.order_id)[0];
       const po=poMap[poId];if(!po)continue;
+      // Exclude POs related to Ahooga Paris (intercompany vendor)
+      const vendorName=arr(po.partner_id)[1]||'';
+      if(/ahooga\s*paris/i.test(vendorName))continue;
       const prodName=arr(line.product_id)[1]||'';
       const partNo=prodName.match(/^\[([^\]]+)\]/)?.[1]||'';
       const partName=prodName.replace(/^\[[^\]]+\]\s*/,'');
