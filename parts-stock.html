@@ -260,7 +260,7 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
   <!-- FORWARD STOCK TAB -->
   <div class="view" id="view-forecast">
     <div class="explain">
-      <strong>Forward component stock — week by week.</strong> Models the real two-stage flow: incoming component POs (from the <strong>PO Tracker</strong>) are received into the <strong>Anderlecht (AND)</strong> warehouse, then moved to <strong>Velovisie (VV)</strong> for assembly. Each cell is the combined pipeline stock <code>AND + VV</code> after that week's consumption from the <strong>PO Builder — Bikes</strong> plan (bikes/week × per-bike BoM usage, averaged per family). <code>(+n)</code> = a component PO arriving into AND that week; <code>⇄n</code> = the AND→VV transfer needed to keep the assembler supplied (allow ~3 days for the move); <code>⚙n</code> in week 1 = parts consumed by bikes already in production at Okazi (running POs, not yet built — the future PO-Builder bikes are the weekly plan). A <strong style="color:#8b1f1f">red / negative</strong> cell means <strong>both</strong> AND and VV are exhausted — place or pull a PO forward. POs already received (including those delivered straight to VV via subcontracting) drop out of the open-PO feed and are already reflected in current stock. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
+      <strong>Forward component stock — week by week.</strong> Models the real two-stage flow: incoming component POs (from the <strong>PO Tracker</strong>) are received into the <strong>Anderlecht (AND)</strong> warehouse, then moved to <strong>Velovisie (VV)</strong> for assembly. Each cell is the combined pipeline stock <code>AND + VV</code> after that week's consumption from the <strong>PO Builder — Bikes</strong> plan (bikes/week × per-bike BoM usage, averaged per family). <code>(+n)</code> = a component PO arriving into AND that week; <code>⇄n</code> = the AND→VV transfer needed to keep the assembler supplied — sized to cover ~8 weeks of build (or whatever AND holds), allow ~3 days for the move; <code>⚙n</code> in week 1 = parts consumed by bikes already in production at Okazi (running POs, not yet built — the future PO-Builder bikes are the weekly plan). A <strong style="color:#8b1f1f">red / negative</strong> cell means <strong>both</strong> AND and VV are exhausted — place or pull a PO forward. POs already received (including those delivered straight to VV via subcontracting) drop out of the open-PO feed and are already reflected in current stock. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
     </div>
     <div class="kpis" id="fc-kpis"></div>
     <div class="toolbar">
@@ -471,17 +471,16 @@ async function publishPartsDeadlines(){
       if(r.isSub) continue;
       const pid=r.id;
       let inprodCons=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
+      const consArr=wks.map((_,wi)=>{ let c=0; for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; return c; });
       let vv=(r.vv||0), andP=(r.andQty||0);
       const overdue=incBeforeFirst(pid);
-      let shortWi=-1, minLevel=vv+andP, transferWi=-1, transferQty=0, totCons=0;
+      let shortWi=-1, minLevel=vv+andP, totCons=0; const moves=[];
       for(let wi=0; wi<wks.length; wi++){
-        let cons=0; for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) cons+=u*(byFam[fam][wi]||0); }
-        if(wi===0) cons+=inprodCons;
-        totCons+=cons;
+        const cons=consArr[wi]; totCons+=cons;
         let arrv=incForWeek(pid,wi); if(wi===0) arrv+=overdue;
         andP+=arrv; vv-=cons;
-        let xfer=0; if(vv<0 && andP>0){ xfer=Math.min(-vv,andP); vv+=xfer; andP-=xfer; }
-        if(xfer>0 && transferWi<0){ transferWi=wi; transferQty=Math.ceil(xfer); }
+        let xfer=0; if(vv<0 && andP>0){ let future=0; for(let j=wi+1;j<=wi+MOVE_COVER_WEEKS&&j<consArr.length;j++) future+=consArr[j]; xfer=Math.min(-vv+future, andP); vv+=xfer; andP-=xfer; }
+        if(xfer>0) moves.push({wi, qty:Math.ceil(xfer)});
         const combined=vv+andP;
         if(combined<minLevel) minLevel=combined;
         if(combined<0 && shortWi<0) shortWi=wi;
@@ -489,7 +488,7 @@ async function publishPartsDeadlines(){
       if(totCons<=0.0001) continue;
       const nm=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
       if(shortWi>=0) items.push({type:'order', id:'order:'+pid, pid, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[shortWi].monday, qty:Math.max(1,Math.ceil(-minLevel))});
-      if(transferWi>=0) items.push({type:'move', id:'move:'+pid, pid, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[transferWi].monday, qty:transferQty});
+      for(const mv of moves) items.push({type:'move', id:'move:'+pid+':'+wks[mv.wi].monday, pid, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[mv.wi].monday, qty:mv.qty});
     }
     await kvSetStore('parts_deadlines', { updated:new Date().toISOString(), transferLeadDays:3, weeks:wks.map(w=>w.monday), items });
     console.log('[PartStock] parts_deadlines published:', items.length, 'items');
@@ -568,6 +567,7 @@ async function connectAndLoad(){
 
 // ── BIKE FAMILIES ────────────────────────────────────────────
 // Six families, ignoring rack/colour. Classified from the bike's template name.
+const MOVE_COVER_WEEKS=8;   // an AND→VV move tops Velovisie up for at least this many weeks of production
 const FAMILIES=[
   {key:'AMN',label:'A-MAX Nexus',     plat:'A-MAX',drive:'NEXUS'},
   {key:'AMA',label:'A-MAX Alfine',    plat:'A-MAX',drive:'ALFINE'},
@@ -1228,18 +1228,17 @@ function renderForecast(){
     const overdue=incBeforeFirst(pid);      // component POs already past their date → arrive (into AND) in week 1
     let inprodCons=0;                       // parts burned by bikes in running Okazi POs (not yet built)
     for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
+    // per-week VV consumption (running Okazi POs folded into week 0) — precomputed for transfer look-ahead
+    const consArr=wks.map((_,wi)=>{ let c=0; for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; return c; });
     const cells=[]; let firstNeg=-1, minLevel=vv+andP, totCons=0;
     for(let wi=0; wi<wks.length; wi++){
-      let cons=0;
-      for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) cons+=u*(byFam[fam][wi]||0); }
-      if(wi===0) cons+=inprodCons;          // running Okazi POs consume up-front (bikes being built now)
-      totCons+=cons;
+      const cons=consArr[wi]; totCons+=cons;
       let arrv=incForWeek(pid,wi);
       if(wi===0) arrv+=overdue;             // surface overdue arrivals as a visible (+n)
       andP+=arrv;                           // incoming component POs are received into AND, not VV
       vv-=cons;                             // assembly consumes from the VV pool
-      let xfer=0;                           // AND → VV movement needed to keep VV supplied
-      if(vv<0 && andP>0){ xfer=Math.min(-vv,andP); vv+=xfer; andP-=xfer; }
+      let xfer=0;                           // AND → VV move: batch enough to cover ≥ MOVE_COVER_WEEKS of production (capped by AND)
+      if(vv<0 && andP>0){ let future=0; for(let j=wi+1;j<=wi+MOVE_COVER_WEEKS&&j<consArr.length;j++) future+=consArr[j]; xfer=Math.min(-vv+future, andP); vv+=xfer; andP-=xfer; }
       const combined=vv+andP;               // true position across both pools
       if(combined<0 && firstNeg<0) firstNeg=wi;
       if(combined<minLevel) minLevel=combined;
