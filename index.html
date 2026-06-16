@@ -381,6 +381,27 @@ body{background:var(--paper)}
 .app-loader .spin{border-top-color:var(--blue)}
 .nav-burger-fab span{background:var(--ink)}
 
+
+/* ===== mobile: custom-colour workflow as a compact 2-up grid ===== */
+@media(max-width:560px){
+  .cc-grid{grid-template-columns:1fr 1fr;gap:10px}
+  .cc-card{padding:14px;gap:9px;border-radius:13px}
+  .cc-card-head{gap:6px}
+  .cc-ico{width:34px;height:34px;border-radius:10px}
+  .cc-ico svg{width:18px;height:18px}
+  .cc-step{font-size:9px;letter-spacing:.05em}
+  .cc-name{font-size:14px;line-height:1.12}
+  .cc-desc{font-size:11px;line-height:1.45;
+    display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+  .cc-arrow{font-size:16px;margin-top:4px}
+  .cc-title{font-size:24px}
+  .cc-sub{font-size:13px;margin-bottom:18px}
+}
+@media(max-width:380px){
+  .cc-card{padding:12px}
+  .cc-desc{-webkit-line-clamp:3}
+}
+
 </style>
   <script src="mxp-auth.js"></script>
 </head>
