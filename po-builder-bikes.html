@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script src="mxp-auth.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Ahooga PO Builder — Bikes</title>
@@ -83,6 +82,7 @@ table.grid tr.caprow input::-webkit-outer-spin-button,table.grid tr.caprow input
 .chip button{border:none;background:none;cursor:pointer;color:var(--warn);font-weight:700;font-size:13px;line-height:1;padding:0 3px}
 @media(max-width:700px){main{padding:12px}input{font-size:16px!important}}
 </style>
+  <script src="mxp-auth.js"></script>
 </head>
 <body>
 <header>
@@ -231,6 +231,9 @@ function publishPlan(){
 let orderbook=[];                                    // [{sku, remaining, due}]
 let weeks=[];                                        // [{monday:Date, iso, month, label, weight}]
 let yearGrid={};                                     // sku -> [qty per week index]
+let componentSupply=null;                            // buildable-at-VV data from Parts Stock (component_supply)
+let compLimitByWeek={};                              // week index -> {fam: bindingComponentId} (capped that week)
+let unbuildableByFam={};                             // fam -> {qty, binding} that no components allow in horizon
 
 // ── PROXY / XML-RPC (same as the other apps) ─────────────────
 function proxyUrl(path){
@@ -437,6 +440,7 @@ async function loadData(){
       document.getElementById('fc-pill').className='pill err';
     }
 
+    componentSupply=await kvGet('component_supply');   // what Parts Stock says is buildable at Velovisie
     const pb=await kvGet('production_basis');
     if(pb && (pb.unmatchedBySku || pb.freeStockBySku || pb.incomingBySku)){
       unmatchedBySku=pb.unmatchedBySku||{}; freeStockBySku=pb.freeStockBySku||{};
@@ -590,26 +594,60 @@ function buildYearPlan(){
   const earliestDue=(fk)=>{ for(const p of queue[fk]) if(p.qty>1e-9) return p.due; return Infinity; };
   const consume=(fk,n,wi)=>{ let need=n; for(const p of queue[fk]){ if(need<=1e-9)break; if(p.qty<=1e-9)continue; const t=Math.min(need,p.qty); yearGrid[p.sku][wi]+=t; p.qty-=t; need-=t; } };
 
+  // ── COMPONENT AVAILABILITY (from Parts Stock 'component_supply') ──
+  // Cap each week's build to what components on hand (+ arriving POs) actually allow, so we never
+  // schedule bikes we can't build at Velovisie. Blocked bikes roll forward to the week their limiting
+  // component arrives. If no component data is published, this behaves exactly as before.
+  compLimitByWeek={}; unbuildableByFam={};
+  const CS=componentSupply;
+  const compOn=!!(CS && CS.usageByFam && Object.keys(CS.usageByFam).length && CS.stock);
+  const compAvail={}; if(compOn){ for(const cid in CS.stock) compAvail[cid]=CS.stock[cid]; }
+  const wkMon=weeks.map(w=>ymd(w.monday));
+  const arrivalWeek=(d)=>{ if(!d||d<wkMon[0]) return 0; for(let x=weeks.length-1;x>=0;x--){ if(d>=wkMon[x]) return x; } return 0; };
+  const incByWeek={};   // week index -> {cid: qty arriving}
+  if(compOn && CS.incoming){ for(const cid in CS.incoming){ for(const e of (CS.incoming[cid]||[])){ const w=arrivalWeek(e.date); (incByWeek[w]=incByWeek[w]||{}); incByWeek[w][cid]=(incByWeek[w][cid]||0)+(e.qty||0); } } }
+  const usageOf=(fk)=> (compOn ? (CS.usageByFam[fk]||null) : null);
+  const buildCap=(fk)=>{ const u=usageOf(fk); if(!u) return {m:Infinity,bind:null}; let m=Infinity,bind=null; for(const cid in u){ const per=u[cid]; if(per<=1e-9) continue; const cap=(compAvail[cid]||0)/per; if(cap<m){ m=cap; bind=cid; } } return {m,bind}; };
+  const drawComp=(fk,n)=>{ const u=usageOf(fk); if(!u) return; for(const cid in u) compAvail[cid]=(compAvail[cid]||0)-u[cid]*n; };
+
   // Fill each week up to its capacity using AT MOST 2 models, most-urgent models first.
+  let lastW=-1;
   for(let i=0;i<av.length;i++){
-    const wi=av[i]; let budget=capOf(wi); const used=new Set();
+    const wi=av[i];
+    if(compOn){ for(let w=lastW+1; w<=wi; w++){ const inc=incByWeek[w]; if(inc){ for(const cid in inc) compAvail[cid]=(compAvail[cid]||0)+inc[cid]; } } }
+    lastW=wi;
+    let budget=capOf(wi); const used=new Set();
     while(budget>1e-9){
       let best=null, bestDue=Infinity;
       for(const fk of fams){
         if(remaining[fk]<=1e-9) continue;
+        if(compOn && buildCap(fk).m<1) continue;              // component-blocked this week → defer to a later week
         if(!used.has(fk) && used.size>=2) continue;           // can't open a 3rd model this week
         const ed=earliestDue(fk);
         if(ed<bestDue || (ed===bestDue && used.has(fk) && !(best&&used.has(best)))){ best=fk; bestDue=ed; }
       }
       if(!best) break;
       used.add(best);
-      const take=Math.min(budget, remaining[best]);
+      let take=Math.min(budget, remaining[best]);
+      if(compOn){ const bc=buildCap(best); if(isFinite(bc.m)){ const cap=Math.floor(bc.m+1e-9); if(cap<take){ take=cap; (compLimitByWeek[wi]=compLimitByWeek[wi]||{})[best]=bc.bind; } } }
+      if(take<=1e-9) break;
       consume(best, take, wi); budget-=take; remaining[best]-=take;
+      if(compOn) drawComp(best, take);
     }
   }
-  // If the ≤2-models/week limit + capacities can't fit everything, push the remainder into the last open week (flagged).
+  // Push any remainder into the last open week — but only as far as components allow.
   const leftover=fams.reduce((a,fk)=>a+remaining[fk],0);
-  if(leftover>1e-9){ const wi=av[av.length-1]; for(const fk of fams){ if(remaining[fk]>1e-9){ consume(fk, remaining[fk], wi); remaining[fk]=0; } } }
+  if(leftover>1e-9){
+    const wi=av[av.length-1];
+    if(compOn){ for(let w=lastW+1; w<weeks.length; w++){ const inc=incByWeek[w]; if(inc){ for(const cid in inc) compAvail[cid]=(compAvail[cid]||0)+inc[cid]; } } }
+    for(const fk of fams){ if(remaining[fk]>1e-9){
+      const cap = compOn ? Math.max(0,Math.floor(buildCap(fk).m+1e-9)) : Infinity;
+      const place = Math.min(remaining[fk], cap);
+      if(place>1e-9){ consume(fk, place, wi); if(compOn) drawComp(fk, place); remaining[fk]-=place; }
+    } }
+  }
+  // Anything still unplaced cannot be built this horizon — its components never arrive in time.
+  if(compOn){ for(const fk of fams){ if(remaining[fk]>1e-9) unbuildableByFam[fk]={qty:Math.round(remaining[fk]), binding:buildCap(fk).bind}; } }
 
   // round to whole bikes
   for(const s of SKUS){ const a=yearGrid[s.key]; for(let i=0;i<a.length;i++) a[i]=Math.round(a[i]); }
@@ -664,11 +702,24 @@ function renderYear(){
     k('Already on order', fmt(incTot),'on open POs · netted out','var(--accent)')+
     k('Busiest week', fmt(peak), overWeeks?'over capacity':'within capacity', overWeeks?'var(--danger)':null)+
     k('Production weeks', usedWeeks,`of ${availableWeekIdx().length} open`,null)+
+    (componentSupply? k('Component-limited', fmt(Object.values(unbuildableByFam).reduce((a,b)=>a+(b?b.qty:0),0))+' bikes', (Object.keys(compLimitByWeek).length? Object.keys(compLimitByWeek).length+' wk capped':'all buildable'), Object.values(unbuildableByFam).reduce((a,b)=>a+(b?b.qty:0),0)?'var(--danger)':'var(--success)') : '')+
     k('Last production', getDeadline().toLocaleDateString('en-GB'),'everything done by','var(--success)');
 
-  document.getElementById('year-warn').innerHTML = overWeeks
+  const compMsg = (function(){
+    if(!componentSupply) return '';
+    const nm=componentSupply.names||{};
+    const ub=Object.entries(unbuildableByFam);
+    const capW=Object.keys(compLimitByWeek).length;
+    const leadTxt = componentSupply.transferLeadDays ? ` (assumes ~${componentSupply.transferLeadDays}-day AND→Velovisie transfer)` : '';
+    if(!ub.length && !capW) return `<div class="alert" style="background:var(--success-bg,#eaf3de);color:var(--success,#2d6e2d);border:1px solid rgba(45,110,45,0.25)">✓ Component check on — every proposed bike is buildable from stock + incoming POs at Velovisie${leadTxt}.</div>`;
+    const parts=[];
+    if(capW) parts.push(`${capW} week${capW>1?'s':''} capped to available components (bikes shifted to later weeks).`);
+    if(ub.length){ const lines=ub.map(([fk,o])=>`<b>${fk}</b> ${fmt(o.qty)}${o.binding&&nm[o.binding]?(' — short on '+nm[o.binding]):''}`).join('; '); parts.push(`Blocked this horizon (no component arrival in time): ${lines}. Place a component PO to unblock.`); }
+    return `<div class="alert alert-warn">🔧 Component availability${leadTxt}: ${parts.join(' ')}</div>`;
+  })();
+  document.getElementById('year-warn').innerHTML = (overWeeks
     ? `<div class="alert alert-warn">⚠ The set capacities can't fit everything before ${dl} — the overflow is stacked into the last week (<b>${fmt(peak)}</b>, shown in red). Raise capacity in some weeks, push the deadline, or unblock weeks.</div>`
-    : '';
+    : '') + compMsg;
 }
 
 // This-week proposal: committed orders in the production window + batch top-up

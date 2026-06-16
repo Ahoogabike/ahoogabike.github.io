@@ -224,6 +224,7 @@ footer{
 .cc-desc{font-size:13px;color:var(--ink-dim);line-height:1.55;position:relative;z-index:1}
 .cc-arrow{margin-top:auto;color:var(--accent);font-weight:800;font-size:20px;position:relative;z-index:1}
 </style>
+  <script src="mxp-auth.js"></script>
 </head>
 <body>
 <header>
@@ -256,8 +257,8 @@ footer{
       <input type="text" id="hp-user" placeholder="yourname@ahooga.bike"/>
     </div>
     <div class="connect-field">
-      <div class="connect-label">API Key</div>
-      <input type="password" id="hp-key" placeholder="your-odoo-api-key"/>
+      <div class="connect-label">Password</div>
+      <input type="password" id="hp-key" placeholder="your-odoo-password"/>
     </div>
     <button class="connect-btn" onclick="saveCredentials()">Save &amp; Connect All →</button>
     <div class="connect-status" id="hp-status"></div>
@@ -309,7 +310,7 @@ footer{
     <div class="grid">
       <a href="shopify-convert.html" class="card" style="--accent:#2b7fd6">
         <div class="card-header">
-          <div class="card-num">13</div>
+          <div class="card-num">03</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <path d="M4 9h7l-.9 9.2a1.8 1.8 0 0 1-1.8 1.6H6.7a1.8 1.8 0 0 1-1.8-1.6z" stroke="#2b7fd6" stroke-width="1.5" stroke-linejoin="round"/>
@@ -326,32 +327,14 @@ footer{
         </div>
         <div class="card-arrow">→</div>
       </a>
-      <a href="dsv-ship.html" class="card" style="--accent:#0a4d8c">
-        <div class="card-header">
-          <div class="card-num">14</div>
-          <div class="card-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <path d="M3 7h11v9H3z" stroke="#0a4d8c" stroke-width="1.6" stroke-linejoin="round"/>
-              <path d="M14 10h5l4 4v2h-9z" stroke="#0a4d8c" stroke-width="1.6" stroke-linejoin="round"/>
-              <circle cx="8" cy="19" r="2" fill="none" stroke="#0a4d8c" stroke-width="1.6"/>
-              <circle cx="19" cy="19" r="2" fill="none" stroke="#0a4d8c" stroke-width="1.6"/>
-              <path d="M5.5 11.5h6M5.5 13.7h6" stroke="#0a4d8c" stroke-width="1.1" stroke-linecap="round" opacity="0.55"/>
-            </svg>
-          </div>
-        </div>
-        <div>
-          <div class="card-title">DSV Ship</div>
-          <div class="card-desc">Book outgoing Odoo deliveries with DSV — Road (EU) shipments, label PDFs written back to the picking, plus booking-ID tracking.</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </a>
+      
     </div>
 
-    <div class="section-label" style="margin-top:40px">Production &amp; planning</div>
-    <div class="grid">
-      <a href="https://ahoogabike.github.io/AhoogaMAX_Planner/" class="card featured" style="--accent:#ea1d5e">
+    <div class="section-label" style="margin-top:40px">Supply</div>
+      <div class="grid">
+<a href="https://ahoogabike.github.io/AhoogaMAX_Planner/" class="card featured" style="--accent:#ea1d5e">
         <div class="card-header">
-          <div class="card-num">03</div>
+          <div class="card-num">04</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <rect x="4" y="4" width="20" height="3" rx="1.5" fill="#ea1d5e" opacity="0.95"/>
@@ -369,10 +352,9 @@ footer{
         </div>
         <div class="card-arrow">→</div>
       </a>
-
-      <a href="po-builder-bikes.html" class="card" style="--accent:#176f8c">
+<a href="po-builder-bikes.html" class="card" style="--accent:#176f8c">
         <div class="card-header">
-          <div class="card-num">04</div>
+          <div class="card-num">05</div>
           <div class="card-icon-wrap">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#176f8c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <rect x="3" y="4" width="18" height="16" rx="2"/>
@@ -385,24 +367,7 @@ footer{
         <div class="card-desc">This-week purchase orders plus a tentative weekly plan to year-end covering the full bike forecast, batch-constrained</div>
         <div class="card-arrow">→</div>
       </a>
-
-      <a href="bikes-coming-next.html" class="card" style="--accent:#c2410c">
-        <div class="card-header">
-          <div class="card-num">05</div>
-          <div class="card-icon-wrap">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#c2410c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 6h11v9H3z"/>
-              <path d="M14 9h4l3 3v3h-7z"/>
-              <circle cx="7" cy="18" r="1.6"/>
-              <circle cx="17.5" cy="18" r="1.6"/>
-            </svg>
-          </div>
-        </div>
-        <div class="card-title">Bikes Coming Next</div>
-        <div class="card-desc">Every MAX on an open PO, one row per incoming unit with estimated serial — flag the ones that won't arrive</div>
-        <div class="card-arrow">→</div>
-      </a>
-      <a href="po-tracker.html" class="card" style="--accent:#2f6df0">
+<a href="po-tracker.html" class="card" style="--accent:#2f6df0">
         <div class="card-header">
           <div class="card-num">06</div>
           <div class="card-icon-wrap">
@@ -422,9 +387,67 @@ footer{
         </div>
         <div class="card-arrow">→</div>
       </a>
-      <a href="bike-time-tracker.html" class="card" style="--accent:#e08a1e">
+<a href="parts-stock.html" class="card" style="--accent:#8a4fd6">
         <div class="card-header">
           <div class="card-num">07</div>
+          <div class="card-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <rect x="4" y="13" width="8" height="10" rx="1.5" fill="none" stroke="#8a4fd6" stroke-width="1.5"/>
+              <rect x="10" y="8" width="8" height="15" rx="1.5" fill="none" stroke="#8a4fd6" stroke-width="1.5"/>
+              <rect x="16" y="5" width="8" height="18" rx="1.5" fill="none" stroke="#8a4fd6" stroke-width="1.5"/>
+              <path d="M6 10l2-3 2 3" stroke="#8a4fd6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>
+            </svg>
+          </div>
+        </div>
+        <div>
+          <div class="card-title">Parts Stock Count</div>
+          <div class="card-desc">Theoretical vs actual stock — PO received minus production minus SAV</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </a>
+<a href="parts-agenda.html" class="card" style="--accent:#b45309">
+        <div class="card-header">
+          <div class="card-num">08</div>
+          <div class="card-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <rect x="4" y="6" width="20" height="18" rx="2" fill="none" stroke="#b45309" stroke-width="1.5"/>
+              <path d="M4 11h20" stroke="#b45309" stroke-width="1.5"/>
+              <path d="M9 4v4M19 4v4" stroke="#b45309" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M8 16l2.2 2.2L15 14" stroke="#b45309" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+        <div>
+          <div class="card-title">Parts Agenda</div>
+          <div class="card-desc">Dated order-by &amp; AND→VV move deadlines — snooze or create the PO in Odoo</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </a>
+<a href="dsv-ship.html" class="card" style="--accent:#0a4d8c">
+        <div class="card-header">
+          <div class="card-num">09</div>
+          <div class="card-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <path d="M3 7h11v9H3z" stroke="#0a4d8c" stroke-width="1.6" stroke-linejoin="round"/>
+              <path d="M14 10h5l4 4v2h-9z" stroke="#0a4d8c" stroke-width="1.6" stroke-linejoin="round"/>
+              <circle cx="8" cy="19" r="2" fill="none" stroke="#0a4d8c" stroke-width="1.6"/>
+              <circle cx="19" cy="19" r="2" fill="none" stroke="#0a4d8c" stroke-width="1.6"/>
+              <path d="M5.5 11.5h6M5.5 13.7h6" stroke="#0a4d8c" stroke-width="1.1" stroke-linecap="round" opacity="0.55"/>
+            </svg>
+          </div>
+        </div>
+        <div>
+          <div class="card-title">DSV Ship</div>
+          <div class="card-desc">Book outgoing Odoo deliveries with DSV — Road (EU) shipments, label PDFs written back to the picking, plus booking-ID tracking.</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </a>
+      </div>
+      <div class="section-label" style="margin-top:40px">Shop Operation</div>
+      <div class="grid">
+<a href="bike-time-tracker.html" class="card" style="--accent:#e08a1e">
+        <div class="card-header">
+          <div class="card-num">10</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <circle cx="14" cy="15" r="8" fill="none" stroke="#e08a1e" stroke-width="1.5"/>
@@ -441,25 +464,7 @@ footer{
         </div>
         <div class="card-arrow">→</div>
       </a>
-      <a href="parts-stock.html" class="card" style="--accent:#8a4fd6">
-        <div class="card-header">
-          <div class="card-num">08</div>
-          <div class="card-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <rect x="4" y="13" width="8" height="10" rx="1.5" fill="none" stroke="#8a4fd6" stroke-width="1.5"/>
-              <rect x="10" y="8" width="8" height="15" rx="1.5" fill="none" stroke="#8a4fd6" stroke-width="1.5"/>
-              <rect x="16" y="5" width="8" height="18" rx="1.5" fill="none" stroke="#8a4fd6" stroke-width="1.5"/>
-              <path d="M6 10l2-3 2 3" stroke="#8a4fd6" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>
-            </svg>
-          </div>
-        </div>
-        <div>
-          <div class="card-title">Parts Stock Count</div>
-          <div class="card-desc">Theoretical vs actual stock — PO received minus production minus SAV</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </a>
-    </div>
+      </div>
 
   </div>
 </div>
@@ -546,7 +551,7 @@ footer{
     <div class="grid">
       <a href="sav-app.html" class="card" style="--accent:#e23b34">
         <div class="card-header">
-          <div class="card-num">09</div>
+          <div class="card-num">11</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <circle cx="14" cy="14" r="9" fill="none" stroke="#e23b34" stroke-width="1.5"/>
@@ -564,7 +569,7 @@ footer{
       </a>
       <a href="ahooga_max_repair.html" class="card" style="--accent:#c9991f">
         <div class="card-header">
-          <div class="card-num">10</div>
+          <div class="card-num">12</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <circle cx="14" cy="14" r="9" fill="none" stroke="#c9991f" stroke-width="1.5"/>
@@ -586,27 +591,10 @@ footer{
 
     <div class="section-label" style="margin-top:40px">Knowledge &amp; traceability</div>
     <div class="grid">
-      <a href="traceability.html" class="card" style="--accent:#0f9e7a">
-        <div class="card-header">
-          <div class="card-num">11</div>
-          <div class="card-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <circle cx="12" cy="12" r="7" fill="none" stroke="#0f9e7a" stroke-width="1.5"/>
-              <line x1="17" y1="17" x2="23" y2="23" stroke="#0f9e7a" stroke-width="1.8" stroke-linecap="round"/>
-              <path d="M9 12h6M12 9v6" stroke="#0f9e7a" stroke-width="1.4" stroke-linecap="round" opacity="0.7"/>
-              <circle cx="12" cy="12" r="2.4" fill="#0f9e7a" opacity="0.25"/>
-            </svg>
-          </div>
-        </div>
-        <div>
-          <div class="card-title">MAX Traceability</div>
-          <div class="card-desc">Trace any serial to its full bill of materials — components exploded down to final parts</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </a>
+      
       <a href="knowledge-library.html" class="card" style="--accent:#a85fd0">
         <div class="card-header">
-          <div class="card-num">12</div>
+          <div class="card-num">13</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <rect x="5" y="3" width="18" height="22" rx="2" fill="none" stroke="#a85fd0" stroke-width="1.5"/>
@@ -646,16 +634,35 @@ try{
   }
 }catch(e){}
 
-function saveCredentials(){
+async function saveCredentials(){
   const user=document.getElementById('hp-user').value.trim();
   const key=document.getElementById('hp-key').value.trim();
   const s=document.getElementById('hp-status');
-  if(!user||!key){s.textContent='Please enter both your email and API key.';s.className='connect-status err';return;}
+  if(!user||!key){s.textContent='Please enter both your email and password.';s.className='connect-status err';return;}
+  s.textContent='Verifying with Odoo…';s.className='connect-status';
   try{
+    const uid=await validateOdoo(user,key);
+    if(!uid){s.textContent='✗ Login failed — check your email and password.';s.className='connect-status err';return;}
     localStorage.setItem('mxp_cfg',JSON.stringify({user,key}));
-    s.textContent='✓ Saved — all tools will connect automatically when you open them.';
-    s.className='connect-status ok';
-  }catch(e){s.textContent='Could not save: '+e.message;s.className='connect-status err';}
+    s.textContent='✓ Logged in — opening…';s.className='connect-status ok';
+    document.documentElement.classList.add('mxp-authed');
+  }catch(e){s.textContent='Could not verify login: '+e.message;s.className='connect-status err';}
+}
+async function validateOdoo(user,key){
+  const DB='logicasoft-aho-18-0-21599177',U='https://ahooga.odoo.com',W='https://ahooga-planner-proxy.massimiliano-d74.workers.dev';
+  const esc=x=>String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const body='<?xml version="1.0"?><methodCall><methodName>authenticate</methodName><params>'
+    +'<param><value><string>'+esc(DB)+'</string></value></param>'
+    +'<param><value><string>'+esc(user)+'</string></value></param>'
+    +'<param><value><string>'+esc(key)+'</string></value></param>'
+    +'<param><value><struct></struct></value></param></params></methodCall>';
+  const r=await fetch(W+'/odoo/'+encodeURIComponent(U+'/xmlrpc/2/common'),{method:'POST',headers:{'Content-Type':'application/xml'},body});
+  if(!r.ok) throw new Error('proxy '+r.status);
+  const doc=new DOMParser().parseFromString(await r.text(),'text/xml');
+  if(doc.querySelector('fault')) return false;
+  const el=doc.querySelector('methodResponse>params>param>value>int, methodResponse>params>param>value>i4');
+  const uid=el?parseInt(el.textContent):NaN;
+  return uid>0?uid:false;
 }
 document.getElementById('hp-key').addEventListener('keydown',e=>{if(e.key==='Enter')saveCredentials();});
 </script>

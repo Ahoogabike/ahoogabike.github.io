@@ -105,6 +105,7 @@ img,svg,canvas,video{max-width:100%;height:auto}
   input,select,textarea{font-size:16px !important}
 }
 </style>
+  <script src="mxp-auth.js"></script>
 </head>
 <body>
 <style>
@@ -116,6 +117,8 @@ table.fcg thead th.fc-part{z-index:6;background:#f0efe9}
 table.fcg tbody tr:hover td{background:#faf9f5}
 table.fcg td.fc-neg{background:#fcebeb;color:#8b1f1f;font-weight:700}
 .fc-arr{color:#1a7f37;font-weight:700;font-size:10px;margin-left:3px}
+.fc-xfer{color:#b26a00;font-weight:700;font-size:10px;margin-left:3px}
+.fc-ip{color:#8b1f1f;font-weight:700;font-size:10px;margin-left:3px}
 table.fcg tr.fc-grp td{background:#efe9da;font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.3px;border-top:2px solid rgba(0,0,0,0.18);position:sticky;left:0}
 table.fcg tr.fc-grp td.fc-part{background:#efe9da}
 </style>
@@ -257,7 +260,7 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
   <!-- FORWARD STOCK TAB -->
   <div class="view" id="view-forecast">
     <div class="explain">
-      <strong>Forward component stock — week by week.</strong> Starts from current <strong>Velovisie (VV)</strong> component stock — the parts physically at the assembler, <code>Theoretical − (AND + LOUI)</code> — and burns each component down using the production plan published by the <strong>PO Builder — Bikes</strong> app (bikes/week × per-bike BoM usage, averaged per family). <code>(+n)</code> in a cell marks an incoming component PO arriving that week. A <strong style="color:#8b1f1f">red / negative</strong> cell means VV runs out that week — pull a delivery forward or place a PO. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
+      <strong>Forward component stock — week by week.</strong> Models the real two-stage flow: incoming component POs (from the <strong>PO Tracker</strong>) are received into the <strong>Anderlecht (AND)</strong> warehouse, then moved to <strong>Velovisie (VV)</strong> for assembly. Each cell is the combined pipeline stock <code>AND + VV</code> after that week's consumption from the <strong>PO Builder — Bikes</strong> plan (bikes/week × per-bike BoM usage, averaged per family). <code>(+n)</code> = a component PO arriving into AND that week; <code>⇄n</code> = the AND→VV transfer needed to keep the assembler supplied (allow ~3 days for the move); <code>⚙n</code> in week 1 = parts consumed by bikes already in production at Okazi (running POs, not yet built — the future PO-Builder bikes are the weekly plan). A <strong style="color:#8b1f1f">red / negative</strong> cell means <strong>both</strong> AND and VV are exhausted — place or pull a PO forward. POs already received (including those delivered straight to VV via subcontracting) drop out of the open-PO feed and are already reflected in current stock. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
     </div>
     <div class="kpis" id="fc-kpis"></div>
     <div class="toolbar">
@@ -326,6 +329,8 @@ let sortKey='partName'; let sortDir=1;
 let usagePerBikeByFam={};   // famKey -> {productId: qty per one bike}
 let incomingByPart={};      // productId -> [{date:'YYYY-MM-DD'|null, qty}]
 let productionPlan=null;    // {weeks:[{monday,label,iso}], byFam:{EMA:[],EMD:[],AMA:[],AMD:[]}, ...}
+let productionBasis=null;   // {inprodBySku, unmatchedBySku, ...} published by Max Planner
+let inprodByFam={};         // famKey -> count of bikes in running Okazi POs (not yet built/consumed)
 let fcCollapsed={};         // group name -> true if collapsed in the Forward stock tab
 
 // Best-effort mapping of a component to an area of the bike (EN/FR/NL keywords).
@@ -362,15 +367,18 @@ function fcInspect(pid){
   }).join('');
   let cons=0;
   if(productionPlan){ const byFam=productionPlan.byFam||{}; for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u){ for(let wi=0;wi<productionPlan.weeks.length;wi++) cons+=u*(byFam[fam][wi]||0); } } }
+  let inprodC=0;
+  for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodC+=u*(inprodByFam[fam]||0); }
   document.getElementById('fc-modal-body').innerHTML=
     `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
        <div><b>${esc(r.partName)}</b><div style="font-size:12px;color:var(--text3)">${r.partNo?('['+esc(r.partNo)+'] '):''}${esc(r.category||'')}</div></div>
        <button class="btn btn-secondary" style="flex:none" onclick="document.getElementById('fc-modal').style.display='none'">Close</button>
      </div>
      <div style="margin-top:12px;font-size:13px;line-height:1.7">
-       <div>Velovisie now (start): <b>${fmt(Math.round(r.vv||0))}</b></div>
+       <div>On-hand now — AND: <b>${fmt(Math.round(r.andQty||0))}</b> · VV: <b>${fmt(Math.round(r.vv||0))}</b> · combined: <b>${fmt(Math.round((r.andQty||0)+(r.vv||0)))}</b></div>
        <div>Total incoming on open POs: <b>${fmt(Math.round(inc))}</b></div>
-       <div>Consumed by the plan (all weeks): <b>${fmt(Math.round(cons))}</b></div>
+       <div>Consumed by the plan, future bikes (all weeks): <b>${fmt(Math.round(cons-inprodC))}</b></div>
+       <div>Running Okazi POs — in production now, parts not yet consumed: <b>${fmt(Math.round(inprodC))}</b> <span style="color:var(--text3)">→ burned in week 1</span></div>
      </div>
      <div style="margin-top:12px;font-size:12px;font-weight:600">Open purchase orders — ${list.length}</div>
      <table style="width:100%;font-size:12px;border-collapse:collapse;margin-top:4px">
@@ -448,6 +456,78 @@ function showTab(t){
 }
 
 // Read a key from the shared store (the /store/ route used by the Forecast & PO Builder apps).
+// ── PUBLISH PARTS DEADLINES (for the Parts Agenda dashboard) ─
+// Runs the same two-pool (VV+AND) burn-down used by the Forward Stock tab and records, per
+// component: the date the pipeline first goes short (→ a PO must be placed) and the first date
+// an AND→VV transfer is needed (→ a move must be done). The Agenda turns these into dated tasks.
+async function publishPartsDeadlines(){
+  try{
+    if(!rows.length || !productionPlan || !productionPlan.weeks || !productionPlan.weeks.length) return;
+    const wks=productionPlan.weeks, byFam=productionPlan.byFam||{};
+    const incForWeek=(pid,wi)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[wi].monday, end=wks[wi+1]?wks[wi+1].monday:null; let s=0; for(const d of list){ if(!d.date){ if(wi===0) s+=d.qty; continue; } if(d.date>=start && (!end||d.date<end)) s+=d.qty; } return s; };
+    const incBeforeFirst=(pid)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[0].monday; let s=0; for(const d of list){ if(d.date && d.date<start) s+=d.qty; } return s; };
+    const items=[];
+    for(const r of rows){
+      if(r.isSub) continue;
+      const pid=r.id;
+      let inprodCons=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
+      let vv=(r.vv||0), andP=(r.andQty||0);
+      const overdue=incBeforeFirst(pid);
+      let shortWi=-1, minLevel=vv+andP, transferWi=-1, transferQty=0, totCons=0;
+      for(let wi=0; wi<wks.length; wi++){
+        let cons=0; for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) cons+=u*(byFam[fam][wi]||0); }
+        if(wi===0) cons+=inprodCons;
+        totCons+=cons;
+        let arrv=incForWeek(pid,wi); if(wi===0) arrv+=overdue;
+        andP+=arrv; vv-=cons;
+        let xfer=0; if(vv<0 && andP>0){ xfer=Math.min(-vv,andP); vv+=xfer; andP-=xfer; }
+        if(xfer>0 && transferWi<0){ transferWi=wi; transferQty=Math.ceil(xfer); }
+        const combined=vv+andP;
+        if(combined<minLevel) minLevel=combined;
+        if(combined<0 && shortWi<0) shortWi=wi;
+      }
+      if(totCons<=0.0001) continue;
+      const nm=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
+      if(shortWi>=0) items.push({type:'order', id:'order:'+pid, pid, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[shortWi].monday, qty:Math.max(1,Math.ceil(-minLevel))});
+      if(transferWi>=0) items.push({type:'move', id:'move:'+pid, pid, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[transferWi].monday, qty:transferQty});
+    }
+    await kvSetStore('parts_deadlines', { updated:new Date().toISOString(), transferLeadDays:3, weeks:wks.map(w=>w.monday), items });
+    console.log('[PartStock] parts_deadlines published:', items.length, 'items');
+  }catch(e){ console.warn('[PartStock] publishPartsDeadlines failed:', e.message); }
+}
+
+// ── PUBLISH COMPONENT SUPPLY ─────────────────────────────────
+// Tells the PO Builder how many bikes each family can actually be built given the
+// components on hand. Plan-independent: raw stock + incoming PO dates + per-bike usage.
+//   stock[cid]    = buildable pool now = (VV + AND) − parts already drawn by running Okazi POs
+//   incoming[cid] = [{date,qty}] open component POs (arrive into AND, movable to VV)
+//   usageByFam[f] = {cid: avg components per one bike of family f}
+async function publishComponentSupply(){
+  try{
+    if(!rows.length) return;
+    const TRANSFER_LEAD_DAYS=3;   // a part received into AND is only at Velovisie ~3 days later
+    const addDays=(ymd,n)=>{ if(!ymd) return null; const t=new Date(ymd+'T00:00:00Z'); t.setUTCDate(t.getUTCDate()+n); return t.toISOString().slice(0,10); };
+    const used=new Set();
+    for(const f in usagePerBikeByFam){ for(const pid in (usagePerBikeByFam[f]||{})) used.add(Number(pid)); }
+    // parts already committed to bikes in running Okazi POs (consumed up-front)
+    const inprodCons={};
+    for(const fam in inprodByFam){ const u=usagePerBikeByFam[fam]||{}; const n=inprodByFam[fam]||0; for(const pid in u) inprodCons[pid]=(inprodCons[pid]||0)+u[pid]*n; }
+    const stock={}, incoming={}, names={};
+    for(const r of rows){
+      const pid=r.id; if(!used.has(Number(pid))) continue;
+      stock[pid]=(r.vv||0)+(r.andQty||0)-(inprodCons[pid]||0);
+      names[pid]=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
+      const inc=incomingByPart[pid];
+      if(inc && inc.length) incoming[pid]=inc.map(d=>({date:addDays(d.date,TRANSFER_LEAD_DAYS), qty:d.qty}));  // available at VV = AND receipt + transfer lead
+    }
+    const usageByFam={};
+    for(const f in usagePerBikeByFam){ const u=usagePerBikeByFam[f]; if(u && Object.keys(u).length) usageByFam[f]=u; }
+    const payload={ updated:new Date().toISOString(), basis:'vv+and+incoming', transferLeadDays:TRANSFER_LEAD_DAYS, usageByFam, stock, incoming, names };
+    const ok=await kvSetStore('component_supply', payload);
+    console.log('[PartStock] component_supply published:', Object.keys(stock).length, 'components ·', ok);
+  }catch(e){ console.warn('[PartStock] publishComponentSupply failed:', e.message); }
+}
+
 async function kvGetStore(key){
   try{
     const r=await fetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`);
@@ -455,6 +535,13 @@ async function kvGetStore(key){
     const t=(await r.text()||'').trim();
     return (!t||t==='null') ? null : JSON.parse(t);
   }catch(e){ console.warn('[PartStock] store get failed:',e.message); return null; }
+}
+// Write a key to the shared store (used to publish component availability back to the PO Builder).
+async function kvSetStore(key,value){
+  try{
+    await fetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});
+    return true;
+  }catch(e){ console.warn('[PartStock] store set failed:',e.message); return false; }
 }
 
 // ── CONNECT ──────────────────────────────────────────────────
@@ -824,6 +911,17 @@ async function loadData(){
       }
     }
     productionPlan = await kvGetStore('production_plan');   // published by the PO Builder app
+    productionBasis = await kvGetStore('production_basis'); // published by the Max Planner (running Okazi POs etc.)
+    // Running Okazi POs: bikes already ordered for assembly but not yet built. Once a bike is built its
+    // serial appears in Odoo (it leaves 'inprod') and its components show up in `consumed`, so inprodBySku
+    // holds exactly the bikes whose parts are NOT yet consumed → add them to the forward burn-down.
+    inprodByFam={};
+    const SKU_FAM={'emax|alfine':'EMA','emax|derailleur':'EMD','emax|nexus':'EMN','amax|alfine':'AMA','amax|derailleur':'AMD','amax|nexus':'AMN'};
+    const ipBySku=(productionBasis&&productionBasis.inprodBySku)||{};
+    for(const sku in ipBySku){ const p=sku.split('|'); const fk=SKU_FAM[p[0]+'|'+p[1]]; if(fk) inprodByFam[fk]=(inprodByFam[fk]||0)+(ipBySku[sku]||0); }
+
+    publishComponentSupply();   // close the loop: tell the PO Builder what's buildable at VV
+    publishPartsDeadlines();    // feed the Parts Agenda: order-by + AND→VV move-by dates
 
     render();
     renderSummary();
@@ -1125,21 +1223,29 @@ function renderForecast(){
 
   const proj=rows.map(r=>{
     const pid=r.id;
-    let running=(r.vv||0);                 // start from current Velovisie (VV) stock
-    const overdue=incBeforeFirst(pid);     // POs already past their date → count as arriving in week 1
-    const cells=[]; let firstNeg=-1, minLevel=running, totCons=0;
+    let vv=(r.vv||0);                       // Velovisie pool — parts already at the assembler
+    let andP=(r.andQty||0);                 // Anderlecht (AND) warehouse pool — feeds VV via transfer
+    const overdue=incBeforeFirst(pid);      // component POs already past their date → arrive (into AND) in week 1
+    let inprodCons=0;                       // parts burned by bikes in running Okazi POs (not yet built)
+    for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
+    const cells=[]; let firstNeg=-1, minLevel=vv+andP, totCons=0;
     for(let wi=0; wi<wks.length; wi++){
       let cons=0;
       for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) cons+=u*(byFam[fam][wi]||0); }
+      if(wi===0) cons+=inprodCons;          // running Okazi POs consume up-front (bikes being built now)
       totCons+=cons;
       let arrv=incForWeek(pid,wi);
-      if(wi===0) arrv+=overdue;            // surface overdue arrivals as a visible (+n)
-      running=running-cons+arrv;
-      if(running<0 && firstNeg<0) firstNeg=wi;
-      if(running<minLevel) minLevel=running;
-      cells.push({level:running, arr:arrv});
+      if(wi===0) arrv+=overdue;             // surface overdue arrivals as a visible (+n)
+      andP+=arrv;                           // incoming component POs are received into AND, not VV
+      vv-=cons;                             // assembly consumes from the VV pool
+      let xfer=0;                           // AND → VV movement needed to keep VV supplied
+      if(vv<0 && andP>0){ xfer=Math.min(-vv,andP); vv+=xfer; andP-=xfer; }
+      const combined=vv+andP;               // true position across both pools
+      if(combined<0 && firstNeg<0) firstNeg=wi;
+      if(combined<minLevel) minLevel=combined;
+      cells.push({level:vv, and:andP, arr:arrv, xfer:xfer, combined:combined, ip:(wi===0?inprodCons:0)});
     }
-    return {r, cells, firstNeg, minLevel, totCons, start:(r.vv||0)};
+    return {r, cells, firstNeg, minLevel, totCons, start:(r.vv||0), startAnd:(r.andQty||0)};
   }).filter(p=>{
     if(hideSub && p.r.isSub) return false;                 // built in-house, not purchased
     return model ? usedByModel(p.r.id) : p.totCons>0.0001;
@@ -1162,21 +1268,24 @@ function renderForecast(){
   if(kpis) kpis.innerHTML=
     k('Components short', negCount, negCount?'var(--danger)':'var(--teal)')+
     k('Earliest shortage', earliest<1e9?esc(wks[earliest].label):'none', earliest<1e9?'var(--danger)':'var(--teal)')+
+    k('Okazi in-prod (wk 1)', fmt(Math.round(Object.values(inprodByFam).reduce((a,b)=>a+(b||0),0)))+' bikes', 'var(--warn)')+
     k('Plan weeks', wks.length, 'var(--accent)')+
     k('Plan updated', productionPlan.updated?new Date(productionPlan.updated).toLocaleDateString():'—', 'var(--purple)');
 
   const groupBy=(document.getElementById('fc-group')||{}).value||'area';
   const nWk=wks.length;
-  const head=`<tr><th class="fc-part">Component</th><th class="fc-w" title="Velovisie stock now (start)">VV now</th>${wks.map(w=>`<th class="fc-w" title="${esc(w.monday)}">${esc(w.label)}</th>`).join('')}</tr>`;
+  const head=`<tr><th class="fc-part">Component</th><th class="fc-w" title="Combined AND + VV component stock now (start)">On-hand now<br><span style="font-weight:400;font-size:9px">AND+VV</span></th>${wks.map(w=>`<th class="fc-w" title="${esc(w.monday)}">${esc(w.label)}</th>`).join('')}</tr>`;
 
   const rowHtml=(p)=>{
     const tds=p.cells.map(c=>{
-      const a=Math.round(c.arr);
+      const a=Math.round(c.arr), x=Math.round(c.xfer), ip=Math.round(c.ip||0);
       const arrTxt=a>0?`<span class="fc-arr">(+${fmt(a)})</span>`:'';
-      return `<td class="${c.level<0?'fc-neg':''}">${fmt(Math.round(c.level))}${arrTxt}</td>`;
+      const xferTxt=x>0?`<span class="fc-xfer" title="Move ${fmt(x)} from AND → VV this week (allow ~3 days for the transfer)">⇄${fmt(x)}</span>`:'';
+      const ipTxt=ip>0?`<span class="fc-ip" title="${fmt(ip)} consumed by bikes already in production at Okazi (running POs, not yet built)">⚙${fmt(ip)}</span>`:'';
+      return `<td class="${c.combined<0?'fc-neg':''}" title="VV ${fmt(Math.round(c.level))} · AND ${fmt(Math.round(c.and))}">${fmt(Math.round(c.combined))}${arrTxt}${xferTxt}${ipTxt}</td>`;
     }).join('');
     const nm=`${p.r.partNo?('['+esc(p.r.partNo)+'] '):''}${esc(p.r.partName)}`;
-    return `<tr><td class="fc-part" title="Click for incoming-PO breakdown · ${esc(p.r.category)}" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" onclick="fcInspect(${p.r.id})">${nm}</td><td class="fc-w" style="font-weight:600">${fmt(Math.round(p.start))}</td>${tds}</tr>`;
+    return `<tr><td class="fc-part" title="Click for incoming-PO breakdown · ${esc(p.r.category)}" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" onclick="fcInspect(${p.r.id})">${nm}</td><td class="fc-w" style="font-weight:600" title="VV ${fmt(Math.round(p.start))} · AND ${fmt(Math.round(p.startAnd))}">${fmt(Math.round(p.start+p.startAnd))}</td>${tds}</tr>`;
   };
 
   let body='';

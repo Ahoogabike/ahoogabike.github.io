@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ahooga Parts Agenda</title>
+<style>
+:root{--bg:#f2f1ed;--surface:#fff;--surface2:#f0efe9;--border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);--text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#1a4fa0;--accent-bg:#e6f0fb;--success:#2d6e2d;--success-bg:#eaf3de;--warn:#7a4e0a;--warn-bg:#faeeda;--danger:#8b1f1f;--danger-bg:#fcebeb;--purple:#3c3489;--purple-bg:#eeedfe;--teal:#0f6e56;--teal-bg:#e1f5ee;--radius:10px;--radius-sm:6px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Georgia,serif;background:var(--bg);color:var(--text);font-size:14px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:52px;gap:12px;position:sticky;top:0;z-index:100}
+.logo{font-size:17px;font-weight:bold}.logo span{color:var(--accent)}
+.nav-btn{padding:5px 12px;border-radius:var(--radius-sm);font-size:13px;font-family:inherit;font-weight:600;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--text2)}
+.nav-btn.active{background:var(--accent-bg);color:var(--accent);border-color:rgba(26,79,160,0.2)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--text3);border:1px solid var(--border2)}
+.pill.ok{background:var(--success-bg);color:var(--success)}.pill.err{background:var(--danger-bg);color:var(--danger)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;font-weight:600;cursor:pointer;border:none}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+.btn-sm{padding:3px 9px;font-size:11px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+main{padding:20px;max-width:1300px;margin:0 auto}
+.view{display:none}.view.active{display:block}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+.settings-card{max-width:480px}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
+.field label{font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text2);font-weight:600}
+.field input,.field select{padding:8px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;background:var(--surface);color:var(--text)}
+.field input:focus{border-color:var(--accent)}
+.hint{font-size:11px;color:var(--text3);margin-top:3px}
+.explain{background:var(--accent-bg);border:1px solid rgba(26,79,160,0.15);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--accent);line-height:1.55}
+.explain code{background:rgba(26,79,160,0.1);padding:1px 6px;border-radius:4px;font-family:monospace;font-size:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px}
+.kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:4px}
+.kpi-value{font-size:21px;font-weight:700}
+.toolbar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.toolbar input[type=text],.toolbar select{padding:6px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface);color:var(--text);outline:none}
+.toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;user-select:none}
+.toggle input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
+.item{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--text3);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;display:flex;gap:12px;align-items:center}
+.item.order{border-left-color:var(--purple)}
+.item.move{border-left-color:var(--teal)}
+.item.overdue{border-left-color:var(--danger);background:var(--danger-bg)}
+.item.snoozed{opacity:.7}.item.done{opacity:.65}
+.item-ico{font-size:20px;flex:none;width:26px;text-align:center}
+.item-main{flex:1;min-width:0}
+.item-title{font-weight:700;font-size:14px}
+.item-sub{font-size:12px;color:var(--text2);margin-top:2px;line-height:1.5}
+.item-date{flex:none;text-align:right;font-size:12px;color:var(--text2);min-width:140px}
+.item-date b{font-size:15px;color:var(--text)}
+.item-actions{flex:none;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;max-width:230px}
+.ag-group-hd{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin:18px 0 8px}
+.tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em}
+.tag.sea{background:var(--accent-bg);color:var(--accent)}
+.tag.air{background:var(--warn-bg);color:var(--warn)}
+.tag.over{background:var(--danger-bg);color:var(--danger)}
+.tag.po{background:var(--success-bg);color:var(--success)}
+.cal-head{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal-dow{font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:center;padding:4px 0}
+.cal-day{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);min-height:84px;padding:5px 6px;font-size:11px}
+.cal-day.other{background:var(--surface2);opacity:.55}
+.cal-day.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.cal-daynum{font-weight:700;color:var(--text2);margin-bottom:3px}
+.cal-pill{display:block;font-size:10px;padding:2px 5px;border-radius:4px;margin-bottom:3px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-pill.order{background:var(--purple-bg);color:var(--purple)}
+.cal-pill.move{background:var(--teal-bg);color:var(--teal)}
+.cal-pill.over{background:var(--danger-bg);color:var(--danger)}
+table.lt{width:100%;border-collapse:collapse;font-size:13px}
+table.lt th,table.lt td{padding:7px 10px;border-bottom:1px solid var(--border);text-align:left}
+table.lt th{font-size:11px;text-transform:uppercase;color:var(--text3);letter-spacing:.04em}
+table.lt td.num{text-align:right}
+table.lt input{width:74px;padding:5px 7px;border:1px solid var(--border2);border-radius:4px;font-family:inherit;font-size:13px;text-align:right}
+.odoo-lead{font-weight:700;color:var(--accent)}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:200;align-items:flex-start;justify-content:center;padding:60px 16px;overflow:auto}
+.modal.open{display:flex}
+.modal-box{background:var(--surface);border-radius:var(--radius);padding:22px;max-width:460px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+.alert{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:12px;line-height:1.5}
+.alert-info{background:var(--accent-bg);color:var(--accent)}
+.alert-success{background:var(--success-bg);color:var(--success)}
+.alert-warn{background:var(--warn-bg);color:var(--warn)}
+.alert-err{background:var(--danger-bg);color:var(--danger)}
+.spinner{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-1px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty{text-align:center;color:var(--text3);padding:40px 20px}
+a.odoo-link{color:var(--accent);font-weight:600;text-decoration:none}
+</style>
+  <script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">ahooga<span>·</span>parts agenda</div>
+  <button class="nav-btn active" id="nav-agenda" onclick="showTab('agenda')">📋 Agenda</button>
+  <button class="nav-btn" id="nav-calendar" onclick="showTab('calendar')">🗓 Calendar</button>
+  <button class="nav-btn" id="nav-leadtimes" onclick="showTab('leadtimes')">⏱ Lead times</button>
+  <button class="nav-btn" id="nav-connect" onclick="showTab('connect')">⚙ Connection</button>
+  <div class="header-right">
+    <span class="pill" id="conn-pill">not loaded</span>
+    <button class="btn btn-secondary btn-sm" onclick="loadAll(true)">↻ Refresh</button>
+  </div>
+</header>
+<main>
+  <div id="alert-box"></div>
+
+  <!-- AGENDA -->
+  <div class="view active" id="view-agenda">
+    <div class="explain">
+      <strong>What to do, and by when.</strong> Built from the <strong>Parts Stock</strong> forecast. Two kinds of task:
+      <code>📦 Order</code> — the VV+AND pipeline runs out, so a component PO must be placed (shown as an <b>order-by</b> date for <span class="tag sea">sea</span> and a later <span class="tag air">air</span> fallback);
+      <code>🔀 Move</code> — Velovisie will run short while Anderlecht still has stock, so a transfer must be done (allowing the ~3-day move). Snooze or mark done; that's shared with the team. Hit <b>Create PO</b> to open a draft RFQ in Odoo.
+    </div>
+    <div class="kpis" id="ag-kpis"></div>
+    <div class="toolbar">
+      <input type="text" id="ag-search" placeholder="🔍 part name / number…" style="min-width:200px;flex:1" oninput="renderAgenda()"/>
+      <select id="ag-type" onchange="renderAgenda()"><option value="">All tasks</option><option value="order">📦 Order only</option><option value="move">🔀 Move only</option></select>
+      <label class="toggle"><input type="checkbox" id="ag-showsnoozed" onchange="renderAgenda()"/> show snoozed</label>
+      <label class="toggle"><input type="checkbox" id="ag-showdone" onchange="renderAgenda()"/> show done / PO-created</label>
+    </div>
+    <div id="ag-list"></div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div class="view" id="view-calendar">
+    <div class="cal-head">
+      <button class="btn btn-secondary btn-sm" onclick="calMove(-1)">‹ Prev</button>
+      <div id="cal-title" style="font-size:16px;font-weight:700;min-width:160px;text-align:center"></div>
+      <button class="btn btn-secondary btn-sm" onclick="calMove(1)">Next ›</button>
+      <button class="btn btn-secondary btn-sm" onclick="calToday()">Today</button>
+      <span style="margin-left:auto;font-size:12px;color:var(--text2)"><span class="tag sea" style="margin-right:6px">order-by</span><span class="tag" style="background:var(--teal-bg);color:var(--teal)">move-by</span></span>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </div>
+
+  <!-- LEAD TIMES -->
+  <div class="view" id="view-leadtimes">
+    <div class="explain">
+      <strong>Lead times — Supplier → Anderlecht.</strong> This is Odoo's vendor <em>Delivery Lead Time</em> (the <code>delay</code> on each supplier line). The order-by date is <code>shortage date − 3 days (AND→VV) − lead time</code>. Odoo holds one figure (your usual / sea route); add an <b>air</b> figure for the faster fallback. Edited values are used by the agenda and shared with the team — Odoo itself is not changed.
+    </div>
+    <div class="toolbar">
+      <button class="btn btn-primary" onclick="fetchOdooLeads()">⟳ Load lead times from Odoo</button>
+      <div class="field" style="margin:0"><label>Default sea (days)</label><input type="number" id="lt-sea" min="0" value="90" style="width:90px"/></div>
+      <div class="field" style="margin:0"><label>Default air (days)</label><input type="number" id="lt-air" min="0" value="30" style="width:90px"/></div>
+      <button class="btn btn-secondary" onclick="saveLeadCfg()">💾 Save</button>
+      <span id="lt-status" style="font-size:12px;color:var(--text2)"></span>
+    </div>
+    <div class="card">
+      <table class="lt"><thead><tr><th>Part</th><th>Vendor (Odoo)</th><th class="num">Odoo lead</th><th class="num">Sea days (used)</th><th class="num">Air days</th></tr></thead><tbody id="lt-rows"></tbody></table>
+      <div class="hint" style="margin-top:10px">Sea/air boxes are blank = use the Odoo lead (sea) or the default. Connect in ⚙ Connection, then “Load lead times from Odoo”.</div>
+    </div>
+  </div>
+
+  <!-- CONNECTION -->
+  <div class="view" id="view-connect">
+    <div class="card settings-card">
+      <div class="field"><label>Email</label><input type="text" id="cfg-user" placeholder="yourname@ahooga.bike"/></div>
+      <div class="field"><label>API Key</label><input type="password" id="cfg-key" placeholder="your-api-key"/><div class="hint">Odoo → My Profile → Account Security → New API Key.</div></div>
+      <button class="btn btn-primary" onclick="connect()">Connect to Odoo</button>
+      <div class="hint" style="margin-top:12px">The agenda loads without connecting (it reads the shared store). A connection is needed to pull Odoo lead times and to create purchase orders.</div>
+    </div>
+  </div>
+</main>
+
+<div class="modal" id="po-modal"><div class="modal-box" id="po-modal-body"></div></div>
+<div class="modal" id="day-modal"><div class="modal-box" id="day-modal-body"></div></div>
+
+<script>
+const ODOO_URL='https://ahooga.odoo.com';
+const ODOO_DB ='logicasoft-aho-18-0-21599177';
+const CF_WORKER='https://ahooga-planner-proxy.massimiliano-d74.workers.dev';
+const LS_USER='ahooga_agenda_user', LS_KEY='ahooga_agenda_key';
+let odooUid=null;
+let deadlines=null;                                       // {updated, transferLeadDays, items:[...]}
+let leadCfg={seaDefault:90, airDefault:30, byPart:{}, odoo:{}};   // byPart[pid]={sea,air}; odoo[pid]={delay,vendor}
+let snooze={};
+let calDate=new Date();
+
+// ── STORE ──
+async function kvGetStore(key){ try{ const r=await fetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`); if(!r.ok) return null; const t=(await r.text()||'').trim(); return (!t||t==='null')?null:JSON.parse(t); }catch(e){ console.warn('store get',key,e.message); return null; } }
+async function kvSetStore(key,value){ try{ await fetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)}); return true; }catch(e){ console.warn('store set',key,e.message); return false; } }
+
+// ── ODOO XML-RPC ──
+function proxyUrl(path){ return (location.hostname==='localhost'||location.hostname==='127.0.0.1') ? `/odoo/${encodeURIComponent(ODOO_URL+path)}` : `${CF_WORKER}/odoo/${encodeURIComponent(ODOO_URL+path)}`; }
+function v(x){
+  if(x===null||x===undefined) return '<value><boolean>0</boolean></value>';
+  if(typeof x==='boolean') return `<value><boolean>${x?1:0}</boolean></value>`;
+  if(typeof x==='number'&&Number.isInteger(x)) return `<value><int>${x}</int></value>`;
+  if(typeof x==='number') return `<value><double>${x}</double></value>`;
+  if(Array.isArray(x)) return `<value><array><data>${x.map(v).join('')}</data></array></value>`;
+  if(typeof x==='object'){const m=Object.entries(x).map(([k,vv])=>`<member><name>${k}</name>${v(vv)}</member>`).join('');return `<value><struct>${m}</struct></value>`;}
+  return `<value><string>${String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</string></value>`;
+}
+function parseXml(xml){
+  const doc=new DOMParser().parseFromString(xml,'text/xml');
+  if(doc.querySelector('fault')) throw new Error('Odoo error: '+(doc.querySelector('faultString')?.textContent?.substring(0,160)||'fault'));
+  function pv(n){ if(!n) return null; const c=n.firstElementChild; if(!c) return n.textContent;
+    switch(c.tagName){
+      case 'int':case 'i4':case 'i8': return parseInt(c.textContent);
+      case 'double': return parseFloat(c.textContent);
+      case 'boolean': return c.textContent==='1';
+      case 'string': return c.textContent;
+      case 'nil': return null;
+      case 'array': return Array.from(c.querySelector('data')?.children||[]).map(pv);
+      case 'struct':{const o={};c.querySelectorAll(':scope>member').forEach(m=>{o[m.querySelector('name').textContent]=pv(m.querySelector('value'))});return o;}
+      default: return c.textContent;
+    } }
+  return pv(doc.querySelector('methodResponse>params>param>value'));
+}
+async function odoo(model,method,args,kwargs={}){
+  const user=document.getElementById('cfg-user').value.trim(); const key=document.getElementById('cfg-key').value.trim();
+  if(!user||!key) throw new Error('Not connected — add your Odoo email + API key in ⚙ Connection.');
+  if(!odooUid){
+    const b=`<?xml version="1.0"?><methodCall><methodName>authenticate</methodName><params>${[v(ODOO_DB),v(user),v(key),v({})].map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+    const r=await fetch(proxyUrl('/xmlrpc/2/common'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+    odooUid=parseXml(await r.text());
+    if(!odooUid||typeof odooUid!=='number') throw new Error('Authentication failed — check email and API key');
+  }
+  const params=[v(ODOO_DB),v(odooUid),v(key),v(model),v(method),v(args),v(kwargs)];
+  const b=`<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>${params.map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+  const r=await fetch(proxyUrl('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+  return parseXml(await r.text());
+}
+function arr(x){return Array.isArray(x)?x:[null,x?String(x):''];}
+
+// ── DATES / UTIL ──
+function todayYmd(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function addDays(s,n){ if(!s) return null; const t=new Date(s+'T00:00:00Z'); t.setUTCDate(t.getUTCDate()+n); return t.toISOString().slice(0,10); }
+function fmtD(s){ if(!s) return '—'; const [y,m,d]=s.split('-'); return `${d}/${m}/${y}`; }
+function daysUntil(s){ if(!s) return null; const a=new Date(todayYmd()+'T00:00:00Z'), b=new Date(s+'T00:00:00Z'); return Math.round((b-a)/86400000); }
+function esc(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmt(n){ if(n==null) return '—'; const x=Number(n); return (Number.isInteger(x)?x:x.toFixed(1)); }
+function alert_(msg,type){ document.getElementById('alert-box').innerHTML=`<div class="alert alert-${type}">${msg}</div>`; if(type==='success')setTimeout(()=>{const b=document.getElementById('alert-box');if(b&&b.querySelector('.alert-success'))b.innerHTML='';},5000); }
+
+function showTab(t){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('view-'+t).classList.add('active');
+  document.getElementById('nav-'+t).classList.add('active');
+  if(t==='calendar') renderCalendar();
+  if(t==='leadtimes') renderLeadTable();
+}
+
+// ── LOAD ──
+async function loadAll(toast){
+  document.getElementById('conn-pill').textContent='loading…'; document.getElementById('conn-pill').className='pill';
+  const [d,cfg,sn]=await Promise.all([ kvGetStore('parts_deadlines'), kvGetStore('parts_lead_cfg'), kvGetStore('parts_agenda_snooze') ]);
+  deadlines=d||{items:[]};
+  if(cfg) leadCfg={seaDefault:cfg.seaDefault??90, airDefault:cfg.airDefault??30, byPart:cfg.byPart||{}, odoo:cfg.odoo||{}};
+  snooze=sn||{};
+  document.getElementById('lt-sea').value=leadCfg.seaDefault; document.getElementById('lt-air').value=leadCfg.airDefault;
+  const n=(deadlines.items||[]).length; const when=deadlines.updated?new Date(deadlines.updated).toLocaleString():'—';
+  document.getElementById('conn-pill').textContent= n? `${n} tasks · ${when}` : 'no forecast yet';
+  document.getElementById('conn-pill').className= n?'pill ok':'pill err';
+  if(!n) alert_('No forecast found yet. Open the <b>Parts Stock</b> app and load it once — it publishes the deadlines this agenda reads.','warn');
+  renderAgenda(); renderCalendar(); renderLeadTable();
+  if(toast && n) alert_('Agenda refreshed.','success');
+}
+
+function transferLead(){ return (deadlines && deadlines.transferLeadDays!=null)? deadlines.transferLeadDays : 3; }
+function leadFor(it,mode){
+  const bp=leadCfg.byPart[it.pid]||{};
+  if(bp[mode]!=null && bp[mode]!=='') return bp[mode];
+  if(mode==='sea'){ const od=leadCfg.odoo[it.pid]; if(od&&od.delay!=null) return od.delay; return leadCfg.seaDefault; }
+  return leadCfg.airDefault;
+}
+function computeItem(it){
+  const tl=transferLead(); const o={...it};
+  if(it.type==='order'){
+    const needAtAnd=addDays(it.neededDate, -tl);
+    o.needAtAnd=needAtAnd;
+    o.orderBySea=addDays(needAtAnd, -leadFor(it,'sea'));
+    o.orderByAir=addDays(needAtAnd, -leadFor(it,'air'));
+    o.actionDate=o.orderBySea;
+  } else { o.moveBy=addDays(it.neededDate, -tl); o.actionDate=o.moveBy; }
+  return o;
+}
+function stateOf(it){ const s=snooze[it.id]||{}; if(s.po) return 'po'; if(s.dismissed) return 'done'; if(s.until && s.until>todayYmd()) return 'snoozed'; return 'active'; }
+
+// ── AGENDA ──
+function renderAgenda(){
+  const list=document.getElementById('ag-list'); if(!list) return;
+  const all=(deadlines.items||[]).map(computeItem);
+  const search=(document.getElementById('ag-search').value||'').toLowerCase();
+  const typeF=document.getElementById('ag-type').value;
+  const showSnoozed=document.getElementById('ag-showsnoozed').checked;
+  const showDone=document.getElementById('ag-showdone').checked;
+  let active=[],snoozedA=[],doneA=[];
+  for(const it of all){
+    if(typeF && it.type!==typeF) continue;
+    if(search && !(`${it.name}`.toLowerCase().includes(search))) continue;
+    const st=stateOf(it);
+    if(st==='active') active.push(it); else if(st==='snoozed') snoozedA.push(it); else doneA.push(it);
+  }
+  const soon=(a,b)=>(a.actionDate||'9999')<(b.actionDate||'9999')?-1:1;
+  active.sort(soon); snoozedA.sort(soon); doneA.sort(soon);
+  const overdue=active.filter(i=>daysUntil(i.actionDate)<0).length;
+  const next7=active.filter(i=>{const d=daysUntil(i.actionDate);return d>=0&&d<=7;}).length;
+  const orders=active.filter(i=>i.type==='order').length, moves=active.filter(i=>i.type==='move').length;
+  const k=(l,val,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${val}</div></div>`;
+  document.getElementById('ag-kpis').innerHTML=
+    k('Overdue', overdue, overdue?'var(--danger)':'var(--teal)')+
+    k('Due ≤ 7 days', next7, next7?'var(--warn)':'var(--teal)')+
+    k('Orders to place', orders, 'var(--purple)')+
+    k('Moves AND→VV', moves, 'var(--teal)')+
+    k('Snoozed', snoozedA.length, 'var(--text3)');
+  let html='';
+  if(!active.length && !(showSnoozed&&snoozedA.length) && !(showDone&&doneA.length)) html=`<div class="empty">Nothing to do 🎉 — no parts need an order or a move based on the current forecast.</div>`;
+  if(active.length) html+=`<div class="ag-group-hd">To do · ${active.length}</div>`+active.map(itemHtml).join('');
+  if(showSnoozed && snoozedA.length) html+=`<div class="ag-group-hd">Snoozed · ${snoozedA.length}</div>`+snoozedA.map(itemHtml).join('');
+  if(showDone && doneA.length) html+=`<div class="ag-group-hd">Done / PO created · ${doneA.length}</div>`+doneA.map(itemHtml).join('');
+  list.innerHTML=html;
+}
+function itemHtml(it){
+  const st=stateOf(it); const du=daysUntil(it.actionDate); const over=st==='active'&&du<0;
+  const cls=['item',it.type, over?'overdue':'', st==='snoozed'?'snoozed':'', (st==='done'||st==='po')?'done':''].filter(Boolean).join(' ');
+  const ico=it.type==='order'?'📦':'🔀';
+  const dueTxt = du==null?'' : (du<0?`<span class="tag over">${-du}d overdue</span>`:(du===0?'today':`in ${du}d`));
+  let sub='', dateBlock='', actions='';
+  if(it.type==='order'){
+    sub=`Order <b>${fmt(it.qty)}</b> · runs out at VV <b>${fmtD(it.neededDate)}</b> · ${esc(it.category)}`;
+    dateBlock=`<div class="item-date"><span class="tag sea">sea</span> <b>${fmtD(it.orderBySea)}</b><br><span class="tag air">air</span> ${fmtD(it.orderByAir)}<div style="margin-top:3px">${dueTxt}</div></div>`;
+  } else {
+    sub=`Move <b>${fmt(it.qty)}</b> from AND → Velovisie · needed at VV <b>${fmtD(it.neededDate)}</b> · ${esc(it.category)}`;
+    dateBlock=`<div class="item-date">move by <b>${fmtD(it.moveBy)}</b><div style="margin-top:3px">${dueTxt}</div></div>`;
+  }
+  const s=snooze[it.id]||{};
+  if(st==='po'){ const link=`${ODOO_URL}/odoo/purchase/${s.po.id}`; actions=`<span class="tag po">PO created</span> <a class="odoo-link" href="${link}" target="_blank">${esc(s.po.name||('#'+s.po.id))} ↗</a> <button class="btn btn-secondary btn-sm" onclick="unsnooze('${it.id}')">undo</button>`; }
+  else if(st==='snoozed'){ actions=`<span style="font-size:11px;color:var(--text3)">until ${fmtD(s.until)}</span> <button class="btn btn-secondary btn-sm" onclick="unsnooze('${it.id}')">un-snooze</button>`; }
+  else if(st==='done'){ actions=`<button class="btn btn-secondary btn-sm" onclick="unsnooze('${it.id}')">restore</button>`; }
+  else {
+    if(it.type==='order') actions+=`<button class="btn btn-primary btn-sm" onclick="openPO('${it.id}')">Create PO</button>`;
+    actions+=`<button class="btn btn-secondary btn-sm" onclick="snoozeItem('${it.id}',7)">+1wk</button>`;
+    actions+=`<button class="btn btn-secondary btn-sm" onclick="snoozeCustom('${it.id}')">📅</button>`;
+    actions+=`<button class="btn btn-secondary btn-sm" onclick="dismiss('${it.id}')">✓ done</button>`;
+  }
+  return `<div class="${cls}"><div class="item-ico">${ico}</div><div class="item-main"><div class="item-title">${esc(it.name)}</div><div class="item-sub">${sub}</div></div>${dateBlock}<div class="item-actions">${actions}</div></div>`;
+}
+
+// ── SNOOZE (team-shared) ──
+async function persistSnooze(){ await kvSetStore('parts_agenda_snooze', snooze); }
+async function snoozeItem(id,days){ snooze[id]={until:addDays(todayYmd(),days)}; await persistSnooze(); renderAgenda(); renderCalendar(); }
+async function snoozeCustom(id){ const d=prompt('Snooze until (YYYY-MM-DD):', addDays(todayYmd(),7)); if(!d) return; if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert_('Use format YYYY-MM-DD.','warn'); return; } snooze[id]={until:d}; await persistSnooze(); renderAgenda(); renderCalendar(); }
+async function dismiss(id){ snooze[id]={dismissed:true}; await persistSnooze(); renderAgenda(); renderCalendar(); }
+async function unsnooze(id){ delete snooze[id]; await persistSnooze(); renderAgenda(); renderCalendar(); }
+
+// ── CALENDAR ──
+function calMove(n){ calDate=new Date(calDate.getFullYear(),calDate.getMonth()+n,1); renderCalendar(); }
+function calToday(){ calDate=new Date(); renderCalendar(); }
+function renderCalendar(){
+  const grid=document.getElementById('cal-grid'); if(!grid) return;
+  const y=calDate.getFullYear(), m=calDate.getMonth();
+  document.getElementById('cal-title').textContent=calDate.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+  const byDate={};
+  for(const raw of (deadlines.items||[])){ const it=computeItem(raw); const st=stateOf(it); if(st==='done'||st==='po') continue; const d=it.actionDate; if(!d) continue; (byDate[d]=byDate[d]||[]).push(it); }
+  const dow=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  let html=dow.map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  const first=new Date(y,m,1); let startDow=(first.getDay()+6)%7;
+  const daysInMonth=new Date(y,m+1,0).getDate(); const prevDays=new Date(y,m,0).getDate(); const today=todayYmd();
+  for(let i=0;i<startDow;i++){ const dn=prevDays-startDow+1+i; html+=`<div class="cal-day other"><div class="cal-daynum">${dn}</div></div>`; }
+  for(let d=1;d<=daysInMonth;d++){
+    const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const items=byDate[ds]||[]; const isToday=ds===today;
+    let pills=items.slice(0,4).map(it=>{ const over=daysUntil(it.actionDate)<0; const c=over?'over':it.type; return `<span class="cal-pill ${c}" title="${esc(it.name)}" onclick="openDay('${ds}')">${it.type==='order'?'📦':'🔀'} ${esc(it.name.replace(/^\[[^\]]*\]\s*/,'').slice(0,16))}</span>`; }).join('');
+    if(items.length>4) pills+=`<span class="cal-pill" style="background:var(--surface2);color:var(--text2)" onclick="openDay('${ds}')">+${items.length-4} more</span>`;
+    html+=`<div class="cal-day ${isToday?'today':''}"><div class="cal-daynum">${d}</div>${pills}</div>`;
+  }
+  grid.innerHTML=html;
+}
+function openDay(ds){
+  const items=(deadlines.items||[]).map(computeItem).filter(it=>it.actionDate===ds && !['done','po'].includes(stateOf(it))).sort((a,b)=>a.type<b.type?-1:1);
+  const body=document.getElementById('day-modal-body');
+  body.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><b>${fmtD(ds)}</b><button class="btn btn-secondary btn-sm" onclick="document.getElementById('day-modal').classList.remove('open')">Close</button></div>`+
+    (items.length?items.map(it=>{ const a=it.type==='order'?`Order ${fmt(it.qty)} — ${esc(it.name)} (sea; air fallback ${fmtD(it.orderByAir)})`:`Move ${fmt(it.qty)} AND→VV — ${esc(it.name)}`; return `<div class="item ${it.type}" style="margin-bottom:6px"><div class="item-ico">${it.type==='order'?'📦':'🔀'}</div><div class="item-main"><div class="item-sub">${a}</div></div></div>`; }).join(''):'<div class="empty">No tasks.</div>');
+  document.getElementById('day-modal').classList.add('open');
+}
+
+// ── LEAD TIMES (per part, sourced from Odoo) ──
+function uniqueParts(){ const seen={},out=[]; for(const it of (deadlines.items||[])){ if(seen[it.pid]) continue; seen[it.pid]=1; out.push({pid:it.pid,name:it.name,category:it.category}); } return out.sort((a,b)=>a.name<b.name?-1:1); }
+function renderLeadTable(){
+  const tb=document.getElementById('lt-rows'); if(!tb) return;
+  const parts=uniqueParts();
+  tb.innerHTML = parts.length? parts.map(p=>{
+    const bp=leadCfg.byPart[p.pid]||{}; const od=leadCfg.odoo[p.pid]||{};
+    const odTxt = od.delay!=null ? `<span class="odoo-lead">${od.delay}d</span>` : '<span style="color:var(--text3)">—</span>';
+    const vend = od.vendor || '<span style="color:var(--text3)">—</span>';
+    return `<tr><td>${esc(p.name)}</td><td>${esc(vend)}</td><td class="num">${odTxt}</td><td class="num"><input type="number" min="0" placeholder="${od.delay!=null?od.delay:leadCfg.seaDefault}" value="${bp.sea??''}" data-pid="${p.pid}" data-mode="sea"/></td><td class="num"><input type="number" min="0" placeholder="${leadCfg.airDefault}" value="${bp.air??''}" data-pid="${p.pid}" data-mode="air"/></td></tr>`;
+  }).join('') : '<tr><td colspan="5" style="color:var(--text3)">Load the forecast first (open Parts Stock), then refresh here.</td></tr>';
+}
+async function fetchOdooLeads(){
+  const parts=uniqueParts(); if(!parts.length){ alert_('No parts yet — load the forecast first.','warn'); return; }
+  const st=document.getElementById('lt-status'); st.innerHTML='<span class="spinner"></span> reading Odoo…';
+  try{
+    const pids=parts.map(p=>p.pid);
+    const odoMap={};
+    for(let i=0;i<pids.length;i+=200){
+      const chunk=pids.slice(i,i+200);
+      const si=await odoo('product.supplierinfo','search_read',[[['product_id','in',chunk]]],{fields:['product_id','partner_id','delay'],order:'sequence,min_qty'});
+      for(const s of si){ const pid=arr(s.product_id)[0]; if(pid==null||odoMap[pid]) continue; odoMap[pid]={delay:s.delay, vendor:arr(s.partner_id)[1]||''}; }
+    }
+    // parts whose supplierinfo is on the template, not the variant
+    const missing=pids.filter(p=>!odoMap[p]);
+    if(missing.length){
+      const prods=await odoo('product.product','read',[missing],{fields:['product_tmpl_id']});
+      const tmplOf={}, tmpls=[]; for(const pr of prods){ const t=arr(pr.product_tmpl_id)[0]; if(t){ tmplOf[pr.id]=t; tmpls.push(t); } }
+      if(tmpls.length){
+        const byTmpl={};
+        for(let i=0;i<tmpls.length;i+=200){ const chunk=tmpls.slice(i,i+200); const si=await odoo('product.supplierinfo','search_read',[[['product_tmpl_id','in',chunk]]],{fields:['product_tmpl_id','partner_id','delay'],order:'sequence,min_qty'}); for(const s of si){ const t=arr(s.product_tmpl_id)[0]; if(t==null||byTmpl[t]) continue; byTmpl[t]={delay:s.delay,vendor:arr(s.partner_id)[1]||''}; } }
+        for(const p of missing){ const t=tmplOf[p]; if(t&&byTmpl[t]) odoMap[p]=byTmpl[t]; }
+      }
+    }
+    leadCfg.odoo=odoMap;
+    await kvSetStore('parts_lead_cfg', leadCfg);
+    const found=Object.keys(odoMap).length;
+    st.textContent=`Loaded ${found}/${parts.length} from Odoo`;
+    renderLeadTable(); renderAgenda(); renderCalendar();
+    alert_(`✓ Pulled Odoo lead times for ${found} of ${parts.length} parts.`,'success');
+  }catch(e){ st.textContent=''; alert_('Could not read Odoo lead times: '+esc(e.message),'err'); }
+}
+async function saveLeadCfg(){
+  leadCfg.seaDefault=parseInt(document.getElementById('lt-sea').value)||0;
+  leadCfg.airDefault=parseInt(document.getElementById('lt-air').value)||0;
+  const byPart={};
+  document.querySelectorAll('#lt-rows input').forEach(inp=>{ const pid=inp.dataset.pid, mode=inp.dataset.mode, val=inp.value.trim(); if(val!==''){ (byPart[pid]=byPart[pid]||{})[mode]=parseInt(val)||0; } });
+  leadCfg.byPart=byPart;
+  await kvSetStore('parts_lead_cfg', leadCfg);
+  alert_('Lead times saved for the team.','success');
+  renderAgenda(); renderCalendar();
+}
+
+// ── CONNECT + CREATE PO ──
+async function connect(){
+  try{
+    const u=document.getElementById('cfg-user').value.trim(), k=document.getElementById('cfg-key').value.trim();
+    if(!u||!k){ alert_('Enter email and API key.','warn'); return; }
+    localStorage.setItem(LS_USER,u); localStorage.setItem(LS_KEY,k);
+    odooUid=null; alert_('<span class="spinner"></span> Connecting…','info');
+    await odoo('res.users','search_count',[[]]);
+    alert_('✓ Connected to Odoo.','success');
+  }catch(e){ alert_('Connection failed: '+esc(e.message),'err'); }
+}
+async function openPO(id){
+  const raw=(deadlines.items||[]).find(i=>i.id===id); if(!raw) return; const it=computeItem(raw);
+  const user=document.getElementById('cfg-user').value.trim(), key=document.getElementById('cfg-key').value.trim();
+  if(!user||!key){ showTab('connect'); alert_('Add your Odoo email + API key first, then come back and hit Create PO.','warn'); return; }
+  const m=document.getElementById('po-modal'), body=document.getElementById('po-modal-body');
+  body.innerHTML=`<div style="text-align:center;padding:20px"><span class="spinner"></span> Looking up vendor for ${esc(it.name)}…</div>`; m.classList.add('open');
+  let vendors=[], defVendor=null, defPrice=0;
+  try{
+    let infos=await odoo('product.supplierinfo','search_read',[[['product_id','=',it.pid]]],{fields:['partner_id','price','delay','min_qty'],order:'sequence,min_qty',limit:5});
+    if(!infos||!infos.length){ const pr=await odoo('product.product','read',[[it.pid]],{fields:['product_tmpl_id']}); const tmpl=pr&&pr[0]&&arr(pr[0].product_tmpl_id)[0]; if(tmpl) infos=await odoo('product.supplierinfo','search_read',[[['product_tmpl_id','=',tmpl]]],{fields:['partner_id','price','delay','min_qty'],order:'sequence,min_qty',limit:5}); }
+    if(infos&&infos.length){ defVendor=arr(infos[0].partner_id)[0]; defPrice=infos[0].price||0; vendors=infos.map(i=>({id:arr(i.partner_id)[0],name:arr(i.partner_id)[1],price:i.price||0})).filter(x=>x.id); }
+  }catch(e){}
+  if(!vendors.length){ try{ const ps=await odoo('res.partner','search_read',[[['supplier_rank','>',0]]],{fields:['name'],order:'name',limit:300}); vendors=ps.map(p=>({id:p.id,name:p.name,price:0})); }catch(e){} }
+  const vOpts=vendors.map(x=>`<option value="${x.id}" data-price="${x.price}" ${x.id===defVendor?'selected':''}>${esc(x.name)}${x.price?(' · €'+x.price):''}</option>`).join('');
+  body.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px"><b>Create draft PO</b><button class="btn btn-secondary btn-sm" onclick="document.getElementById('po-modal').classList.remove('open')">Close</button></div>
+    <div style="font-size:13px;margin-bottom:14px">${esc(it.name)}<div style="font-size:12px;color:var(--text3)">${esc(it.category)} · runs out at VV ${fmtD(it.neededDate)}</div></div>
+    <div class="field"><label>Vendor</label><select id="po-vendor" onchange="poVendorChange()">${vOpts||'<option value="">— no vendor found —</option>'}</select></div>
+    <div class="field"><label>Quantity</label><input type="number" id="po-qty" min="1" value="${Math.max(1,it.qty)}"/></div>
+    <div class="field"><label>Unit price (optional)</label><input type="number" id="po-price" min="0" step="0.01" value="${defPrice||''}"/></div>
+    <div class="field"><label>Planned receipt date (into AND)</label><input type="date" id="po-date" value="${it.needAtAnd||todayYmd()}"/><div class="hint">Default = when the part must be in AND (shortage − ${transferLead()}d transfer).</div></div>
+    <div id="po-msg"></div>
+    <button class="btn btn-primary" id="po-go" onclick="submitPO('${id}')">Create draft PO in Odoo</button>`;
+}
+function poVendorChange(){ const sel=document.getElementById('po-vendor'); const p=sel.options[sel.selectedIndex]?.dataset.price; if(p&&!document.getElementById('po-price').value) document.getElementById('po-price').value=p; }
+async function submitPO(id){
+  const raw=(deadlines.items||[]).find(i=>i.id===id); if(!raw) return; const it=computeItem(raw);
+  const vendor=parseInt(document.getElementById('po-vendor').value);
+  const qty=parseFloat(document.getElementById('po-qty').value)||0;
+  const price=parseFloat(document.getElementById('po-price').value)||0;
+  const date=document.getElementById('po-date').value;
+  const msg=document.getElementById('po-msg');
+  if(!vendor){ msg.innerHTML='<div class="alert alert-warn">Pick a vendor.</div>'; return; }
+  if(qty<=0){ msg.innerHTML='<div class="alert alert-warn">Quantity must be greater than 0.</div>'; return; }
+  document.getElementById('po-go').disabled=true;
+  msg.innerHTML='<div class="alert alert-info"><span class="spinner"></span> Creating draft PO in Odoo…</div>';
+  try{
+    const line={product_id:it.pid, product_qty:qty, date_planned:(date||todayYmd())+' 08:00:00'};
+    if(price>0) line.price_unit=price;
+    const poId=await odoo('purchase.order','create',[{partner_id:vendor, date_order:todayYmd()+' 08:00:00', order_line:[[0,0,line]]}]);
+    let name='#'+poId; try{ const rd=await odoo('purchase.order','read',[[poId]],{fields:['name']}); if(rd&&rd[0]&&rd[0].name) name=rd[0].name; }catch(e){}
+    snooze[id]={po:{id:poId,name,date:todayYmd()}}; await persistSnooze();
+    msg.innerHTML=`<div class="alert alert-success">✓ Draft PO <b>${esc(name)}</b> created. <a class="odoo-link" href="${ODOO_URL}/odoo/purchase/${poId}" target="_blank">Open in Odoo ↗</a> — review &amp; confirm there.</div>`;
+    renderAgenda(); renderCalendar();
+    setTimeout(()=>document.getElementById('po-modal').classList.remove('open'), 2600);
+  }catch(e){ document.getElementById('po-go').disabled=false; msg.innerHTML='<div class="alert alert-err">Failed: '+esc(e.message)+'</div>'; }
+}
+
+// ── INIT ──
+(function init(){
+  const u=localStorage.getItem(LS_USER), k=localStorage.getItem(LS_KEY);
+  if(u) document.getElementById('cfg-user').value=u;
+  if(k) document.getElementById('cfg-key').value=k;
+  loadAll(false);
+})();
+</script>
+</body>
+</html>
