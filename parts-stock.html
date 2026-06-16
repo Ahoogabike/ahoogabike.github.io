@@ -565,6 +565,25 @@ async function publishWheelStock(){
     console.log('[PartStock] wheel_stock published — front',front,'(+'+frontInc+' on order) rear',rear,'(+'+rearInc+' on order)');
   }catch(e){ console.warn('[PartStock] publishWheelStock failed:', e.message); }
 }
+// ── PUBLISH WHEEL MAP (bike-family → wheel-SKU usage, for per-SKU wheel planning) ─
+async function publishWheelMap(){
+  try{
+    const isWheelPid=(pid)=> mtbWheelTmpls.has(prodToTmpl[pid]);
+    const byFam={}, wheels={};
+    for(const fam in usagePerBikeByFam){
+      for(const pid in usagePerBikeByFam[fam]){
+        const p=Number(pid); if(!isWheelPid(p)) continue;
+        const q=usagePerBikeByFam[fam][pid]; if(!q) continue;
+        (byFam[fam]=byFam[fam]||{})[p]=(byFam[fam][p]||0)+q;
+        if(!wheels[p]){ const r=rows.find(x=>x.id===p); const code=r?(r.partNo||''):''; const nm=r?(r.partName||('#'+p)):('#'+p);
+          const side=(/^WHF/i.test(code)||/front/i.test(nm))?'front':((/^WHR/i.test(code)||/rear/i.test(nm))?'rear':'?');
+          wheels[p]={name:`${code?('['+code+'] '):''}${nm}`, code, side}; }
+      }
+    }
+    await kvSetStore('wheel_map', {updated:new Date().toISOString(), leadWeeks:WHEEL_LEAD_WEEKS, byFam, wheels});
+    console.log('[PartStock] wheel_map published — wheels', Object.keys(wheels).length);
+  }catch(e){ console.warn('[PartStock] publishWheelMap failed:', e.message); }
+}
 // ── PUBLISH WHEEL DEADLINES (MTB tier, for the Wheels agenda) ─
 // Wheel sub-parts are consumed by wheel assembly at MTB, which runs WHEEL_LEAD_WEEKS before the bikes.
 // Same two-pool logic as the VV components: MTB is the consumption pool, AND is the replenishment buffer.
@@ -1029,6 +1048,7 @@ async function loadData(){
     publishPartsDeadlines();    // feed the Parts Agenda: order-by + AND→VV move-by dates
     publishWheelStock();        // feed the PO Builder wheel tab: wheels already on hand
     publishWheelDeadlines();    // feed the Wheels agenda: MTB wheel-component order/move tasks
+    publishWheelMap();          // feed the PO Builder wheel tab: which wheel SKU each bike family uses
 
     render();
     renderSummary();
