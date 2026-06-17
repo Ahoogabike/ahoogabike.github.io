@@ -271,7 +271,7 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
   <!-- FORWARD STOCK TAB -->
   <div class="view" id="view-forecast">
     <div class="explain">
-      <strong>Forward component stock — week by week.</strong> Models the real two-stage flow: incoming component POs (from the <strong>PO Tracker</strong>) are received into the <strong>Anderlecht (AND)</strong> warehouse, then moved to <strong>Velovisie (VV)</strong> for assembly. Each cell is the <strong>combined available stock (Velovisie + Anderlecht)</strong> after that week's consumption — i.e. assuming the AND→VV move has been made — driven by the <strong>PO Builder — Bikes</strong> plan (bikes/week × per-bike BoM usage, averaged per family). <code>(+n)</code> = a component PO arriving into AND that week; <code>⇄n</code> = the AND→VV transfer you still need to do (it also appears as a requested move in the <strong>Parts Agenda</strong>) — sized to cover ~8 weeks of build (or whatever AND holds), allow ~3 days for the move — sized to cover ~8 weeks of build (or whatever AND holds), allow ~3 days for the move; <code>⚙n</code> in week 1 = parts consumed by bikes already in production at Okazi (running POs, not yet built — the future PO-Builder bikes are the weekly plan). A <strong style="color:#8b1f1f">red / negative</strong> cell means <strong>both</strong> AND and VV are exhausted — place or pull a PO forward. POs already received (including those delivered straight to VV via subcontracting) drop out of the open-PO feed and are already reflected in current stock. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
+      <strong>Forward component stock — week by week.</strong> Models the real two-stage flow: incoming component POs (from the <strong>PO Tracker</strong>) are received into the <strong>Anderlecht (AND)</strong> warehouse, then moved to <strong>Velovisie (VV)</strong> for assembly. Each cell is the <strong>combined available stock (Velovisie + Anderlecht)</strong> after that week's consumption — i.e. assuming the AND→VV move has been made — driven by the <strong>PO Builder — Bikes</strong> plan (bikes/week × per-bike BoM usage, averaged per family). <code>(+n)</code> = a component PO arriving into AND that week; <code>⇄n</code> = the AND→VV transfer you still need to do (it also appears as a requested move in the <strong>Parts Agenda</strong>) — sized to cover ~8 weeks of build (or whatever AND holds), allow ~3 days for the move; <code>⚙n</code> in week 1 = parts consumed by bikes already in production at Okazi (running POs, not yet built — the future PO-Builder bikes are the weekly plan). A <strong style="color:#8b1f1f">red / negative</strong> cell means <strong>both</strong> AND and VV are exhausted — place or pull a PO forward. POs already received (including those delivered straight to VV via subcontracting) drop out of the open-PO feed and are already reflected in current stock. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
     </div>
     <div class="kpis" id="fc-kpis"></div>
     <div class="toolbar">
@@ -288,6 +288,8 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
       <select id="fc-cat" onchange="renderForecast()"><option value="">All categories</option></select>
       <label class="toggle"><input type="checkbox" id="fc-onlyneg" checked onchange="renderForecast()"> Only shortages</label>
       <label class="toggle"><input type="checkbox" id="fc-hidesub" checked onchange="renderForecast()"> Hide in-house sub-assemblies</label>
+      <button class="btn btn-sm btn-secondary" id="fc-overdue-btn" onclick="exportOverduePOs()" title="Download a CSV of every open PO whose expected arrival date is in the past (or missing) — these are the ones being dumped into week 1">⬇ Overdue POs</button>
+      <button class="btn btn-sm btn-secondary" onclick="emailOverduePOs()" title="Open an email pre-filled with the overdue POs to correct">✉ Email overdue</button>
       <div class="sep"></div>
       <span id="fc-status" style="font-size:12px;color:var(--text3)"></span>
     </div>
@@ -1637,6 +1639,73 @@ function renderForecast(){
 }
 
 // ── CSV EXPORT ───────────────────────────────────────────────
+// ── OVERDUE PURCHASE ORDERS ──────────────────────────────────
+// Every open component PO whose expected arrival is in the PAST (or has no date). These are the
+// ones the forward view dumps into week 1 — their planned dates need correcting in Odoo.
+function collectOverduePOs(){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const todayYmd=`${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  const byId={}; for(const r of rows) byId[r.id]=r;
+  const out=[];
+  for(const pid in incomingByPart){
+    const r=byId[pid];
+    for(const d of (incomingByPart[pid]||[])){
+      const qty=Math.round(d.qty||0); if(qty<=0) continue;
+      const hasDate=!!d.date;
+      if(hasDate && d.date>=todayYmd) continue;        // future-dated → fine, skip
+      const daysLate = hasDate ? Math.round((today-new Date(d.date+'T00:00:00'))/86400000) : null;
+      out.push({
+        po:d.ref||'PO', partNo:(r&&r.partNo)||'', part:(r&&r.partName)||('#'+pid),
+        category:(r&&r.category)||'—', qty, date:hasDate?d.date:'(no date)',
+        daysLate
+      });
+    }
+  }
+  out.sort((a,b)=> a.po!==b.po ? (a.po<b.po?-1:1) : (a.date<b.date?-1:1));
+  return out;
+}
+function exportOverduePOs(){
+  if(!rows.length){ alert_('Load data first.','warn'); return; }
+  const list=collectOverduePOs();
+  if(!list.length){ alert_('No overdue POs 🎉 — every open component PO has a future arrival date.','success'); return; }
+  const hdr=['PO','Part #','Part name','Category','Qty outstanding','Expected date','Days overdue'];
+  const csv=[hdr,...list.map(o=>[o.po,o.partNo,o.part,o.category,o.qty,o.date,o.daysLate==null?'(no date)':o.daysLate])]
+    .map(row=>row.map(c=>{const s=String(c??'');return s.includes(',')||s.includes('"')||s.includes('\n')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='overdue-component-POs-'+new Date().toISOString().split('T')[0]+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  alert_(`Exported ${list.length} overdue PO line${list.length===1?'':'s'} to CSV.`,'success');
+}
+function emailOverduePOs(){
+  if(!rows.length){ alert_('Load data first.','warn'); return; }
+  const list=collectOverduePOs();
+  if(!list.length){ alert_('No overdue POs 🎉 — every open component PO has a future arrival date.','success'); return; }
+  // group by PO for a readable email
+  const byPo={}; for(const o of list){ (byPo[o.po]=byPo[o.po]||[]).push(o); }
+  const lines=[];
+  lines.push(`The following ${list.length} open purchase-order line(s) across ${Object.keys(byPo).length} PO(s) have an expected arrival date in the past (or no date) and need their dates corrected in Odoo:`);
+  lines.push('');
+  for(const po of Object.keys(byPo).sort()){
+    lines.push(`• ${po}`);
+    for(const o of byPo[po]){
+      const late = o.daysLate==null ? 'no planned date' : `${o.daysLate} day(s) overdue (was ${o.date})`;
+      lines.push(`    - ${o.partNo?('['+o.partNo+'] '):''}${o.part} — ${o.qty} pcs — ${late}`);
+    }
+    lines.push('');
+  }
+  const subject=`Overdue component POs to correct (${list.length} lines, ${Object.keys(byPo).length} POs)`;
+  const body=lines.join('\n');
+  const mailto=`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  // mailto has length limits; if too long, fall back to CSV + clipboard
+  if(mailto.length>1900){
+    try{ navigator.clipboard.writeText(body); }catch(e){}
+    exportOverduePOs();
+    alert_(`${list.length} overdue lines — too many for a direct email draft, so I copied the full list to your clipboard and downloaded the CSV. Paste it into your email.`,'info');
+    return;
+  }
+  window.location.href=mailto;
+}
 function exportCSV(){
   if(!rows.length){alert_('Load data first.','warn');return;}
   const data=getFiltered();
