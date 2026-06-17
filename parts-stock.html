@@ -136,6 +136,7 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
   <button class="nav-btn active" id="nav-stock" onclick="showTab('stock')">📦 Part Stock</button>
   <button class="nav-btn" id="nav-summary" onclick="showTab('summary')">⚠ Summary &lt; 150 VV</button>
   <button class="nav-btn" id="nav-forecast" onclick="showTab('forecast')">📈 Forward stock</button>
+  <button class="nav-btn" id="nav-mtbforecast" onclick="showTab('mtbforecast')">🛞 Forward stock at MTB</button>
   <button class="nav-btn" id="nav-settings" onclick="showTab('settings')">⚙ Connection</button>
   <div class="header-right">
     <span class="pill" id="conn-pill">Not connected</span>
@@ -295,6 +296,29 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
     </div>
   </div>
 
+  <!-- FORWARD STOCK AT MTB TAB -->
+  <div class="view" id="view-mtbforecast">
+    <div class="explain">
+      <strong>Forward wheel-component stock at MTB — week by week.</strong> Same two-stage flow as Velovisie, but for the <strong>MTB Maastricht</strong> wheel-assembly line: wheel components are received into <strong>Anderlecht (AND)</strong> and moved to <strong>MTB</strong>, where they're consumed assembling wheels. Wheels are built <strong>3 weeks before the bikes</strong> (2 wk build + 1 wk ship), so each cell is the stock <strong>at MTB</strong> after that week's wheel-assembly consumption, replenished from AND via the <code>⇄</code> transfer. <code>(+n)</code> = a component PO arriving into AND; <code>⇄n</code> = an AND→MTB move. A <strong style="color:#8b1f1f">red / negative</strong> cell means both AND and MTB are exhausted — order or pull a component PO forward.
+    </div>
+    <div class="kpis" id="mtbfc-kpis"></div>
+    <div class="toolbar">
+      <input type="text" id="mtbfc-search" placeholder="🔍 wheel component name / number…" style="min-width:200px;flex:1" oninput="renderMtbForecast()"/>
+      <label class="toggle" style="gap:4px">Group:
+        <select id="mtbfc-group" onchange="renderMtbForecast()">
+          <option value="category" selected>Odoo category</option>
+          <option value="area">Bike area</option>
+          <option value="none">No grouping</option>
+        </select>
+      </label>
+      <select id="mtbfc-cat" onchange="renderMtbForecast()"><option value="">All categories</option></select>
+      <label class="toggle"><input type="checkbox" id="mtbfc-onlyneg" checked onchange="renderMtbForecast()"> Only shortages</label>
+      <div class="sep"></div>
+      <span id="mtbfc-status" style="font-size:12px;color:var(--text3)"></span>
+    </div>
+    <div id="mtbfc-table-wrap" style="overflow:auto;max-height:72vh;border:1px solid rgba(0,0,0,0.09);border-radius:var(--radius-sm)"><div id="mtbfc-grid"></div></div>
+  </div>
+
   <!-- SETTINGS TAB -->
   <div class="view" id="view-settings">
     <div class="settings-card">
@@ -365,6 +389,87 @@ function bikeArea(name, category){
   return 'Other';
 }
 function toggleFcGroup(g){ fcCollapsed[g]=!fcCollapsed[g]; renderForecast(); }
+let mtbCollapsed={};
+function toggleMtbGroup(g){ mtbCollapsed[g]=!mtbCollapsed[g]; renderMtbForecast(); }
+
+// ── FORWARD STOCK AT MTB (wheel components consumed by wheel assembly) ──
+function renderMtbForecast(){
+  const grid=document.getElementById('mtbfc-grid'); if(!grid) return;
+  const kpis=document.getElementById('mtbfc-kpis');
+  if(!rows.length){ grid.innerHTML='<div style="padding:24px;color:var(--text3)">Connect and load parts first.</div>'; if(kpis)kpis.innerHTML=''; return; }
+  if(!productionPlan || !productionPlan.weeks || !productionPlan.weeks.length){ grid.innerHTML='<div style="padding:24px;color:var(--text3)">No production plan yet — open the PO Builder so it publishes the bike plan, then refresh.</div>'; if(kpis)kpis.innerHTML=''; return; }
+  if(!mtbWheelTmpls.size){ grid.innerHTML='<div style="padding:24px;color:var(--text3)">No MTB wheel assemblies detected (vendor = MTB Maastricht).</div>'; if(kpis)kpis.innerHTML=''; return; }
+  const wks=productionPlan.weeks, byFam=productionPlan.byFam||{};
+  // wheel demand × each wheel's BoM → MTB component consumption per week, shifted WHEEL_LEAD_WEEKS earlier
+  const isWheelPid=(pid)=>mtbWheelTmpls.has(prodToTmpl[pid]);
+  const wheelPids=new Set();
+  for(const fam in usagePerBikeByFam){ for(const pid in usagePerBikeByFam[fam]){ if(isWheelPid(Number(pid))) wheelPids.add(Number(pid)); } }
+  const wheelBom={}; for(const wp of wheelPids){ const t=prodToTmpl[wp]; wheelBom[wp]=(t!=null)?explodeUsage(t,bomByTmpl,prodToTmpl,true):{}; }
+  const mtbCons={}; const ensure=(pid)=>{ if(!mtbCons[pid]) mtbCons[pid]=Array(wks.length).fill(0); return mtbCons[pid]; };
+  for(const fam in byFam){ const fu=usagePerBikeByFam[fam]||{};
+    for(const wp of wheelPids){ const perBike=fu[wp]||0; if(!perBike) continue; const bom=wheelBom[wp]||{};
+      for(let wi=0; wi<wks.length; wi++){ const wheels=perBike*(byFam[fam][wi]||0); if(!wheels) continue; const awi=Math.max(0, wi-WHEEL_LEAD_WEEKS);
+        for(const comp in bom){ ensure(comp)[awi]+= wheels*bom[comp]; } } } }
+  const catSel=document.getElementById('mtbfc-cat');
+  if(catSel && catSel.options.length<=1){ const cats=[...new Set(rows.filter(r=>wheelComponentIds.has(r.id)).map(r=>r.category).filter(c=>c&&c!=='—'))].sort(); catSel.innerHTML='<option value="">All categories</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join(''); }
+  const search=(document.getElementById('mtbfc-search').value||'').toLowerCase();
+  const cat=document.getElementById('mtbfc-cat').value;
+  const onlyNeg=document.getElementById('mtbfc-onlyneg').checked;
+  const incForWeek=(pid,wi)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[wi].monday, end=wks[wi+1]?wks[wi+1].monday:null; let s=0; for(const d of list){ if(!d.date){ if(wi===0) s+=d.qty; continue; } if(d.date>=start && (!end||d.date<end)) s+=d.qty; } return s; };
+  const incBeforeFirst=(pid)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[0].monday; let s=0; for(const d of list){ if(d.date && d.date<start) s+=d.qty; } return s; };
+  const proj=rows.filter(r=>wheelComponentIds.has(r.id)).map(r=>{
+    const pid=r.id; const consArr=mtbCons[pid]||Array(wks.length).fill(0);
+    let mtb=(r.mtbQty||0), andP=(r.andQty||0);
+    const overdue=incBeforeFirst(pid);
+    const cells=[]; let firstNeg=-1, minLevel=mtb+andP, totCons=0;
+    for(let wi=0; wi<wks.length; wi++){
+      const cons=consArr[wi]; totCons+=cons;
+      let arrv=incForWeek(pid,wi); if(wi===0) arrv+=overdue;
+      andP+=arrv; mtb-=cons;
+      let xfer=0; if(mtb<0 && andP>0){ let future=0; for(let j=wi+1;j<=wi+MOVE_COVER_WEEKS&&j<consArr.length;j++) future+=consArr[j]; xfer=Math.min(-mtb+future, andP); mtb+=xfer; andP-=xfer; }
+      const combined=mtb+andP;
+      if(combined<0 && firstNeg<0) firstNeg=wi;
+      if(combined<minLevel) minLevel=combined;
+      cells.push({level:mtb, and:andP, arr:arrv, xfer:xfer, combined:combined});
+    }
+    return {r, cells, firstNeg, minLevel, totCons, start:(r.mtbQty||0), startAnd:(r.andQty||0)};
+  }).filter(p=>p.totCons>0.0001);
+  let view=proj.filter(p=>{ if(onlyNeg && p.firstNeg<0) return false; if(cat && p.r.category!==cat) return false; if(search && !(`${p.r.partName} ${p.r.partNo}`.toLowerCase().includes(search))) return false; return true; })
+    .sort((a,b)=>{ const af=a.firstNeg<0?1e9:a.firstNeg, bf=b.firstNeg<0?1e9:b.firstNeg; return af!==bf?af-bf:a.minLevel-b.minLevel; });
+  const negCount=proj.filter(p=>p.firstNeg>=0).length;
+  const earliest=Math.min(1e9,...proj.filter(p=>p.firstNeg>=0).map(p=>p.firstNeg));
+  const k=(l,v,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${v}</div></div>`;
+  if(kpis) kpis.innerHTML=
+    k('Wheel parts short', negCount, negCount?'var(--danger)':'var(--teal)')+
+    k('Earliest shortage', earliest<1e9?esc(wks[earliest].label):'none', earliest<1e9?'var(--danger)':'var(--teal)')+
+    k('Wheel parts tracked', proj.length, 'var(--accent)')+
+    k('Built before bikes', WHEEL_LEAD_WEEKS+' wks', 'var(--purple)')+
+    k('Plan updated', productionPlan.updated?new Date(productionPlan.updated).toLocaleDateString():'—', 'var(--purple)');
+  const groupBy=(document.getElementById('mtbfc-group')||{}).value||'category';
+  const nWk=wks.length;
+  const head=`<tr><th class="fc-part">Wheel component</th><th class="fc-w" title="On-hand at MTB now (start). AND replenishes via the ⇄ transfer.">MTB now</th>${wks.map(w=>`<th class="fc-w" title="${esc(w.monday)}">${esc(w.label)}</th>`).join('')}</tr>`;
+  const rowHtml=(p)=>{
+    const tds=p.cells.map(c=>{ const a=Math.round(c.arr), x=Math.round(c.xfer);
+      const arrTxt=a>0?`<span class="fc-arr">(+${fmt(a)})</span>`:'';
+      const xferTxt=x>0?`<span class="fc-xfer" title="Move ${fmt(x)} from AND → MTB this week">⇄${fmt(x)}</span>`:'';
+      return `<td class="${c.level<0?'fc-neg':''}" title="At MTB ${fmt(Math.round(c.level))} · still in AND ${fmt(Math.round(c.and))}">${fmt(Math.round(c.level))}${arrTxt}${xferTxt}</td>`;
+    }).join('');
+    const nm=`${p.r.partNo?('['+esc(p.r.partNo)+'] '):''}${esc(p.r.partName)}`;
+    return `<tr><td class="fc-part" title="${esc(p.r.category)}">${nm}</td><td class="fc-w" style="font-weight:600" title="At MTB ${fmt(Math.round(p.start))} · in AND (replenishment) ${fmt(Math.round(p.startAnd))}">${fmt(Math.round(p.start))}</td>${tds}</tr>`;
+  };
+  let body='';
+  if(groupBy==='none'){ body=view.map(rowHtml).join(''); }
+  else {
+    const groups={}; for(const p of view){ const g = groupBy==='category'?(p.r.category||'—'):bikeArea(p.r.partName,p.r.category); (groups[g]=groups[g]||[]).push(p); }
+    const names=Object.keys(groups).sort((a,b)=>{ const sa=groups[a].some(p=>p.firstNeg>=0)?0:1, sb=groups[b].some(p=>p.firstNeg>=0)?0:1; return sa!==sb?sa-sb:a.localeCompare(b); });
+    for(const g of names){ const list=groups[g]; const short=list.filter(p=>p.firstNeg>=0).length; const collapsed=!!mtbCollapsed[g]; const span=nWk+2;
+      body+=`<tr class="fc-grp"><td class="fc-part" onclick="toggleMtbGroup('${g.replace(/'/g,"\\'")}')" style="cursor:pointer">${collapsed?'▸':'▾'} ${esc(g)} <span style="color:var(--text3);font-weight:400">· ${list.length}${short?` · <span style="color:#8b1f1f">${short} short</span>`:''}</span></td><td colspan="${span-1}"></td></tr>`;
+      if(!collapsed) body+=list.map(rowHtml).join('');
+    }
+  }
+  grid.innerHTML=`<table class="fcg"><thead>${head}</thead><tbody>${body||`<tr><td class="fc-part" style="padding:20px">No wheel components${onlyNeg?' go negative — all covered 🎉':' in this plan.'}</td></tr>`}</tbody></table>`;
+  const st=document.getElementById('mtbfc-status'); if(st) st.textContent=`${view.length} wheel components · start = MTB on-hand · consumed by wheel assembly (~${WHEEL_LEAD_WEEKS} wks before bikes)`;
+}
 
 // Drill-down: show exactly which open POs make up a component's incoming, and the plan consumption.
 function fcInspect(pid){
@@ -465,6 +570,7 @@ function showTab(t){
   document.getElementById('nav-'+t).classList.add('active');
   if(t==='summary') renderSummary();
   if(t==='forecast') renderForecast();
+  if(t==='mtbforecast') renderMtbForecast();
 }
 
 // Read a key from the shared store (the /store/ route used by the Forecast & PO Builder apps).
@@ -1429,6 +1535,7 @@ function renderForecast(){
     return {r, cells, firstNeg, minLevel, totCons, start:(r.vvReal||0), startAnd:(r.andQty||0)};
   }).filter(p=>{
     if(hideSub && p.r.isSub) return false;                 // built in-house, not purchased
+    if(wheelComponentIds.has(p.r.id)) return false;        // wheel sub-parts live at MTB → see the “Forward stock at MTB” tab
     return model ? usedByModel(p.r.id) : p.totCons>0.0001;
   });
 
