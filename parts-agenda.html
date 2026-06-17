@@ -85,6 +85,11 @@ table.lt input{width:74px;padding:5px 7px;border:1px solid var(--border2);border
 .spinner{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-1px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .empty{text-align:center;color:var(--text3);padding:40px 20px}
+.bulk-bar{position:sticky;top:52px;z-index:90;display:flex;align-items:center;gap:8px;background:var(--teal-bg);border:1px solid var(--teal);border-radius:var(--radius);padding:8px 14px;margin-bottom:12px;font-size:13px;font-weight:600;color:var(--teal)}
+.mv-check{width:16px;height:16px;accent-color:var(--teal);cursor:pointer;flex:none}
+.tr-line{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)}
+.tr-line input[type=number]{width:70px;padding:4px 6px;border:1px solid var(--border2);border-radius:4px;font-family:inherit;font-size:13px;text-align:right}
+.tr-grp{margin-bottom:14px}.tr-grp h4{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--text2);margin-bottom:4px}
 a.odoo-link{color:var(--accent);font-weight:600;text-decoration:none}
 </style>
   <script src="mxp-auth.js"></script>
@@ -118,7 +123,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
     <div class="explain">
       <strong>What to do, and by when.</strong> Built from the <strong>Parts Stock</strong> forecast. Two kinds of task:
       <code>📦 Order</code> — the VV+AND pipeline runs out, so a component PO must be placed (shown as an <b>order-by</b> date for <span class="tag sea">sea</span> and a later <span class="tag air">air</span> fallback);
-      <code>🔀 Move</code> — Velovisie will run short while Anderlecht still has stock, so a transfer must be done — sized to cover ~8 weeks of production (or whatever AND holds), allowing the ~3-day move. Snooze or mark done; that's shared with the team. Hit <b>Create PO</b> to open a draft RFQ in Odoo.
+      <code>🔀 Move</code> — Velovisie will run short while Anderlecht still has stock, so a transfer must be done — sized to cover ~8 weeks of production (or whatever AND holds), allowing the ~3-day move. Snooze or mark done; that's shared with the team. Hit <b>Create PO</b> to open a draft RFQ in Odoo, or <b>Create transfer</b> on a move (tick several to combine them) to create an internal transfer in Odoo, confirmed as <em>Mark to do</em> for you to validate.
     </div>
     <div style="display:flex;gap:8px;margin-bottom:12px">
       <button class="btn btn-sm btn-primary" id="set-components" onclick="setAgendaSet('components')">🔧 Components · VV</button>
@@ -130,6 +135,12 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
       <select id="ag-type" onchange="renderAgenda()"><option value="">All tasks</option><option value="order">📦 Order only</option><option value="move">🔀 Move only</option></select>
       <label class="toggle"><input type="checkbox" id="ag-showsnoozed" onchange="renderAgenda()"/> show snoozed</label>
       <label class="toggle"><input type="checkbox" id="ag-showdone" onchange="renderAgenda()"/> show done / PO-created</label>
+    </div>
+    <div id="bulk-bar" class="bulk-bar" style="display:none">
+      <span id="bulk-count">0 moves selected</span>
+      <span style="flex:1"></span>
+      <button class="btn btn-sm btn-secondary" onclick="clearMoveSel()">Clear</button>
+      <button class="btn btn-sm btn-primary" onclick="openTransferBulk()">🔀 Create internal transfer</button>
     </div>
     <div id="ag-list"></div>
   </div>
@@ -167,7 +178,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   <!-- DONE -->
   <div class="view" id="view-done">
     <div class="explain">
-      <strong>Done &amp; PO-created tasks.</strong> Everything you marked <code>✓ done</code> or created a PO for lands here — nothing is lost. Clicked something by mistake? Hit <b>↩ Put back</b> to return it to the agenda's to-do list. This is shared with the team.
+      <strong>Done, PO-created &amp; transferred tasks.</strong> Everything you marked <code>✓ done</code>, created a PO for, or created an internal transfer for lands here — nothing is lost. Clicked something by mistake? Hit <b>↩ Put back</b> to return it to the agenda's to-do list. This is shared with the team.
     </div>
     <div class="toolbar">
       <input type="text" id="done-search" placeholder="🔍 part name / number…" style="min-width:200px;flex:1" oninput="renderDone()"/>
@@ -189,6 +200,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 
 <div class="modal" id="po-modal"><div class="modal-box" id="po-modal-body"></div></div>
 <div class="modal" id="day-modal"><div class="modal-box" id="day-modal-body"></div></div>
+<div class="modal" id="tr-modal"><div class="modal-box" id="tr-modal-body" style="max-width:560px"></div></div>
 
 <script>
 const ODOO_URL='https://ahooga.odoo.com';
@@ -201,6 +213,8 @@ let dsComponents=null, dsWheels=null, agendaSet='components';
 let leadCfg={seaDefault:90, airDefault:30, byPart:{}, odoo:{}};   // byPart[pid]={sea,air}; odoo[pid]={delay,vendor}
 let snooze={};
 let calDate=new Date();
+let selectedMoves=new Set();      // item ids selected for a combined internal transfer
+let transferLocs=null;            // cached {src, dests:{VV,MTB}} resolved from Odoo
 
 // ── STORE ──
 async function kvGetStore(key){ try{ const r=await fetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`); if(!r.ok) return null; const t=(await r.text()||'').trim(); return (!t||t==='null')?null:JSON.parse(t); }catch(e){ console.warn('store get',key,e.message); return null; } }
@@ -310,7 +324,7 @@ function computeItem(it){
   } else { o.moveBy=addDays(it.neededDate, -tl); o.actionDate=o.moveBy; }
   return o;
 }
-function stateOf(it){ const s=snooze[it.id]||{}; if(s.po) return 'po'; if(s.dismissed) return 'done'; if(s.until && s.until>todayYmd()) return 'snoozed'; return 'active'; }
+function stateOf(it){ const s=snooze[it.id]||{}; if(s.po) return 'po'; if(s.transfer) return 'transfer'; if(s.dismissed) return 'done'; if(s.until && s.until>todayYmd()) return 'snoozed'; return 'active'; }
 
 // ── AGENDA ──
 function renderAgenda(){
@@ -345,6 +359,10 @@ function renderAgenda(){
   if(showSnoozed && snoozedA.length) html+=`<div class="ag-group-hd">Snoozed · ${snoozedA.length}</div>`+snoozedA.map(itemHtml).join('');
   if(showDone && doneA.length) html+=`<div class="ag-group-hd">Done / PO created · ${doneA.length}</div>`+doneA.map(itemHtml).join('');
   list.innerHTML=html;
+  // keep selection limited to moves still shown as active
+  const activeMoveIds=new Set(active.filter(i=>i.type==='move').map(i=>i.id));
+  for(const id of [...selectedMoves]) if(!activeMoveIds.has(id)) selectedMoves.delete(id);
+  updateBulkBar();
 }
 function itemHtml(it){
   const st=stateOf(it); const du=daysUntil(it.actionDate); const over=st==='active'&&du<0;
@@ -361,19 +379,24 @@ function itemHtml(it){
   }
   const s=snooze[it.id]||{};
   if(st==='po'){ const link=`${ODOO_URL}/odoo/purchase/${s.po.id}`; actions=`<span class="tag po">PO created</span> <a class="odoo-link" href="${link}" target="_blank">${esc(s.po.name||('#'+s.po.id))} ↗</a> <button class="btn btn-secondary btn-sm" onclick="unsnooze('${it.id}')">↩ Put back</button>`; }
+  else if(st==='transfer'){ const link=`${ODOO_URL}/odoo/action-stock.action_picking_tree_all/${s.transfer.id}`; actions=`<span class="tag" style="background:var(--teal-bg);color:var(--teal)">transfer created</span> <a class="odoo-link" href="${link}" target="_blank">${esc(s.transfer.name||('#'+s.transfer.id))} ↗</a> <button class="btn btn-secondary btn-sm" onclick="unsnooze('${it.id}')">↩ Put back</button>`; }
   else if(st==='snoozed'){ actions=`<span style="font-size:11px;color:var(--text3)">until ${fmtD(s.until)}</span> <button class="btn btn-secondary btn-sm" onclick="unsnooze('${it.id}')">un-snooze</button>`; }
   else if(st==='done'){ actions=`<span class="tag" style="background:var(--surface2);color:var(--text2)">done</span> <button class="btn btn-secondary btn-sm" onclick="unsnooze('${it.id}')">↩ Put back</button>`; }
   else {
     if(it.type==='order') actions+=`<button class="btn btn-primary btn-sm" onclick="openPO('${it.id}')">Create PO</button>`;
+    if(it.type==='move') actions+=`<button class="btn btn-primary btn-sm" onclick="openTransferOne('${it.id}')">🔀 Create transfer</button>`;
     actions+=`<button class="btn btn-secondary btn-sm" onclick="snoozeItem('${it.id}',7)">+1wk</button>`;
     actions+=`<button class="btn btn-secondary btn-sm" onclick="snoozeCustom('${it.id}')">📅</button>`;
     actions+=`<button class="btn btn-secondary btn-sm" onclick="dismiss('${it.id}')">✓ done</button>`;
   }
-  return `<div class="${cls}"><div class="item-ico">${ico}</div><div class="item-main"><div class="item-title">${esc(it.name)}</div><div class="item-sub">${sub}</div></div>${dateBlock}<div class="item-actions">${actions}</div></div>`;
+  const checkbox = (st==='active' && it.type==='move')
+    ? `<input type="checkbox" class="mv-check" data-id="${esc(it.id)}" ${selectedMoves.has(it.id)?'checked':''} onchange="toggleMoveSel('${it.id}',this.checked)" title="select for a combined transfer"/>`
+    : '';
+  return `<div class="${cls}">${checkbox}<div class="item-ico">${ico}</div><div class="item-main"><div class="item-title">${esc(it.name)}</div><div class="item-sub">${sub}</div></div>${dateBlock}<div class="item-actions">${actions}</div></div>`;
 }
 
 // ── DONE TAB ──
-function doneCount(){ return (deadlines.items||[]).filter(raw=>{const s=stateOf(raw); return s==='done'||s==='po';}).length; }
+function doneCount(){ return (deadlines.items||[]).filter(raw=>{const s=stateOf(raw); return s==='done'||s==='po'||s==='transfer';}).length; }
 function updateDoneNav(){ const b=document.getElementById('nav-done'); if(b){ const n=doneCount(); b.textContent= n? `✓ Done · ${n}` : '✓ Done'; } }
 function renderDone(){
   updateDoneNav();
@@ -383,14 +406,14 @@ function renderDone(){
   let rows=[];
   for(const it of all){
     const st=stateOf(it);
-    if(st!=='done' && st!=='po') continue;
+    if(st!=='done' && st!=='po' && st!=='transfer') continue;
     if(search && !(`${it.name}`.toLowerCase().includes(search))) continue;
     rows.push(it);
   }
   rows.sort((a,b)=>(a.actionDate||'9999')<(b.actionDate||'9999')?-1:1);
-  const nDone=rows.filter(i=>stateOf(i)==='done').length, nPo=rows.filter(i=>stateOf(i)==='po').length;
+  const nDone=rows.filter(i=>stateOf(i)==='done').length, nPo=rows.filter(i=>stateOf(i)==='po').length, nTr=rows.filter(i=>stateOf(i)==='transfer').length;
   const k=(l,val,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${val}</div></div>`;
-  document.getElementById('done-kpis').innerHTML = k('Marked done', nDone, 'var(--text2)') + k('PO created', nPo, 'var(--success)') + k('Total here', rows.length, 'var(--accent)');
+  document.getElementById('done-kpis').innerHTML = k('Marked done', nDone, 'var(--text2)') + k('PO created', nPo, 'var(--success)') + k('Transfers created', nTr, 'var(--teal)') + k('Total here', rows.length, 'var(--accent)');
   list.innerHTML = rows.length
     ? `<div class="ag-group-hd">Done / PO created · ${rows.length}</div>` + rows.map(itemHtml).join('')
     : `<div class="empty">Nothing here yet. Tasks you mark <b>✓ done</b> or create a PO for will appear here — and you can put them back to the agenda anytime.</div>`;
@@ -403,6 +426,99 @@ async function snoozeCustom(id){ const d=prompt('Snooze until (YYYY-MM-DD):', ad
 async function dismiss(id){ snooze[id]={dismissed:true}; await persistSnooze(); renderAgenda(); renderCalendar(); renderDone(); }
 async function unsnooze(id){ delete snooze[id]; await persistSnooze(); renderAgenda(); renderCalendar(); renderDone(); }
 
+// ── INTERNAL TRANSFER (AND → Velovisie / MTB) ──
+function destOf(it){ return it.moveTo==='MTB' ? 'MTB' : 'VV'; }
+function toggleMoveSel(id,on){ if(on) selectedMoves.add(id); else selectedMoves.delete(id); updateBulkBar(); }
+function clearMoveSel(){ selectedMoves.clear(); document.querySelectorAll('.mv-check').forEach(c=>c.checked=false); updateBulkBar(); }
+function updateBulkBar(){ const bar=document.getElementById('bulk-bar'); if(!bar) return; const n=selectedMoves.size; bar.style.display=n?'flex':'none'; const c=document.getElementById('bulk-count'); if(c) c.textContent=`${n} move${n===1?'':'s'} selected`; }
+
+async function resolveTransferLocs(){
+  if(transferLocs) return transferLocs;
+  // Source = Anderlecht warehouse main stock; internal operation type from that warehouse
+  const whs=await odoo('stock.warehouse','search_read',[[]],{fields:['name','code','lot_stock_id','int_type_id']});
+  let andWh=whs.find(w=>/anderlecht|(^|[^a-z])and([^a-z]|$)/i.test(`${w.name} ${w.code}`)) || whs[0];
+  if(!andWh) throw new Error('No warehouse found in Odoo.');
+  const src=arr(andWh.lot_stock_id)[0];
+  let pickType=arr(andWh.int_type_id)[0];
+  if(!pickType){ const pts=await odoo('stock.picking.type','search_read',[[['code','=','internal']]],{fields:['id'],limit:1}); pickType=pts&&pts[0]&&pts[0].id; }
+  if(!src||!pickType) throw new Error('Could not resolve Anderlecht stock location / internal operation type in Odoo.');
+  // Destination candidate locations (same matching as Parts Stock)
+  const vv=await odoo('stock.location','search_read',[[['complete_name','ilike','velovisie']]],{fields:['id','complete_name'],limit:50});
+  const mtb=await odoo('stock.location','search_read',[['|',['complete_name','ilike','mtb'],['complete_name','ilike','maastricht']]],{fields:['id','complete_name'],limit:50});
+  transferLocs={src, pickType, andName:andWh.name, dests:{VV:vv, MTB:mtb}};
+  return transferLocs;
+}
+
+function openTransferOne(id){ selectedMoves=new Set([id]); openTransferBulk(); }
+async function openTransferBulk(){
+  const user=document.getElementById('cfg-user').value.trim(), key=document.getElementById('cfg-key').value.trim();
+  if(!user||!key){ showTab('connect'); alert_('Add your Odoo email + API key first, then come back and create the transfer.','warn'); return; }
+  const ids=[...selectedMoves];
+  const items=(deadlines.items||[]).map(computeItem).filter(it=>ids.includes(it.id) && it.type==='move' && stateOf(it)==='active');
+  if(!items.length){ alert_('Select at least one move first (tick the boxes), or use “Create transfer” on a row.','warn'); return; }
+  const m=document.getElementById('tr-modal'), body=document.getElementById('tr-modal-body');
+  body.innerHTML=`<div style="text-align:center;padding:20px"><span class="spinner"></span> Resolving warehouse locations from Odoo…</div>`; m.classList.add('open');
+  let L; try{ L=await resolveTransferLocs(); }catch(e){ body.innerHTML=`<div style="display:flex;justify-content:space-between;margin-bottom:10px"><b>Internal transfer</b><button class="btn btn-secondary btn-sm" onclick="document.getElementById('tr-modal').classList.remove('open')">Close</button></div><div class="alert alert-err">${esc(e.message)}</div>`; return; }
+  const groups={};
+  for(const it of items){ const d=destOf(it); (groups[d]=groups[d]||[]).push(it); }
+  const multi=Object.keys(groups).length>1;
+  let html=`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px"><b>Create internal transfer${multi?'s':''}</b><button class="btn btn-secondary btn-sm" onclick="document.getElementById('tr-modal').classList.remove('open')">Close</button></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">From <b>${esc(L.andName)}</b>${multi?' · selection spans two destinations, so one transfer is created per destination':''}. Created as <b>“Mark to do”</b> (confirmed, not validated) — open in Odoo to validate.</div>`;
+  let blocked=true;
+  for(const d of Object.keys(groups)){
+    const cands=L.dests[d]||[];
+    if(cands.length) blocked=false;
+    const dOpts=cands.map((c,i)=>`<option value="${c.id}" ${i===0?'selected':''}>${esc(c.complete_name)}</option>`).join('');
+    html+=`<div class="tr-grp"><h4>→ ${d==='MTB'?'MTB · Maastricht':'Velovisie'} (${groups[d].length})</h4>`;
+    html+= cands.length
+      ? `<div class="field" style="margin-bottom:8px"><label>Destination location</label><select class="tr-dest" data-dest="${d}">${dOpts}</select></div>`
+      : `<div class="alert alert-err">No ${d} destination location found in Odoo — this group can’t be created.</div>`;
+    for(const it of groups[d]){
+      html+=`<div class="tr-line" data-dest="${d}" data-pid="${it.pid}" data-id="${esc(it.id)}"><span style="flex:1;min-width:0">${esc(it.name)}</span><input type="number" min="1" value="${Math.max(1,Math.round(it.qty))}" class="tr-qty"/></div>`;
+    }
+    html+=`</div>`;
+  }
+  html+=`<div id="tr-msg"></div><button class="btn btn-primary" id="tr-go" ${blocked?'disabled':''} onclick="submitTransfer()">Create in Odoo (Mark to do)</button>`;
+  body.innerHTML=html;
+}
+
+async function submitTransfer(){
+  const L=transferLocs; if(!L) return;
+  const groups={};
+  document.querySelectorAll('#tr-modal-body .tr-line').forEach(row=>{
+    const d=row.dataset.dest, pid=parseInt(row.dataset.pid), id=row.dataset.id;
+    const qty=parseFloat(row.querySelector('.tr-qty').value)||0;
+    if(qty>0){ (groups[d]=groups[d]||[]).push({pid,id,qty}); }
+  });
+  const destSel={}; document.querySelectorAll('#tr-modal-body .tr-dest').forEach(s=>destSel[s.dataset.dest]=parseInt(s.value));
+  const dests=Object.keys(groups).filter(d=>destSel[d]);
+  if(!dests.length){ document.getElementById('tr-msg').innerHTML='<div class="alert alert-warn">Set a quantity above 0 and pick a destination for at least one line.</div>'; return; }
+  document.getElementById('tr-go').disabled=true;
+  const msg=document.getElementById('tr-msg'); msg.innerHTML='<div class="alert alert-info"><span class="spinner"></span> Creating in Odoo…</div>';
+  try{
+    const pids=[...new Set([].concat(...dests.map(d=>groups[d].map(x=>x.pid))))];
+    const uom={}, pname={};
+    const prods=await odoo('product.product','read',[pids],{fields:['uom_id','display_name']});
+    for(const p of prods){ uom[p.id]=arr(p.uom_id)[0]; pname[p.id]=p.display_name; }
+    const made=[];
+    for(const d of dests){
+      const destLoc=destSel[d];
+      const lines=groups[d].map(x=>[0,0,{name:pname[x.pid]||('Transfer '+x.pid), product_id:x.pid, product_uom_qty:x.qty, product_uom:uom[x.pid], location_id:L.src, location_dest_id:destLoc}]);
+      const pickId=await odoo('stock.picking','create',[{picking_type_id:L.pickType, location_id:L.src, location_dest_id:destLoc, move_ids_without_package:lines}]);
+      try{ await odoo('stock.picking','action_confirm',[[pickId]]); }catch(e){ console.warn('action_confirm',e.message); }
+      let name='#'+pickId; try{ const rd=await odoo('stock.picking','read',[[pickId]],{fields:['name']}); if(rd&&rd[0]&&rd[0].name) name=rd[0].name; }catch(e){}
+      for(const x of groups[d]) snooze[x.id]={transfer:{id:pickId,name,dest:d,date:todayYmd()}};
+      made.push({name,id:pickId});
+    }
+    await persistSnooze();
+    selectedMoves.clear();
+    const links=made.map(p=>`<a class="odoo-link" href="${ODOO_URL}/odoo/action-stock.action_picking_tree_all/${p.id}" target="_blank">${esc(p.name)} ↗</a>`).join(' · ');
+    msg.innerHTML=`<div class="alert alert-success">✓ Created ${made.length} transfer${made.length===1?'':'s'} (Mark to do): ${links} — open in Odoo to validate.</div>`;
+    renderAgenda(); renderCalendar(); renderDone();
+    setTimeout(()=>document.getElementById('tr-modal').classList.remove('open'), 3200);
+  }catch(e){ document.getElementById('tr-go').disabled=false; msg.innerHTML='<div class="alert alert-err">Failed: '+esc(e.message)+'</div>'; }
+}
+
 // ── CALENDAR ──
 function calMove(n){ calDate=new Date(calDate.getFullYear(),calDate.getMonth()+n,1); renderCalendar(); }
 function calToday(){ calDate=new Date(); renderCalendar(); }
@@ -411,7 +527,7 @@ function renderCalendar(){
   const y=calDate.getFullYear(), m=calDate.getMonth();
   document.getElementById('cal-title').textContent=calDate.toLocaleDateString('en-GB',{month:'long',year:'numeric'});
   const byDate={};
-  for(const raw of (deadlines.items||[])){ const it=computeItem(raw); const st=stateOf(it); if(st==='done'||st==='po') continue; const d=it.actionDate; if(!d) continue; (byDate[d]=byDate[d]||[]).push(it); }
+  for(const raw of (deadlines.items||[])){ const it=computeItem(raw); const st=stateOf(it); if(st==='done'||st==='po'||st==='transfer') continue; const d=it.actionDate; if(!d) continue; (byDate[d]=byDate[d]||[]).push(it); }
   const dow=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   let html=dow.map(d=>`<div class="cal-dow">${d}</div>`).join('');
   const first=new Date(y,m,1); let startDow=(first.getDay()+6)%7;
@@ -427,7 +543,7 @@ function renderCalendar(){
   grid.innerHTML=html;
 }
 function openDay(ds){
-  const items=(deadlines.items||[]).map(computeItem).filter(it=>it.actionDate===ds && !['done','po'].includes(stateOf(it))).sort((a,b)=>a.type<b.type?-1:1);
+  const items=(deadlines.items||[]).map(computeItem).filter(it=>it.actionDate===ds && !['done','po','transfer'].includes(stateOf(it))).sort((a,b)=>a.type<b.type?-1:1);
   const body=document.getElementById('day-modal-body');
   body.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><b>${fmtD(ds)}</b><button class="btn btn-secondary btn-sm" onclick="document.getElementById('day-modal').classList.remove('open')">Close</button></div>`+
     (items.length?items.map(it=>{ const a=it.type==='order'?`Order ${fmt(it.qty)} — ${esc(it.name)} (sea; air fallback ${fmtD(it.orderByAir)})`:`Move ${fmt(it.qty)} AND→VV — ${esc(it.name)}`; return `<div class="item ${it.type}" style="margin-bottom:6px"><div class="item-ico">${it.type==='order'?'📦':'🔀'}</div><div class="item-main"><div class="item-sub">${a}</div></div></div>`; }).join(''):'<div class="empty">No tasks.</div>');
