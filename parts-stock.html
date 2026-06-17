@@ -271,7 +271,7 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
   <!-- FORWARD STOCK TAB -->
   <div class="view" id="view-forecast">
     <div class="explain">
-      <strong>Forward component stock — week by week.</strong> Models the real two-stage flow: incoming component POs (from the <strong>PO Tracker</strong>) are received into the <strong>Anderlecht (AND)</strong> warehouse, then moved to <strong>Velovisie (VV)</strong> for assembly. Each cell is the stock <strong>at Velovisie</strong> after that week's consumption, replenished from AND via the <code>⇄</code> transfer, from the <strong>PO Builder — Bikes</strong> plan (bikes/week × per-bike BoM usage, averaged per family). <code>(+n)</code> = a component PO arriving into AND that week; <code>⇄n</code> = the AND→VV transfer needed to keep the assembler supplied — sized to cover ~8 weeks of build (or whatever AND holds), allow ~3 days for the move; <code>⚙n</code> in week 1 = parts consumed by bikes already in production at Okazi (running POs, not yet built — the future PO-Builder bikes are the weekly plan). A <strong style="color:#8b1f1f">red / negative</strong> cell means <strong>both</strong> AND and VV are exhausted — place or pull a PO forward. POs already received (including those delivered straight to VV via subcontracting) drop out of the open-PO feed and are already reflected in current stock. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
+      <strong>Forward component stock — week by week.</strong> Models the real two-stage flow: incoming component POs (from the <strong>PO Tracker</strong>) are received into the <strong>Anderlecht (AND)</strong> warehouse, then moved to <strong>Velovisie (VV)</strong> for assembly. Each cell is the <strong>combined available stock (Velovisie + Anderlecht)</strong> after that week's consumption — i.e. assuming the AND→VV move has been made — driven by the <strong>PO Builder — Bikes</strong> plan (bikes/week × per-bike BoM usage, averaged per family). <code>(+n)</code> = a component PO arriving into AND that week; <code>⇄n</code> = the AND→VV transfer you still need to do (it also appears as a requested move in the <strong>Parts Agenda</strong>) — sized to cover ~8 weeks of build (or whatever AND holds), allow ~3 days for the move — sized to cover ~8 weeks of build (or whatever AND holds), allow ~3 days for the move; <code>⚙n</code> in week 1 = parts consumed by bikes already in production at Okazi (running POs, not yet built — the future PO-Builder bikes are the weekly plan). A <strong style="color:#8b1f1f">red / negative</strong> cell means <strong>both</strong> AND and VV are exhausted — place or pull a PO forward. POs already received (including those delivered straight to VV via subcontracting) drop out of the open-PO feed and are already reflected in current stock. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
     </div>
     <div class="kpis" id="fc-kpis"></div>
     <div class="toolbar">
@@ -1597,7 +1597,7 @@ function renderForecast(){
 
   const groupBy=(document.getElementById('fc-group')||{}).value||'area';
   const nWk=wks.length;
-  const head=`<tr><th class="fc-part">Component</th><th class="fc-w" title="Component stock at Velovisie now (start). AND replenishes via the ⇄ transfer.">VV now<br><span style="font-weight:400;font-size:9px">at Velovisie</span></th>${wks.map(w=>`<th class="fc-w" title="${esc(w.monday)}">${esc(w.label)}</th>`).join('')}</tr>`;
+  const head=`<tr><th class="fc-part">Component</th><th class="fc-w" title="Combined available now = Velovisie + Anderlecht. The ⇄ shows the AND→VV move still to do.">Available now<br><span style="font-weight:400;font-size:9px">VV + AND</span></th>${wks.map(w=>`<th class="fc-w" title="${esc(w.monday)}">${esc(w.label)}</th>`).join('')}</tr>`;
 
   const rowHtml=(p)=>{
     const tds=p.cells.map(c=>{
@@ -1605,10 +1605,10 @@ function renderForecast(){
       const arrTxt=a>0?`<span class="fc-arr">(+${fmt(a)})</span>`:'';
       const xferTxt=x>0?`<span class="fc-xfer" title="Move ${fmt(x)} from AND → VV this week (allow ~3 days for the transfer)">⇄${fmt(x)}</span>`:'';
       const ipTxt=ip>0?`<span class="fc-ip" title="${fmt(ip)} consumed by bikes already in production at Okazi (running POs, not yet built)">⚙${fmt(ip)}</span>`:'';
-      return `<td class="${c.level<0?'fc-neg':''}" title="At Velovisie ${fmt(Math.round(c.level))} · still in AND ${fmt(Math.round(c.and))}">${fmt(Math.round(c.level))}${arrTxt}${xferTxt}${ipTxt}</td>`;
+      return `<td class="${c.combined<0?'fc-neg':''}" title="Combined ${fmt(Math.round(c.combined))} = Velovisie ${fmt(Math.round(c.level))} + AND ${fmt(Math.round(c.and))}${x>0?(' · move '+fmt(x)+' AND→VV'):''}">${fmt(Math.round(c.combined))}${arrTxt}${xferTxt}${ipTxt}</td>`;
     }).join('');
     const nm=`${p.r.partNo?('['+esc(p.r.partNo)+'] '):''}${esc(p.r.partName)}`;
-    return `<tr><td class="fc-part" title="Click for incoming-PO breakdown · ${esc(p.r.category)}" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" onclick="fcInspect(${p.r.id})">${nm}</td><td class="fc-w" style="font-weight:600" title="At Velovisie ${fmt(Math.round(p.start))} · in AND (replenishment) ${fmt(Math.round(p.startAnd))}">${fmt(Math.round(p.start))}</td>${tds}</tr>`;
+    return `<tr><td class="fc-part" title="Click for incoming-PO breakdown · ${esc(p.r.category)}" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" onclick="fcInspect(${p.r.id})">${nm}</td><td class="fc-w" style="font-weight:600" title="Combined ${fmt(Math.round(p.start+p.startAnd))} = Velovisie ${fmt(Math.round(p.start))} + AND ${fmt(Math.round(p.startAnd))}">${fmt(Math.round(p.start+p.startAnd))}</td>${tds}</tr>`;
   };
 
   let body='';
@@ -1633,7 +1633,7 @@ function renderForecast(){
   }
   grid.innerHTML=`<table class="fcg"><thead>${head}</thead><tbody>${body||`<tr><td class="fc-part" style="padding:20px">No components${onlyNeg?' go negative — all covered 🎉':' use parts in this plan.'}</td></tr>`}</tbody></table>`;
   const st=document.getElementById('fc-status');
-  if(st) st.textContent=`${view.length} components${model?(' for '+ (FAMILIES.find(f=>f.key===model)||{}).label):' used'} · start = Velovisie (VV) stock · (+n) = component PO arrival`;
+  if(st) st.textContent=`${view.length} components${model?(' for '+ (FAMILIES.find(f=>f.key===model)||{}).label):' used'} · cells = combined VV + AND · (+n) = PO into AND · ⇄ = AND→VV move`;
 }
 
 // ── CSV EXPORT ───────────────────────────────────────────────
