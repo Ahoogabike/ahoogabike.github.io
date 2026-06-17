@@ -847,7 +847,7 @@ async function saveCredentials(){
   s.textContent='Verifying with Odoo…';s.className='connect-status';
   try{
     const uid=await validateOdoo(user,key);
-    if(!uid){s.textContent='✗ Login failed — check your email and password.';s.className='connect-status err';return;}
+    if(!uid){s.textContent='✗ Login failed. Check your email/password — and if your Odoo account uses two-factor (2FA) login, you must paste an Odoo API key here instead of your password (Odoo ▸ avatar ▸ Account Security ▸ New API Key).';s.className='connect-status err';return;}
     localStorage.setItem('mxp_cfg',JSON.stringify({user,key}));
     s.textContent='✓ Logged in — opening…';s.className='connect-status ok';
     document.documentElement.classList.add('mxp-authed');
@@ -864,7 +864,7 @@ async function validateOdoo(user,key){
   const r=await fetch(W+'/odoo/'+encodeURIComponent(U+'/xmlrpc/2/common'),{method:'POST',headers:{'Content-Type':'application/xml'},body});
   if(!r.ok) throw new Error('proxy '+r.status);
   const doc=new DOMParser().parseFromString(await r.text(),'text/xml');
-  if(doc.querySelector('fault')) return false;
+  if(doc.querySelector('fault')){var _f=(doc.querySelector('fault').textContent||'').replace(/\s+/g,' ').trim();throw new Error(_f?('Odoo says: '+_f.slice(0,220)):'Odoo rejected the request');}
   const el=doc.querySelector('methodResponse>params>param>value>int, methodResponse>params>param>value>i4');
   const uid=el?parseInt(el.textContent):NaN;
   return uid>0?uid:false;
