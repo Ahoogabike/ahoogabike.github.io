@@ -1112,9 +1112,10 @@ async function loadData(){
     incomingByPart={};
     const seenPolIds=new Set();   // guard against any overlap across chunks
     for(const c of idChunks){
-      const pols=toArr(await odoo('purchase.order.line','search_read',
+      let pols=await odoo('purchase.order.line','search_read',
         [[['product_id','in',c],['state','in',['purchase','done']],['product_qty','>',0]]],
-        {fields:['id','product_id','product_qty','qty_received','date_planned','order_id']}));
+        {fields:['id','product_id','product_qty','qty_received','date_planned','order_id']});
+      pols=Array.isArray(pols)?pols:(pols?[pols]:[]);
       for(const pl of pols){
         if(seenPolIds.has(pl.id)) continue; seenPolIds.add(pl.id);
         const p=arr(pl.product_id); if(!p[0]) continue;
