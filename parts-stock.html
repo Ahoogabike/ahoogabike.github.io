@@ -276,7 +276,8 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
     <div class="kpis" id="fc-kpis"></div>
     <div class="toolbar">
       <input type="text" id="fc-search" placeholder="🔍 component name / number…" style="min-width:200px;flex:1" oninput="renderForecast()"/>
-      <select id="fc-model" onchange="renderForecast()" title="Show only components used by one model"><option value="">All models</option></select>
+      <select id="fc-model" onchange="renderForecast()" title="Show only components used by one model (A-MAX/E-MAX · Alfine/Derailleur)"><option value="">All models</option></select>
+      <select id="fc-ref" onchange="renderForecast()" title="Show only components used by one of the 32 bike references"><option value="">All references</option></select>
       <label class="toggle" style="gap:4px">Group:
         <select id="fc-group" onchange="renderForecast()">
           <option value="area" selected>Bike area</option>
@@ -361,6 +362,8 @@ try{const a=localStorage.getItem(ADJ_LS);if(a)recvAdj=JSON.parse(a)||{};}catch(e
 function saveAdj(){try{localStorage.setItem(ADJ_LS,JSON.stringify(recvAdj));}catch(e){}}
 let sortKey='partName'; let sortDir=1;
 let usagePerBikeByFam={};   // famKey -> {productId: qty per one bike}
+let bikeRefs=[];            // the exact bike references the PO Builder builds {id,code,name,tmplId,fam}
+let tmplParts={};           // bike template id -> Set(component productId) — for the per-reference filter
 let incomingByPart={};      // productId -> [{date:'YYYY-MM-DD'|null, qty}]
 let productionPlan=null;    // {weeks:[{monday,label,iso}], byFam:{EMA:[],EMD:[],AMA:[],AMD:[]}, ...}
 let productionBasis=null;   // {inprodBySku, unmatchedBySku, ...} published by Max Planner
@@ -810,10 +813,26 @@ function bikeFamilyKey(name){
 const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o;};
 
 async function collectBomGraph(){
+  // Anchor to EXACTLY the bikes the PO Builder builds: AHFAM… (A-MAX) / AHFMC… (E-MAX) variants,
+  // current model year (no "MYxx" tag) in Alfine or Derailleur (no Nexus). No other products leak in.
+  const EXCLUDE_RE=/\bMY\s?\d{2}\b|\bnexus\b/i;
+  const bikeProds=await odoo('product.product','search_read',
+    [['|',['default_code','=like','AHFAM%'],['default_code','=like','AHFMC%']]],
+    {fields:['id','default_code','display_name','product_tmpl_id'],limit:500});
+  bikeRefs=[]; const tmplSet=new Set(), tmplName={};
+  for(const p of bikeProds){
+    const nm=p.display_name||''; if(EXCLUDE_RE.test(nm)) continue;
+    const up=nm.toUpperCase(); if(!(up.includes('ALFINE')||up.includes('DERAILLEUR'))) continue;  // PO Builder set only
+    const t=arr(p.product_tmpl_id)[0]; if(t==null) continue;
+    bikeRefs.push({id:p.id, code:p.default_code||'', name:nm, tmplId:t, fam:bikeFamilyKey(nm)});
+    tmplSet.add(t); if(!tmplName[t]) tmplName[t]=arr(p.product_tmpl_id)[1]||nm;
+  }
+  const bikeTmplIds=[...tmplSet];
+  console.log('[PartStock] anchored to', bikeRefs.length, 'bike references ·', bikeTmplIds.length, 'templates');
+  if(!bikeTmplIds.length) return {partIds:new Set(),subIds:new Set(),bomByTmpl:{},prodToTmpl:{},bikeBoms:[],bikeBomCount:0};
   const bikeBomsRaw=await odoo('mrp.bom','search_read',
-    [[['product_tmpl_id.name','ilike','MAX']]],
+    [[['product_tmpl_id','in',bikeTmplIds]]],
     {fields:['id','product_tmpl_id','product_qty','bom_line_ids'],limit:2000});
-  if(!bikeBomsRaw.length) return {partIds:new Set(),subIds:new Set(),bomByTmpl:{},prodToTmpl:{},bikeBoms:[],bikeBomCount:0};
 
   const bomByTmpl={};   // tmplId -> {productQty, lines:[{pid,qty}]}
   const prodToTmpl={};  // productId -> tmplId
@@ -821,20 +840,15 @@ async function collectBomGraph(){
   const bikeBoms=[];    // [{tmplId,name}]
   const seenTmpl=new Set();
 
-  // Skip next-model-year bikes (e.g. "… MY27") — they aren't in current production / the PO Builder.
-  // Current production bikes are untagged ("A-MAX Derailleur"); future ones carry an MY-year tag.
-  const EXCLUDE_BIKE_RE=/\bMY\s?\d{2}\b/i;
-  let queue=[]; const excludedBikes=[];
+  let queue=[];
   for(const b of bikeBomsRaw){
     const t=arr(b.product_tmpl_id);
-    if(EXCLUDE_BIKE_RE.test(t[1]||'')){ seenTmpl.add(t[0]); if(!excludedBikes.includes(t[1])) excludedBikes.push(t[1]); continue; }
     if(!seenTmpl.has(t[0])){
-      bikeBoms.push({tmplId:t[0],name:t[1]});
+      bikeBoms.push({tmplId:t[0],name:t[1]||tmplName[t[0]]||''});
       queue.push({tmplId:t[0],productQty:b.product_qty||1,lineIds:b.bom_line_ids||[]});
       seenTmpl.add(t[0]);
     }
   }
-  if(excludedBikes.length) console.log('[PartStock] excluded future model-year bikes from the parts scan:', excludedBikes);
 
   let level=0;
   while(queue.length && level<15){
@@ -1125,13 +1139,15 @@ async function loadData(){
 
     // ── BoM MEMBERSHIP (which bike BoMs each part belongs to) — from the BoM
     // tree itself, independent of whether any bike was produced.
+    tmplParts={};
     const famParts={};                            // famKey -> Set(productId)
     for(const bb of bikeBoms){
       const fam=bikeFamilyKey(bb.name)||'OTHER';
       let usage=usageCache[bb.tmplId];
       if(!usage){ usage=explodeUsage(bb.tmplId,bomByTmpl,prodToTmpl); usageCache[bb.tmplId]=usage; }
       if(!famParts[fam]) famParts[fam]=new Set();
-      for(const pid in usage) famParts[fam].add(Number(pid));
+      if(!tmplParts[bb.tmplId]) tmplParts[bb.tmplId]=new Set();
+      for(const pid in usage){ famParts[fam].add(Number(pid)); tmplParts[bb.tmplId].add(Number(pid)); }
     }
     const ALL_FAM=[...FAM_KEYS,'OTHER'];
     bomMenu=ALL_FAM.filter(k=>famParts[k]&&famParts[k].size).map(k=>({
@@ -1192,7 +1208,7 @@ async function loadData(){
     // serial appears in Odoo (it leaves 'inprod') and its components show up in `consumed`, so inprodBySku
     // holds exactly the bikes whose parts are NOT yet consumed → add them to the forward burn-down.
     inprodByFam={};
-    const SKU_FAM={'emax|alfine':'EMA','emax|derailleur':'EMD','emax|nexus':'EMN','amax|alfine':'AMA','amax|derailleur':'AMD','amax|nexus':'AMN'};
+    const SKU_FAM={'emax|alfine':'EMA','emax|derailleur':'EMD','amax|alfine':'AMA','amax|derailleur':'AMD'};   // PO Builder families only (no Nexus)
     // ALL bikes on open Okazi POs that aren't built yet (no serial) consume their parts when assembled,
     // so they burn from VV up-front. That's BOTH buckets the Planner splits Okazi POs into:
     //   inprodBySku   = bikes on the PO matched to a customer order
@@ -1213,6 +1229,7 @@ async function loadData(){
     render();
     renderSummary();
     renderForecast();
+    renderMtbForecast();
 
     const ts=new Date().toLocaleTimeString();
     document.getElementById('conn-pill').textContent=`${rows.length} BoM parts · ${ts}`;
@@ -1484,12 +1501,19 @@ function renderForecast(){
       .map(f=>`<option value="${f.key}">${esc(f.label)}</option>`).join('');
     modelSel.innerHTML='<option value="">All models</option>'+opts;
   }
+  // reference filter (populate once) — the exact 32 bike references
+  const refSel=document.getElementById('fc-ref');
+  if(refSel && refSel.options.length<=1 && bikeRefs.length){
+    refSel.innerHTML='<option value="">All references</option>'+bikeRefs.map(r=>`<option value="${r.tmplId}">${esc(r.code?('['+r.code+'] '):'')}${esc(r.name)}</option>`).join('');
+  }
   const search=(document.getElementById('fc-search').value||'').toLowerCase();
   const cat=document.getElementById('fc-cat').value;
   const model=(modelSel||{}).value||'';
+  const ref=(refSel||{}).value||'';
   const onlyNeg=document.getElementById('fc-onlyneg').checked;
   const hideSub=(document.getElementById('fc-hidesub')||{checked:true}).checked;
   const usedByModel=(pid)=> !model || ((usagePerBikeByFam[model]||{})[pid]||0)>0;
+  const usedByRef=(pid)=> !ref || (tmplParts[ref] && tmplParts[ref].has(Number(pid)));
 
   // incoming PO qty for a part within week wi  (monday wi inclusive → next monday exclusive; last week catches all later)
   const incForWeek=(pid,wi)=>{
@@ -1536,7 +1560,10 @@ function renderForecast(){
   }).filter(p=>{
     if(hideSub && p.r.isSub) return false;                 // built in-house, not purchased
     if(wheelComponentIds.has(p.r.id)) return false;        // wheel sub-parts live at MTB → see the “Forward stock at MTB” tab
-    return model ? usedByModel(p.r.id) : p.totCons>0.0001;
+    if(model && !usedByModel(p.r.id)) return false;
+    if(ref && !usedByRef(p.r.id)) return false;
+    if(!model && !ref) return p.totCons>0.0001;            // default view: anything the plan consumes
+    return true;
   });
 
   let view=proj.filter(p=>{
