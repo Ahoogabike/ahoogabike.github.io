@@ -592,6 +592,16 @@ async function publishWheelMap(){
     console.log('[PartStock] wheel_map published — wheels', Object.keys(wheels).length);
   }catch(e){ console.warn('[PartStock] publishWheelMap failed:', e.message); }
 }
+// ── PUBLISH WHEEL-COMPONENT SUPPLY (so the wheel tab can cap assembly by MTB component availability) ─
+async function publishWheelComponentSupply(){
+  try{
+    const usageByWheel={}, stock={}, incoming={}, names={};
+    for(const r of rows){ if(!r.isWheel) continue; const t=prodToTmpl[r.id]; if(t==null) continue; const code=r.partNo||('#'+r.id); usageByWheel[code]=explodeUsage(t,bomByTmpl,prodToTmpl,true); }
+    for(const r of rows){ if(!wheelComponentIds.has(r.id)) continue; stock[r.id]=(r.mtbQty||0)+(r.andQty||0); names[r.id]=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`; const inc=incomingByPart[r.id]; if(inc&&inc.length) incoming[r.id]=inc.map(d=>({date:d.date||null, qty:d.qty})); }
+    await kvSetStore('wheel_component_supply', {updated:new Date().toISOString(), usageByWheel, stock, incoming, names});
+    console.log('[PartStock] wheel_component_supply published — wheels', Object.keys(usageByWheel).length, '· components', Object.keys(stock).length);
+  }catch(e){ console.warn('[PartStock] publishWheelComponentSupply failed:', e.message); }
+}
 // ── PUBLISH WHEEL DEADLINES (MTB tier, for the Wheels agenda) ─
 // Wheel sub-parts are consumed by wheel assembly at MTB, which runs WHEEL_LEAD_WEEKS before the bikes.
 // Same two-pool logic as the VV components: MTB is the consumption pool, AND is the replenishment buffer.
@@ -705,15 +715,20 @@ async function collectBomGraph(){
   const bikeBoms=[];    // [{tmplId,name}]
   const seenTmpl=new Set();
 
-  let queue=[];
+  // Skip next-model-year bikes (e.g. "… MY27") — they aren't in current production / the PO Builder.
+  // Current production bikes are untagged ("A-MAX Derailleur"); future ones carry an MY-year tag.
+  const EXCLUDE_BIKE_RE=/\bMY\s?\d{2}\b/i;
+  let queue=[]; const excludedBikes=[];
   for(const b of bikeBomsRaw){
     const t=arr(b.product_tmpl_id);
+    if(EXCLUDE_BIKE_RE.test(t[1]||'')){ seenTmpl.add(t[0]); if(!excludedBikes.includes(t[1])) excludedBikes.push(t[1]); continue; }
     if(!seenTmpl.has(t[0])){
       bikeBoms.push({tmplId:t[0],name:t[1]});
       queue.push({tmplId:t[0],productQty:b.product_qty||1,lineIds:b.bom_line_ids||[]});
       seenTmpl.add(t[0]);
     }
   }
+  if(excludedBikes.length) console.log('[PartStock] excluded future model-year bikes from the parts scan:', excludedBikes);
 
   let level=0;
   while(queue.length && level<15){
@@ -1072,14 +1087,22 @@ async function loadData(){
     // holds exactly the bikes whose parts are NOT yet consumed → add them to the forward burn-down.
     inprodByFam={};
     const SKU_FAM={'emax|alfine':'EMA','emax|derailleur':'EMD','emax|nexus':'EMN','amax|alfine':'AMA','amax|derailleur':'AMD','amax|nexus':'AMN'};
+    // ALL bikes on open Okazi POs that aren't built yet (no serial) consume their parts when assembled,
+    // so they burn from VV up-front. That's BOTH buckets the Planner splits Okazi POs into:
+    //   inprodBySku   = bikes on the PO matched to a customer order
+    //   incomingBySku = the remaining (unmatched) bikes still on the open PO
     const ipBySku=(productionBasis&&productionBasis.inprodBySku)||{};
-    for(const sku in ipBySku){ const p=sku.split('|'); const fk=SKU_FAM[p[0]+'|'+p[1]]; if(fk) inprodByFam[fk]=(inprodByFam[fk]||0)+(ipBySku[sku]||0); }
+    const incBySku=(productionBasis&&productionBasis.incomingBySku)||{};
+    const addInprod=(sku,n)=>{ const p=sku.split('|'); const fk=SKU_FAM[p[0]+'|'+p[1]]; if(fk && n) inprodByFam[fk]=(inprodByFam[fk]||0)+n; };
+    for(const sku in ipBySku)  addInprod(sku, ipBySku[sku]||0);
+    for(const sku in incBySku) addInprod(sku, incBySku[sku]||0);
 
     publishComponentSupply();   // close the loop: tell the PO Builder what's buildable at VV
     publishPartsDeadlines();    // feed the Parts Agenda: order-by + AND→VV move-by dates
     publishWheelStock();        // feed the PO Builder wheel tab: wheels already on hand
     publishWheelDeadlines();    // feed the Wheels agenda: MTB wheel-component order/move tasks
     publishWheelMap();          // feed the PO Builder wheel tab: which wheel SKU each bike family uses
+    publishWheelComponentSupply(); // feed the wheel tab: MTB wheel-component availability (cap wheel assembly)
 
     render();
     renderSummary();
