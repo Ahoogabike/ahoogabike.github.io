@@ -572,9 +572,24 @@ body{background:var(--paper)}
         <div class="card-desc">This-week purchase orders plus a tentative weekly plan to year-end covering the full bike forecast, batch-constrained</div>
         <div class="card-arrow">→</div>
       </a>
-<a href="po-tracker.html" class="card" style="--accent:#2f6df0">
+<a href="po-builder-my27.html" class="card" style="--accent:#2a9d8f">
         <div class="card-header">
           <div class="card-num">06</div>
+          <div class="card-icon-wrap">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2a9d8f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="16" rx="2"/>
+              <path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/>
+              <path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/>
+            </svg>
+          </div>
+        </div>
+        <div class="card-title">PO Builder — MY27</div>
+        <div class="card-desc">Model-year 2027 production plan (Nov 2026 → Sept 2027), split by 2026 invoiced mix, plus a Forward Stock burn-down showing when each part runs short</div>
+        <div class="card-arrow">→</div>
+      </a>
+<a href="po-tracker.html" class="card" style="--accent:#2f6df0">
+        <div class="card-header">
+          <div class="card-num">07</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <rect x="5" y="3" width="14" height="18" rx="2" fill="none" stroke="#2f6df0" stroke-width="1.5"/>
@@ -594,7 +609,7 @@ body{background:var(--paper)}
       </a>
 <a href="parts-stock.html" class="card" style="--accent:#8a4fd6">
         <div class="card-header">
-          <div class="card-num">07</div>
+          <div class="card-num">08</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <rect x="4" y="13" width="8" height="10" rx="1.5" fill="none" stroke="#8a4fd6" stroke-width="1.5"/>
@@ -612,7 +627,7 @@ body{background:var(--paper)}
       </a>
 <a href="parts-agenda.html" class="card" style="--accent:#b45309">
         <div class="card-header">
-          <div class="card-num">08</div>
+          <div class="card-num">09</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <rect x="4" y="6" width="20" height="18" rx="2" fill="none" stroke="#b45309" stroke-width="1.5"/>
@@ -630,7 +645,7 @@ body{background:var(--paper)}
       </a>
 <a href="dsv-ship.html" class="card" style="--accent:#0a4d8c">
         <div class="card-header">
-          <div class="card-num">09</div>
+          <div class="card-num">10</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <path d="M3 7h11v9H3z" stroke="#0a4d8c" stroke-width="1.6" stroke-linejoin="round"/>
@@ -652,7 +667,7 @@ body{background:var(--paper)}
       <div class="grid">
 <a href="bike-time-tracker.html" class="card" style="--accent:#e08a1e">
         <div class="card-header">
-          <div class="card-num">10</div>
+          <div class="card-num">11</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <circle cx="14" cy="15" r="8" fill="none" stroke="#e08a1e" stroke-width="1.5"/>
@@ -756,7 +771,7 @@ body{background:var(--paper)}
     <div class="grid">
       <a href="sav-app.html" class="card" style="--accent:#e23b34">
         <div class="card-header">
-          <div class="card-num">11</div>
+          <div class="card-num">12</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <circle cx="14" cy="14" r="9" fill="none" stroke="#e23b34" stroke-width="1.5"/>
@@ -774,7 +789,7 @@ body{background:var(--paper)}
       </a>
       <a href="ahooga_max_repair.html" class="card" style="--accent:#c9991f">
         <div class="card-header">
-          <div class="card-num">12</div>
+          <div class="card-num">13</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <circle cx="14" cy="14" r="9" fill="none" stroke="#c9991f" stroke-width="1.5"/>
@@ -799,7 +814,7 @@ body{background:var(--paper)}
       
       <a href="knowledge-library.html" class="card" style="--accent:#a85fd0">
         <div class="card-header">
-          <div class="card-num">13</div>
+          <div class="card-num">14</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <rect x="5" y="3" width="18" height="22" rx="2" fill="none" stroke="#a85fd0" stroke-width="1.5"/>
@@ -892,6 +907,7 @@ document.getElementById('hp-key').addEventListener('keydown',e=>{if(e.key==='Ent
     {name:'Supply',color:'#176f8c',icon:I.supply,apps:[
       {t:'Production Planner',h:'https://ahoogabike.github.io/AhoogaMAX_Planner/',c:'#ea1d5e'},
       {t:'PO Builder — Bikes',h:'po-builder-bikes.html',c:'#176f8c'},
+      {t:'PO Builder — MY27',h:'po-builder-my27.html',c:'#2a9d8f'},
       {t:'PO Tracker',h:'po-tracker.html',c:'#2f6df0'},
       {t:'Parts Stock Count',h:'parts-stock.html',c:'#8a4fd6'},
       {t:'Parts Agenda',h:'parts-agenda.html',c:'#b45309'},

@@ -633,17 +633,41 @@ async function publishComponentSupply(){
     // parts already committed to bikes in running Okazi POs (consumed up-front)
     const inprodCons={};
     for(const fam in inprodByFam){ const u=usagePerBikeByFam[fam]||{}; const n=inprodByFam[fam]||0; for(const pid in u) inprodCons[pid]=(inprodCons[pid]||0)+u[pid]*n; }
-    const stock={}, incoming={}, names={};
+    const stock={}, stockDetail={}, incoming={}, names={}, cats={}, partNos={};
     for(const r of rows){
       const pid=r.id; if(!used.has(Number(pid))) continue;
-      stock[pid]=(r.vvReal||0)+(r.andQty||0)-(inprodCons[pid]||0);
+      const vv=(r.vvReal||0), and=(r.andQty||0), inprod=(inprodCons[pid]||0);
+      stock[pid]=vv+and-inprod;
+      stockDetail[pid]={vv, and, inprod};                       // breakdown so consumers can explain the start figure
       names[pid]=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
+      cats[pid]=r.category||'—'; partNos[pid]=r.partNo||'';      // for grouping (Odoo category) & part-number filtering downstream
       const inc=incomingByPart[pid];
-      if(inc && inc.length) incoming[pid]=inc.map(d=>({date:addDays(d.date,TRANSFER_LEAD_DAYS), qty:d.qty}));  // available at VV = AND receipt + transfer lead
+      if(inc && inc.length) incoming[pid]=inc.map(d=>({date:addDays(d.date,TRANSFER_LEAD_DAYS), qty:d.qty, ref:d.ref||null, andDate:d.date||null}));  // available at VV = AND receipt + transfer lead; ref = source PO/receipt
+    }
+    // Projected ENDING stock = the last column of the Forward Stock tab: what's left after the
+    // current production plan (MY26) consumes its parts. This is the right starting point for MY27.
+    const endStock={}, endDetail={};
+    if(productionPlan && productionPlan.weeks && productionPlan.weeks.length){
+      const wks=productionPlan.weeks, byFam=productionPlan.byFam||{};
+      const incForWeek=(pid,wi)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[wi].monday, end=wks[wi+1]?wks[wi+1].monday:null; let z=0; for(const d of list){ if(!d.date){ if(wi===0) z+=d.qty; continue; } if(d.date>=start && (!end||d.date<end)) z+=d.qty; } return z; };
+      const incBeforeFirst=(pid)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[0].monday; let z=0; for(const d of list){ if(d.date && d.date<start) z+=d.qty; } return z; };
+      for(const r of rows){
+        const pid=r.id; if(!used.has(Number(pid))) continue;
+        let inprodC=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodC+=u*(inprodByFam[fam]||0); }
+        const consArr=wks.map((_,wi)=>{ let c=0; for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodC; return c; });
+        let vv=(r.vvReal||0), andP=(r.andQty||0); const overdue=incBeforeFirst(pid);
+        for(let wi=0; wi<wks.length; wi++){
+          const cons=consArr[wi]; let arrv=incForWeek(pid,wi); if(wi===0) arrv+=overdue;
+          andP+=arrv; vv-=cons;
+          if(vv<0 && andP>0){ let future=0; for(let j=wi+1;j<=wi+MOVE_COVER_WEEKS&&j<consArr.length;j++) future+=consArr[j]; const xfer=Math.min(-vv+future, andP); vv+=xfer; andP-=xfer; }
+        }
+        endStock[pid]=vv+andP; endDetail[pid]={vv, and:andP};
+      }
     }
     const usageByFam={};
     for(const f in usagePerBikeByFam){ const u=usagePerBikeByFam[f]; if(u && Object.keys(u).length) usageByFam[f]=u; }
-    const payload={ updated:new Date().toISOString(), basis:'vv+and+incoming', transferLeadDays:TRANSFER_LEAD_DAYS, usageByFam, stock, incoming, names };
+    const planEnd=(productionPlan&&productionPlan.weeks&&productionPlan.weeks.length)?productionPlan.weeks[productionPlan.weeks.length-1].monday:null;
+    const payload={ updated:new Date().toISOString(), basis:'vv+and+incoming', transferLeadDays:TRANSFER_LEAD_DAYS, usageByFam, stock, stockDetail, endStock, endDetail, planEnd, incoming, names, cats, partNos };
     const ok=await kvSetStore('component_supply', payload);
     console.log('[PartStock] component_supply published:', Object.keys(stock).length, 'components ·', ok);
   }catch(e){ console.warn('[PartStock] publishComponentSupply failed:', e.message); }
