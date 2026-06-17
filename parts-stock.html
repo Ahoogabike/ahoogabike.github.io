@@ -362,6 +362,7 @@ try{const a=localStorage.getItem(ADJ_LS);if(a)recvAdj=JSON.parse(a)||{};}catch(e
 function saveAdj(){try{localStorage.setItem(ADJ_LS,JSON.stringify(recvAdj));}catch(e){}}
 let sortKey='partName'; let sortDir=1;
 let usagePerBikeByFam={};   // famKey -> {productId: qty per one bike}
+let bomByTmpl={}, prodToTmpl={};  // BoM graph — module-level so the wheel/MTB helpers can read it
 let bikeRefs=[];            // the exact bike references the PO Builder builds {id,code,name,tmplId,fam}
 let tmplParts={};           // bike template id -> Set(component productId) — for the per-reference filter
 let incomingByPart={};      // productId -> [{date:'YYYY-MM-DD'|null, qty}]
@@ -813,6 +814,7 @@ function bikeFamilyKey(name){
 const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o;};
 
 async function collectBomGraph(){
+  bomByTmpl={}; prodToTmpl={};
   // Anchor to EXACTLY the bikes the PO Builder builds: AHFAM… (A-MAX) / AHFMC… (E-MAX) variants,
   // current model year (no "MYxx" tag) in Alfine or Derailleur (no Nexus). No other products leak in.
   const EXCLUDE_RE=/\bMY\s?\d{2}\b|\bnexus\b/i;
@@ -834,8 +836,6 @@ async function collectBomGraph(){
     [[['product_tmpl_id','in',bikeTmplIds]]],
     {fields:['id','product_tmpl_id','product_qty','bom_line_ids'],limit:2000});
 
-  const bomByTmpl={};   // tmplId -> {productQty, lines:[{pid,qty}]}
-  const prodToTmpl={};  // productId -> tmplId
   const partIds=new Set();
   const bikeBoms=[];    // [{tmplId,name}]
   const seenTmpl=new Set();
@@ -946,7 +946,7 @@ async function loadData(){
 
     // 1 ── BOM UNIVERSE: components of every MAX bike (incl. sub-assemblies), with quantities
     alert_('<span class="spinner"></span> Step 1/5 — Exploding MAX bike BoMs…','info');
-    const {partIds,subIds,bomByTmpl,prodToTmpl,bikeBoms,bikeBomCount}=await collectBomGraph();
+    const {partIds,subIds,bikeBoms,bikeBomCount}=await collectBomGraph();
 
     // ── Identify MTB wheel assemblies (vendor = MTB Maastricht) ──
     // A sub-assembly whose vendor/subcontractor is MTB is built at MTB; VV then consumes the finished
