@@ -103,6 +103,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   <button class="nav-btn active" id="nav-agenda" onclick="showTab('agenda')">📋 Agenda</button>
   <button class="nav-btn" id="nav-calendar" onclick="showTab('calendar')">🗓 Calendar</button>
   <button class="nav-btn" id="nav-leadtimes" onclick="showTab('leadtimes')">⏱ Lead times</button>
+  <button class="nav-btn" id="nav-done" onclick="showTab('done')">✓ Done</button>
   <button class="nav-btn" id="nav-connect" onclick="showTab('connect')">⚙ Connection</button>
   <div class="header-right">
     <span class="pill" id="conn-pill">not loaded</span>
@@ -161,6 +162,18 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
       <table class="lt"><thead><tr><th>Part</th><th>Vendor (Odoo)</th><th class="num">Odoo lead</th><th class="num">Sea days (used)</th><th class="num">Air days</th></tr></thead><tbody id="lt-rows"></tbody></table>
       <div class="hint" style="margin-top:10px">Sea/air boxes are blank = use the Odoo lead (sea) or the default. Connect in ⚙ Connection, then “Load lead times from Odoo”.</div>
     </div>
+  </div>
+
+  <!-- DONE -->
+  <div class="view" id="view-done">
+    <div class="explain">
+      <strong>Done &amp; PO-created tasks.</strong> Everything you marked <code>✓ done</code> or created a PO for lands here — nothing is lost. Clicked something by mistake? Hit <b>↩ Put back</b> to return it to the agenda's to-do list. This is shared with the team.
+    </div>
+    <div class="toolbar">
+      <input type="text" id="done-search" placeholder="🔍 part name / number…" style="min-width:200px;flex:1" oninput="renderDone()"/>
+    </div>
+    <div class="kpis" id="done-kpis"></div>
+    <div id="done-list"></div>
   </div>
 
   <!-- CONNECTION -->
@@ -252,6 +265,7 @@ function showTab(t){
   document.getElementById('nav-'+t).classList.add('active');
   if(t==='calendar') renderCalendar();
   if(t==='leadtimes') renderLeadTable();
+  if(t==='done') renderDone();
 }
 
 // ── LOAD ──
@@ -267,12 +281,12 @@ async function loadAll(toast){
   document.getElementById('conn-pill').textContent= n? `${n} tasks · ${when}` : 'no forecast yet';
   document.getElementById('conn-pill').className= n?'pill ok':'pill err';
   if(!n) alert_('No forecast found yet. Open the <b>Parts Stock</b> app and load it once — it publishes the deadlines this agenda reads.','warn');
-  updateSetButtons(); renderAgenda(); renderCalendar(); renderLeadTable();
+  updateSetButtons(); renderAgenda(); renderCalendar(); renderLeadTable(); renderDone();
   if(toast && n) alert_('Agenda refreshed.','success');
 }
 
 function transferLead(){ return (deadlines && deadlines.transferLeadDays!=null)? deadlines.transferLeadDays : 3; }
-function setAgendaSet(x){ agendaSet=x; deadlines=(x==='wheels'?dsWheels:dsComponents)||{items:[]}; updateSetButtons(); renderAgenda(); renderCalendar(); renderLeadTable(); }
+function setAgendaSet(x){ agendaSet=x; deadlines=(x==='wheels'?dsWheels:dsComponents)||{items:[]}; updateSetButtons(); renderAgenda(); renderCalendar(); renderLeadTable(); renderDone(); }
 function updateSetButtons(){
   const cN=(dsComponents&&dsComponents.items)?dsComponents.items.length:0, wN=(dsWheels&&dsWheels.items)?dsWheels.items.length:0;
   const bc=document.getElementById('set-components'), bw=document.getElementById('set-wheels');
@@ -346,9 +360,9 @@ function itemHtml(it){
     dateBlock=`<div class="item-date">move by <b>${fmtD(it.moveBy)}</b><div style="margin-top:3px">${dueTxt}</div></div>`;
   }
   const s=snooze[it.id]||{};
-  if(st==='po'){ const link=`${ODOO_URL}/odoo/purchase/${s.po.id}`; actions=`<span class="tag po">PO created</span> <a class="odoo-link" href="${link}" target="_blank">${esc(s.po.name||('#'+s.po.id))} ↗</a> <button class="btn btn-secondary btn-sm" onclick="unsnooze('${it.id}')">undo</button>`; }
+  if(st==='po'){ const link=`${ODOO_URL}/odoo/purchase/${s.po.id}`; actions=`<span class="tag po">PO created</span> <a class="odoo-link" href="${link}" target="_blank">${esc(s.po.name||('#'+s.po.id))} ↗</a> <button class="btn btn-secondary btn-sm" onclick="unsnooze('${it.id}')">↩ Put back</button>`; }
   else if(st==='snoozed'){ actions=`<span style="font-size:11px;color:var(--text3)">until ${fmtD(s.until)}</span> <button class="btn btn-secondary btn-sm" onclick="unsnooze('${it.id}')">un-snooze</button>`; }
-  else if(st==='done'){ actions=`<button class="btn btn-secondary btn-sm" onclick="unsnooze('${it.id}')">restore</button>`; }
+  else if(st==='done'){ actions=`<span class="tag" style="background:var(--surface2);color:var(--text2)">done</span> <button class="btn btn-secondary btn-sm" onclick="unsnooze('${it.id}')">↩ Put back</button>`; }
   else {
     if(it.type==='order') actions+=`<button class="btn btn-primary btn-sm" onclick="openPO('${it.id}')">Create PO</button>`;
     actions+=`<button class="btn btn-secondary btn-sm" onclick="snoozeItem('${it.id}',7)">+1wk</button>`;
@@ -358,12 +372,36 @@ function itemHtml(it){
   return `<div class="${cls}"><div class="item-ico">${ico}</div><div class="item-main"><div class="item-title">${esc(it.name)}</div><div class="item-sub">${sub}</div></div>${dateBlock}<div class="item-actions">${actions}</div></div>`;
 }
 
+// ── DONE TAB ──
+function doneCount(){ return (deadlines.items||[]).filter(raw=>{const s=stateOf(raw); return s==='done'||s==='po';}).length; }
+function updateDoneNav(){ const b=document.getElementById('nav-done'); if(b){ const n=doneCount(); b.textContent= n? `✓ Done · ${n}` : '✓ Done'; } }
+function renderDone(){
+  updateDoneNav();
+  const list=document.getElementById('done-list'); if(!list) return;
+  const search=(document.getElementById('done-search').value||'').toLowerCase();
+  const all=(deadlines.items||[]).map(computeItem);
+  let rows=[];
+  for(const it of all){
+    const st=stateOf(it);
+    if(st!=='done' && st!=='po') continue;
+    if(search && !(`${it.name}`.toLowerCase().includes(search))) continue;
+    rows.push(it);
+  }
+  rows.sort((a,b)=>(a.actionDate||'9999')<(b.actionDate||'9999')?-1:1);
+  const nDone=rows.filter(i=>stateOf(i)==='done').length, nPo=rows.filter(i=>stateOf(i)==='po').length;
+  const k=(l,val,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${val}</div></div>`;
+  document.getElementById('done-kpis').innerHTML = k('Marked done', nDone, 'var(--text2)') + k('PO created', nPo, 'var(--success)') + k('Total here', rows.length, 'var(--accent)');
+  list.innerHTML = rows.length
+    ? `<div class="ag-group-hd">Done / PO created · ${rows.length}</div>` + rows.map(itemHtml).join('')
+    : `<div class="empty">Nothing here yet. Tasks you mark <b>✓ done</b> or create a PO for will appear here — and you can put them back to the agenda anytime.</div>`;
+}
+
 // ── SNOOZE (team-shared) ──
 async function persistSnooze(){ await kvSetStore('parts_agenda_snooze', snooze); }
 async function snoozeItem(id,days){ snooze[id]={until:addDays(todayYmd(),days)}; await persistSnooze(); renderAgenda(); renderCalendar(); }
 async function snoozeCustom(id){ const d=prompt('Snooze until (YYYY-MM-DD):', addDays(todayYmd(),7)); if(!d) return; if(!/^\d{4}-\d{2}-\d{2}$/.test(d)){ alert_('Use format YYYY-MM-DD.','warn'); return; } snooze[id]={until:d}; await persistSnooze(); renderAgenda(); renderCalendar(); }
-async function dismiss(id){ snooze[id]={dismissed:true}; await persistSnooze(); renderAgenda(); renderCalendar(); }
-async function unsnooze(id){ delete snooze[id]; await persistSnooze(); renderAgenda(); renderCalendar(); }
+async function dismiss(id){ snooze[id]={dismissed:true}; await persistSnooze(); renderAgenda(); renderCalendar(); renderDone(); }
+async function unsnooze(id){ delete snooze[id]; await persistSnooze(); renderAgenda(); renderCalendar(); renderDone(); }
 
 // ── CALENDAR ──
 function calMove(n){ calDate=new Date(calDate.getFullYear(),calDate.getMonth()+n,1); renderCalendar(); }
@@ -503,7 +541,7 @@ async function submitPO(id){
     let name='#'+poId; try{ const rd=await odoo('purchase.order','read',[[poId]],{fields:['name']}); if(rd&&rd[0]&&rd[0].name) name=rd[0].name; }catch(e){}
     snooze[id]={po:{id:poId,name,date:todayYmd()}}; await persistSnooze();
     msg.innerHTML=`<div class="alert alert-success">✓ Draft PO <b>${esc(name)}</b> created. <a class="odoo-link" href="${ODOO_URL}/odoo/purchase/${poId}" target="_blank">Open in Odoo ↗</a> — review &amp; confirm there.</div>`;
-    renderAgenda(); renderCalendar();
+    renderAgenda(); renderCalendar(); renderDone();
     setTimeout(()=>document.getElementById('po-modal').classList.remove('open'), 2600);
   }catch(e){ document.getElementById('po-go').disabled=false; msg.innerHTML='<div class="alert alert-err">Failed: '+esc(e.message)+'</div>'; }
 }

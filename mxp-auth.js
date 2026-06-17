@@ -136,6 +136,22 @@
     });
   }
 
+  // Save the shared login into the app's OWN saved config. Some apps (custom
+  // colours, planner, traceability) read credentials from an in-memory cfg that
+  // is only populated by their Settings "Save" — not from the live fields — so
+  // filling the fields isn't enough. Run their save routine so syncs see creds.
+  function saveAppSettings() {
+    var fns = ["saveSettings", "saveCfg", "saveConfig", "saveAllSettings",
+               "applySettings", "saveAll"];
+    for (var i = 0; i < fns.length; i++) {
+      if (typeof window[fns[i]] === "function") {
+        try { window[fns[i]](); } catch (e) {}
+        return true;
+      }
+    }
+    return false;
+  }
+
   // Trigger the app's own connect/load routine (covers every app variant).
   function initialConnect() {
     var fns = ["connectAndLoad", "loadData", "syncOdoo", "testConnection",
@@ -189,6 +205,7 @@
   window.addEventListener("load", function () {
     setTimeout(function () {
       fillCreds();
+      saveAppSettings();
       initialConnect();
       hideConnectionUI();
     }, 800);
@@ -227,4 +244,39 @@
 
   if (window.__mxpSyncTimer) clearInterval(window.__mxpSyncTimer);
   window.__mxpSyncTimer = setInterval(runSync, SYNC_MS);
+
+  /* =================================================================
+     "SYNC EVERYWHERE" — one Sync click refreshes every open app
+     Pages are separate, so apps that aren't open can't be refreshed; but
+     every app that IS open (other tabs / the embedded panels) re-syncs.
+     ================================================================= */
+  function syncNow(force) {
+    if (!force && userIsEditing()) return;          // never wipe in-progress edits
+    if (!hasCreds()) { location.replace("index.html"); return; }
+    var fns = ["loadData", "syncOdoo", "connectAndLoad", "refresh",
+               "refreshSerials", "loadAll", "reload", "syncAll"];
+    for (var i = 0; i < fns.length; i++) {
+      if (typeof window[fns[i]] === "function") {
+        try { window[fns[i]](); } catch (e) {}
+        return;
+      }
+    }
+  }
+  // Another tab/app asked everyone to sync.
+  window.addEventListener("storage", function (e) {
+    if (e.key === "mxp_sync_ping" && e.newValue) {
+      setTimeout(function () { syncNow(false); }, 200);
+    }
+  });
+  // The user clicked a Sync control in THIS app -> tell every other open app.
+  document.addEventListener("click", function (e) {
+    try {
+      var el = e.target && e.target.closest ? e.target.closest("button, a, [onclick]") : null;
+      if (!el) return;
+      var sig = (el.getAttribute("onclick") || "") + " " + (el.textContent || "");
+      if (/sync/i.test(sig)) {
+        try { localStorage.setItem("mxp_sync_ping", String(Date.now())); } catch (e2) {}
+      }
+    } catch (e3) {}
+  }, true);
 })();
