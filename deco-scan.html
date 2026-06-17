@@ -50,8 +50,77 @@
   .rec .t{margin-left:auto;color:var(--muted);font-size:11px}
   .setup{background:#3a1c12;border:1px solid #7a3320;color:#f4c4b2;border-radius:12px;padding:12px 14px;font-size:13px;margin-bottom:14px}
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style id="ahooga-brand">
+body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+.ahooga-home{position:fixed;left:14px;bottom:14px;z-index:2147483600;display:inline-flex;align-items:center;gap:6px;font-family:'Inter',system-ui,sans-serif;font-weight:700;font-size:12.5px;line-height:1;padding:9px 14px;border-radius:999px;text-decoration:none;background:#14259b;color:#fff;border:1px solid rgba(255,255,255,.25);box-shadow:0 6px 18px rgba(20,37,155,.4);opacity:.9;transition:opacity .15s,transform .15s}
+.ahooga-home:hover{opacity:1;transform:translateY(-1px)}
+@media print{.ahooga-home{display:none}}
+</style>
 </head>
 <body>
+<div id="deco-gate" style="position:fixed;inset:0;z-index:2147483647;background:#14130f;display:flex;align-items:center;justify-content:center;padding:20px;font-family:'Inter',system-ui,-apple-system,sans-serif">
+  <div style="width:100%;max-width:360px;background:#fff;border-radius:16px;padding:30px 26px;box-shadow:0 24px 60px rgba(0,0,0,.55)">
+    <div style="font-weight:900;letter-spacing:.14em;font-size:16px;color:#111317;text-align:center">AH<span style="color:#14259b">OO</span>GA</div>
+    <div style="text-align:center;color:#585c63;font-size:11px;margin:7px 0 22px;font-weight:700;letter-spacing:.12em;text-transform:uppercase">Deco Coat · Frame Scan</div>
+    <label style="display:block;font-size:11px;font-weight:700;color:#585c63;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px">Username</label>
+    <input id="dg-user" autocomplete="username" autocapitalize="off" spellcheck="false" style="width:100%;padding:11px 13px;border:1px solid #e6e3dd;border-radius:9px;font-size:16px;outline:none;font-family:inherit"/>
+    <label style="display:block;font-size:11px;font-weight:700;color:#585c63;text-transform:uppercase;letter-spacing:.08em;margin:14px 0 5px">Password</label>
+    <input id="dg-pass" type="password" autocomplete="current-password" style="width:100%;padding:11px 13px;border:1px solid #e6e3dd;border-radius:9px;font-size:16px;outline:none;font-family:inherit"/>
+    <button id="dg-btn" style="width:100%;margin-top:20px;padding:13px;border:0;border-radius:9px;background:#14259b;color:#fff;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit">Enter</button>
+    <div id="dg-err" style="display:none;color:#c01650;font-size:12.5px;margin-top:12px;text-align:center;font-weight:600"></div>
+  </div>
+</div>
+<script>
+(function(){
+  var USER="decocoat";
+  var HASH="8b91c919c2cb23add9ca38bd21e94d3735a77d46675eac7fee190d9ade560b2e";
+  function sha256(ascii){
+    function rr(v,a){return (v>>>a)|(v<<(32-a));}
+    var mp=Math.pow,mw=mp(2,32),result='';
+    var words=[],abl=ascii.length*8;
+    var hash=sha256.h=sha256.h||[],k=sha256.k=sha256.k||[],pc=k.length,ic={};
+    for(var cand=2;pc<64;cand++){
+      if(!ic[cand]){
+        for(var i=0;i<313;i+=cand)ic[i]=cand;
+        hash[pc]=(mp(cand,.5)*mw)|0;k[pc++]=(mp(cand,1/3)*mw)|0;
+      }
+    }
+    ascii+='\x80';
+    while(ascii.length%64-56)ascii+='\x00';
+    for(var i=0;i<ascii.length;i++){var j=ascii.charCodeAt(i);if(j>>8)return;words[i>>2]|=j<<((3-i)%4)*8;}
+    words[words.length]=((abl/mw)|0);words[words.length]=(abl);
+    for(var j=0;j<words.length;){
+      var w=words.slice(j,j+=16),oh=hash;hash=hash.slice(0,8);
+      for(var i=0;i<64;i++){
+        var w15=w[i-15],w2=w[i-2],a=hash[0],e=hash[4];
+        var t1=hash[7]+(rr(e,6)^rr(e,11)^rr(e,25))+((e&hash[5])^((~e)&hash[6]))+k[i]
+          +(w[i]=(i<16)?w[i]:(w[i-16]+(rr(w15,7)^rr(w15,18)^(w15>>>3))+w[i-7]+(rr(w2,17)^rr(w2,19)^(w2>>>10)))|0);
+        var t2=(rr(a,2)^rr(a,13)^rr(a,22))+((a&hash[1])^(a&hash[2])^(hash[1]&hash[2]));
+        hash=[(t1+t2)|0].concat(hash);hash[4]=(hash[4]+t1)|0;
+      }
+      for(var i=0;i<8;i++)hash[i]=(hash[i]+oh[i])|0;
+    }
+    for(var i=0;i<8;i++)for(var j=3;j+1;j--){var b=(hash[i]>>(j*8))&255;result+=((b<16)?0:'')+b.toString(16);}
+    return result;
+  }
+  var gate=document.getElementById('deco-gate');
+  function reveal(){ if(gate&&gate.parentNode) gate.parentNode.removeChild(gate); }
+  try{ if(localStorage.getItem('deco_gate')==='1'){ reveal(); return; } }catch(e){}
+  var u=document.getElementById('dg-user'),p=document.getElementById('dg-pass'),
+      b=document.getElementById('dg-btn'),err=document.getElementById('dg-err');
+  function tryLogin(){
+    var ok=(u.value.trim().toLowerCase()===USER)&&(sha256(p.value)===HASH);
+    if(ok){ try{localStorage.setItem('deco_gate','1');}catch(e){} reveal(); }
+    else{ err.style.display='block'; err.textContent='Wrong username or password.'; p.value=''; p.focus(); }
+  }
+  b.addEventListener('click',tryLogin);
+  p.addEventListener('keydown',function(e){if(e.key==='Enter')tryLogin();});
+  u.addEventListener('keydown',function(e){if(e.key==='Enter')p.focus();});
+  setTimeout(function(){try{u.focus();}catch(e){}},60);
+})();
+</script>
+
 <header>
   <div class="logo">Deco Coat · <span>Line</span></div>
   <div class="tag">stage tracking</div>
