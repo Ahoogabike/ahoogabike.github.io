@@ -341,7 +341,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
         <span style="font-size:11px;color:var(--text3)">From Odoo custom-colour orders · only those without a PO in the Decocoat file yet</span>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:8px">
-        <button class="btn btn-success btn-sm" onclick="exportPOImport({selected:true})">⬇ PO → Odoo import (selected)</button>
+        <button class="btn btn-success btn-sm" title="Create ONE Deco Coat purchase order directly in Odoo from the ticked orders. Odoo assigns the P0 number; it links back to the rows on Sync." onclick="createPOInOdoo({selected:true})">⚡ Create PO in Odoo (selected)</button>
         <button class="btn btn-primary btn-sm" title="For custom orders without a PO from Odoo, look the SO up in the Deco Coat sheet and write the PO into the tab." onclick="fillDecoCoatPOsFromSheet()">🔎 Find PO in Deco Coat sheet</button>
         <button class="btn btn-primary btn-sm" onclick="createLabels({selected:true})">🏷 Labels — selected <span id="lbl-sel-count" style="font-weight:600"></span></button>
         <button class="btn btn-success btn-sm" onclick="exportUpdatedDecocoat()">⬇ Updated Decocoat file</button>
@@ -455,8 +455,8 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
           For an order that <em>already</em> has a PO in the sheet → <span class="btnref">🔎 Find PO in Deco Coat sheet</span>
           (writes the existing P0#### into the tab).
           For a <em>brand-new</em> order with no PO yet → select it and use
-          <span class="btnref">⬇ PO → Odoo import (selected)</span>, import that file in Odoo (Purchase ▸ Orders ▸ Import),
-          then re-sync — Odoo's new P0#### flows back automatically.
+          <span class="btnref">⚡ Create PO in Odoo (selected)</span> — this creates and confirms the Deco Coat PO
+          directly in Odoo; the new P0#### flows back onto the rows on the next sync.
         </li>
         <li style="position:relative;padding:10px 0 10px 40px;border-bottom:1px dashed var(--border)" class="guide-step">
           <strong>Generate the Order Form.</strong> Go to <span class="tabref">Order Form</span>, pick the order, set the
@@ -1140,7 +1140,7 @@ async function xmlrpcCall(path, body) {
 function buildXmlrpc(method, params) {
   const encodeValue = v => {
     if(typeof v === 'string') return `<value><string>${v.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</string></value>`;
-    if(typeof v === 'number') return `<value><int>${v}</int></value>`;
+    if(typeof v === 'number') return Number.isInteger(v) ? `<value><int>${v}</int></value>` : `<value><double>${v}</double></value>`;
     if(typeof v === 'boolean') return `<value><boolean>${v?1:0}</boolean></value>`;
     if(Array.isArray(v)) return `<value><array><data>${v.map(encodeValue).join('')}</data></array></value>`;
     if(typeof v === 'object' && v !== null) {
@@ -5180,6 +5180,88 @@ function exportPOImport(opts){
   XLSX.utils.book_append_sheet(wb, ws, 'PO import');
   XLSX.writeFile(wb, `Odoo PO import - Deco Coat - ${stamp}.xlsx`);
   formsAlert(`PO import file downloaded · 1 purchase order with ${list.length} line(s) for Deco Coat. Import it in Odoo (Purchase ▸ Orders ▸ Import); Odoo assigns the P0 number, then Sync to pull it back onto the forms.`);
+}
+
+// ─── CREATE PO DIRECTLY IN ODOO ───────────────────────────────────────────
+// Replaces the Excel import: builds ONE purchase order to the Deco Coat vendor
+// from the ticked custom orders, CREATEs + button_confirms it in Odoo (Odoo
+// assigns the P0xxxx number), and writes the SO# into every line so the existing
+// detectDecocoatPOs()/Sync links the PO back onto the rows automatically.
+// Pricing rules (no mapping table):
+//   • frame, single colour (front = rear) → €130
+//   • frame, two-tone (front ≠ rear)       → €159
+//   • bike has personal text               → extra "DEV personal text" line @ €60
+const PO_FRAME_PRODUCT   = 'FRNAA00260';     // Odoo default_code for the custom frame
+const PO_DEVTEXT_PRODUCT = 'DEVDEV010101';   // Odoo default_code for DEV personalised text
+const PO_PRICE_SINGLE = 130, PO_PRICE_TWOTONE = 159, PO_PRICE_TEXT = 60;
+
+async function findProductId(code){
+  const A = v => Array.isArray(v) ? v : (v ? [v] : []);
+  let ids = A(await odooCall('product.product','search',[[['default_code','=',code]]],{limit:1}));
+  if(!ids.length) ids = A(await odooCall('product.product','search',[[['default_code','ilike',code]]],{limit:1}));
+  return ids[0] || null;
+}
+
+async function createPOInOdoo(opts){
+  opts = opts || {};
+  if(!cfg || !cfg.url || !cfg.db || !cfg.user || !cfg.key){
+    formsAlert('Fill in your Odoo settings first (Settings → Save & Connect).','warn'); showView('settings'); return;
+  }
+  const list = opts.selected ? selectedCustomOrders() : (opts.all ? currentCustomOrders() : newCustomOrders());
+  if(!list.length){
+    formsAlert(opts.selected ? 'No orders selected — tick the checkboxes in the table first.'
+      : 'No new custom orders to put on a PO. Sync Odoo first.','warn');
+    return;
+  }
+  if(!confirm(`Create ONE Deco Coat purchase order in Odoo for ${list.length} custom order(s)?\nOdoo will assign the P0 number and confirm the order.`)) return;
+  formsAlert(`Creating the PO in Odoo for ${list.length} order(s)…`);
+  try{
+    const A = v => Array.isArray(v) ? v : (v ? [v] : []);
+    await odooAuth();
+    // 1) Deco Coat vendor (res.partner)
+    const vIds = A(await odooCall('res.partner','search',
+      [['|',['name','ilike','deco coat'],['name','ilike','decocoat']]], {limit:1}));
+    if(!vIds.length){ formsAlert('Could not find the Deco Coat vendor in Odoo (res.partner).','danger'); return; }
+    const partnerId = vIds[0];
+    // 2) Products
+    const framePid = await findProductId(PO_FRAME_PRODUCT);
+    if(!framePid){ formsAlert(`Frame product ${PO_FRAME_PRODUCT} not found in Odoo — check the code in the source.`,'danger'); return; }
+    const needsText = list.some(o => String(orderCols(o).personalText||'').trim());
+    let textPid = null;
+    if(needsText){
+      textPid = await findProductId(PO_DEVTEXT_PRODUCT);
+      if(!textPid) console.warn('DEV text product '+PO_DEVTEXT_PRODUCT+' not found — personal-text lines will be skipped.');
+    }
+    // 3) Build the order lines
+    const lines = [];
+    for(const o of list){
+      const c = orderCols(o);
+      const rear = c.rearColor || c.mainColor;
+      const twoTone = !!(c.rearColor && c.mainColor && c.rearColor !== c.mainColor);
+      const price = twoTone ? PO_PRICE_TWOTONE : PO_PRICE_SINGLE;
+      const cfgTxt = `Main: ${c.mainColor||''}${c.mainFinish?` (${c.mainFinish})`:''} | Rear: ${rear||''}${c.rearFinish?` (${c.rearFinish})`:''}${c.logoColor?` | Logo: ${c.logoColor}${c.logoSize?` (${c.logoSize})`:''}`:''}`;
+      const name = `SO# ${o.name||''} · ${o.sku||''}\n${cfgTxt}`;
+      lines.push([0,0,{product_id:framePid, name:name, product_qty:1, price_unit:price}]);
+      const pt = String(c.personalText||'').trim();
+      if(pt && textPid){
+        lines.push([0,0,{product_id:textPid, name:`SO# ${o.name||''} · Personal text: ${pt}`, product_qty:1, price_unit:PO_PRICE_TEXT}]);
+      }
+    }
+    // 4) Create, then confirm so Odoo issues the real P0 number
+    const poId = await odooCall('purchase.order','create',[{partner_id:partnerId, order_line:lines}]);
+    if(!poId){ formsAlert('Odoo did not return a PO id — nothing was created.','danger'); return; }
+    try{ await odooCall('purchase.order','button_confirm',[[poId]]); }
+    catch(e){ console.warn('button_confirm failed (PO created as draft):', e && e.message); }
+    const rec = A(await odooCall('purchase.order','read',[[poId],['name']],{}))[0] || {};
+    const poName = rec.name || ('id '+poId);
+    // 5) Link the new PO back onto the rows
+    try{ await detectDecocoatPOs(); }catch(e){ console.warn('detectDecocoatPOs after create failed:', e && e.message); }
+    if(typeof renderCustom === 'function') renderCustom();
+    formsAlert(`✓ Created Deco Coat PO <strong>${poName}</strong> in Odoo · ${lines.length} line(s) for ${list.length} order(s). If it isn't on the rows yet, hit ↻ Sync.`);
+  }catch(e){
+    console.error('createPOInOdoo failed:', e);
+    formsAlert('Creating the PO in Odoo failed: ' + ((e && e.message) || e),'danger');
+  }
 }
 
 
