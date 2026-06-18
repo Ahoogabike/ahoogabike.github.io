@@ -340,7 +340,7 @@ async function loadData(){
     // 1. PO lines
     alert_('Step 1/4 — Loading PO lines…','info');
     const lines=await odoo('purchase.order.line','search_read',
-      [[['order_id.state','in',['purchase','done','cancel']],['product_id','!=',false]]],
+      [[['order_id.state','in',['purchase','done','cancel']],['product_id','!=',false],['company_id.name','not ilike','ahooga paris']]],
       {fields:['order_id','product_id','product_qty','qty_received','date_planned'],limit:20000,order:'order_id desc'});
 
     // 2. PO headers
@@ -348,7 +348,7 @@ async function loadData(){
     alert_(`Step 2/4 — Loading ${poIds.length} PO headers…`,'info');
     const poList=poIds.length?await odoo('purchase.order','search_read',
       [[['id','in',poIds]]],
-      {fields:['name','partner_id','date_order','date_approve','state'],limit:5000}):[];
+      {fields:['name','partner_id','date_order','date_approve','state','company_id'],limit:5000}):[];
     const poMap={};for(const p of poList)poMap[p.id]=p;
 
     // 3. Pickings
@@ -374,8 +374,9 @@ async function loadData(){
     for(const line of lines){
       const poId=arr(line.order_id)[0];
       const po=poMap[poId];if(!po)continue;
-      // Exclude POs related to Ahooga Paris (intercompany vendor)
+      // Exclude POs from the closed Ahooga Paris company (and the intercompany vendor variant)
       const vendorName=arr(po.partner_id)[1]||'';
+      if(/ahooga\s*paris/i.test(arr(po.company_id)[1]||''))continue;
       if(/ahooga\s*paris/i.test(vendorName))continue;
       const prodName=arr(line.product_id)[1]||'';
       const partNo=prodName.match(/^\[([^\]]+)\]/)?.[1]||'';
