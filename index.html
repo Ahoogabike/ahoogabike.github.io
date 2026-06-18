@@ -509,6 +509,21 @@ body{background:var(--paper)}
         <div class="card-desc">Per-SKU MAX forecast from invoiced bikes, order book and seasonality — feeds the Planner's purchase-order proposals</div>
         <div class="card-arrow">→</div>
       </a>
+      <!-- 03 Accessory Sales -->
+      <a href="accessory-sales.html" class="card" style="--accent:#0f7a52">
+        <div class="card-header">
+          <div class="card-num">03</div>
+          <div class="card-icon-wrap">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0f7a52" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
+              <path d="M1 1h4l2.7 13.4a2 2 0 0 0 2 1.6h9.7a2 2 0 0 0 2-1.6L23 6H6"/>
+            </svg>
+          </div>
+        </div>
+        <div class="card-title">Accessory Sales</div>
+        <div class="card-desc">Accessories sold per channel, type &amp; country with 2024–25 trend, current-year projection and a country-growth forecast to end 2027</div>
+        <div class="card-arrow">→</div>
+      </a>
     </div>
 
     <div class="section-label" style="margin-top:40px">Orders &amp; integrations</div>
@@ -537,7 +552,7 @@ body{background:var(--paper)}
 
     <div class="section-label" style="margin-top:40px">Supply</div>
       <div class="grid">
-<a href="https://ahoogabike.github.io/AhoogaMAX_Planner/" class="card featured" style="--accent:#ea1d5e">
+<a href="MAX_planner.html" class="card featured" style="--accent:#ea1d5e">
         <div class="card-header">
           <div class="card-num">04</div>
           <div class="card-icon-wrap">
@@ -659,6 +674,24 @@ body{background:var(--paper)}
         <div>
           <div class="card-title">DSV Ship</div>
           <div class="card-desc">Book outgoing Odoo deliveries with DSV — Road (EU) shipments, label PDFs written back to the picking, plus booking-ID tracking.</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </a>
+<a href="dpd-ship.html" class="card" style="--accent:#dc0032">
+        <div class="card-header">
+          <div class="card-num">11</div>
+          <div class="card-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+              <path d="M14 4l9 4.5v9L14 22l-9-4.5v-9L14 4z" stroke="#dc0032" stroke-width="1.6" stroke-linejoin="round"/>
+              <path d="M5 8.5l9 4.5 9-4.5" stroke="#dc0032" stroke-width="1.6" stroke-linejoin="round"/>
+              <path d="M14 13v9" stroke="#dc0032" stroke-width="1.6" stroke-linejoin="round"/>
+              <path d="M9.5 6.2l9 4.6" stroke="#dc0032" stroke-width="1.1" stroke-linecap="round" opacity="0.55"/>
+            </svg>
+          </div>
+        </div>
+        <div>
+          <div class="card-title">DPD Ship</div>
+          <div class="card-desc">Book accessory &amp; spare-part parcels with DPD — parcel sizes, Predict notifications, labels written back to the picking, plus parcel tracking.</div>
         </div>
         <div class="card-arrow">→</div>
       </a>
@@ -869,7 +902,7 @@ async function saveCredentials(){
   }catch(e){s.textContent='Could not verify login: '+e.message;s.className='connect-status err';}
 }
 async function validateOdoo(user,key){
-  const DB='logicasoft-aho-18-0-21599177',U='https://ahooga.odoo.com',W='https://ahooga-planner-proxy.massimiliano-d74.workers.dev';
+  const DB='logicasoft-aho-18-0-21599177',U='https://ahooga.odoo.com',W='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
   const esc=x=>String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const body='<?xml version="1.0"?><methodCall><methodName>authenticate</methodName><params>'
     +'<param><value><string>'+esc(DB)+'</string></value></param>'
@@ -901,17 +934,19 @@ document.getElementById('hp-key').addEventListener('keydown',e=>{if(e.key==='Ent
   const NAV=[
     {name:'Sales & forecasting',color:'#3f9b46',icon:I.chart,apps:[
       {t:'Sales Dashboard',h:'sales-dashboard.html',c:'#3f9b46'},
-      {t:'Sales Forecast',h:'sales-forecast.html',c:'#3c3489'}]},
+      {t:'Sales Forecast',h:'sales-forecast.html',c:'#3c3489'},
+      {t:'Accessory Sales',h:'accessory-sales.html',c:'#0f7a52'}]},
     {name:'Orders & integrations',color:'#2b7fd6',icon:I.orders,apps:[
       {t:'Shopify Convert',h:'shopify-convert.html',c:'#2b7fd6'}]},
     {name:'Supply',color:'#176f8c',icon:I.supply,apps:[
-      {t:'Production Planner',h:'https://ahoogabike.github.io/AhoogaMAX_Planner/',c:'#ea1d5e'},
+      {t:'Production Planner',h:'MAX_planner.html',c:'#ea1d5e'},
       {t:'PO Builder — Bikes',h:'po-builder-bikes.html',c:'#176f8c'},
       {t:'PO Builder — MY27',h:'po-builder-my27.html',c:'#2a9d8f'},
       {t:'PO Tracker',h:'po-tracker.html',c:'#2f6df0'},
       {t:'Parts Stock Count',h:'parts-stock.html',c:'#8a4fd6'},
       {t:'Parts Agenda',h:'parts-agenda.html',c:'#b45309'},
-      {t:'DSV Ship',h:'dsv-ship.html',c:'#0a4d8c'}]},
+      {t:'DSV Ship',h:'dsv-ship.html',c:'#0a4d8c'},
+      {t:'DPD Ship',h:'dpd-ship.html',c:'#dc0032'}]},
     {name:'Shop Operation',color:'#e08a1e',icon:I.shop,apps:[
       {t:'Bike Time Tracker',h:'bike-time-tracker.html',c:'#e08a1e'}]},
     {name:'Custom Colour Workflow',color:'#c0451f',icon:I.colour,apps:[
