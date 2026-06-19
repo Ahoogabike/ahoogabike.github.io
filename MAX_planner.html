@@ -2353,7 +2353,7 @@ function getFreeStockCounts(){
 // SKU key format: bikeType|transmission|color|rack  (e.g. emax|alfine|yellow|rack)
 function publishProductionBasis(){
   try{
-    const unmatchedBySku={}, freeStockBySku={}, incomingBySku={}, inprodBySku={};
+    const unmatchedBySku={}, freeStockBySku={}, incomingBySku={}, inprodBySku={}, incomingEtaBySku={};
     for(const o of [...orders, ...manualOrders]){
       if(!o.bikeType || !o.transmission) continue;
       const k=`${o.bikeType}|${o.transmission}|${o.color}|${o.rack}`;
@@ -2373,8 +2373,9 @@ function publishProductionBasis(){
       if(!s.bikeType || !s.transmission) continue;
       const k=`${s.bikeType}|${s.transmission}|${s.color}|${s.rack}`;
       incomingBySku[k]=(incomingBySku[k]||0)+(s.remaining||0);
+      if(s.expectedArrival&&(!incomingEtaBySku[k]||s.expectedArrival<incomingEtaBySku[k]))incomingEtaBySku[k]=s.expectedArrival;
     }
-    kvSet('production_basis', { unmatchedBySku, freeStockBySku, incomingBySku, inprodBySku, year:new Date().getFullYear(), updated:new Date().toISOString() });
+    kvSet('production_basis', { unmatchedBySku, freeStockBySku, incomingBySku, incomingEtaBySku, inprodBySku, year:new Date().getFullYear(), updated:new Date().toISOString() });
   }catch(e){ console.warn('publishProductionBasis failed', e); }
 }
 
