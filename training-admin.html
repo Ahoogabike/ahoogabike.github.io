@@ -1,0 +1,287 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ahooga — Training Admin / Course Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+ :root{--bg:#ffffff;--bg2:#f5f4f1;--ink:#16160f;--dim:#6f6d63;--line:#e6e3da;--gold:#f2b705;--gold-d:#caa006;--ok:#1a7f37;--bad:#b3261e}
+ *{box-sizing:border-box}html,body{margin:0;min-height:100%}
+ body{background:var(--bg2);color:var(--ink);font-family:'Archivo',system-ui,sans-serif}
+ a{color:inherit}
+ header{display:flex;align-items:center;gap:14px;padding:14px 22px;background:#16160f;color:#fff;position:sticky;top:0;z-index:30;flex-wrap:wrap}
+ header img{height:22px}
+ header .htag{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#cfcabb}
+ .spacer{flex:1}
+ .mode{display:flex;gap:6px;align-items:center;font-size:12.5px}
+ .chip{padding:6px 12px;border-radius:16px;font-weight:700;font-size:12.5px;cursor:pointer;border:1px solid #3a3a30;color:#cfcabb}
+ .chip.on{background:var(--gold);color:#16160f;border-color:var(--gold)}
+ select,input,textarea{font-family:inherit;font-size:14px;color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:9px;padding:9px 11px;width:100%}
+ select{width:auto}
+ header select{background:#26261c;color:#fff;border-color:#3a3a30}
+ textarea{line-height:1.5}
+ main{max-width:1000px;margin:0 auto;padding:22px}
+ .tabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+ .tab{padding:9px 16px;border-radius:18px;font-weight:700;font-size:13.5px;cursor:pointer;color:var(--dim);background:#fff;border:1px solid var(--line)}
+ .tab.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+ .panel{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+ h1{font-size:22px;margin:0 0 2px}h2{font-size:16px;margin:0 0 12px}
+ .sub{color:var(--dim);font-size:13.5px;margin:0 0 16px;line-height:1.5}
+ .btn{border:0;border-radius:9px;background:var(--gold);color:#16160f;font-weight:800;font-size:13.5px;padding:10px 16px;cursor:pointer}
+ .btn:hover{background:var(--gold-d)}
+ .btn.ghost{background:#fff;border:1px solid var(--line);color:var(--ink)}
+ .btn.ghost:hover{border-color:var(--gold)}
+ .btn.sm{padding:6px 11px;font-size:12.5px}
+ .btn.danger{background:#fff;border:1px solid #f0c9c5;color:var(--bad)}
+ .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+ .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+ .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+ label{display:block;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin:12px 0 5px;font-weight:700}
+ .clist{display:flex;flex-direction:column;gap:10px}
+ .crow{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#fff}
+ .lvl{font-size:11px;font-weight:800;padding:4px 9px;border-radius:13px}
+ .lvl.l1{background:#e7f4ea;color:#1a7f37}.lvl.l2{background:#fff3d6;color:#b9860b}.lvl.l3{background:#fdeaea;color:#b3261e}
+ .pill{font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;background:#eef0f2;color:#54637a}
+ .ct{flex:1}.ct b{font-size:14.5px}.ct .m{color:var(--dim);font-size:12px}
+ .block{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;background:#fcfbf9}
+ .block .hd{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+ .block .hd b{flex:1;font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em}
+ .opt{display:flex;align-items:center;gap:9px;margin-bottom:7px}
+ .opt input[type=text]{flex:1}
+ .opt .corr{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--dim);white-space:nowrap}
+ .msg{font-size:13px;margin-top:10px;min-height:18px}.msg.ok{color:var(--ok)}.msg.err{color:var(--bad)}
+ .hint{color:var(--dim);font-size:12.5px;line-height:1.5}
+ .toolbar{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:12px 22px;display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+ .overlay{position:fixed;inset:0;background:rgba(20,20,15,.45);display:flex;align-items:flex-start;justify-content:center;padding:40px 16px;z-index:50;overflow:auto}
+ .box{width:min(440px,95vw);background:#fff;border-radius:16px;padding:26px}
+ code{background:#f0eee8;padding:1px 6px;border-radius:5px;font-size:12.5px}
+</style></head>
+<body>
+<header>
+ <img src="https://cdn.shopify.com/s/files/1/0278/5909/1527/files/AHOOGA_Logo.png?height=120&v=1642062559" alt="Ahooga">
+ <span class="htag">Training Admin</span>
+ <span class="spacer"></span>
+ <span class="mode">Editing language:
+  <select id="langsel" onchange="setLang(this.value)"></select></span>
+ <span class="mode">Mode:
+  <span class="chip on" id="m-demo" onclick="setMode('demo')">Demo (this browser)</span>
+  <span class="chip" id="m-live" onclick="setMode('live')">Live server</span>
+ </span>
+</header>
+<main id="main"></main>
+<div class="toolbar" id="toolbar" style="display:none"></div>
+<div id="modal"></div>
+
+<script>
+const API="https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev";
+const SEEDV="ahooga-2026-sales-1";
+const DEFAULT_CFG={"courses": [{"id": "max-lineup", "level": 1, "category": "Product", "points": 100, "passScore": 70, "pdf": "", "title": {"en": "Know Your MAX: E-MAX vs A-MAX", "fr": "Connaître le MAX : E-MAX vs A-MAX"}, "desc": {"en": "One frame, two bikes. Specs, prices and who each model is for.", "fr": "Un cadre, deux vélos. Specs, prix et le client idéal pour chaque modèle."}, "lessons": [{"title": {"en": "One platform, two bikes"}, "body": {"en": "MAX is a single patented platform offered as two bikes that share the same frame.\n\nShared DNA: a hingeless double-triangle frame (not split down the middle), 20-inch wheels, one size that fits all riders, a clean front fold in under 10 seconds, and wheels on the rear rack so it rolls through stations when folded.\n\nBecause the frame carries both an analog and an electric set-up, a customer can start on A-MAX and upgrade to electric later."}}, {"title": {"en": "E-MAX — the electric MAX"}, "body": {"en": "E-MAX is the electric folding bike, from 2,999 EUR (2026).\n\nKey points to sell: around 17 kg (2 kg lighter than the 2024 launch), Shimano Alfine 8 gear hub or the lightweight Microshift derailleur option, optional range extender, integrated lights with a front projector, Shimano hydraulic disc brakes, and a battery locked inside the tube that charges on or off the bike.\n\nThe MIVICE HMI display shows speed, battery, remaining range and kilometres, switches five assistance levels, and has a walk-assist function."}}, {"title": {"en": "A-MAX — the analog MAX"}, "body": {"en": "A-MAX is the human-powered MAX, from 1,799 EUR, at just 14 kg.\n\n\"A is for Analog\": the lightest MAX, for minimalists and riders who want a pure ride. Same Alfine 8 hub or derailleur options, same frame — and it is upgradeable to electric later.\n\nProof for the customer: the independent Frankfurter Allgemeine consumer test rated A-MAX the best folding bike, 8.1/10, ahead of 13 other brands."}}, {"title": {"en": "Which MAX for which customer?"}, "body": {"en": "E-MAX: hills, longer or sweat-free commutes, heavier loads, anyone who wants e-assist.\nA-MAX: minimalists, lighter budget, fitness riders, or someone who wants to upgrade to electric later.\n\nBoth: small apartments, multimodal commutes (train, tram, car, lift), and one-size households where several people share the bike."}}], "quiz": [{"q": {"en": "What is the starting price of the E-MAX (2026)?"}, "options": [{"en": "2,999 EUR"}, {"en": "1,799 EUR"}, {"en": "3,499 EUR"}], "answer": 0}, {"q": {"en": "How much does the A-MAX weigh?"}, "options": [{"en": "14 kg"}, {"en": "19 kg"}, {"en": "22 kg"}], "answer": 0}, {"q": {"en": "What does the \"A\" in A-MAX stand for?"}, "options": [{"en": "Analog"}, {"en": "Advanced"}, {"en": "Aluminium"}], "answer": 0}, {"q": {"en": "Can an A-MAX be upgraded to electric later?"}, "options": [{"en": "Yes — the frame carries both set-ups"}, {"en": "No, never"}, {"en": "Only at the factory"}], "answer": 0}, {"q": {"en": "Which gearing options are offered on MAX?"}, "options": [{"en": "Shimano Alfine 8 hub or Microshift derailleur"}, {"en": "Single speed only"}, {"en": "Automatic gearbox only"}], "answer": 0}]}, {"id": "ahooga-story", "level": 1, "category": "Brand", "points": 100, "passScore": 70, "pdf": "", "title": {"en": "The Ahooga Story & Why It Sells", "fr": "L’histoire Ahooga & pourquoi ça vend"}, "desc": {"en": "The brand, the big idea and the proof points that turn interest into desire.", "fr": "La marque, l’idée forte et les preuves qui transforment l’intérêt en désir."}, "lessons": [{"title": {"en": "A proud Belgian brand"}, "body": {"en": "Ahooga is Belgian — designed, engineered and assembled in Brussels (Anderlecht), \"powered by beer and fries\". The mission is simple: make city life a little happier.\n\nCEO Hendrik Winkelmans founded Fiets! (now Bike Republic), Belgium's largest bike retail network — so the brand has deep roots in real bike retail."}}, {"title": {"en": "The big idea"}, "body": {"en": "Why ride wheels bigger than a car's in a shrinking city? Traditional urban bikes are comfortable but hard to store, easy to steal and awkward on trains and trams. Classic folding bikes solve storage but sacrifice comfort.\n\nMAX removes the trade-off: the integral triangle frame delivers the comfort of a full-size city bike in a bike that folds. That one sentence is the heart of every pitch."}}, {"title": {"en": "Proof points & social proof"}, "body": {"en": "Use these to build desire:\n- Awards: Frankfurter Allgemeine \"best folding bike\" (8.1/10), plus \"Best Folding Bike\" design awards.\n- 85% of MAX riders say strangers spontaneously compliment their bike.\n- Tested in 150+ locations; a 150-dealer European network.\n- 5 million EUR raised in 2025 to grow.\n- Adventures that prove the bike: North Cape to Brussels (4,000 km) and the Race around Rwanda (1,000 km of hills)."}}, {"title": {"en": "Sell the story, not just the spec"}, "body": {"en": "Emotional hooks that close sales: \"fold in love\", the bike as a conversation starter, over 16,000 custom colour combinations, a beer-bottle opener built into the seat clasp, and an Atomium engraving hidden in the fold.\n\nPeople remember the story. Lead with how the bike makes city life feel, then back it with the specs."}}], "quiz": [{"q": {"en": "Where is Ahooga from?"}, "options": [{"en": "Belgium (Brussels)"}, {"en": "Germany"}, {"en": "The Netherlands"}], "answer": 0}, {"q": {"en": "What share of MAX riders say strangers compliment their bike?"}, "options": [{"en": "85%"}, {"en": "50%"}, {"en": "20%"}], "answer": 0}, {"q": {"en": "Which independent test named the A-MAX best folding bike?"}, "options": [{"en": "Frankfurter Allgemeine"}, {"en": "Stiftung Warentest"}, {"en": "Which?"}], "answer": 0}, {"q": {"en": "How many custom colour combinations are possible?"}, "options": [{"en": "Over 16,000"}, {"en": "About 100"}, {"en": "Just 12"}], "answer": 0}, {"q": {"en": "The core idea behind MAX is to..."}, "options": [{"en": "Combine full-bike comfort with easy storage and multimodality"}, {"en": "Be the cheapest bike on the market"}, {"en": "Be a racing bike"}], "answer": 0}]}, {"id": "battery-care", "category": "After-sales", "points": 100, "passScore": 70, "pdf": "training-battery-care.pdf", "title": {"en": "Battery Care", "fr": "Entretien de la batterie", "nl": "Batterijonderhoud"}, "desc": {"en": "Charging, storage, cold-weather care, charge levels, lifecycle and warranty for Ahooga batteries.", "fr": "Charge, stockage, grand froid, niveaux de charge, durée de vie et garantie des batteries Ahooga."}, "lessons": [{"title": {"en": "Charging your battery"}, "body": {"en": "Ahooga Folding and Modular bikes use a removable battery (168–400 Wh). You can charge it on the bike or removed.\n\nSteps: 1) Plug the charger into the mains — the light turns green. 2) Connect the charger to the battery — the light turns red while charging. 3) When the light turns back to green the battery is full. 4) Unplug the charger from the battery and the socket.\n\nTo prolong battery life: recharge before it drops below 20%; do not charge to 100% unless you plan a long trip; always charge in dry conditions between 0°C and 24°C. If the battery becomes hot (over 40°C), disconnect it and contact Ahooga support."}}, {"title": {"en": "Storing your bike"}, "body": {"en": "Do not store the battery at 100% for more than a day.\n• A few hours unused: remove the battery and store it inside.\n• A few weeks unused: store it at 20–40% charge, off the bike, inside.\n• Several months unused: charge to 80% and store separately in a dry, climate-controlled place.\n\nAfter long storage the battery enters hibernation mode. To wake it, connect it to the charger — the LED indicators light up one by one."}}, {"title": {"en": "Cold weather care"}, "body": {"en": "Cold reduces range and power, and sub-zero conditions can damage the battery.\n• Do not charge the battery at sub-zero temperatures.\n• Coming in from the cold, let the battery warm up before charging.\n• Do not leave the battery outside in cold conditions; remove it and store it inside.\n• The battery shuts down at around -10°C and electric assistance is limited at low temperatures."}}, {"title": {"en": "Battery levels & lifecycle"}, "body": {"en": "The charge indicator has five bars. The bike enters save mode below 35% State of Charge (reducing assistance). Below 5% the motor assistance switches off, and the display shuts down below 3%.\n\nLifecycle & warranty: batteries are tested for over 500 charge cycles before dropping to 70% of original capacity. All electric original components are covered by a 2-year warranty."}}], "quiz": [{"q": {"en": "When should you ideally recharge the battery?"}, "options": [{"en": "Before it drops below 20%"}, {"en": "Only once it is completely empty"}, {"en": "Only when it reaches 100%"}], "answer": 0}, {"q": {"en": "For long-term storage (several months), what charge level is recommended?"}, "options": [{"en": "Around 80%"}, {"en": "100%"}, {"en": "0%"}], "answer": 0}, {"q": {"en": "Below what State of Charge does the bike enter save mode (reduced assistance)?"}, "options": [{"en": "35%"}, {"en": "75%"}, {"en": "5%"}], "answer": 0}, {"q": {"en": "In cold weather, what is the correct practice?"}, "options": [{"en": "Remove the battery and never charge it at sub-zero temperatures"}, {"en": "Charge it immediately outdoors"}, {"en": "Leave it empty outside"}], "answer": 0}, {"q": {"en": "How many charge cycles are batteries tested for before falling to 70% capacity?"}, "options": [{"en": "Over 500"}, {"en": "About 100"}, {"en": "Exactly 50"}], "answer": 0}], "level": 1}, {"id": "sales-pitch-demo", "level": 2, "category": "Sales", "points": 150, "passScore": 75, "pdf": "", "title": {"en": "The Winning Sales Pitch & In-Store Demo", "fr": "Le pitch gagnant & la démo en magasin"}, "desc": {"en": "How to display, demo and pitch MAX so a browser becomes a buyer.", "fr": "Comment exposer, démontrer et pitcher le MAX pour convertir un curieux en acheteur."}, "lessons": [{"title": {"en": "Lead with the test ride"}, "body": {"en": "\"All it takes is one ride.\" The single most powerful thing you can do is get the customer onto the bike. Specs tell, the ride sells.\n\nHave a test bike ready at all times and invite every interested visitor to ride it. Remember: 85% of riders get complimented — once they feel that, they want it."}}, {"title": {"en": "The display that sells (3 podiums)"}, "body": {"en": "Set up three MAX on podiums of different heights, plus one test bike in front:\n- Lowest podium: the fully folded bike — compact, portable, folds in under 10 seconds (\"it sits like a dog\").\n- Mid podium: the half-fold — show the simple, fast click-in fold and the stiff triangle frame.\n- Highest podium: the unfolded bike — no compromise on power, comfort or style.\n- Test bike: keep it folded with the stem up and invite the client to ROLL it first (great impression) before they lift it."}}, {"title": {"en": "Make the fold theatrical"}, "body": {"en": "The fold is your showstopper. Fold and unfold in under 10 seconds. Show it rolling on the rear-rack wheels through an imaginary station, and fitting under a desk.\n\nTie it to the Ahooga League fold challenge for fun and engagement. A live, fast fold beats any sentence you can say."}}, {"title": {"en": "Show accessories, colours & match the rider"}, "body": {"en": "On the display, add feature cards for the range extender, rear rack, carrying handle and transport bag, and a screen looping the folding video (downloadable from the B2B portal). A \"Test Ride Today\" sign (and a MAX beer) invites engagement.\n\nThen match the bike to the person: hills/longer commute -> E-MAX; minimalist/budget/upgrade-later -> A-MAX; mention the 16,000 colour combinations to make it personal."}}], "quiz": [{"q": {"en": "The single most powerful selling action is to..."}, "options": [{"en": "Get the customer on a test ride"}, {"en": "Quote the lowest price"}, {"en": "Read out every spec"}], "answer": 0}, {"q": {"en": "In the 3-podium display, the lowest podium shows..."}, "options": [{"en": "The folded bike (compact & portable)"}, {"en": "The unfolded bike"}, {"en": "Only accessories"}], "answer": 0}, {"q": {"en": "With the test bike, you first invite the client to..."}, "options": [{"en": "Roll it while folded"}, {"en": "Lift it overhead"}, {"en": "Ride it up a hill"}], "answer": 0}, {"q": {"en": "How fast does MAX fold?"}, "options": [{"en": "Under 10 seconds"}, {"en": "About one minute"}, {"en": "Around five minutes"}], "answer": 0}, {"q": {"en": "For a customer with hills and a longer commute, recommend..."}, "options": [{"en": "E-MAX"}, {"en": "A single-speed A-MAX"}, {"en": "A 28-inch bike"}], "answer": 0}]}, {"id": "max-vs-competition", "level": 2, "category": "Sales", "points": 150, "passScore": 75, "pdf": "", "title": {"en": "MAX vs the Competition", "fr": "Le MAX face à la concurrence"}, "desc": {"en": "Real numbers vs folders (Brompton, Eovolt) and compact e-bikes (i:SY, QiO) — and how to win the sale.", "fr": "Chiffres réels face aux pliants (Brompton, Eovolt) et compacts (i:SY, QiO) — et comment gagner la vente."}, "lessons": [{"title": {"en": "Three rivals, one goal"}, "body": {"en": "Customers cross-shop MAX against three groups:\n1) Premium folding e-bikes — Brompton G-Line Electric, Eovolt Pro20, Tern Vektron.\n2) Other 20-inch folding e-bikes (Dahon, Fiido, ADO, GoCycle...).\n3) Compact urban e-bikes that do NOT fold — i:SY, QiO.\n\nWin all three — and especially convert the compact-bike shopper by showing they can keep the comfort AND gain a bike that folds."}}, {"title": {"en": "Vs premium folders — the numbers"}, "body": {"en": "2026 E-MAX (derailleur): 2,999 EUR, 16.9 kg, folds in 3 seconds, 20-inch wheels, battery hidden in the top tube, 248 Wh (+180 Wh range extender), up to ~65 km.\n\nElectric folders compared:\n- Ahooga E-MAX      | 2,999 EUR | 16.9 kg | folds 3s | battery in tube\n- Brompton G-Line E | 3,999 EUR | 19.5 kg | folds <30s | battery in a front bag\n- Eovolt Pro20      | 2,999 EUR | 21 kg   | folds 5s | seatpost battery\n- Tern Vektron P7i  | 3,599 EUR | 22.5 kg | folds 10s\n\nTakeaways: E-MAX is cheaper AND lighter than the Brompton G-Line Electric and the Tern Vektron, and folds the fastest here (3s). The battery is concealed in the tube, so it doesn't look like an e-bike — Brompton's sits in a front bag. And MAX's 20-inch wheels ride far smoother than Brompton's 16-inch C-Line/P-Line, which are best on smooth pavement."}}, {"title": {"en": "Vs compact e-bikes (i:SY, QiO)"}, "body": {"en": "This is the easiest win, because they simply do not fold.\n\n- Ahooga E-MAX | 2,999 EUR | 16.9 kg | FOLDS in 3s\n- i:SY S8      | 3,599 EUR | 23.9 kg | does NOT fold | no suspension\n- QiO EINS     | 3,499 EUR | 26.2 kg | does NOT fold | no suspension (a near-clone of i:SY)\n\nSo MAX folds where they can't, is 7-9 kg lighter, and the E-MAX derailleur is cheaper than both. The conversion line: \"You don't have to choose between comfort and compactness — MAX gives you a full-comfort ride that also folds for the train, the lift and a small flat.\"\n\nBe ready for their strengths: i:SY/QiO have Bosch motors, belt drive, higher payload and German manufacturing. Counter with MAX's fold, lighter weight, lower price and one-size versatility."}}, {"title": {"en": "Clinch it — and stay honest"}, "body": {"en": "Close on the four C's:\n- Comfort: the hingeless double-triangle frame and 20-inch wheels.\n- Convenience: 3-second fold, truly multimodal, stores anywhere.\n- Character: design, 16,000 colours, awards, 85% get complimented.\n- Cost & value: held pricing with improved spec, plus the A-MAX-to-electric upgrade path.\n\nIntegrity sells: on real roads at high assist, plan for around 30 km of range (the range extender helps for longer trips). Setting honest expectations builds trust and avoids returns."}}], "quiz": [{"q": {"en": "The 2026 E-MAX derailleur (2,999 EUR / 16.9 kg) compared with the Brompton G-Line Electric (3,999 EUR / 19.5 kg) is..."}, "options": [{"en": "Cheaper AND lighter"}, {"en": "More expensive and heavier"}, {"en": "The same price and weight"}], "answer": 0}, {"q": {"en": "How fast does MAX fold compared with its rivals?"}, "options": [{"en": "About 3 seconds — the fastest in the comparison"}, {"en": "About one minute"}, {"en": "It does not fold"}], "answer": 0}, {"q": {"en": "Against i:SY and QiO, MAX’s single biggest advantage is..."}, "options": [{"en": "It folds — they do not"}, {"en": "It has a bigger battery"}, {"en": "It is always the cheapest"}], "answer": 0}, {"q": {"en": "Brompton’s C-Line and P-Line use which wheel size (vs MAX’s 20\")?"}, "options": [{"en": "16 inch"}, {"en": "24 inch"}, {"en": "28 inch"}], "answer": 0}, {"q": {"en": "Honest real-world range guidance for E-MAX on high assist is about..."}, "options": [{"en": "Around 30 km (use the range extender for longer trips)"}, {"en": "Around 200 km"}, {"en": "Unlimited"}], "answer": 0}]}, {"id": "electronics-guidelines", "category": "After-sales", "points": 150, "passScore": 75, "pdf": "training-electronics-guidelines.pdf", "title": {"en": "Electric Components & Troubleshooting", "fr": "Composants électriques & dépannage", "nl": "Elektrische onderdelen & probleemoplossing"}, "desc": {"en": "Where the electric components sit, how to read error codes, and the core electric functions of the bike.", "fr": "Emplacement des composants électriques, lecture des codes d’erreur et fonctions électriques principales."}, "lessons": [{"title": {"en": "Component locations & connections"}, "body": {"en": "There are three platforms — Active 24V, Power 36V and Modular — each with the display, controller, motor, speed sensor and battery.\n\nConnection positions to remember: A = Display connection, B = Speed sensor connection, C = Motor connection. Most troubleshooting starts by checking that these connectors are seated correctly."}}, {"title": {"en": "Reading error codes"}, "body": {"en": "The display shows numbered errors. For most of them the first step is to check that the relevant cable connectors are properly connected; if the problem persists, raise it on the Ahooga warranty portal.\n\nKey codes:\n• Error 02 — short circuit: check connectors, test walk assistance; if the error stays, the motor is the likely cause.\n• Error 07 — overvoltage: measure battery voltage; if above 42V, disconnect and wait for it to drop.\n• Error 08 / 09 / 10 — motor hall/phase/hall-sensor: check the cables are connected.\n• Error 21 — speed sensor: check its position and connection.\n• Error 22 / 30 / battery flashing — communication/BMS protocol: follow the “Rebooting the Controller” guideline, then recheck all connections."}}, {"title": {"en": "Electric functions"}, "body": {"en": "Turning on: switch the battery on first (power button on the unit — the LEDs light up), then turn on the display with the orange top button until the Ahooga logo appears.\n\nAssistance has 5 levels (0 = system on but no motor assistance), changed with the arrow keys.\n\nWalking assistance: hold the down arrow while moving — it pushes the bike up to 5 km/h. Hold M to open the display menu, where you can set a password and view battery information."}}], "quiz": [{"q": {"en": "Which connection position corresponds to the motor?"}, "options": [{"en": "C"}, {"en": "A"}, {"en": "B"}], "answer": 0}, {"q": {"en": "What does Error 07 indicate?"}, "options": [{"en": "Overvoltage protection (check if battery is above 42V)"}, {"en": "A flat tyre"}, {"en": "Low battery"}], "answer": 0}, {"q": {"en": "For Error 30 or a flashing battery, what should you do?"}, "options": [{"en": "Follow the “Rebooting the Controller” guideline, then recheck connections"}, {"en": "Replace the rear wheel"}, {"en": "Charge the battery to 100%"}], "answer": 0}, {"q": {"en": "What is the correct order to switch the bike on?"}, "options": [{"en": "Battery first, then the display"}, {"en": "Display first, then the battery"}, {"en": "Order does not matter"}], "answer": 0}, {"q": {"en": "Walking assistance is limited to what speed?"}, "options": [{"en": "5 km/h"}, {"en": "25 km/h"}, {"en": "15 km/h"}], "answer": 0}], "level": 2}, {"id": "objections-closing", "level": 3, "category": "Sales", "points": 200, "passScore": 80, "pdf": "", "title": {"en": "Handling Objections & Closing", "fr": "Gérer les objections & conclure"}, "desc": {"en": "Turn the hardest objections — price, weight, range, “why fold” — into a sale.", "fr": "Transformer les objections difficiles — prix, poids, autonomie, “pourquoi plier” — en vente."}, "lessons": [{"title": {"en": "Objection: \"it’s expensive\""}, "body": {"en": "Reframe price as value. MAX uses premium components (Shimano hydraulic disc brakes, Alfine 8 hub), held its 2026 pricing while improving the spec, and has the awards to back it. E-MAX from 2,999 EUR, A-MAX from 1,799 EUR.\n\nCompare against the real alternative: car costs, parking and storage. And remind them an A-MAX can be upgraded to electric later, protecting their investment."}}, {"title": {"en": "Objection: \"isn’t it heavy?\""}, "body": {"en": "Don't argue — demonstrate. Invite them to ROLL the folded bike before lifting it; the rear-rack wheels make it glide. Then the numbers: A-MAX 14 kg, E-MAX about 17 kg (2 kg lighter than launch) — light for a folding e-bike.\n\nFrame weight as portability: it folds to carry onto a train or store under a desk."}}, {"title": {"en": "Objection: \"why folding? I have space\""}, "body": {"en": "Folding is about freedom, not just storage: take it on trains, trams, in the car and the lift; bring it inside against theft; and it fits shrinking living spaces. Note that the cities where people cycle most also top happiness rankings.\n\nFor range worries on E-MAX: offer the range extender, explain the removable lockable battery (charge on or off the bike), and show remaining range on the MIVICE display with its five assist levels."}}, {"title": {"en": "Closing & upsell"}, "body": {"en": "Always move toward the sale:\n- Book or run the test ride — it is still the #1 closing action.\n- Offer a custom colour build to create emotional commitment.\n- Bundle accessories: range extender, rear rack, transport bag.\n- Present the A-MAX-to-electric upgrade as a safe first step.\nThen ask for the sale directly."}}], "quiz": [{"q": {"en": "Best response to \"it’s too heavy\"?"}, "options": [{"en": "Invite them to roll it first, then note A-MAX is 14 kg"}, {"en": "Agree that it is heavy"}, {"en": "Change the subject"}], "answer": 0}, {"q": {"en": "For range anxiety on E-MAX, you should offer..."}, "options": [{"en": "The range extender and explain the removable battery"}, {"en": "An immediate discount"}, {"en": "Nothing"}], "answer": 0}, {"q": {"en": "A strong reframe for the price objection is..."}, "options": [{"en": "Premium components, held pricing, upgrade path and value vs a car"}, {"en": "Just give a discount"}, {"en": "Ignore the objection"}], "answer": 0}, {"q": {"en": "To create emotional commitment at closing, offer..."}, "options": [{"en": "A custom colour build"}, {"en": "Only a longer warranty"}, {"en": "Free shipping only"}], "answer": 0}, {"q": {"en": "The number-one closing action remains..."}, "options": [{"en": "Booking or running a test ride"}, {"en": "Emailing a PDF"}, {"en": "Waiting for the client to decide"}], "answer": 0}]}, {"id": "rebooting-controller", "category": "After-sales", "points": 200, "passScore": 80, "pdf": "training-rebooting-controller.pdf", "title": {"en": "Rebooting the Controller (Display Software Update)", "fr": "Redémarrage du contrôleur (mise à jour du logiciel)", "nl": "Controller herstarten (software-update)"}, "desc": {"en": "When and how to run the display/controller software update to clear Error 30 and battery-flashing faults.", "fr": "Quand et comment lancer la mise à jour du logiciel pour corriger l’erreur 30 et la batterie clignotante."}, "lessons": [{"title": {"en": "When to reboot & choosing the version"}, "body": {"en": "Decision tree: an Error 30 or a flashing battery means you should run the software update. A different error, or a display that will not turn on, goes to the troubleshooting section instead.\n\nChoosing the firmware by controller serial number (SN):\n• SN starting AKM# → Aikema FW 2.2.5.B\n• SN starting KZQW# → Tonsheng FW 2.8.5.S\nThe Active 24V folding bike hides the SN inside the motor — try both versions. You can also tell them apart on the display: square assistance indicators = Aikema, arrow indicators = Tonsheng."}}, {"title": {"en": "The update pack & firmware update"}, "body": {"en": "The pack contains the TOPOLOGY update box (connects the computer to the display), the display, and the TPSERVICE software.\n\nFirmware update: open TPSERVICE, choose the serial port and click Connect, power the display on with the orange button, click Read_info to identify the software version, click Update File and select sw102.bin from the Software_update folder, then Open. Turn the display off, click Update until “Ready for Update…” appears, then press M and long-press the orange button — a yellow progress bar appears. When the bar completes, the reboot is done."}}, {"title": {"en": "Parameter set-up (KZQW# only)"}, "body": {"en": "Only for controllers whose SN starts with KZQW#: after the firmware update, choose the serial port and Connect, power the display on, click Set then Load Parm, choose the bike model (Folding Active/Power, Modular or Urban), click Parm and select sw102.bin, Open, then Edit Value and Set Parm. A yellow bar appears; when it completes the parameter set-up is finished."}}], "quiz": [{"q": {"en": "A controller serial number starting with “AKM#” uses which firmware?"}, "options": [{"en": "Aikema FW 2.2.5.B"}, {"en": "Tonsheng FW 2.8.5.S"}, {"en": "No firmware is needed"}], "answer": 0}, {"q": {"en": "Which symptom tells you to run the software update / reboot?"}, "options": [{"en": "Error 30 or a flashing battery"}, {"en": "A flat tyre"}, {"en": "A loose kickstand"}], "answer": 0}, {"q": {"en": "The parameter set-up step is required for which controllers?"}, "options": [{"en": "Only SNs starting with KZQW#"}, {"en": "Only SNs starting with AKM#"}, {"en": "Every bike"}], "answer": 0}, {"q": {"en": "Which tool connects the computer to the display?"}, "options": [{"en": "The TOPOLOGY update box"}, {"en": "The battery charger"}, {"en": "The motor"}], "answer": 0}, {"q": {"en": "During the firmware update, after “Ready for Update…” appears you should…"}, "options": [{"en": "Press M, then long-press the orange button"}, {"en": "Unplug everything immediately"}, {"en": "Charge the battery to 100%"}], "answer": 0}], "level": 3}], "rewards": [{"id": "poster-pack", "cost": 300, "stock": null, "title": {"en": "Marketing poster pack", "fr": "Pack d’affiches marketing"}, "desc": {"en": "A set of printable Ahooga store posters.", "fr": "Un jeu d’affiches Ahooga imprimables."}, "image": ""}, {"id": "window-decals", "cost": 200, "stock": null, "title": {"en": "Window decals set", "fr": "Jeu de stickers vitrine"}, "desc": {"en": "Branded window decals for your storefront.", "fr": "Stickers vitrine aux couleurs Ahooga."}, "image": ""}, {"id": "apparel", "cost": 500, "stock": 50, "title": {"en": "Branded apparel", "fr": "Vêtement floqué Ahooga"}, "desc": {"en": "An Ahooga t-shirt for your team.", "fr": "Un t-shirt Ahooga pour votre équipe."}, "image": ""}, {"id": "demo-kit", "cost": 800, "stock": 20, "title": {"en": "Demo / test-ride event kit", "fr": "Kit événement essai"}, "desc": {"en": "Everything to run a test-ride day at your shop.", "fr": "De quoi organiser une journée d’essai en magasin."}, "image": ""}, {"id": "dealer-day", "cost": 1000, "stock": 30, "title": {"en": "Ticket — Ahooga Dealer Day", "fr": "Billet — Ahooga Dealer Day"}, "desc": {"en": "One seat at the annual Ahooga dealer event.", "fr": "Une place à l’événement annuel revendeurs Ahooga."}, "image": ""}]};
+const LANGS={en:"English",fr:"Français",nl:"Nederlands",de:"Deutsch",sv:"Svenska",pl:"Polski",it:"Italiano",hu:"Magyar",lt:"Lietuvių",es:"Español",pt:"Português"};
+const CATS=["Product","Brand","Sales","After-sales"];
+let mode="demo", editLang="en", CFG=null, livePw="", tab="courses", editIdx=-1, dirty=false;
+
+/* ---------- multilingual text helpers ---------- */
+function tx(f){if(f==null)return"";if(typeof f==="string")return f;return f[editLang]!=null?f[editLang]:(f.en!=null?f.en:(Object.values(f)[0]||""));}
+function asMap(f){if(f==null)return{};if(typeof f==="string")return{en:f};return f;}
+function setField(obj,prop,val){var m=asMap(obj[prop]);m[editLang]=val;obj[prop]=m;dirty=true;}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+/* ---------- storage (demo) ---------- */
+function demoDB(){try{var d=JSON.parse(localStorage.getItem("ahg_demo_db"));if(d&&d.cfg&&d.cfg.courses&&d.seedV===SEEDV)return d;}catch(e){}
+ var s={seedV:SEEDV,cfg:JSON.parse(JSON.stringify(DEFAULT_CFG)),adminPw:"demo",emps:{}};localStorage.setItem("ahg_demo_db",JSON.stringify(s));return s;}
+function demoSaveCfg(cfg){var d=demoDB();d.cfg=cfg;localStorage.setItem("ahg_demo_db",JSON.stringify(d));}
+
+/* ---------- api ---------- */
+async function live(path,payload){var r=await fetch(API+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({adminPw:livePw},payload||{}))});var d={};try{d=await r.json();}catch(e){}if(!r.ok||d.error)throw new Error(d.error||("Error "+r.status));return d;}
+
+/* ---------- load ---------- */
+async function loadCfg(){
+ if(mode==="demo"){CFG=JSON.parse(JSON.stringify(demoDB().cfg));dirty=false;return;}
+ var d=await live("/training/admin/get",{});CFG=d.cfg||{courses:[],rewards:[]};dirty=false;
+}
+async function saveCfg(){
+ normalizeCfg();
+ if(mode==="demo"){demoSaveCfg(CFG);dirty=false;return "Saved to the demo (this browser). Open training-demo.html to preview.";}
+ await live("/training/admin/save",{cfg:CFG});dirty=false;return "Published to the live server.";
+}
+function normalizeCfg(){ (CFG.courses||[]).forEach(c=>{c.level=Number(c.level)||1;c.points=Number(c.points)||0;c.passScore=Number(c.passScore)||70;(c.quiz||[]).forEach(q=>q.answer=Number(q.answer)||0);}); (CFG.rewards||[]).forEach(r=>{r.cost=Number(r.cost)||0;}); }
+
+/* ---------- mode / lang ---------- */
+function setMode(m){
+ if(m==="live"){ promptLive(); return; }
+ mode="demo";document.getElementById("m-demo").classList.add("on");document.getElementById("m-live").classList.remove("on");
+ boot();
+}
+function promptLive(){
+ document.getElementById("modal").innerHTML='<div class="overlay"><div class="box"><h2>Connect to the live server</h2>'+
+  '<p class="hint">Enter your worker admin password (the <code>TRAINING_ADMIN_PW</code> secret). This loads the courses currently on the deployed server so you can edit and publish them.</p>'+
+  '<label>Admin password</label><input id="lpw" type="password">'+
+  '<div class="row" style="margin-top:16px;justify-content:flex-end"><button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" onclick="doLive()">Connect</button></div>'+
+  '<div class="msg err" id="lpwm"></div></div></div>';
+ setTimeout(()=>{var i=document.getElementById("lpw");i&&i.focus();i&&i.addEventListener("keydown",e=>{if(e.key==="Enter")doLive();});},50);
+}
+async function doLive(){
+ livePw=document.getElementById("lpw").value||"";
+ var m=document.getElementById("lpwm");m.textContent="Connecting…";
+ try{await live("/training/admin/login",{});mode="live";closeModal();
+  document.getElementById("m-live").classList.add("on");document.getElementById("m-demo").classList.remove("on");
+  boot();
+ }catch(e){m.textContent=e.message;}
+}
+function closeModal(){document.getElementById("modal").innerHTML="";}
+function setLang(l){editLang=l;render();}
+
+/* ---------- render ---------- */
+function fillLang(){var s=document.getElementById("langsel");s.innerHTML=Object.keys(LANGS).map(c=>'<option value="'+c+'"'+(c===editLang?' selected':'')+'>'+LANGS[c]+'</option>').join('');}
+function render(){
+ fillLang();
+ var m=document.getElementById("main");
+ var tb=document.getElementById("toolbar");
+ var tabs='<div class="tabs">'+[["courses","Courses"],["rewards","Rewards"],["redemptions","Redemptions"]].map(([k,n])=>'<div class="tab'+(k===tab?' active':'')+'" onclick="go(\''+k+'\')">'+n+'</div>').join('')+'</div>';
+ if(editIdx>=0){m.innerHTML=tabs+renderEditor(editIdx);tb.style.display="none";return;}
+ if(tab==="courses")m.innerHTML=tabs+renderCourses();
+ else if(tab==="rewards")m.innerHTML=tabs+renderRewards();
+ else m.innerHTML=tabs+'<div class="panel" id="redpanel"><h1>Reward redemptions</h1><p class="hint">Loading…</p></div>',loadRedemptions();
+ // toolbar
+ tb.style.display="flex";
+ tb.innerHTML='<span class="hint">'+(mode==="demo"?'Demo mode — saves to this browser, instantly visible in the demo app.':'Live mode — connected to the deployed server.')+(dirty?' <b>• unsaved changes</b>':'')+'</span>'+
+  '<a class="btn ghost sm" href="training-demo.html" target="_blank">Open demo ↗</a>'+
+  '<button class="btn" onclick="doSave()">'+(mode==="demo"?"Save":"Publish to live")+'</button>'+
+  '<span class="msg" id="savemsg" style="margin:0"></span>';
+}
+function go(t){tab=t;editIdx=-1;render();}
+
+function renderCourses(){
+ var rows=(CFG.courses||[]).map((c,i)=>'<div class="crow">'+
+   '<span class="lvl l'+(c.level||1)+'">L'+(c.level||1)+'</span>'+
+   '<span class="ct"><b>'+esc(tx(c.title)||c.id)+'</b><div class="m">'+esc(c.category||"")+' · '+(c.points||0)+' pts · '+((c.quiz||[]).length)+' questions · id: '+esc(c.id)+'</div></span>'+
+   '<button class="btn ghost sm" onclick="move(\'courses\','+i+',-1)">↑</button>'+
+   '<button class="btn ghost sm" onclick="move(\'courses\','+i+',1)">↓</button>'+
+   '<button class="btn ghost sm" onclick="edit('+i+')">Edit</button>'+
+   '<button class="btn danger sm" onclick="del(\'courses\','+i+')">Delete</button></div>').join('');
+ return '<div class="panel"><div class="row" style="justify-content:space-between"><h1>Courses</h1><button class="btn" onclick="addCourse()">+ New course</button></div>'+
+  '<p class="sub">Order here is the display order within each level. Editing language: <b>'+LANGS[editLang]+'</b> — switch it top-right to enter other languages; English is the fallback.</p>'+
+  '<div class="clist">'+(rows||'<p class="hint">No courses yet.</p>')+'</div></div>';
+}
+
+function renderEditor(ci){
+ var c=CFG.courses[ci];
+ var lessons=(c.lessons||[]).map((l,li)=>'<div class="block"><div class="hd"><b>Lesson '+(li+1)+'</b>'+
+   '<button class="btn ghost sm" onclick="moveSub('+ci+',\'lessons\','+li+',-1)">↑</button>'+
+   '<button class="btn ghost sm" onclick="moveSub('+ci+',\'lessons\','+li+',1)">↓</button>'+
+   '<button class="btn danger sm" onclick="delSub('+ci+',\'lessons\','+li+')">Remove</button></div>'+
+   '<label>Lesson title</label><input value="'+esc(tx(l.title))+'" onchange="setSub('+ci+',\'lessons\','+li+',\'title\',this.value)">'+
+   '<label>Lesson text</label><textarea rows="5" onchange="setSub('+ci+',\'lessons\','+li+',\'body\',this.value)">'+esc(tx(l.body))+'</textarea></div>').join('');
+ var quiz=(c.quiz||[]).map((q,qi)=>{
+   var opts=(q.options||[]).map((o,oi)=>'<div class="opt">'+
+     '<label class="corr"><input type="radio" name="ans_'+ci+'_'+qi+'" '+((q.answer||0)===oi?'checked':'')+' onclick="setAns('+ci+','+qi+','+oi+')"> correct</label>'+
+     '<input type="text" value="'+esc(tx(o))+'" onchange="setOpt('+ci+','+qi+','+oi+',this.value)">'+
+     '<button class="btn danger sm" onclick="delOpt('+ci+','+qi+','+oi+')">✕</button></div>').join('');
+   return '<div class="block"><div class="hd"><b>Question '+(qi+1)+'</b>'+
+     '<button class="btn ghost sm" onclick="moveSub('+ci+',\'quiz\','+qi+',-1)">↑</button>'+
+     '<button class="btn ghost sm" onclick="moveSub('+ci+',\'quiz\','+qi+',1)">↓</button>'+
+     '<button class="btn danger sm" onclick="delSub('+ci+',\'quiz\','+qi+')">Remove</button></div>'+
+     '<label>Question</label><textarea rows="2" onchange="setSub('+ci+',\'quiz\','+qi+',\'q\',this.value)">'+esc(tx(q.q))+'</textarea>'+
+     '<label>Answer options (tick the correct one)</label>'+opts+
+     '<button class="btn ghost sm" onclick="addOpt('+ci+','+qi+')">+ Add option</button></div>';
+ }).join('');
+ var catopts=CATS.map(x=>'<option '+(c.category===x?'selected':'')+'>'+x+'</option>').join('')+'<option '+(CATS.indexOf(c.category)<0?'selected':'')+' value="'+esc(c.category||'')+'">'+(CATS.indexOf(c.category)<0?esc(c.category||'(custom)'):'(other…)')+'</option>';
+ return '<div class="panel"><div class="row" style="justify-content:space-between"><h1>'+(c.__new?'New course':'Edit course')+'</h1>'+
+  '<button class="btn ghost" onclick="backList()">← Back to list</button></div>'+
+  '<div class="grid3">'+
+   '<div><label>Level</label><select onchange="setVal('+ci+',\'level\',this.value)"><option value="1"'+((c.level||1)==1?' selected':'')+'>1 — Beginner</option><option value="2"'+((c.level||1)==2?' selected':'')+'>2 — Intermediate</option><option value="3"'+((c.level||1)==3?' selected':'')+'>3 — Advanced</option></select></div>'+
+   '<div><label>Category</label><input value="'+esc(c.category||'')+'" list="catlist" onchange="setVal('+ci+',\'category\',this.value)"><datalist id="catlist">'+CATS.map(x=>'<option value="'+x+'">').join('')+'</datalist></div>'+
+   '<div><label>Points</label><input type="number" value="'+(c.points||0)+'" onchange="setVal('+ci+',\'points\',this.value)"></div>'+
+  '</div>'+
+  '<div class="grid3">'+
+   '<div><label>Pass mark (%)</label><input type="number" value="'+(c.passScore||70)+'" onchange="setVal('+ci+',\'passScore\',this.value)"></div>'+
+   '<div><label>PDF file (optional)</label><input value="'+esc(c.pdf||'')+'" placeholder="my-guide.pdf" onchange="setVal('+ci+',\'pdf\',this.value)"></div>'+
+   '<div><label>Video file / URL (optional)</label><input value="'+esc(c.video||'')+'" placeholder="clip.mp4" onchange="setVal('+ci+',\'video\',this.value)"></div>'+
+  '</div>'+
+  '<label>Course ID '+(c.__new?'(letters, numbers, hyphens — cannot be changed later)':'(locked — keeps learner progress intact)')+'</label>'+
+  (c.__new?'<input value="'+esc(c.id||'')+'" onchange="setVal('+ci+',\'id\',this.value)">':'<input value="'+esc(c.id)+'" disabled>')+
+  '<label>Title</label><input value="'+esc(tx(c.title))+'" onchange="setTxt('+ci+',\'title\',this.value)">'+
+  '<label>Short description</label><textarea rows="2" onchange="setTxt('+ci+',\'desc\',this.value)">'+esc(tx(c.desc))+'</textarea>'+
+  '<h2 style="margin:20px 0 8px">Lessons</h2>'+lessons+'<button class="btn ghost sm" onclick="addLesson('+ci+')">+ Add lesson</button>'+
+  '<h2 style="margin:22px 0 8px">Quiz</h2><p class="hint" style="margin-top:-2px">The correct-answer tick is stored on the server and never sent to employees.</p>'+quiz+'<button class="btn ghost sm" onclick="addQ('+ci+')">+ Add question</button>'+
+  '<div class="row" style="margin-top:22px"><button class="btn" onclick="saveCourse('+ci+')">Done — keep changes</button><button class="btn ghost" onclick="backList()">Cancel</button><span class="msg err" id="ed-msg"></span></div>'+
+  '</div>';
+}
+
+/* ---------- course mutations ---------- */
+function edit(i){editIdx=i;render();}
+function backList(){editIdx=-1;render();}
+function setVal(ci,k,v){CFG.courses[ci][k]=(k==='level'||k==='points'||k==='passScore')?Number(v):v;dirty=true;}
+function setTxt(ci,k,v){setField(CFG.courses[ci],k,v);}
+function setSub(ci,arr,i,k,v){setField(CFG.courses[ci][arr][i],k,v);}
+function setOpt(ci,qi,oi,v){var q=CFG.courses[ci].quiz[qi];var m=asMap(q.options[oi]);m[editLang]=v;q.options[oi]=m;dirty=true;}
+function setAns(ci,qi,oi){CFG.courses[ci].quiz[qi].answer=oi;dirty=true;}
+function addLesson(ci){CFG.courses[ci].lessons=CFG.courses[ci].lessons||[];CFG.courses[ci].lessons.push({title:{},body:{}});dirty=true;render();}
+function addQ(ci){CFG.courses[ci].quiz=CFG.courses[ci].quiz||[];CFG.courses[ci].quiz.push({q:{},options:[{},{}],answer:0});dirty=true;render();}
+function addOpt(ci,qi){CFG.courses[ci].quiz[qi].options.push({});dirty=true;render();}
+function delOpt(ci,qi,oi){var q=CFG.courses[ci].quiz[qi];q.options.splice(oi,1);if(q.answer>=q.options.length)q.answer=0;dirty=true;render();}
+function delSub(ci,arr,i){if(!confirm("Remove this "+(arr==='quiz'?'question':'lesson')+"?"))return;CFG.courses[ci][arr].splice(i,1);dirty=true;render();}
+function moveSub(ci,arr,i,d){var a=CFG.courses[ci][arr];var j=i+d;if(j<0||j>=a.length)return;var t=a[i];a[i]=a[j];a[j]=t;dirty=true;render();}
+function move(arr,i,d){var a=CFG[arr];var j=i+d;if(j<0||j>=a.length)return;var t=a[i];a[i]=a[j];a[j]=t;dirty=true;render();}
+function del(arr,i){if(!confirm("Delete this "+(arr==='courses'?'course':'reward')+"? This cannot be undone."))return;CFG[arr].splice(i,1);dirty=true;render();}
+function addCourse(){CFG.courses=CFG.courses||[];CFG.courses.push({__new:true,id:"",level:1,category:"Sales",points:100,passScore:70,pdf:"",video:"",title:{},desc:{},lessons:[{title:{},body:{}}],quiz:[{q:{},options:[{},{}],answer:0}]});editIdx=CFG.courses.length-1;render();}
+function saveCourse(ci){
+ var c=CFG.courses[ci];var m=document.getElementById("ed-msg");
+ if(c.__new){var id=(c.id||"").trim().toLowerCase();if(!/^[a-z0-9-]{3,}$/.test(id)){m.textContent="ID must be 3+ chars: letters, numbers, hyphens.";return;}
+  if(CFG.courses.some((x,k)=>k!==ci&&x.id===id)){m.textContent="That ID is already used.";return;}c.id=id;delete c.__new;}
+ if(!tx(c.title)){m.textContent="Please give the course a title.";return;}
+ dirty=true;editIdx=-1;render();
+}
+
+/* ---------- rewards ---------- */
+function renderRewards(){
+ var rows=(CFG.rewards||[]).map((r,i)=>'<div class="block"><div class="hd"><b>Reward '+(i+1)+'</b>'+
+   '<button class="btn ghost sm" onclick="move(\'rewards\','+i+',-1)">↑</button><button class="btn ghost sm" onclick="move(\'rewards\','+i+',1)">↓</button>'+
+   '<button class="btn danger sm" onclick="del(\'rewards\','+i+')">Delete</button></div>'+
+   '<div class="grid3"><div><label>ID</label><input value="'+esc(r.id||'')+'" onchange="rset('+i+',\'id\',this.value)"></div>'+
+   '<div><label>Cost (points)</label><input type="number" value="'+(r.cost||0)+'" onchange="rset('+i+',\'cost\',this.value)"></div>'+
+   '<div><label>Stock (blank = unlimited)</label><input type="number" value="'+(r.stock==null?'':r.stock)+'" onchange="rsetStock('+i+',this.value)"></div></div>'+
+   '<label>Title</label><input value="'+esc(tx(r.title))+'" onchange="rsetT('+i+',\'title\',this.value)">'+
+   '<label>Description</label><textarea rows="2" onchange="rsetT('+i+',\'desc\',this.value)">'+esc(tx(r.desc))+'</textarea></div>').join('');
+ return '<div class="panel"><div class="row" style="justify-content:space-between"><h1>Rewards</h1><button class="btn" onclick="addReward()">+ New reward</button></div>'+
+  '<p class="sub">Points employees can spend. Redemptions appear under the Redemptions tab for you to approve.</p>'+rows+'</div>';
+}
+function rset(i,k,v){CFG.rewards[i][k]=(k==='cost')?Number(v):v;dirty=true;}
+function rsetStock(i,v){CFG.rewards[i].stock=(v===''||v==null)?null:Number(v);dirty=true;}
+function rsetT(i,k,v){setField(CFG.rewards[i],k,v);}
+function addReward(){CFG.rewards=CFG.rewards||[];CFG.rewards.push({id:"reward-"+Date.now().toString(36),cost:100,stock:null,title:{},desc:{}});dirty=true;render();}
+
+/* ---------- redemptions ---------- */
+async function loadRedemptions(){
+ var p=document.getElementById("redpanel");if(!p)return;
+ try{
+  var list=[];
+  if(mode==="demo"){var d=demoDB();Object.values(d.emps||{}).forEach(shop=>Object.values(shop).forEach(e=>(e.redemptions||[]).forEach((r,idx)=>list.push({pid:e.pid,user:e.user,name:e.name,shop:e.shop,idx:idx,title:r.title,cost:r.cost,ts:r.ts,status:r.status||"pending"}))));list.sort((a,b)=>b.ts-a.ts);}
+  else {var d=await live("/training/admin/redemptions",{});list=d.redemptions||[];}
+  var rows=list.map(r=>'<tr><td>'+esc(r.name)+'</td><td>'+esc(r.shop)+'</td><td>'+esc(r.title)+'</td><td>'+r.cost+'</td><td>'+esc(r.status)+'</td>'+
+   '<td><button class="btn ghost sm" onclick="setRed('+r.pid+',\''+esc(r.user)+'\','+r.idx+',\'approved\')">Approve</button> '+
+   '<button class="btn danger sm" onclick="setRed('+r.pid+',\''+esc(r.user)+'\','+r.idx+',\'rejected\')">Reject</button></td></tr>').join('');
+  p.innerHTML='<h1>Reward redemptions</h1>'+(rows?'<table style="width:100%;border-collapse:collapse" class="rt"><tr style="text-align:left"><th>Name</th><th>Shop</th><th>Reward</th><th>Cost</th><th>Status</th><th></th></tr>'+rows+'</table><style>.rt td,.rt th{padding:9px 10px;border-bottom:1px solid var(--line);font-size:13.5px}</style>':'<p class="hint">No redemptions yet.</p>');
+ }catch(e){p.innerHTML='<h1>Reward redemptions</h1><p class="msg err">'+esc(e.message)+'</p>';}
+}
+async function setRed(pid,user,idx,status){
+ try{
+  if(mode==="demo"){var d=demoDB();var e=(d.emps[pid]||{})[user];if(e&&e.redemptions&&e.redemptions[idx]){e.redemptions[idx].status=status;localStorage.setItem("ahg_demo_db",JSON.stringify(d));}}
+  else{await live("/training/admin/setredemption",{pid:pid,user:user,idx:idx,status:status});}
+  loadRedemptions();
+ }catch(e){alert(e.message);}
+}
+
+/* ---------- save ---------- */
+async function doSave(){
+ var m=document.getElementById("savemsg");m.className="msg";m.textContent="Saving…";
+ try{var note=await saveCfg();m.className="msg ok";m.textContent=note;render();}
+ catch(e){m.className="msg err";m.textContent=e.message;}
+}
+
+/* ---------- boot ---------- */
+async function boot(){
+ var m=document.getElementById("main");m.innerHTML='<div class="panel"><p class="hint">Loading…</p></div>';
+ try{await loadCfg();render();}catch(e){m.innerHTML='<div class="panel"><p class="msg err">'+esc(e.message)+'</p></div>';}
+}
+window.addEventListener("beforeunload",function(e){if(dirty){e.preventDefault();e.returnValue="";}});
+boot();
+</script></body></html>
