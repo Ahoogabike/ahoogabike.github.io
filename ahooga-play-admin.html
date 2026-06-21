@@ -163,9 +163,15 @@ function renderPending(){
    <div class="main"><div class="t">${esc(s.title)}</div>
     <div class="meta">Shop #${esc(s.pid)} · by ${esc(s.by||'—')} · ${ago(s.ts)}</div></div>
    <span class="pts">⚡ ${s.points} pts</span>
+   ${s.mediaKey?`<button class="ap" style="background:#eaf0fb;color:#3a5a99" onclick="viewMedia('${esc(s.mediaKey)}')">👁 View ${esc(s.mediaName||'file')}</button>`:''}
    <button class="ap" onclick="decide('${s.pid}','${s.id}','approve')">Approve</button>
    <button class="rj" onclick="decide('${s.pid}','${s.id}','reject')">Reject</button>
   </div>`).join(''):'<div class="empty">No pending submissions 🎉</div>';
+}
+async function viewMedia(key){
+ const r=await fetch(CF+"/play/admin/media",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({adminPw:pw,key:key})});
+ if(!r.ok){let e={};try{e=await r.json();}catch(_){}toast('⚠️ '+(e.error||'Could not open file'));return;}
+ const blob=await r.blob();const url=URL.createObjectURL(blob);window.open(url,'_blank');setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
 async function decide(pid,subId,decision){
  const el=document.getElementById('s_'+subId);if(el)el.style.opacity='.4';
