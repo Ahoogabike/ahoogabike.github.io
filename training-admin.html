@@ -91,6 +91,22 @@ function demoSaveCfg(cfg){var d=demoDB();d.cfg=cfg;localStorage.setItem("ahg_dem
 
 /* ---------- api ---------- */
 async function live(path,payload){var r=await fetch(API+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({adminPw:livePw},payload||{}))});var d={};try{d=await r.json();}catch(e){}if(!r.ok||d.error)throw new Error(d.error||("Error "+r.status));return d;}
+async function uploadCourseMedia(ci,input,kind){
+  var f=input.files&&input.files[0]; if(!f)return;
+  if(mode!=="live"||!livePw){alert("Switch to “Live server” (top right) and connect first, then upload.");return;}
+  if(f.size>100*1024*1024){alert("That file is over 100 MB. Please use a smaller one.");return;}
+  var c=CFG.courses[ci]; var cid=c.id||("course"+ci);
+  var msg=document.getElementById("vidm"+ci); if(msg){msg.style.color="";msg.textContent="Uploading … (this can take a moment)";}
+  try{
+    var u=API+"/training/admin/upload?adminPw="+encodeURIComponent(livePw)+"&courseId="+encodeURIComponent(cid)+"&kind="+encodeURIComponent(kind)+"&filename="+encodeURIComponent(f.name);
+    var r=await fetch(u,{method:"POST",headers:{"Content-Type":f.type||"application/octet-stream"},body:f});
+    var d={};try{d=await r.json();}catch(e){}
+    if(!r.ok||d.error)throw new Error(d.error||("Error "+r.status));
+    CFG.courses[ci][kind]=d.key; dirty=true;
+    var inp=document.getElementById("vid"+ci); if(inp)inp.value=d.key;
+    if(msg){msg.style.color="#1a7f37";msg.textContent="✓ Uploaded — click Publish to save.";}
+  }catch(e){ if(msg){msg.style.color="#b3261e";msg.textContent="⚠ "+(e&&e.message||e);} }
+}
 
 /* ---------- load ---------- */
 async function loadCfg(){
@@ -194,7 +210,8 @@ function renderEditor(ci){
   '<div class="grid3">'+
    '<div><label>Pass mark (%)</label><input type="number" value="'+(c.passScore||70)+'" onchange="setVal('+ci+',\'passScore\',this.value)"></div>'+
    '<div><label>PDF file (optional)</label><input value="'+esc(c.pdf||'')+'" placeholder="my-guide.pdf" onchange="setVal('+ci+',\'pdf\',this.value)"></div>'+
-   '<div><label>Video file / URL (optional)</label><input value="'+esc(c.video||'')+'" placeholder="clip.mp4" onchange="setVal('+ci+',\'video\',this.value)"></div>'+
+   '<div><label>Video (upload a file or paste a URL)</label><input id="vid'+ci+'" value="'+esc(c.video||'')+'" placeholder="clip.mp4 or https://…" onchange="setVal('+ci+',\'video\',this.value)">'+
+     '<div style="margin-top:6px;display:flex;align-items:center;gap:8px"><input type="file" accept="video/*" id="vidf'+ci+'" style="display:none" onchange="uploadCourseMedia('+ci+',this,\'video\')"><button type="button" class="btn ghost" onclick="document.getElementById(\'vidf'+ci+'\').click()">⬆ Upload video</button><span id="vidm'+ci+'" class="muted"></span></div></div>'+
   '</div>'+
   '<label>Course ID '+(c.__new?'(letters, numbers, hyphens — cannot be changed later)':'(locked — keeps learner progress intact)')+'</label>'+
   (c.__new?'<input value="'+esc(c.id||'')+'" onchange="setVal('+ci+',\'id\',this.value)">':'<input value="'+esc(c.id)+'" disabled>')+
