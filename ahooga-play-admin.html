@@ -1,0 +1,243 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ahooga — Play admin (internal)</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+ :root{--ink:#16160f;--dim:#6f6d63;--line:#e6e3da;--gold:#f2b705;--gold-d:#caa006;--bg2:#f5f4f1;--green:#2d6e2d;--green-bg:#e8f3e8;--red:#b3261e;--red-bg:#fbe9e7;--amber:#9a6a00;--amber-bg:#fbf2da}
+ *{box-sizing:border-box}body{margin:0;font-family:'Archivo',system-ui,sans-serif;color:var(--ink);background:#faf9f6}
+ header{display:flex;align-items:center;gap:14px;padding:12px 20px;border-bottom:1px solid var(--line);background:#fff;position:sticky;top:0;z-index:10}
+ header b{font-weight:900}.tag{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+ .spacer{flex:1}.muted{color:var(--dim);font-size:12px}
+ .gate{max-width:360px;margin:12vh auto;text-align:center}
+ .gate input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;font-family:inherit;margin:10px 0}
+ .gate button{width:100%;padding:13px;border:0;border-radius:10px;background:var(--gold);font-weight:800;cursor:pointer;font-family:inherit}
+ .wrap{max-width:1000px;margin:0 auto;padding:22px 20px 60px}
+ .tabs{display:flex;border-bottom:1px solid var(--line);margin-bottom:20px;flex-wrap:wrap}
+ .tab{border:0;background:transparent;font-family:inherit;font-weight:800;font-size:14.5px;color:var(--dim);padding:11px 2px;margin-right:26px;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+ .tab.on{color:var(--ink);border-bottom-color:var(--gold)}
+ .badge{display:inline-block;background:var(--red);color:#fff;font-size:11px;font-weight:800;border-radius:10px;padding:1px 7px;margin-left:6px}
+ h2{font-size:16px;font-weight:900;margin:0 0 12px}
+ /* approvals */
+ .sub{border:1px solid var(--line);border-radius:14px;background:#fff;padding:16px 18px;margin-bottom:12px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+ .sub .ic{font-size:26px}
+ .sub .main{flex:1;min-width:200px}
+ .sub .t{font-weight:800;font-size:15px}
+ .sub .meta{font-size:12.5px;color:var(--dim);margin-top:3px}
+ .sub .pts{background:var(--gold);color:var(--ink);font-weight:800;font-size:12px;padding:4px 10px;border-radius:14px}
+ .sub button{border:0;border-radius:9px;font-weight:800;font-size:13px;padding:9px 16px;cursor:pointer;font-family:inherit}
+ .ap{background:var(--green-bg);color:var(--green)}.rj{background:var(--red-bg);color:var(--red)}
+ /* editor */
+ .cat{border:1px solid var(--line);border-radius:14px;background:#fff;padding:14px 16px;margin-bottom:14px}
+ .cathd{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+ .cathd input{font-weight:800}
+ .row{display:grid;grid-template-columns:60px 1.4fr 2fr 90px 90px 110px 34px;gap:8px;align-items:center;margin-bottom:8px}
+ .row.head{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);font-weight:700}
+ .row.rwh{grid-template-columns:60px 1.3fr 2fr 1fr 90px 34px}
+ .row.rw{grid-template-columns:60px 1.3fr 2fr 1fr 90px 34px}
+ input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit}
+ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold)}
+ .del{border:0;background:var(--red-bg);color:var(--red);border-radius:8px;font-weight:800;cursor:pointer;padding:8px 0}
+ .add{border:1px dashed var(--line);background:#fff;border-radius:9px;font-weight:800;font-size:13px;color:var(--dim);padding:9px 14px;cursor:pointer;font-family:inherit}
+ .add:hover{border-color:var(--gold);color:var(--ink)}
+ .bar{display:flex;gap:10px;align-items:center;margin:16px 0 22px}
+ .save{border:0;border-radius:10px;background:var(--gold);font-weight:800;font-size:14px;padding:12px 24px;cursor:pointer;font-family:inherit}
+ .save:hover{background:var(--gold-d)}.save:disabled{opacity:.6}
+ .smsg{font-size:13px;font-weight:700}
+ .empty{padding:40px 10px;text-align:center;color:var(--dim)}
+ .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:12px;font-weight:700;font-size:14px;display:none;z-index:50}
+ .toast.show{display:block}
+ @media(max-width:720px){.row,.row.rw,.row.rwh{grid-template-columns:1fr 1fr}.row.head{display:none}}
+</style></head>
+<body>
+<div class="toast" id="toast"></div>
+<div id="gate" class="gate">
+ <h2>Ahooga Play admin</h2>
+ <p class="muted">Internal — enter the admin password.</p>
+ <input id="pw" type="password" placeholder="Admin password" onkeydown="if(event.key==='Enter')enter()">
+ <button onclick="enter()">Open</button>
+ <div id="gmsg" class="muted" style="color:#b3261e;margin-top:8px"></div>
+</div>
+<div id="app" style="display:none">
+ <header><button onclick="goBack()" style="border:1px solid var(--line);background:#fff;border-radius:16px;padding:6px 12px;font-size:13px;font-weight:700;color:var(--dim);cursor:pointer;font-family:inherit">← Back</button><b>Ahooga</b><span class="tag">Play admin</span><span class="spacer"></span><button onclick="adminLock()" style="border:1px solid var(--line);background:#fff;border-radius:16px;padding:6px 12px;font-size:13px;font-weight:700;color:var(--dim);cursor:pointer;font-family:inherit">🔒 Lock</button><span class="muted" id="status"></span></header>
+ <div class="wrap">
+  <div class="tabs">
+   <button class="tab on" data-t="appr">Approvals <span id="apprBadge" class="badge" style="display:none">0</span></button>
+   <button class="tab" data-t="redm">Redemptions <span id="redmBadge" class="badge" style="display:none">0</span></button>
+   <button class="tab" data-t="chal">Challenges</button>
+   <button class="tab" data-t="biz">Business rewards</button>
+   <button class="tab" data-t="pers">Personal rewards</button>
+  </div>
+
+  <section id="t-appr">
+   <h2>Pending challenge submissions</h2>
+   <div id="approvals"><div class="empty">Loading…</div></div>
+  </section>
+
+  <section id="t-redm" style="display:none">
+   <h2>Reward redemptions <span class="muted">— mark each one fulfilled once you've sent it</span></h2>
+   <div id="redemptions"><div class="empty">Loading…</div></div>
+  </section>
+
+  <section id="t-chal" style="display:none">
+   <h2>Challenges <span class="muted">— grouped by category</span></h2>
+   <div id="chalEditor"></div>
+   <button class="add" onclick="addCat()">+ Add category</button>
+   <div class="bar"><button class="save" onclick="saveCfg()">Save challenges &amp; rewards</button><span class="smsg" id="msgChal"></span></div>
+  </section>
+
+  <section id="t-biz" style="display:none">
+   <h2>Business rewards <span class="muted">— spent from the shop wallet</span></h2>
+   <div class="row rwh head"><div>Icon</div><div>Title</div><div>Description</div><div>Category</div><div>Cost</div><div></div></div>
+   <div id="bizEditor"></div>
+   <button class="add" onclick="addReward('biz')">+ Add business reward</button>
+   <div class="bar"><button class="save" onclick="saveCfg()">Save challenges &amp; rewards</button><span class="smsg" id="msgBiz"></span></div>
+  </section>
+
+  <section id="t-pers" style="display:none">
+   <h2>Personal rewards <span class="muted">— spent from each employee's training points</span></h2>
+   <div class="row rwh head"><div>Icon</div><div>Title</div><div>Description</div><div>Category</div><div>Cost</div><div></div></div>
+   <div id="persEditor"></div>
+   <button class="add" onclick="addReward('pers')">+ Add personal reward</button>
+   <div class="bar"><button class="save" onclick="saveCfg()">Save challenges &amp; rewards</button><span class="smsg" id="msgPers"></span></div>
+  </section>
+ </div>
+</div>
+<script>
+const CF="https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev";
+let pw="",cfg={challenges:[],businessRewards:[],personalRewards:[]},pending=[],poll=null;
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(window._t);window._t=setTimeout(()=>t.classList.remove('show'),2400);}
+async function api(path,extra){const r=await fetch(CF+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({adminPw:pw},extra||{}))});return r.json();}
+function goBack(){try{if(window.parent&&window.parent!==window&&window.parent.closeApp){window.parent.closeApp();return;}}catch(e){}if(history.length>1){history.back();}else{location.href='index.html';}}
+function adminSavePw(){try{localStorage.setItem('ahg_admin_pw',pw);}catch(e){}}
+function adminClearPw(){try{localStorage.removeItem('ahg_admin_pw');}catch(e){}}
+function adminLock(){adminClearPw();location.reload();}
+window.addEventListener('DOMContentLoaded',function(){try{var _sp=localStorage.getItem('ahg_admin_pw');if(_sp){var _i=document.getElementById('pw');if(_i){_i.value=_sp;enter(true);}}}catch(e){}});
+function ago(ts){if(!ts)return"";const d=Math.floor((Date.now()-ts)/1000);if(d<60)return"just now";if(d<3600)return Math.floor(d/60)+"m ago";if(d<86400)return Math.floor(d/3600)+"h ago";return new Date(ts).toLocaleDateString();}
+
+async function enter(silent){pw=document.getElementById("pw").value||"";const d=await api("/play/admin/config");
+ if(d.error){if(!silent)document.getElementById("gmsg").textContent=d.error;adminClearPw();return;}
+ adminSavePw();
+ document.getElementById("gate").style.display="none";document.getElementById("app").style.display="block";
+ cfg={challenges:d.challenges||[],businessRewards:d.businessRewards||[],personalRewards:d.personalRewards||[]};
+ renderEditors();loadPending();loadRedemptions();poll=setInterval(function(){loadPending();loadRedemptions();},12000);}
+
+/* ---------- redemptions ---------- */
+let redemptions=[];
+async function loadRedemptions(){const d=await api("/play/admin/redemptions");if(d.error)return;redemptions=d.redemptions||[];renderRedemptions();}
+function renderRedemptions(){
+ const pend=redemptions.filter(r=>r.status==='pending');
+ const b=document.getElementById('redmBadge');if(pend.length){b.style.display='inline-block';b.textContent=pend.length;}else b.style.display='none';
+ const order={pending:0,fulfilled:1,rejected:2};
+ const sorted=redemptions.slice().sort((a,b)=>(order[a.status]-order[b.status])||(b.ts-a.ts));
+ document.getElementById('redemptions').innerHTML=sorted.length?sorted.map(r=>{
+  const kindTag=r.kind==='personal'?'👤 personal':'🏪 shop';
+  const who=r.kind==='personal'?(esc(r.who||'')+(r.shop?(' · '+esc(r.shop)):'')):('Shop #'+esc(r.pid));
+  const task=r.taskId?(' · Odoo task #'+esc(r.taskId)):'';
+  let action='';
+  if(r.status==='pending')action=`<button class="ap" onclick="fulfil('${r.kind}','${esc(r.pid)}','${esc(r.user||'')}','${esc(r.id)}','fulfilled')">Mark fulfilled</button>
+    <button class="rj" onclick="fulfil('${r.kind}','${esc(r.pid)}','${esc(r.user||'')}','${esc(r.id)}','rejected')">Reject</button>`;
+  else action=`<span class="pts" style="background:${r.status==='fulfilled'?'var(--green-bg)':'var(--red-bg)'};color:${r.status==='fulfilled'?'var(--green)':'var(--red)'}">${r.status==='fulfilled'?'✓ Fulfilled':'Rejected'}</span>`;
+  return `<div class="sub" id="r_${esc(r.id)}" style="${r.status!=='pending'?'opacity:.7':''}">
+   <span class="ic">🎁</span>
+   <div class="main"><div class="t">${esc(r.title)}</div>
+    <div class="meta">${kindTag} · ${who} · ${ago(r.ts)}${task}</div></div>
+   <span class="pts">−${r.cost} pts</span>${action}</div>`;
+ }).join(''):'<div class="empty">No redemptions yet.</div>';
+}
+async function fulfil(kind,pid,user,id,status){
+ const el=document.getElementById('r_'+id);if(el)el.style.opacity='.4';
+ const d=await api("/play/admin/fulfil",{kind,pid,user,id,status});
+ if(d.error){toast('⚠️ '+d.error);if(el)el.style.opacity='1';return;}
+ toast(status==='fulfilled'?'✓ Marked fulfilled':'Rejected & refunded');
+ loadRedemptions();
+}
+
+/* ---------- approvals ---------- */
+async function loadPending(){const d=await api("/play/admin/pending");if(d.error)return;pending=d.pending||[];renderPending();}
+function renderPending(){
+ const b=document.getElementById('apprBadge');if(pending.length){b.style.display='inline-block';b.textContent=pending.length;}else b.style.display='none';
+ document.getElementById('status').textContent=pending.length?(pending.length+' awaiting review'):'all caught up';
+ document.getElementById('approvals').innerHTML=pending.length?pending.map(s=>`
+  <div class="sub" id="s_${s.id}">
+   <span class="ic">${s.type==='video'?'🎥':s.type==='photo'?'📷':'✅'}</span>
+   <div class="main"><div class="t">${esc(s.title)}</div>
+    <div class="meta">Shop #${esc(s.pid)} · by ${esc(s.by||'—')} · ${ago(s.ts)}</div></div>
+   <span class="pts">⚡ ${s.points} pts</span>
+   <button class="ap" onclick="decide('${s.pid}','${s.id}','approve')">Approve</button>
+   <button class="rj" onclick="decide('${s.pid}','${s.id}','reject')">Reject</button>
+  </div>`).join(''):'<div class="empty">No pending submissions 🎉</div>';
+}
+async function decide(pid,subId,decision){
+ const el=document.getElementById('s_'+subId);if(el)el.style.opacity='.4';
+ const d=await api("/play/admin/decide",{pid,subId,decision});
+ if(d.error){toast('⚠️ '+d.error);if(el)el.style.opacity='1';return;}
+ toast(decision==='approve'?'✓ Approved & points credited':'Rejected');
+ loadPending();
+}
+
+/* ---------- editors ---------- */
+function renderEditors(){renderChal();renderRewards('biz');renderRewards('pers');}
+function renderChal(){
+ document.getElementById('chalEditor').innerHTML=cfg.challenges.map((c,ci)=>`
+  <div class="cat">
+   <div class="cathd">
+    <input style="width:70px" value="${esc(c.em||'')}" oninput="cfg.challenges[${ci}].em=this.value" placeholder="emoji">
+    <input value="${esc(c.cat||'')}" oninput="cfg.challenges[${ci}].cat=this.value" placeholder="Category name">
+    <button class="del" style="width:120px" onclick="delCat(${ci})">Delete category</button>
+   </div>
+   <div class="row head"><div>Icon</div><div>Title</div><div>Description</div><div>Type</div><div>Points</div><div>Frequency</div><div></div></div>
+   ${(c.items||[]).map((i,ii)=>`
+    <div class="row">
+     <input value="${esc(i.ic||'')}" oninput="cfg.challenges[${ci}].items[${ii}].ic=this.value" placeholder="🎯">
+     <input value="${esc(i.t||'')}" oninput="cfg.challenges[${ci}].items[${ii}].t=this.value" placeholder="Title">
+     <input value="${esc(i.d||'')}" oninput="cfg.challenges[${ci}].items[${ii}].d=this.value" placeholder="Description">
+     <select onchange="cfg.challenges[${ci}].items[${ii}].type=this.value">
+      <option value="photo"${i.type==='photo'?' selected':''}>photo</option>
+      <option value="video"${i.type==='video'?' selected':''}>video</option>
+      <option value="task"${i.type==='task'?' selected':''}>task</option>
+     </select>
+     <input type="number" value="${i.points||0}" oninput="cfg.challenges[${ci}].items[${ii}].points=parseInt(this.value)||0">
+     <input value="${esc(i.freq||'')}" oninput="cfg.challenges[${ci}].items[${ii}].freq=this.value" placeholder="Once">
+     <button class="del" onclick="delItem(${ci},${ii})">✕</button>
+    </div>`).join('')}
+   <button class="add" onclick="addItem(${ci})">+ Add challenge</button>
+  </div>`).join('')||'<div class="empty">No challenges yet — add a category.</div>';
+}
+function renderRewards(kind){
+ const arr=kind==='biz'?cfg.businessRewards:cfg.personalRewards;const key=kind==='biz'?'businessRewards':'personalRewards';
+ document.getElementById((kind==='biz'?'biz':'pers')+'Editor').innerHTML=arr.map((r,ri)=>`
+  <div class="row rw">
+   <input value="${esc(r.ic||'')}" oninput="cfg.${key}[${ri}].ic=this.value" placeholder="🎁">
+   <input value="${esc(r.t||'')}" oninput="cfg.${key}[${ri}].t=this.value" placeholder="Title">
+   <input value="${esc(r.d||'')}" oninput="cfg.${key}[${ri}].d=this.value" placeholder="Description">
+   <input value="${esc(r.cat||'')}" oninput="cfg.${key}[${ri}].cat=this.value" placeholder="Category">
+   <input type="number" value="${r.cost||0}" oninput="cfg.${key}[${ri}].cost=parseInt(this.value)||0">
+   <button class="del" onclick="delReward('${kind}',${ri})">✕</button>
+  </div>`).join('')||'<div class="empty">No rewards yet.</div>';
+}
+function rid(p){return p+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
+function addCat(){cfg.challenges.push({cat:"New category",em:"🎯",items:[]});renderChal();}
+function delCat(ci){if(!confirm('Delete this whole category?'))return;cfg.challenges.splice(ci,1);renderChal();}
+function addItem(ci){cfg.challenges[ci].items=cfg.challenges[ci].items||[];cfg.challenges[ci].items.push({id:rid('ch'),ic:"🎯",t:"New challenge",d:"",type:"photo",points:50,freq:"Once"});renderChal();}
+function delItem(ci,ii){cfg.challenges[ci].items.splice(ii,1);renderChal();}
+function addReward(kind){const arr=kind==='biz'?cfg.businessRewards:cfg.personalRewards;arr.push({id:rid(kind==='biz'?'b':'e'),ic:"🎁",t:"New reward",d:"",cat:"",cost:100});renderRewards(kind);}
+function delReward(kind,ri){const arr=kind==='biz'?cfg.businessRewards:cfg.personalRewards;arr.splice(ri,1);renderRewards(kind);}
+
+async function saveCfg(){
+ // ensure every challenge item has an id
+ cfg.challenges.forEach(c=>(c.items||[]).forEach(i=>{if(!i.id)i.id=rid('ch');}));
+ cfg.businessRewards.forEach(r=>{if(!r.id)r.id=rid('b');});
+ cfg.personalRewards.forEach(r=>{if(!r.id)r.id=rid('e');});
+ ['msgChal','msgBiz','msgPers'].forEach(id=>{const e=document.getElementById(id);e.style.color='var(--dim)';e.textContent='Saving…';});
+ const d=await api("/play/admin/saveconfig",{challenges:cfg.challenges,businessRewards:cfg.businessRewards,personalRewards:cfg.personalRewards});
+ const ok=!d.error;
+ ['msgChal','msgBiz','msgPers'].forEach(id=>{const e=document.getElementById(id);e.style.color=ok?'#2d6e2d':'#b3261e';e.textContent=ok?'✓ Saved':(d.error||'Error');});
+ if(ok){cfg={challenges:d.challenges||cfg.challenges,businessRewards:d.businessRewards||cfg.businessRewards,personalRewards:d.personalRewards||cfg.personalRewards};renderEditors();toast('✓ Saved — live for all dealers');}
+}
+
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+ ['appr','redm','chal','biz','pers'].forEach(t=>document.getElementById('t-'+t).style.display=(t===b.dataset.t?'block':'none'));
+});
+</script>
+</body></html>

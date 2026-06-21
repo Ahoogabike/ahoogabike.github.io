@@ -1,0 +1,171 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ahooga — FAQ knowledge base (internal)</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+ :root{--ink:#16160f;--dim:#6f6d63;--line:#e6e3da;--gold:#f2b705;--gold-d:#caa006;--bg2:#f5f4f1;--red:#b3261e;--green:#1a7f37}
+ *{box-sizing:border-box}html,body{margin:0;min-height:100%}
+ body{font-family:'Archivo',system-ui,sans-serif;color:var(--ink);background:#fff}
+ header{display:flex;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:10}
+ header b{font-weight:900}.tag{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+ .spacer{flex:1}.muted{color:var(--dim);font-size:12px}
+ button{font-family:inherit;cursor:pointer}
+ .btn{border:0;border-radius:10px;background:var(--gold);font-weight:800;padding:10px 16px;font-size:13px}
+ .btn:hover{background:var(--gold-d)}
+ .btn.ghost{background:#fff;border:1px solid var(--line);font-weight:700}
+ .btn.ghost:hover{border-color:var(--gold)}
+ .btn.danger{background:#fff;border:1px solid var(--line);color:var(--red);font-weight:700;padding:8px 12px}
+ .btn.danger:hover{border-color:var(--red)}
+ .gate{max-width:360px;margin:12vh auto;text-align:center}
+ .gate input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;font-family:inherit;margin:10px 0}
+ .wrap{max-width:900px;margin:0 auto;padding:22px 18px 120px}
+ h1{font-size:22px;font-weight:900;margin:0 0 4px}
+ .sub{color:var(--dim);font-size:13.5px;margin:0 0 18px;line-height:1.5}
+ .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+ .count{font-size:12px;color:var(--dim);margin-left:auto}
+ .entry{border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px;background:#fff}
+ .entry.new{border-color:#f3e3a8;background:#fffdf3}
+ .entry label{display:block;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);margin:0 0 5px}
+ .entry input.t{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font-size:14px;font-weight:700;font-family:inherit;margin-bottom:10px}
+ .entry textarea.a{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font-size:13.5px;line-height:1.5;font-family:inherit;resize:vertical;min-height:64px}
+ .entry input.t:focus,.entry textarea.a:focus{outline:none;border-color:var(--gold)}
+ .erow{display:flex;justify-content:flex-end;margin-top:8px}
+ .savebar{position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.97);border-top:1px solid var(--line);padding:12px 18px;backdrop-filter:blur(8px)}
+ .savein{max-width:900px;margin:0 auto;display:flex;align-items:center;gap:14px}
+ #msg{font-size:13px;font-weight:700}
+ .ok{color:var(--green)}.err{color:var(--red)}
+ .panel{border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:20px;background:var(--bg2)}
+ .panel h3{margin:0 0 6px;font-size:15px}
+ .panel .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+ .panel input.num{width:80px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:14px}
+ .panel select{padding:8px 10px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:14px}
+ .draft{border:1px dashed #cdbf7a;border-radius:10px;padding:10px;margin-top:10px;background:#fffdf3}
+ .draft .dt{font-weight:800;font-size:13.5px}.draft .da{font-size:13px;color:#333;margin-top:3px}
+ .draft .src{font-size:11px;color:var(--dim);margin-top:4px}
+ .draft.off{opacity:.5}
+ .draft label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+ .empty-draft{margin-top:10px;padding:12px;border:1px dashed var(--line);border-radius:10px;color:var(--dim);font-size:13px}
+</style></head>
+<body>
+<div id="gate" class="gate">
+ <h2>FAQ knowledge base</h2>
+ <p class="muted">Internal — enter the admin password.</p>
+ <input id="pw" type="password" placeholder="Admin password" onkeydown="if(event.key==='Enter')enter()">
+ <button class="btn" style="width:100%" onclick="enter()">Open editor</button>
+ <div id="gmsg" class="muted" style="color:var(--red);margin-top:8px"></div>
+</div>
+
+<div id="app" style="display:none">
+ <header><button onclick="goBack()" style="border:1px solid var(--line);background:#fff;border-radius:16px;padding:6px 12px;font-size:13px;font-weight:700;color:var(--dim);cursor:pointer;font-family:inherit">← Back</button><b>Ahooga</b><span class="tag">FAQ knowledge base</span><span class="spacer"></span><button onclick="adminLock()" style="border:1px solid var(--line);background:#fff;border-radius:16px;padding:6px 12px;font-size:13px;font-weight:700;color:var(--dim);cursor:pointer;font-family:inherit">🔒 Lock</button><span class="muted" id="status"></span></header>
+ <div class="wrap">
+  <h1>Dealer FAQ answers</h1>
+  <p class="sub">These question &amp; answer pairs are the <b>only</b> thing the FAQ assistant can answer from. Add a pair for anything you want it to know. Keep answers short (2–5 sentences) and factual — if something isn't here, the assistant will say it doesn't have that detail.</p>
+
+  <div class="panel">
+   <h3>Draft answers from past Odoo tickets</h3>
+   <div class="muted">Scans already-answered support tickets and proposes reusable Q&amp;A. Nothing is published — you pick which drafts to add, then Save.</div>
+   <div class="row">
+    <span class="muted">Scan</span>
+    <input id="mineLimit" class="num" type="number" value="40" min="1" max="100">
+    <span class="muted">recent tickets from</span>
+    <select id="mineModel"><option value="project.task">Warranty (SAV)</option><option value="helpdesk.ticket">Helpdesk module</option></select>
+    <button class="btn ghost" onclick="mine()">Draft suggestions</button>
+    <span id="mineMsg" class="muted"></span>
+   </div>
+   <div id="drafts"></div>
+  </div>
+
+  <div class="toolbar">
+   <button class="btn" onclick="addEntry()">+ Add entry</button>
+   <button class="btn ghost" onclick="reload()">Reload from server</button>
+   <span class="count" id="count"></span>
+  </div>
+
+  <div id="list"></div>
+ </div>
+
+ <div class="savebar"><div class="savein">
+  <button class="btn" onclick="save()">Save all changes</button>
+  <span class="muted">Publishes the whole list to the live assistant.</span>
+  <span class="spacer"></span>
+  <span id="msg"></span>
+ </div></div>
+</div>
+
+<script>
+const CF="https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev";
+let pw="", entries=[];
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+async function api(path,extra){const r=await fetch(CF+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({adminPw:pw},extra||{}))});return r.json();}
+function goBack(){try{if(window.parent&&window.parent!==window&&window.parent.closeApp){window.parent.closeApp();return;}}catch(e){}if(history.length>1){history.back();}else{location.href='index.html';}}
+function adminSavePw(){try{localStorage.setItem('ahg_admin_pw',pw);}catch(e){}}
+function adminClearPw(){try{localStorage.removeItem('ahg_admin_pw');}catch(e){}}
+function adminLock(){adminClearPw();location.reload();}
+window.addEventListener('DOMContentLoaded',function(){try{var _sp=localStorage.getItem('ahg_admin_pw');if(_sp){var _i=document.getElementById('pw');if(_i){_i.value=_sp;enter(true);}}}catch(e){}});
+
+async function enter(silent){
+ pw=document.getElementById("pw").value||"";
+ const d=await api("/faq/admin/get");
+ if(d.error){if(!silent)document.getElementById("gmsg").textContent=d.error;adminClearPw();return;}
+ adminSavePw();
+ document.getElementById("gate").style.display="none";
+ document.getElementById("app").style.display="block";
+ entries=((d.kb&&d.kb.entries)||[]).map(e=>({t:e.t||"",a:e.a||""}));
+ render();
+}
+async function reload(){const d=await api("/faq/admin/get");if(d.error){flash(d.error,false);return;}entries=((d.kb&&d.kb.entries)||[]).map(e=>({t:e.t||"",a:e.a||""}));render();flash("Reloaded from server.",true);}
+
+function render(){
+ document.getElementById("count").textContent=entries.length+" entr"+(entries.length===1?"y":"ies");
+ document.getElementById("list").innerHTML=entries.map((e,i)=>
+  '<div class="entry">'
+  +'<label>Question / topic</label>'
+  +'<input class="t" value="'+esc(e.t)+'" oninput="upd('+i+',\'t\',this.value)" placeholder="e.g. What is the motor power?">'
+  +'<label>Answer</label>'
+  +'<textarea class="a" oninput="upd('+i+',\'a\',this.value)" placeholder="A short, factual answer (2–5 sentences).">'+esc(e.a)+'</textarea>'
+  +'<div class="erow"><button class="btn danger" onclick="del('+i+')">Delete</button></div>'
+  +'</div>').join("")||'<p class="muted">No entries yet. Click “+ Add entry”.</p>';
+}
+function upd(i,k,v){if(entries[i])entries[i][k]=v;}
+function del(i){if(!confirm("Delete this entry?"))return;entries.splice(i,1);render();}
+function addEntry(){entries.unshift({t:"",a:""});render();window.scrollTo(0,0);}
+
+async function save(){
+ const clean=entries.map(e=>({t:(e.t||"").trim(),a:(e.a||"").trim()})).filter(e=>e.t&&e.a);
+ if(clean.length<entries.length){if(!confirm("Some entries are missing a question or answer and will be dropped. Continue?"))return;}
+ const d=await api("/faq/admin/save",{kb:{entries:clean}});
+ if(d.error){flash(d.error,false);return;}
+ entries=clean;render();flash("Saved — "+clean.length+" entries are now live.",true);
+}
+function flash(t,ok){const m=document.getElementById("msg");m.textContent=t;m.className=ok?"ok":"err";setTimeout(()=>{if(m.textContent===t)m.textContent="";},6000);}
+
+let drafts=[];
+async function mine(){
+ const mm=document.getElementById("mineMsg");mm.textContent="Scanning tickets…";
+ const limit=Number(document.getElementById("mineLimit").value)||40;
+ const model=document.getElementById("mineModel").value;
+ const d=await api("/faq/admin/mine",{limit,model});
+ if(d.error){mm.textContent=d.error;return;}
+ drafts=(d.drafts||[]);
+ mm.textContent="Scanned "+(d.scanned||0)+" tickets · "+drafts.length+" suggestion"+(drafts.length===1?"":"s")+".";
+ renderDrafts();
+}
+function renderDrafts(){
+ const el=document.getElementById("drafts");
+ if(drafts===null){el.innerHTML="";return;}
+ if(!drafts.length){el.innerHTML='<div class="empty-draft">No reusable product/technical Q&amp;A found in those tickets.</div>';return;}
+ el.innerHTML=drafts.map((e,i)=>{
+   const src=(e.fromTickets&&e.fromTickets.length)?'<div class="src">from ticket'+(e.fromTickets.length>1?'s':'')+' '+esc(e.fromTickets.join(', '))+'</div>':'';
+   return '<div class="draft"><label><input type="checkbox" id="dk'+i+'" checked>'
+   +'<span><span class="dt">'+esc(e.t)+'</span><span class="da">'+esc(e.a)+'</span>'+src+'</span></label></div>';
+ }).join("")
+ +'<div class="row"><button class="btn" onclick="addDrafts()">Add selected to the list below</button>'
+ +'<span class="muted">Review them in the list, then Save.</span></div>';
+}
+function addDrafts(){
+ let n=0;
+ drafts.forEach((e,i)=>{const c=document.getElementById("dk"+i);if(c&&c.checked){entries.unshift({t:e.t||"",a:e.a||""});n++;}});
+ drafts=null;renderDrafts();render();window.scrollTo(0,0);
+ flash("Added "+n+" draft"+(n===1?"":"s")+" — review and Save.",true);
+}
+</script>
+</body></html>

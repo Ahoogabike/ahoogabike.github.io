@@ -865,7 +865,7 @@ body{background:var(--paper)}
       </a>
     </div>
 
-    <div class="section-label" style="margin-top:40px">Dealer portal — admin</div>
+    <div class="section-label" style="margin-top:40px">Dealer training</div>
     <div class="grid">
       <a href="training-admin.html" class="card" style="--accent:#1a7f37">
         <div class="card-header">
@@ -881,66 +881,6 @@ body{background:var(--paper)}
         <div>
           <div class="card-title">Training Admin — Course Builder</div>
           <div class="card-desc">Create dealer courses, quizzes and rewards, set difficulty levels and approve point redemptions. Switch to &quot;Live server&quot; to publish to the dealer portal.</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </a>
-      <a href="ahooga-news-admin.html" class="card" style="--accent:#caa006">
-        <div class="card-header">
-          <div class="card-num">16</div>
-          <div class="card-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#caa006" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 11l18-7-4 16-5-5-4 4-1-5z"/><path d="M12 14l5-5"/>
-            </svg>
-          </div>
-        </div>
-        <div>
-          <div class="card-title">Send a Communication</div>
-          <div class="card-desc">Compose and broadcast a message or newsletter to all dealers — auto-translated into each dealer's language and delivered to their portal Inbox (plus email once Klaviyo is on).</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </a>
-      <a href="ahooga-support-admin.html" class="card" style="--accent:#2b7fd6">
-        <div class="card-header">
-          <div class="card-num">17</div>
-          <div class="card-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2b7fd6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 11.5a8 8 0 0 1-11.6 7.1L4 20l1.4-4.3A8 8 0 1 1 21 11.5z"/><path d="M8.5 11h7M8.5 14h4.5"/>
-            </svg>
-          </div>
-        </div>
-        <div>
-          <div class="card-title">Support Inbox</div>
-          <div class="card-desc">Live chat with dealers — every conversation in one place, reply in real time.</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </a>
-      <a href="ahooga-play-admin.html" class="card" style="--accent:#6b46c1">
-        <div class="card-header">
-          <div class="card-num">18</div>
-          <div class="card-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6b46c1" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2.5" y="7.5" width="19" height="9" rx="4.5"/><path d="M7 11v3M5.5 12.5h3"/><circle cx="16" cy="11.3" r="1"/><circle cx="18" cy="13.6" r="1"/>
-            </svg>
-          </div>
-        </div>
-        <div>
-          <div class="card-title">Play Admin</div>
-          <div class="card-desc">Approve dealers' challenge photos &amp; videos, fulfil reward redemptions, and add or edit challenges and the business + personal reward catalogs.</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </a>
-      <a href="ahooga-faq-admin.html" class="card" style="--accent:#a85fd0">
-        <div class="card-header">
-          <div class="card-num">19</div>
-          <div class="card-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#a85fd0" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="9"/><path d="M9.3 9.4a2.7 2.7 0 1 1 3.5 2.9c-.5.2-.8.6-.8 1.2M12 16.5h.01"/>
-            </svg>
-          </div>
-        </div>
-        <div>
-          <div class="card-title">FAQ Admin</div>
-          <div class="card-desc">Review and manage the knowledge base the dealer FAQ assistant answers from.</div>
         </div>
         <div class="card-arrow">→</div>
       </a>
@@ -1039,13 +979,7 @@ document.getElementById('hp-key').addEventListener('keydown',e=>{if(e.key==='Ent
       {t:'SAV Dashboard',h:'sav-app.html',c:'#e23b34'},
       {t:'MAX Parts & Ordering',h:'ahooga_max_repair.html',c:'#c9991f'}]},
     {name:'Knowledge & traceability',color:'#a85fd0',icon:I.book,apps:[
-      {t:'Knowledge Library',h:'knowledge-library.html',c:'#a85fd0'}]},
-    {name:'Dealer portal — admin',color:'#caa006',icon:I.orders,apps:[
-      {t:'Training Admin — Course Builder',h:'training-admin.html',c:'#1a7f37'},
-      {t:'Send a Communication',h:'ahooga-news-admin.html',c:'#caa006'},
-      {t:'Support Inbox',h:'ahooga-support-admin.html',c:'#2b7fd6'},
-      {t:'Play Admin',h:'ahooga-play-admin.html',c:'#6b46c1'},
-      {t:'FAQ Admin',h:'ahooga-faq-admin.html',c:'#a85fd0'}]}
+      {t:'Knowledge Library',h:'knowledge-library.html',c:'#a85fd0'}]}
   ];
 
   const scroll=document.getElementById('navScroll');
@@ -1103,7 +1037,6 @@ document.getElementById('hp-key').addEventListener('keydown',e=>{if(e.key==='Ent
   frame.addEventListener('load',()=>{if(frame.src&&frame.src!=='about:blank')loader.style.display='none';});
   function closeApp(){panel.classList.remove('open');markActive(null);curHref=null;
     setTimeout(()=>{if(!panel.classList.contains('open'))frame.src='about:blank';},320);}
-  window.closeApp=closeApp; // let embedded admin pages return to the hub via their "← Back" button
   document.getElementById('apClose').addEventListener('click',closeApp);
   var _h=document.getElementById('apHome');if(_h)_h.addEventListener('click',closeApp);
   var _b=document.querySelector('.nav-brand');if(_b){_b.style.cursor='pointer';_b.title='Back to homepage';_b.addEventListener('click',closeApp);}
