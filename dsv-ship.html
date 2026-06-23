@@ -88,19 +88,10 @@ td.num{text-align:right;font-family:'Space Mono',monospace;white-space:nowrap}
 table.pkg input,table.pkg select{padding:5px 6px;border:1px solid var(--line);border-radius:7px;font-family:'Space Mono',monospace;font-size:12px;background:#fff;width:54px}
 table.pkg select{width:72px}
 </style>
-  <script src="mxp-auth.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<style id="ahooga-brand">
-body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
-:root{--accent:#14259b;--pink:#14259b}
-.ahooga-home{position:fixed;left:14px;bottom:14px;z-index:2147483600;display:inline-flex;align-items:center;gap:6px;font-family:'Inter',system-ui,sans-serif;font-weight:700;font-size:12.5px;line-height:1;padding:9px 14px;border-radius:999px;text-decoration:none;background:#14259b;color:#fff;border:1px solid rgba(255,255,255,.25);box-shadow:0 6px 18px rgba(20,37,155,.4);opacity:.9;transition:opacity .15s,transform .15s}
-.ahooga-home:hover{opacity:1;transform:translateY(-1px)}
-@media print{.ahooga-home{display:none}}
-</style>
 </head>
 <body>
 <header>
-  <div class="logo">DSV <span class="b">Ship</span> <span class="tag">Odoo → DSV</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑06‑15e</span></div>
+  <div class="logo">DSV <span class="b">Ship</span> <span class="tag">Odoo → DSV</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑06‑15g</span></div>
   <div class="pills">
     <span id="dsv-pill" class="pill">DSV: ?</span>
     <span id="conn-pill" class="pill">Not connected</span>
@@ -167,7 +158,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 const CF_WORKER   = 'https://ahooga-planner-proxy.massimiliano-d74.workers.dev';
 const ODOO_URL    = 'https://ahooga.odoo.com';
 const ODOO_DB     = 'logicasoft-aho-18-0-21599177';
-const DSV_WORKER_DEFAULT = 'https://ahooga-dsv-proxy.massimiliano-d74.workers.dev';
+const DSV_WORKER_DEFAULT = 'https://ahooga-dsv-proxy.ahoogahouse-1050-be.workers.dev';
 let   DSV_WORKER = (function(){ try{ return localStorage.getItem('dsv_worker')||DSV_WORKER_DEFAULT; }catch(e){ return DSV_WORKER_DEFAULT; } })();
 
 let odooUid=null, DELIVERIES=[], _ccache={}, _hasSaleId=true, PKGROWS={};
@@ -225,8 +216,10 @@ async function odoo(model,method,args,kwargs={}){
 }
 
 /* ── DSV worker client ── */
+function getAppSecret(){ try{ return localStorage.getItem('dsv_appsecret')||''; }catch(e){ return ''; } }
 async function dsv(path,body){
-  const r=await fetch(`${DSV_WORKER}${path}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});
+  const h={'Content-Type':'application/json'}; const s=getAppSecret(); if(s) h['X-App-Secret']=s;
+  const r=await fetch(`${DSV_WORKER}${path}`,{method:'POST',headers:h,body:JSON.stringify(body||{})});
   const t=await r.text();
   let j; try{ j=JSON.parse(t); }catch(e){ j={ok:false,error:'DSV worker returned non-JSON: '+t.slice(0,200)}; }
   if(!r.ok && j && j.error==null) j.error='HTTP '+r.status;
@@ -612,7 +605,9 @@ function renderSettings(){
       <div class="info">The app talks to DSV through your <b>ahooga-dsv-proxy</b> Cloudflare Worker (holds the DSV keys as secrets).</div>
       <div class="minif" style="margin-top:10px"><div class="fld" style="flex:3"><label>DSV worker URL</label><input id="set-worker" value="${esc(DSV_WORKER)}"/></div>
         <button class="btn blue sm" onclick="saveWorker()">Save &amp; test</button></div>
-      <div class="cap">Default: ${esc(DSV_WORKER_DEFAULT)}</div></div>
+      <div class="minif" style="margin-top:8px"><div class="fld" style="flex:3"><label>App secret (must match worker's APP_SECRET)</label><input id="set-secret" type="password" value="${esc(getAppSecret())}" placeholder="leave blank if worker has no secret"/></div>
+        <button class="btn blue sm" onclick="saveSecret()">Save secret</button></div>
+      <div class="cap">Default: ${esc(DSV_WORKER_DEFAULT)} · The secret is stored only on this device and sent with each booking call.</div></div>
     ${(function(){const f=getDefaults();return `
     <div class="box" style="max-width:760px;margin-top:12px"><h4>Booking defaults (sent with every booking)</h4>
       <div class="minif">
@@ -659,6 +654,7 @@ function savePickup(){
   alert_('Saved pickup point.','ok');
 }
 function clearPickup(){ try{ localStorage.removeItem('dsv_pickup'); }catch(e){} renderSettings(); alert_('Pickup reset to DSV account default.','ok'); }
+function saveSecret(){ try{ localStorage.setItem('dsv_appsecret',($('set-secret').value||'').trim()); }catch(e){} alert_('Saved app secret on this device.','ok'); }
 
 function showTab(t){
   document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
@@ -670,6 +666,5 @@ function showTab(t){
 dsvPing();
 try{ console.log('DSV Ship build 2026-06-15b loaded OK'); }catch(e){}
 </script>
-<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
 </body>
 </html>
