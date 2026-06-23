@@ -82,19 +82,10 @@ td.num{text-align:right;font-family:'Space Mono',monospace;white-space:nowrap}
 .pa-diff{font-weight:700;color:var(--red);font-family:'Space Mono',monospace}
 .pa-ok{color:var(--green);font-weight:700}
 </style>
-  <script src="mxp-auth.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<style id="ahooga-brand">
-body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
-:root{--accent:#14259b;--pink:#14259b}
-.ahooga-home{position:fixed;left:14px;bottom:14px;z-index:2147483600;display:inline-flex;align-items:center;gap:6px;font-family:'Inter',system-ui,sans-serif;font-weight:700;font-size:12.5px;line-height:1;padding:9px 14px;border-radius:999px;text-decoration:none;background:#14259b;color:#fff;border:1px solid rgba(255,255,255,.25);box-shadow:0 6px 18px rgba(20,37,155,.4);opacity:.9;transition:opacity .15s,transform .15s}
-.ahooga-home:hover{opacity:1;transform:translateY(-1px)}
-@media print{.ahooga-home{display:none}}
-</style>
 </head>
 <body>
 <header>
-  <div class="logo">Sh<span class="b">oo</span>pify Convert <span class="tag">Shopify → Odoo</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑06‑11c</span></div>
+  <div class="logo">Sh<span class="b">oo</span>pify Convert <span class="tag">Shopify → Odoo</span></div>
   <div id="conn-pill" class="pill">Not connected</div>
 </header>
 
@@ -138,9 +129,10 @@ const MAP_KEY     = 'shopify_convert_mapping';
 const DEALER_KEY  = 'shopify_convert_dealers';
 const DEALER_CREDIT = { pct: 26, productId: 6258, label: 'Dealer delivery compensation' };
 const WAREHOUSE   = { defaultId: 1, louiseId: 2 };
+const SALES_TEAM_NAME = 'Online';   // every converted order is assigned to this Odoo sales team
 const DEFAULT_MAPPING = [{"shopify_sku": "AC00000221", "shopify_name": "Tex-Lock eyelet M black + U-lock + X-lock", "odoo_reference": "AC00000221", "qty_multiplier": "1", "unit_price": "", "note": "auto by SKU"}, {"shopify_sku": "AC00000211", "shopify_name": "MAX Kickstand", "odoo_reference": "AC00000211", "qty_multiplier": "1", "unit_price": "", "note": "auto by SKU"}, {"shopify_sku": "AC00000299", "shopify_name": "MAX Carrying Handle", "odoo_reference": "AC00000299", "qty_multiplier": "1", "unit_price": "", "note": "auto by SKU"}, {"shopify_sku": "AC00000201", "shopify_name": "AHOOGAxVINCITA Nash Rack Bag with Klickfix Uniklip", "odoo_reference": "AC00000201", "qty_multiplier": "1", "unit_price": "", "note": "auto by SKU"}, {"shopify_sku": "", "shopify_name": "Max Rear Rack", "odoo_reference": "AC00000231", "qty_multiplier": "1", "unit_price": "", "note": "Rear Rack KIT (MAX); absorbed into bike when a bike is in the same order"}, {"shopify_sku": "", "shopify_name": "Max Battery Extender", "odoo_reference": "ELNEB00020", "qty_multiplier": "1", "unit_price": "", "note": "CONFIRMED - Mivice"}, {"shopify_sku": "", "shopify_name": "DEV personalized text decal", "odoo_reference": "DEVDEV010101", "qty_multiplier": "1", "unit_price": "", "note": "CONFIRMED - own Odoo product"}, {"shopify_sku": "", "shopify_name": "MAX - E / Derailleur / Cosmic black", "odoo_reference": "AHFMC00110", "qty_multiplier": "1", "unit_price": "", "note": "bike (no-rack base); rack/custom-colour add-ons upgrade it automatically"}, {"shopify_sku": "", "shopify_name": "MAX - E / Derailleur / Bumblebee", "odoo_reference": "AHFMC00090", "qty_multiplier": "1", "unit_price": "", "note": "bike (no-rack base); rack/custom-colour add-ons upgrade it automatically"}, {"shopify_sku": "", "shopify_name": "MAX - E / Derailleur / Ruby red", "odoo_reference": "AHFMC00100", "qty_multiplier": "1", "unit_price": "", "note": "bike (no-rack base); rack/custom-colour add-ons upgrade it automatically"}, {"shopify_sku": "", "shopify_name": "MAX - E / Derailleur / Custom", "odoo_reference": "AHFMC00150", "qty_multiplier": "1", "unit_price": "", "note": "bike (no-rack base); rack/custom-colour add-ons upgrade it automatically"}, {"shopify_sku": "", "shopify_name": "MAX - E / Alfine / Cosmic black", "odoo_reference": "AHFMC00140", "qty_multiplier": "1", "unit_price": "", "note": "bike (no-rack base); rack/custom-colour add-ons upgrade it automatically"}, {"shopify_sku": "", "shopify_name": "MAX - E / Alfine / Bumblebee", "odoo_reference": "AHFMC00120", "qty_multiplier": "1", "unit_price": "", "note": "bike (no-rack base); rack/custom-colour add-ons upgrade it automatically"}, {"shopify_sku": "", "shopify_name": "MAX - E / Alfine / Ruby red", "odoo_reference": "AHFMC00130", "qty_multiplier": "1", "unit_price": "", "note": "bike (no-rack base); rack/custom-colour add-ons upgrade it automatically"}, {"shopify_sku": "", "shopify_name": "MAX - E / Alfine / Custom", "odoo_reference": "AHFMC00160", "qty_multiplier": "1", "unit_price": "", "note": "bike (no-rack base); rack/custom-colour add-ons upgrade it automatically"}, {"shopify_sku": "", "shopify_name": "MAX - A / Derailleur / Cosmic black", "odoo_reference": "AHFAM00110", "qty_multiplier": "1", "unit_price": "", "note": "bike (no-rack base); rack/custom-colour add-ons upgrade it automatically"}, {"shopify_sku": "", "shopify_name": "MAX - A / Derailleur / Bumblebee", "odoo_reference": "AHFAM00090", "qty_multiplier": "1", "unit_price": "", "note": "bike (no-rack base); rack/custom-colour add-ons upgrade it automatically"}, {"shopify_sku": "", "shopify_name": "MAX - A / Derailleur / Ruby red", "odoo_reference": "AHFAM00100", "qty_multiplier": "1", "unit_price": "", "note": "bike (no-rack base); rack/custom-colour add-ons upgrade it automatically"}, {"shopify_sku": "", "shopify_name": "MAX - A / Derailleur / Custom", "odoo_reference": "AHFAM00150", "qty_multiplier": "1", "unit_price": "", "note": "bike (no-rack base); rack/custom-colour add-ons upgrade it automatically"}, {"shopify_sku": "", "shopify_name": "MAX - A / Alfine / Cosmic black", "odoo_reference": "AHFAM00140", "qty_multiplier": "1", "unit_price": "", "note": "bike (no-rack base); rack/custom-colour add-ons upgrade it automatically"}, {"shopify_sku": "", "shopify_name": "MAX - A / Alfine / Bumblebee", "odoo_reference": "AHFAM00120", "qty_multiplier": "1", "unit_price": "", "note": "bike (no-rack base); rack/custom-colour add-ons upgrade it automatically"}, {"shopify_sku": "", "shopify_name": "MAX - A / Alfine / Ruby red", "odoo_reference": "AHFAM00130", "qty_multiplier": "1", "unit_price": "", "note": "bike (no-rack base); rack/custom-colour add-ons upgrade it automatically"}, {"shopify_sku": "", "shopify_name": "MAX - A / Alfine / Custom", "odoo_reference": "AHFAM00160", "qty_multiplier": "1", "unit_price": "", "note": "bike (no-rack base); rack/custom-colour add-ons upgrade it automatically"}, {"shopify_sku": "", "shopify_name": "Spare Battery 400 Wh (MODULAR)", "odoo_reference": "ELNBA00030", "qty_multiplier": "1", "unit_price": "", "note": "Modular battery -> Battery 36V 400 Wh (MOD)"}, {"shopify_sku": "", "shopify_name": "Modular Front Rack - Black", "odoo_reference": "EXFRA00010", "qty_multiplier": "1", "unit_price": "", "note": "Black -> Grafite Matt; CONFIRM colour"}, {"shopify_sku": "", "shopify_name": "Modular Front Rack - Silk Grey", "odoo_reference": "EXFRA00020", "qty_multiplier": "1", "unit_price": "", "note": ""}, {"shopify_sku": "", "shopify_name": "Modular Front Rack - Sunrise Green", "odoo_reference": "EXFRA00030", "qty_multiplier": "1", "unit_price": "", "note": "-> Sunrise Green Metallic"}, {"shopify_sku": "", "shopify_name": "Modular Rear Rack - Black", "odoo_reference": "EXRRA00020", "qty_multiplier": "1", "unit_price": "", "note": "Black -> Grafite Matt; CONFIRM colour"}, {"shopify_sku": "", "shopify_name": "Modular Rear Rack - Silk Grey", "odoo_reference": "EXRRA00040", "qty_multiplier": "1", "unit_price": "", "note": ""}, {"shopify_sku": "", "shopify_name": "Modular Rear Rack - Sunrise Green", "odoo_reference": "EXRRA00050", "qty_multiplier": "1", "unit_price": "", "note": "-> Sunrise Green Metallic"}];
 
-let odooUid = null, ORDERS = [], MAPPING = [], DEALERS = {}, statusCache = {}, _ccache = {};
+let odooUid = null, ORDERS = [], MAPPING = [], DEALERS = {}, statusCache = {}, _ccache = {}, _teamId;
 
 /* ── tiny helpers ── */
 const $ = (id) => document.getElementById(id);
@@ -218,7 +210,7 @@ async function odoo(model,method,args,kwargs={}){
 
 /* ── KV through the planner-proxy ── */
 async function kvGet(key){ try{ const r=await fetch(`${SHOP_WORKER}/kv/${encodeURIComponent(key)}`); if(!r.ok)return null; const t=await r.text(); if(t==='null'||t==='')return null; try{return JSON.parse(t);}catch{return t;} }catch(e){ return null; } }
-async function kvPut(key,obj){ try{ const r=await fetch(`${SHOP_WORKER}/kv/${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify(obj)}); if(!r.ok)return false; const j=await r.json().catch(()=>({})); return j.ok!==false; }catch(e){ return false; } }
+async function kvPut(key,obj){ try{ const r=await fetch(`${SHOP_WORKER}/kv/${encodeURIComponent(key)}`,{method:'PUT',headers:{'Content-Type':'text/plain'},body:JSON.stringify(obj)}); if(!r.ok)return false; const j=await r.json().catch(()=>({})); return j.ok!==false; }catch(e){ return false; } }
 
 /* ── connect + load ── */
 (function prefill(){ try{ const c=localStorage.getItem('mxp_cfg'); if(c){ const cfg=JSON.parse(c); if(cfg.user)$('cfg-user').value=cfg.user; if(cfg.key)$('cfg-key').value=cfg.key; } }catch(e){} })();
@@ -272,18 +264,29 @@ async function loadStatuses(){
   }catch(e){ /* status is best-effort */ }
 }
 
+/* ── resolve the "Online" sales team once and cache it ── */
+async function salesTeamId(){
+  if(_teamId!==undefined) return _teamId;
+  try{ const ids=await odoo('crm.team','search',[[['name','=',SALES_TEAM_NAME]]],{limit:1}); _teamId=(ids&&ids.length)?ids[0]:null; }
+  catch(e){ _teamId=null; }
+  return _teamId;
+}
+
 /* ── rules mirrored for display only ── */
 function warehouseName(o){ if(o.pickup){ const loc=(o.dealer||'').toLowerCase(); if(loc.includes('ahooga')&&(loc.includes('store')||loc.includes('brussels')||loc.includes('louise'))) return 'Louise'; } return 'Ahooga Anderlecht'; }
 function warehouseId(o){ return warehouseName(o)==='Louise'?WAREHOUSE.louiseId:WAREHOUSE.defaultId; }
-/* An Ahooga-owned store (Brussels / Louise) is NOT an external dealer: keep the customer's delivery address, no dealer credit note. */
-function isOwnStore(o){ if(!o||!o.pickup) return false; const loc=(o.dealer||'').toLowerCase(); return loc.includes('ahooga')&&(loc.includes('store')||loc.includes('brussels')||loc.includes('louise')); }
+
+/* ── an order may be converted when it is paid OR its payment is still pending ── */
+function isPending(o){ return (o.financial_status||'').toLowerCase()==='pending'; }
+function canConvert(o){ return !!o.paid || isPending(o); }
 
 /* ── convert button (shown on the row and in the detail) ── */
 function convertBtn(o){
   const inOdoo=statusCache[o.name];
   if(inOdoo) return `<button class="btn ghost" disabled>✓ In Odoo</button>`;
-  if(!o.paid) return `<button class="btn ghost" disabled>Awaiting payment</button>`;
-  return `<button class="btn blue cvbtn" data-order="${esc(o.name)}" onclick="event.stopPropagation();convertOrder('${esc(o.name)}')">Convert →</button>`;
+  if(!canConvert(o)) return `<button class="btn ghost" disabled>Awaiting payment</button>`;
+  const pend=(!o.paid&&isPending(o));
+  return `<button class="btn blue cvbtn" data-order="${esc(o.name)}" title="${pend?'Payment still pending':''}" onclick="event.stopPropagation();convertOrder('${esc(o.name)}')">Convert${pend?' (pending)':''} →</button>`;
 }
 function cvButtons(name){ return Array.prototype.slice.call(document.querySelectorAll('.cvbtn')).filter(b=>b.getAttribute('data-order')===name); }
 
@@ -326,13 +329,9 @@ function detailHtml(o){
   const cAddr=[c.street,c.street2,[c.zip,c.city].filter(Boolean).join(' '),c.country_code].filter(Boolean).join(', ');
   const client=`<div class="info"><b>Client (Odoo customer):</b> ${esc(o.customer)}${cAddr?' — '+esc(cAddr):''}${c.phone?' · ☎ '+esc(c.phone):''}${o.email?'<br><span class="muted">'+esc(o.email)+'</span>':''}</div>`;
   let ship;
-  if(o.pickup){
-    if(isOwnStore(o)){
-      ship=`<div class="info">🏬 <b>Pickup at own store:</b> ${esc(o.dealer||'(unknown)')}${o.dealer_address?' ('+esc(o.dealer_address)+')':''}. Delivery address kept as the customer${o.customer?' (<b>'+esc(o.customer)+'</b>)':''}. <span class="muted">Own shop — no dealer compensation.</span></div>`;
-    } else { const matched=DEALERS[(o.dealer||'').trim().toLowerCase()];
-      ship=`<div class="info">🏬 <b>Pickup at dealer:</b> ${esc(o.dealer||'(unknown)')}${o.dealer_address?' ('+esc(o.dealer_address)+')':''}. `+
-        (matched?`Delivery address → <b>${esc(matched.name)}</b>.`:`<span style="color:var(--red)">Not matched to an Odoo contact yet — set it in the Mappings tab.</span>`)+`</div>`;
-    }
+  if(o.pickup){ const matched=DEALERS[(o.dealer||'').trim().toLowerCase()];
+    ship=`<div class="info">🏬 <b>Pickup at dealer:</b> ${esc(o.dealer||'(unknown)')}${o.dealer_address?' ('+esc(o.dealer_address)+')':''}. `+
+      (matched?`Delivery address → <b>${esc(matched.name)}</b>.`:`<span style="color:var(--red)">Not matched to an Odoo contact yet — set it in the Mappings tab.</span>`)+`</div>`;
   } else { ship=`<div class="info"><b>Ship to:</b> ${esc(o.shipping_address||'(none)')}${o.shipping_method?' · '+esc(o.shipping_method):''}</div>`; }
   const wh=`<div class="info"><b>Warehouse:</b> ${esc(warehouseName(o))}</div>`;
   const rows=(o.mapped_lines||[]).map(l=>{
@@ -341,10 +340,9 @@ function detailHtml(o){
     return `<tr><td>${l.is_shipping?'🚚 ':''}${esc(l.source)}</td><td class="mono">${esc(ref)}${l.mapped?'':'<span class="flag">no mapping</span>'}</td><td class="num">×${l.qty}</td><td class="num">${money(l.price,o.currency)}</td></tr>`;
   }).join('');
   const warn=(o.unmapped&&o.unmapped.length)?`<div class="alert warn">${o.unmapped.length} item(s) have no Odoo product yet: <b>${o.unmapped.map(esc).join(', ')}</b>. Add them in the Mappings tab.</div>`:'';
-  const emailBtn=(o.pickup&&!isOwnStore(o))?`<button class="btn ghost" onclick="event.stopPropagation();emailDealer('${esc(o.name)}')">✉ Email dealer</button>`:'';
   return client+ship+wh+
     `<table class="lines"><thead><tr><th>Shopify line</th><th>Odoo product</th><th class="num">Qty</th><th class="num">Unit</th></tr></thead><tbody>${rows}</tbody></table>`+
-    warn+`<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">${convertBtn(o)}${emailBtn}</div>`;
+    warn+`<div style="margin-top:8px">${convertBtn(o)}</div>`;
 }
 
 /* ── convert one order into an Odoo draft (ported from the Python export) ── */
@@ -382,63 +380,10 @@ async function createDealerCredit(o,dealerId){
   const rec=await odoo('account.move','read',[[mid],['name','state']]);
   return {id:mid,name:(rec&&rec[0]&&rec[0].name)||('#'+mid),state:(rec&&rec[0]&&rec[0].state)||'draft'};
 }
-/* ── "Online" sales team (resolved once by name, cached) ── */
-let _teamId;
-async function onlineTeamId(){
-  if(_teamId!==undefined) return _teamId;
-  try{
-    let ids=await odoo('crm.team','search',[[['name','=','Online']]],{limit:1});
-    if(!ids||!ids.length) ids=await odoo('crm.team','search',[[['name','ilike','online']]],{limit:1});
-    _teamId=(ids&&ids.length)?ids[0]:null;
-  }catch(e){ _teamId=null; }
-  return _teamId;
-}
-
-/* ── Draft a ready-to-send email to the pickup dealer about the credit note ── */
-async function emailDealer(name){
-  const o=ORDERS.find(x=>x.name===name); if(!o)return;
-  if(!o.pickup){ alert_('This is not a pickup-at-dealer order.','warn'); return; }
-  const hit=DEALERS[(o.dealer||'').trim().toLowerCase()];
-  if(!hit){ alert_('Match the pickup dealer to an Odoo contact first (Mappings tab).','warn'); return; }
-  try{
-    const prt=await odoo('res.partner','read',[[hit.id],['name','email']]);
-    const dealer=(prt&&prt[0])||{}; const to=dealer.email||'';
-    const ref='DEALER-CREDIT '+o.name;
-    let cn=await odoo('account.move','search_read',[[['move_type','=','out_refund'],['ref','=',ref]]],{fields:['name','amount_total','state'],limit:1});
-    cn=(cn&&cn[0])||null;
-    const net=Math.max((Number(o.total||0)||0)-(Number(o.tax||0)||0),0);
-    const exVat=Math.round(net*DEALER_CREDIT.pct)/100;
-    const cnLine = cn
-      ? `Credit note ${cn.name} (${cn.state}) for ${money(cn.amount_total,o.currency)} has been created in Odoo.`
-      : `A dealer-compensation credit note of about ${money(exVat,o.currency)} (ex VAT) will be created in Odoo once this order is converted.`;
-    const subject=`Ahooga – dealer delivery compensation – ${o.name}`;
-    const body=[
-      `Hello ${dealer.name||''}`.trim()+',',
-      ``,
-      `Thank you for handling the pickup of order ${o.name}${o.customer?` for ${o.customer}`:''}.`,
-      ``,
-      cnLine,
-      ``,
-      `Order summary:`,
-      `- Order: ${o.name}`,
-      `- Customer: ${o.customer||''}`,
-      `- Order total: ${money(o.total,o.currency)}`,
-      `- Dealer compensation: ${DEALER_CREDIT.pct}% of the ex-VAT amount (${money(exVat,o.currency)} ex VAT)`,
-      ``,
-      `Kind regards,`,
-      `Ahooga`
-    ].join('\n');
-    const a=document.createElement('a');
-    a.href=`mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    document.body.appendChild(a); a.click(); a.remove();
-    alert_('Opened a pre-filled email'+(to?(' to '+to):' (no email on the dealer contact — add a recipient in your mail app)')+'.','ok');
-  }catch(e){ alert_('Could not draft the dealer email: '+e.message,'err'); }
-}
-
 async function convertOrder(name){
   const o=ORDERS.find(x=>x.name===name); if(!o)return;
   if(statusCache[name]){ alert_(name+' is already in Odoo ('+statusCache[name]+').','warn'); return; }
-  if(!o.paid){ alert_(name+' is not paid yet — not converting.','warn'); return; }
+  if(!canConvert(o)){ alert_(name+' is not paid or pending yet — not converting.','warn'); return; }
   const btns=cvButtons(name); btns.forEach(b=>{ b.disabled=true; b.innerHTML='<span class="spin"></span> Converting…'; });
   try{
     const order_line=[]; const missing=[];
@@ -453,9 +398,9 @@ async function convertOrder(name){
     if(missing.length) throw new Error('No Odoo product for: '+[...new Set(missing)].join(', ')+'. Add them in the Mappings tab.');
     const partnerId=await resolvePartner(o.customer,o.email,o.client);
     const vals={partner_id:partnerId,client_order_ref:o.name,origin:'Shopify '+o.name,warehouse_id:warehouseId(o),order_line};
-    const tid=await onlineTeamId(); if(tid) vals.team_id=tid;   // always book under the "Online" sales team
+    const teamId=await salesTeamId(); if(teamId) vals.team_id=teamId;   // always assign the "Online" sales team
     let dealerPartner=null;
-    if(o.pickup&&Number(o.shipping_cost||0)===0&&!isOwnStore(o)){
+    if(o.pickup&&Number(o.shipping_cost||0)===0){
       const hit=DEALERS[(o.dealer||'').trim().toLowerCase()];
       if(!hit) throw new Error('Pickup dealer “'+(o.dealer||'?')+'” is not matched to an Odoo contact yet. Match it in the Mappings tab.');
       vals.partner_shipping_id=hit.id; dealerPartner=hit.id;
@@ -505,14 +450,9 @@ function renderMaps(){
     <div id="unmapped-list">${items.length?items.map(it=>mapItemRow(it)).join(''):'<div class="muted" style="font-size:12.5px">Nothing to map right now. 🎉</div>'}</div>
     <h3 style="margin:22px 0 8px;font-size:14px">Pickup dealers ${dealers.length?`(${dealers.length})`:''}</h3>
     <div id="dealer-list">${dealers.length?dealers.map(d=>dealerRow(d)).join(''):'<div class="muted" style="font-size:12.5px">All pickup locations are matched.</div>'}</div>
-    <h3 style="margin:22px 0 8px;font-size:14px">Matched pickup locations (${Object.keys(DEALERS).length})</h3>
-    <div style="font-size:12.5px;border:1px solid var(--line);border-radius:9px">
-      ${Object.entries(DEALERS).length?Object.entries(DEALERS).map(([k,val],i)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line-soft)"><span style="flex:1">🏬 ${esc(k)} → <b>${esc((val&&val.name)||'')}</b></span><button class="btn ghost" style="padding:3px 9px;font-size:11px" onclick="deleteDealer(${i})">✕ unmatch</button></div>`).join(''):'<div class="muted" style="padding:6px 10px">No pickup locations matched yet.</div>'}
-    </div>
     <h3 style="margin:22px 0 8px;font-size:14px">All current mappings (${MAPPING.length})</h3>
-    <div class="fld" style="margin-bottom:6px"><input id="map-filter" placeholder="Filter mappings…" oninput="filterMaps(this.value)"/></div>
-    <div id="map-list" style="font-size:12px;max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:9px">
-      ${MAPPING.map((m,i)=>`<div class="map-line" data-text="${esc(((m.odoo_reference||'')+' '+(m.shopify_sku||m.shopify_name||'')).toLowerCase())}" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line-soft)"><span style="flex:1"><span class="mono" style="color:var(--blue)">${esc(m.odoo_reference)}</span> ← ${esc(m.shopify_sku||m.shopify_name)}${m.note?` <span class="muted">· ${esc(m.note)}</span>`:''}</span><button class="btn ghost" style="padding:3px 9px;font-size:11px" onclick="deleteMap(${i})">✕</button></div>`).join('')}
+    <div style="font-size:12px;max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:9px">
+      ${MAPPING.map(m=>`<div style="padding:6px 10px;border-bottom:1px solid var(--line-soft)"><span class="mono" style="color:var(--blue)">${esc(m.odoo_reference)}</span> ← ${esc(m.shopify_sku||m.shopify_name)}</div>`).join('')}
     </div>`;
 }
 function mapItemRow(it){
@@ -572,26 +512,7 @@ async function addDealer(loc,id,name){
   alert_('Matched pickup “'+loc+'” → '+name+'.'+(saved?'':' (saved on this device only — shared storage unreachable)'), saved?'ok':'warn');
 }
 
-function filterMaps(q){ q=(q||'').toLowerCase().trim(); document.querySelectorAll('#map-list .map-line').forEach(el=>{ el.style.display=(!q||((el.getAttribute('data-text')||'').includes(q)))?'':'none'; }); }
-async function deleteMap(i){
-  const m=MAPPING[i]; if(!m)return;
-  if(!confirm('Remove this mapping?\n\n'+(m.odoo_reference||'')+'  \u2190  '+(m.shopify_sku||m.shopify_name||'')))return;
-  MAPPING.splice(i,1);
-  computeAll(); renderOrders(); renderMaps();
-  const saved=await kvPut(MAP_KEY,MAPPING);
-  alert_('Removed mapping \u201c'+(m.shopify_sku||m.shopify_name||m.odoo_reference)+'\u201d.'+(saved?' The item reappears under Unmapped products so you can re-map it.':' (saved on this device only \u2014 shared storage unreachable)'), saved?'ok':'warn');
-}
-async function deleteDealer(i){
-  const entries=Object.entries(DEALERS); const e=entries[i]; if(!e)return;
-  const [key,val]=e;
-  if(!confirm('Unmatch this pickup location?\n\n'+key+'  \u2192  '+((val&&val.name)||'')))return;
-  delete DEALERS[key];
-  renderMaps(); renderOrders();
-  const saved=await kvPut(DEALER_KEY,DEALERS);
-  alert_('Unmatched \u201c'+key+'\u201d.'+(saved?' It reappears under Pickup dealers so you can re-match it.':' (saved on this device only \u2014 shared storage unreachable)'), saved?'ok':'warn');
-}
-
-/* \u2500\u2500 Price alerts: Shopify catalogue price vs Odoo sales price for every mapping \u2500\u2500 */
+/* ── Price alerts: Shopify catalogue price vs Odoo sales price for every mapping ── */
 let PRICE_ROWS=null, PA_SHOWALL=false;
 function norm(s){ return (s||'').toLowerCase().replace(/\s+/g,' ').trim(); }
 function paBadge(n){ const b=$('pa-badge'); if(!b)return; b.textContent=n?String(n):''; }
@@ -673,8 +594,6 @@ function showTab(t){
   if(t==='prices') loadPriceAlerts();
 }
 
-try{ console.log("Shopify Convert build 2026-06-11c loaded OK"); }catch(e){}
 </script>
-<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
 </body>
 </html>
