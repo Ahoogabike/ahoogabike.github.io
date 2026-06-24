@@ -264,7 +264,7 @@ async function loadDeliveries(){
   setPill('loading');
   const states = $('pstate').value==='all' ? ['assigned','confirmed','done'] : ['assigned','confirmed'];
   const limit = parseInt($('plimit').value)||80;
-  const baseFields=['name','state','origin','scheduled_date','date_done','partner_id','carrier_id','carrier_tracking_ref','weight','picking_type_code'];
+  const baseFields=['name','state','origin','scheduled_date','date_done','partner_id','carrier_id','carrier_tracking_ref','weight','picking_type_code','picking_type_id','location_id'];
   const domain=[typeDomain(),['state','in',states]];
   try{
     let pickings;
@@ -455,8 +455,9 @@ function detailHtml(d,id){
     ${p.email?'<div class="info muted">'+esc(p.email)+'</div>':''}
     <div class="info">${so?'Sales order / source: <b>'+esc(so)+'</b>':'<span class="muted">No linked sales order</span>'}</div></div>`;
 
-  const defs=getDefaults(); const sender=getSender();
-  const sendTxt = sender&&(sender.city||sender.street) ? esc([sender.name,sender.street,[sender.zip,sender.city].filter(Boolean).join(' '),sender.countryCode].filter(Boolean).join(', ')) : '<span class="muted">DPD account default</span>';
+  const defs=getDefaults(); const sender=resolveSender(d);
+  const whMatch=warehouseSender(d);
+  const sendTxt = esc([sender.name,sender.street,[sender.zip,sender.city].filter(Boolean).join(' '),sender.countryCode].filter(Boolean).join(', ')) + (whMatch?'':' <span style="color:var(--red)">(warehouse not detected — defaulting to Anderlecht)</span>');
   const dpdPreview=`<div class="box dpd-box"><h4>What gets pushed to DPD</h4>
     <div class="kvline"><span>Reference</span><span class="mono">${esc(d.name)}</span></div>
     <div class="kvline"><span>Service</span><span class="mono">${esc(defs.service)}</span></div>
@@ -504,7 +505,7 @@ async function bookDelivery(id){
   out.innerHTML='';
   try{
     const cc=Array.isArray(p.country_id)?(_ccache[p.country_id[0]]||''):'';
-    const defs=getDefaults(); const sender=getSender();
+    const defs=getDefaults(); const sender=resolveSender(d);
     const rows=pkgRead(id);
     const parcels=[];
     rows.forEach(r=>{ const q=Math.max(1,r.qty||1); for(let k=0;k<q;k++){ parcels.push({ weight:Number(r.weight)||defs.weight, length:Number(r.l)||defs.length, width:Number(r.w)||defs.width, height:Number(r.h)||defs.height, content:((r.content||soOf(d)||'Accessories / spare parts')).slice(0,35) }); } });
@@ -515,7 +516,7 @@ async function bookDelivery(id){
       autobook: !!$('ab-'+id)?.checked,
       service: defs.service,
       cargoDesc: (soOf(d)||'Accessories / spare parts').slice(0,35),
-      sender: sender||undefined,
+      sender: sender,
       parcels, totalWeight,
       predict: predict ? {
         enabled:true,
@@ -547,6 +548,21 @@ async function bookDelivery(id){
 
 /* ── defaults + sender (editable in Settings, stored on this device) ── */
 function getDefaults(){ try{ return Object.assign({service:'Classic',predict:true,predictChannel:'email',weight:2,length:30,width:20,height:15}, JSON.parse(localStorage.getItem('dpd_defaults')||'{}')); }catch(e){ return {service:'Classic',predict:true,predictChannel:'email',weight:2,length:30,width:20,height:15}; } }
+/* ── Ahooga warehouses → DPD sender (auto-selected from the transfer) ── */
+const AHOOGA_SENDERS={
+  anderlecht:{ name:'Ahooga SRL', street:'Rue Henry Joseph Genesse 34 a7', zip:'1070', city:'Anderlecht', countryCode:'BE' },
+  louise:{ name:'Ahooga Bruxelles', street:'Avenue Louise 257', zip:'1000', city:'Bruxelles', countryCode:'BE' }
+};
+function warehouseSender(d){
+  const pt=Array.isArray(d.picking_type_id)?d.picking_type_id[1]:'';
+  const loc=Array.isArray(d.location_id)?d.location_id[1]:'';
+  const h=((d.name||'')+' '+(pt||'')+' '+(loc||'')).toLowerCase();
+  // Ahooga warehouse codes: AND/ANDOUT = Anderlecht, LOUI/LOUIOUT = Louise
+  if(h.includes('loui')||h.includes('louise')) return AHOOGA_SENDERS.louise;
+  if(h.includes('and')||h.includes('anderlecht')||h.includes('genesse')) return AHOOGA_SENDERS.anderlecht;
+  return null;
+}
+function resolveSender(d){ return warehouseSender(d) || getSender() || AHOOGA_SENDERS.anderlecht; }
 function getSender(){ try{ const v=JSON.parse(localStorage.getItem('dpd_sender')||'null'); return (v&&typeof v==='object')?v:null; }catch(e){ return null; } }
 
 /* ── open a base64 PDF in a new tab (for printing) ── */
