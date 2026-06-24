@@ -100,7 +100,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 </head>
 <body>
 <header>
-  <div class="logo">DSV <span class="b">Ship</span> <span class="tag">Odoo → DSV</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑06‑15e</span></div>
+  <div class="logo">DSV <span class="b">Ship</span> <span class="tag">Odoo → DSV</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑06‑15h (bike packing)</span></div>
   <div class="pills">
     <span id="dsv-pill" class="pill">DSV: ?</span>
     <span id="conn-pill" class="pill">Not connected</span>
@@ -385,12 +385,60 @@ function isBike(m,d){
   const name=(Array.isArray(m.product_id)?m.product_id[1]:'').toLowerCase();
   return BIKE_PREFIXES.some(pfx=>code.startsWith(pfx)) || name.includes('bike');
 }
+/* ── bike packing rule ──
+   < PALLET_THRESHOLD bikes → one carton per bike (BIKE_CARTON size, serial in description)
+   >= PALLET_THRESHOLD bikes → consolidate onto pallet(s) (BIKES_PER_PALLET each, BIKE_PALLET size).
+   Tweak the numbers below if your packing changes. Rows stay editable before booking. */
+const BIKE_CARTON   = { l:72, w:42, h:74 };
+const BIKE_PALLET   = { type:'EUR', l:120, w:80, h:150 };
+const ACC_CARTON    = { l:40, w:20, h:30 };   // one carton for non-bike accessories
+const PALLET_THRESHOLD = 5;   // 5 or more bikes → pallet(s)
+const BIKES_PER_PALLET = 6;
+/* non-bike goods on the transfer → one accessories carton (or null if none) */
+function accessoryRowOf(d){
+  const lines=(d._lines||[]).filter(m=>!isBike(m,d) && Array.isArray(m.product_id) && (m.quantity||0)>0);
+  if(!lines.length) return null;
+  const wt=lines.reduce((s,m)=>{ const pid=m.product_id[0]; const w=(d._wt&&d._wt[pid]?d._wt[pid].weight:0)||0; return s+w*(m.quantity||0); },0);
+  return { type:'CTN', qty:1, weight:Math.round(wt*10)/10, l:ACC_CARTON.l, w:ACC_CARTON.w, h:ACC_CARTON.h, desc:'Accessories' };
+}
+function bikeUnitsOf(d){
+  const out=[];
+  (d._lines||[]).filter(m=>isBike(m,d)).forEach(m=>{
+    const pid=Array.isArray(m.product_id)?m.product_id[0]:null;
+    const w=(pid&&d._wt&&d._wt[pid]?d._wt[pid].weight:0)||0;
+    const serial=serialOf(m);
+    const q=Math.max(1, Math.round(m.quantity||1));
+    for(let i=0;i<q;i++) out.push({ serial, weight:w });
+  });
+  return out;
+}
 function buildRows(d){
   const defs=getDefaults();
+  // 1) if the transfer is packed into Odoo packages, use those (real packing wins)
   if(d._odooPkgs&&d._odooPkgs.length){
     return d._odooPkgs.map(pk=>({ type:guessDsvType(pk.typeName,defs.packageType), qty:1, weight: pk.weight||0, l: pk.l||defs.length, w: pk.w||defs.width, h: pk.h||defs.height,
       desc: (pk.serials&&pk.serials.length?('S/N '+pk.serials.join(',')):'').slice(0,30) }));
   }
+  // 2) bike rule: one carton per bike, or pallet(s) at/above the threshold; + accessories carton
+  const bikes=bikeUnitsOf(d);
+  const accRow=accessoryRowOf(d);
+  if(bikes.length){
+    let rows;
+    if(bikes.length>=PALLET_THRESHOLD){
+      const pallets=Math.max(1, Math.ceil(bikes.length/BIKES_PER_PALLET));
+      const totWt=bikes.reduce((s,b)=>s+(b.weight||0),0);
+      const perWt=totWt?Math.round((totWt/pallets)*10)/10:0;
+      rows=[];
+      for(let i=0;i<pallets;i++) rows.push({ type:BIKE_PALLET.type, qty:1, weight:perWt, l:BIKE_PALLET.l, w:BIKE_PALLET.w, h:BIKE_PALLET.h, desc:('Bikes x'+bikes.length).slice(0,30) });
+    } else {
+      rows=bikes.map(b=>({ type:'CTN', qty:1, weight:(b.weight||0), l:BIKE_CARTON.l, w:BIKE_CARTON.w, h:BIKE_CARTON.h, desc:(b.serial?('S/N '+b.serial):'Bike').slice(0,30) }));
+    }
+    if(accRow) rows.push(accRow);
+    return rows;
+  }
+  // 3) no bikes but there are accessories → just the accessories carton
+  if(accRow) return [accRow];
+  // 4) fallback: a single line from the transfer weight + Settings defaults
   const wt=d.weight&&Number(d.weight)>0?Number(d.weight):0;
   const desc=(d._bikeSerials&&d._bikeSerials.length?('S/N '+d._bikeSerials.join(',')):'').slice(0,30);
   return [{ type:defs.packageType, qty:1, weight:wt, l:defs.length, w:defs.width, h:defs.height, desc }];
@@ -702,7 +750,7 @@ function showTab(t){
 }
 
 dsvPing();
-try{ console.log('DSV Ship build 2026-06-15b loaded OK'); }catch(e){}
+try{ console.log('DSV Ship build 2026-06-15h (bike packing) loaded OK'); }catch(e){}
 </script>
 <a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
 </body>
