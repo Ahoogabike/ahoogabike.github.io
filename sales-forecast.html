@@ -118,7 +118,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 
   <div class="section">
     <div class="section-title">4 · Full-year invoiced projection <span class="tag" style="background:var(--purple-bg);color:var(--purple)">actuals + forecast → 31 Dec</span></div>
-    <div class="section-note">How the year is projected to finish: each past month shows the real invoiced bikes, the current month shows actual invoiced so far plus the pro-rated remainder, and each future month shows the projected invoiced (seasonality × SKU mix). The Year column is the projected total invoiced at 31 December. Rolls automatically — in Jan 2027 it shows the 2027 projection.</div>
+    <div class="section-note">How the year is projected to finish, built bottom-up so it ties out with the tables above: each past month shows the real invoiced bikes (Table 1); each forward month shows the order book (Table 2) plus the new forecast (Table 3); the current month also adds the bikes already invoiced so far. So per SKU the Year column equals invoiced + order book + forecast exactly — no gap. The Year column is the projected total invoiced at 31 December. Rolls automatically — in Jan 2027 it shows the 2027 projection.</div>
     <div class="table-wrap"><div id="t4"></div></div>
   </div>
 </main>
@@ -303,7 +303,10 @@ function currentMonthFraction(year){
 }
 
 // ── LOAD DATA ────────────────────────────────────────────────
+let _loadingData=false;   // re-entrancy guard: ignore a Refresh while one load is still running
 async function loadData(){
+  if(_loadingData) return;  // a previous load is still in flight — don't double up
+  _loadingData=true;
   saveCfg();
   try{
     odooUid=null;
@@ -312,10 +315,15 @@ async function loadData(){
     document.getElementById('conn-pill').className='pill';
 
     alert_('<span class="spinner"></span> Loading invoiced bikes…','info');
-    await loadInvoiced(year);
+    const invGrid=await loadInvoiced(year);
 
     alert_('<span class="spinner"></span> Loading order book…','info');
-    await loadOrderbook(year);
+    const obGrid=await loadOrderbook(year);
+
+    // Atomic swap — replace the live grids in one step so partial/overlapping
+    // runs can never accumulate into them (the cause of the "doubled numbers").
+    invoiced=invGrid;
+    orderbook=obGrid;
 
     document.getElementById('conn-panel').classList.remove('open');
     document.getElementById('conn-pill').textContent=`Connected · ${new Date().toLocaleTimeString()}`;
@@ -330,12 +338,14 @@ async function loadData(){
     document.getElementById('conn-pill').className='pill err';
     alert_('Error: '+e.message,'danger');
     console.error(e);
+  }finally{
+    _loadingData=false;
   }
 }
 
 // Table 1 — invoiced per SKU per month (posted customer invoices net of refunds)
 async function loadInvoiced(year){
-  invoiced=emptyGrid();
+  const grid=emptyGrid();   // accumulate into a LOCAL grid, never the live one
   const ys=`${year}-01-01`, ye=`${year}-12-31`;
   const base=[['parent_state','=','posted'],
               ['date','>=',ys],['date','<=',ye],
@@ -350,20 +360,21 @@ async function loadInvoiced(year){
     }catch(e){ console.warn('invoice line read failed ('+moveType+'):',e.message); throw new Error('Could not read invoices ('+moveType+'). '+e.message); }
     for(const l of lines){
       const key=skuKeyForName(arr(l.product_id)[1]||'');
-      if(!key||!invoiced[key]) continue;
+      if(!key||!grid[key]) continue;
       const m=monthIdx(l.date); if(m==null) continue;
-      invoiced[key][m]+= sign*(parseFloat(l.quantity)||0);
+      grid[key][m]+= sign*(parseFloat(l.quantity)||0);
     }
   };
   await add('out_invoice', 1);
   await add('out_refund', -1);
   // clamp negatives to 0 at cell level (a refund without matching invoice in-year)
-  for(const k in invoiced) invoiced[k]=invoiced[k].map(x=>Math.max(0,x));
+  for(const k in grid) grid[k]=grid[k].map(x=>Math.max(0,x));
+  return grid;
 }
 
 // Table 2 — order book remaining, by expected delivery month
 async function loadOrderbook(year){
-  orderbook=emptyGrid();
+  const grid=emptyGrid();   // accumulate into a LOCAL grid, never the live one
   const soData=toArr(await odoo('sale.order','search_read',
     [[['state','in',['sale','done']],['delivery_status','in',['pending','started','partial','ready']]]],
     {fields:['name','commitment_date','order_line'],limit:6000}));
@@ -390,7 +401,7 @@ async function loadOrderbook(year){
 
   const today0=new Date(); today0.setHours(0,0,0,0);
   for(const l of lines){
-    const key=skuKeyForName(arr(l.product_id)[1]||''); if(!key||!orderbook[key]) continue;
+    const key=skuKeyForName(arr(l.product_id)[1]||''); if(!key||!grid[key]) continue;
     const remaining=Math.max(0,Math.ceil((parseFloat(l.product_uom_qty)||0)-(parseFloat(l.qty_delivered)||0)));
     if(remaining<=0) continue;
     const soId=arr(l.order_id)[0];
@@ -399,8 +410,9 @@ async function loadOrderbook(year){
     if(isNaN(eff)) eff=new Date(today0);
     if(eff<today0) eff=new Date(today0);          // overdue / past deadline → deliver ASAP = current month
     const y=eff.getFullYear(), m=eff.getMonth();
-    if(y===year) orderbook[key][m]+=remaining;     // deliveries due in other years appear under that year's view
+    if(y===year) grid[key][m]+=remaining;          // deliveries due in other years appear under that year's view
   }
+  return grid;
 }
 
 // ── COMPUTE FORECAST (table 3) + KPIs ────────────────────────
@@ -563,12 +575,16 @@ function renderTable(elId,data,kind){
 // ── TABLE 4 — FULL-YEAR INVOICED PROJECTION (actuals + forecast → 31 Dec) ──
 function renderTable4(){
   const proj=window._proj; if(!proj){ document.getElementById('t4').innerHTML=''; return; }
-  // value per SKU/month: past = real invoiced · current = actual so far + pro-rated remaining
-  // forecast · future = projected (seasonality × SKU mix)
+  // Bottom-up so it ties out with Tables 1–3 exactly:
+  //   past month  = real invoiced (Table 1)
+  //   forward month = order book (Table 2) + new forecast (Table 3)
+  //   current month = invoiced so far + order book + new forecast
+  // => per-SKU Year total = invoiced + order book + forecast, with no gap.
   const cellVal=(s,m)=>{
-    const mix=proj.skuMixObj[s.key]||0;
-    const actual=(proj.isPast[m]||m===proj.curIdx)?(invoiced[s.key]?.[m]||0):0;
-    return actual + (proj.monthFwd[m]||0)*mix;
+    if(proj.isPast[m]) return invoiced[s.key]?.[m]||0;
+    let v=(orderbook[s.key]?.[m]||0) + (forecast[s.key]?.[m]||0);
+    if(m===proj.curIdx) v += (invoiced[s.key]?.[m]||0);
+    return v;
   };
   const colTot=Array(12).fill(0); let grand=0;
   const body=SKUS.map(s=>{
@@ -614,9 +630,9 @@ function exportCSV(){
       for(const s of SKUS){
         let rt=0;
         const row=Array.from({length:12},(_,m)=>{
-          const mix=proj.skuMixObj[s.key]||0;
-          const actual=(proj.isPast[m]||m===proj.curIdx)?(invoiced[s.key]?.[m]||0):0;
-          const val=actual + (proj.monthFwd[m]||0)*mix;
+          let val;
+          if(proj.isPast[m]) val=invoiced[s.key]?.[m]||0;
+          else { val=(orderbook[s.key]?.[m]||0)+(forecast[s.key]?.[m]||0); if(m===proj.curIdx) val+=(invoiced[s.key]?.[m]||0); }
           rt+=val; return Math.round(val);
         });
         out+=[`${s.label} ${s.col} ${s.rkl}`,...row,Math.round(rt)].join(',')+'\n';

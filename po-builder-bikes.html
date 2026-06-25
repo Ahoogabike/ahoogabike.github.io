@@ -225,8 +225,13 @@ const FAMILIES=[['emax','alfine'],['emax','derailleur'],['amax','alfine'],['amax
 let forwardBySku={}, fcYear=null, fcUpdated=null;   // from the Sales Forecast app (KV)
 let forwardMonthlyBySku={};   // sku -> [12] forward demand by month (timing), from the Forecast app
 let unmatchedBySku={}, freeStockBySku={}, incomingBySku={}, inprodBySku={}, basisUpdated=null;  // from the Production Planner (KV)
-// Incoming over-production already on issued POs (beyond committed in-prod orders) → becomes free stock
-function incomingFree(sku){ return Math.max(0, (incomingBySku[sku]||0) - (inprodBySku[sku]||0)); }
+let openBikePOBySku={};   // sku -> bikes still on open (non-cancelled) bike POs, read LIVE from Odoo (informational)
+let bikePOByWeek={};      // weekMonday(YYYY-MM-DD) -> [{id,name,planned,qty}] : bike POs already placed for that production week
+// Bikes already on open POs that aren't covering an in-production order → reduce what's still to build.
+// Read LIVE from Odoo (openBikePOBySku) minus the matched in-prod bikes, so a PO you issue is reflected
+// in the plan on the next Refresh (the Planner basis lags). This makes "bikes to build" per SKU equal to
+// demand − free stock − bikes already on PO, so production + free stock matches the forecast SKU by SKU.
+function incomingFree(sku){ return Math.max(0, (openBikePOBySku[sku]||0) - (inprodBySku[sku]||0)); }
 // Bikes still to produce per SKU:
 //   demand  = unmatched orders + extra forecast
 //   supply  = surplus free stock + incoming bikes already on open POs
@@ -494,6 +499,8 @@ async function loadData(){
     await loadCaps();
     alert_('<span class="spinner"></span> Reading the open order book…','info');
     await loadOrderbook();
+    alert_('<span class="spinner"></span> Reading bikes already on open POs…','info');
+    openBikePOBySku = await loadOpenBikePOs();   // live: so a PO you placed is netted out on the next Refresh
 
     document.getElementById('conn-panel').classList.remove('open');
     document.getElementById('conn-pill').textContent=`Connected · ${new Date().toLocaleTimeString()}`;
@@ -543,6 +550,49 @@ async function loadOrderbook(){
     orderbook.push({sku, remaining, due:dueStr});
   }
 }
+
+// Bikes already on OPEN bike POs (RFQ → confirmed → locked, anything not cancelled),
+// remaining = ordered − received, summed per SKU. Read live from Odoo so a PO you just
+// created/confirmed is reflected the moment you Refresh. Received units have already
+// landed in stock, so we count only what's still outstanding.
+async function loadOpenBikePOs(){
+  const grid={};
+  bikePOByWeek={};
+  let lines=[];
+  try{
+    lines=toArr(await odoo('purchase.order.line','search_read',
+      [[['order_id.state','!=','cancel'],
+        ['product_id.categ_id.complete_name','ilike','Bikes'],
+        ['product_id.name','ilike','MAX']]],
+      {fields:['order_id','product_id','product_qty','qty_received','date_planned'],limit:20000}));
+  }catch(e){ console.warn('open bike PO read failed:', e.message); return openBikePOBySku||{}; }
+  const byPO={};   // poId -> {name, plannedMin, qty}
+  for(const l of lines){
+    const sku=skuKeyForName(arr(l.product_id)[1]||'');
+    const rem=Math.max(0,(parseFloat(l.product_qty)||0)-(parseFloat(l.qty_received)||0));
+    if(sku && rem>0) grid[sku]=(grid[sku]||0)+rem;
+    const poId=arr(l.order_id)[0]; if(!poId) continue;
+    const dp=(l.date_planned||'').split(' ')[0]||null;
+    const e=byPO[poId]||(byPO[poId]={name:arr(l.order_id)[1]||('#'+poId), planned:dp, qty:0});
+    if(dp && (!e.planned || dp<e.planned)) e.planned=dp;   // earliest planned line = the production week
+    e.qty += rem;
+  }
+  // Bucket each PO into its production week (Monday) — used to enforce one Okazi PO per week.
+  for(const poId in byPO){
+    const e=byPO[poId]; if(!e.planned) continue;
+    const d=new Date(e.planned+'T00:00:00'); if(isNaN(d)) continue;
+    const mk=ymd(mondayOf(d));
+    (bikePOByWeek[mk]=bikePOByWeek[mk]||[]).push({id:Number(poId), name:e.name, planned:e.planned, qty:Math.round(e.qty)});
+  }
+  return grid;
+}
+// Bike POs already placed for the production week at index wi, and the per-week volume cap.
+// Rule: any number of POs per week, but the TOTAL bikes ordered for a week may not exceed
+// that week's planned column. The issue button offers only the remaining (column − ordered).
+function weekPOs(wi){ if(wi<0||wi>=weeks.length) return []; return bikePOByWeek[weekKey(wi)]||[]; }
+function weekOrderedBikes(wi){ return weekPOs(wi).reduce((a,p)=>a+(p.qty||0),0); }
+function weekPlannedBikes(wi){ return SKUS.reduce((a,s)=>a+((yearGrid[s.key]&&yearGrid[s.key][wi])||0),0); }
+function weekRemainingToOrder(wi){ return Math.max(0, Math.round(weekPlannedBikes(wi)-weekOrderedBikes(wi))); }
 
 // ── COMPUTE both tabs ────────────────────────────────────────
 function recompute(){
@@ -621,7 +671,9 @@ function buildYearPlan(){
 
   const L=targetPerWeek();
   const evenRate=Math.max(1, Math.ceil(T/av.length));
-  const capOf=(wi)=>{ const k=weekKey(wi); if(weekCaps[k]!=null) return weekCaps[k]; return L>0?L:evenRate; };
+  // A week's available capacity is its base cap minus bikes already on POs for that week, so the
+  // scheduler never re-concentrates production into a week you've already ordered up to capacity.
+  const capOf=(wi)=>{ const k=weekKey(wi); const base=(weekCaps[k]!=null)?weekCaps[k]:(L>0?L:evenRate); return Math.max(0, base - weekOrderedBikes(wi)); };
   const skuFam={}; for(const s of SKUS) skuFam[s.key]=s.fam;
   const fams=FAMILIES.map(f=>f.key);
 
@@ -707,12 +759,25 @@ async function resolveBikeProducts(){
   console.log('[PObuilder] bike products resolved:', Object.keys(skuToProduct).length, 'of', prods.length, 'variants');
 }
 async function issueBikePO(wi){
+  // The week's column is already NET of free stock and bikes already on PO, so it IS what's
+  // still to order this week. Offer exactly that (per-SKU, in the plan's proportions).
+  const remaining=Math.round(weekPlannedBikes(wi));
+  const ordered=Math.round(weekOrderedBikes(wi));
+  if(remaining<=0){
+    const names=weekPOs(wi).map(p=>`${p.name} (${p.qty})`).join(', ');
+    alert(`Week ${weeks[wi].label}: nothing left to order — this week's demand is fully covered by free stock and bikes already on POs${names?` (${names})`:''}.`);
+    return;
+  }
   const m=document.getElementById('po-modal'), body=document.getElementById('po-modal-body');
   body.innerHTML='<div style="padding:20px;text-align:center">Resolving bike products…</div>'; m.style.display='flex';
   try{ await resolveBikeProducts(); }catch(e){ body.innerHTML='<div style="padding:16px;color:var(--danger)">Could not read products: '+esc(e.message)+'</div>'; return; }
+  // Split the remaining quantity across this week's SKUs by their planned proportions.
+  const weights={}; for(const sk of SKUS){ const q=(yearGrid[sk.key]&&yearGrid[sk.key][wi])||0; if(q>0) weights[sk.key]=q; }
+  const alloc=allocateByMix(weights, remaining);
   const lines=[]; let unresolved=0;
-  for(const sk of SKUS){ const q=Math.round((yearGrid[sk.key]&&yearGrid[sk.key][wi])||0); if(q<=0) continue; const pid=skuToProduct[sk.key]||null; if(!pid) unresolved+=q; lines.push({pid, qty:q, name:`${sk.label} · ${sk.col} · ${sk.rkl}`+(pid?'':' (no Odoo product)')}); }
-  openPoModal({title:`Bike PO (Okazi) — ${weeks[wi].label}`, lines, vendorName:'Okazi', dateStr:ymd(weeks[wi].monday), unresolved});
+  for(const sk of SKUS){ const q=Math.round(alloc[sk.key]||0); if(q<=0) continue; const pid=skuToProduct[sk.key]||null; if(!pid) unresolved+=q; lines.push({pid, qty:q, name:`${sk.label} · ${sk.col} · ${sk.rkl}`+(pid?'':' (no Odoo product)')}); }
+  const titleExtra = ordered>0 ? ` · ${ordered} already on PO this week` : '';
+  openPoModal({title:`Bike PO (Okazi) — ${weeks[wi].label}${titleExtra}`, lines, vendorName:'Okazi', dateStr:ymd(weeks[wi].monday), unresolved});
 }
 async function resolveWheelProducts(){
   if(wheelSkuProducts) return;
@@ -889,7 +954,22 @@ function renderYear(){
     }).join('')}<td class="total"></td></tr>`;
   const modelsRow=`<tr><th class="sku" style="font-size:11px;color:var(--text2)">Models / wk</th>${weeks.map((wk,wi)=>{ if(isBlocked(wi)) return `<td class="blocked"></td>`; const n=FAMILIES.filter(f=>SKUS.filter(s=>s.fam===f.key).reduce((a,s)=>a+(grid[s.key][wi]||0),0)>0).length; return `<td style="text-align:center;font-size:11px;color:${n>2?'var(--danger)':'var(--text3)'}">${n||''}</td>`; }).join('')}<td class="total"></td></tr>`;
   const foot=`<tr><th class="sku">Total</th>${colTot.map((c,wi)=>`<td class="total ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''} ${(!isBlocked(wi)&&c>effCap(wi)+0.5)?'over':''}">${fmt(c)}</td>`).join('')}<td class="total">${fmt(grand)}</td></tr>`;
-  const issueRow= showDemandPlan ? '' : `<tr><th class="sku" style="font-size:11px;color:var(--text2)">Issue PO →</th>${weeks.map((wk,wi)=>(!isBlocked(wi)&&colTot[wi]>0.5)?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue Okazi bike PO for ${wk.label}" onclick="issueBikePO(${wi})">⇩ PO</button></td>`:'<td></td>').join('')}<td class="total"></td></tr>`;
+  const issueRow= showDemandPlan ? '' : `<tr><th class="sku" style="font-size:11px;color:var(--text2)">Issue PO →</th>${weeks.map((wk,wi)=>{
+      if(isBlocked(wi)) return '<td></td>';
+      const rem=Math.round(colTot[wi]||0);                 // net still-to-order this week (already excludes on-PO bikes)
+      const pos=weekPOs(wi), ordered=Math.round(pos.reduce((a,p)=>a+(p.qty||0),0));
+      const total=ordered+rem;
+      if(rem>0.5){
+        const ttl = ordered>0 ? `${ordered} already on PO · ${rem} still to order for ${wk.label}` : `Issue Okazi bike PO for ${wk.label}`;
+        return `<td style="text-align:center" title="${esc(ttl)}"><button class="btn btn-secondary" style="padding:2px 7px" onclick="issueBikePO(${wi})">⇩ PO${ordered>0?` (${rem})`:''}</button></td>`;
+      }
+      if(ordered>0){
+        const link=`${ODOO_URL}/odoo/purchase/${pos[0].id}`;
+        const ttl=esc(pos.map(p=>p.name+' · '+p.qty+' bikes').join(', '))+` — ${ordered}/${total} ordered, week covered`;
+        return `<td style="text-align:center" title="${ttl}"><a href="${link}" target="_blank" class="tag comm" style="text-decoration:none">✓ ${ordered}</a></td>`;
+      }
+      return '<td></td>';
+    }).join('')}<td class="total"></td></tr>`;
   const toggleBar=`<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap"><span style="font-size:11px;color:var(--text2);font-weight:600">VIEW:</span><button class="btn ${showDemandPlan?'btn-secondary':'btn-primary'}" style="padding:3px 10px" onclick="setPlanView(false)">📦 What we can build</button><button class="btn ${showDemandPlan?'btn-primary':'btn-secondary'}" style="padding:3px 10px" onclick="setPlanView(true)">🎯 What we should build</button>${showDemandPlan?`<span class="hint" style="color:var(--warn)">demand view — ignores component delays; switch back to “can build” to issue POs</span>`:(compGap>0?`<span class="hint" style="color:var(--warn)">${fmt(compGap)} bikes can't be built yet (components) — see “what we should build”</span>`:'')}</div>`;
   document.getElementById('year-grid').innerHTML=toggleBar+`<table class="grid"><thead>${head}</thead><tbody>${capRow}${body}</tbody><tfoot>${modelsRow}${foot}${issueRow}</tfoot></table>`;
 
@@ -910,7 +990,7 @@ function renderYear(){
   const peak=Math.max(0,...colTot);
   const overWeeks=colTot.filter((c,wi)=>!isBlocked(wi) && c>effCap(wi)+0.5).length;
   const usedWeeks=colTot.filter(c=>c>0).length;
-  const incTot=Object.values(incomingBySku).reduce((a,b)=>a+(b||0),0);
+  const incTot=Object.values(openBikePOBySku).reduce((a,b)=>a+(b||0),0);
   const k=(l,vv,sub,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${vv}</div>${sub?`<div class="kpi-label" style="margin-top:4px">${sub}</div>`:''}</div>`;
   document.getElementById('year-kpis').innerHTML=
     k('Should build', fmt(demandTotal),'demand — what we need','var(--purple)')+
@@ -985,13 +1065,25 @@ function renderWeek(){
     k('Expected arrival', arrival.toLocaleDateString('en-GB'),`+${arrivalDays()} days`,null);
 
   const blockMsg = (ci>=0 && isBlocked(ci)) ? `<div class="alert alert-warn">⚠ The current week is blocked (assembler off). No production should start now — cover the orders below in the next open week.</div>` : '';
+  // Per-week cap: if any bikes are already on POs for this week, show ordered vs the week's column.
+  const ciPOs = ci>=0 ? weekPOs(ci) : [];
+  let poMsg='';
+  if(ciPOs.length){
+    const ordered=Math.round(ciPOs.reduce((a,p)=>a+(p.qty||0),0));
+    const rem=ci>=0?Math.round(weekPlannedBikes(ci)):0;   // net still-to-order this week
+    const total=ordered+rem;
+    const links=ciPOs.map(p=>`<a href="${ODOO_URL}/odoo/purchase/${p.id}" target="_blank" style="color:inherit;font-weight:700">${esc(p.name)}</a> (${p.qty})`).join(', ');
+    poMsg = rem<=0
+      ? `<div class="alert alert-success">✓ This week is covered — ${ordered} bike(s) on POs: ${links}. Demand is met by free stock + these POs; nothing more to order this week.</div>`
+      : `<div class="alert alert-info">This week: ${ordered} bike(s) already on POs (${links}) · <b>${rem}</b> still to order (net of free stock + POs).</div>`;
+  }
   if(!proposals.length){
-    document.getElementById('week-content').innerHTML = blockMsg +
+    document.getElementById('week-content').innerHTML = blockMsg + poMsg +
       `<div class="alert alert-success">✓ No purchase order needs to be placed this week — no committed deliveries fall inside the production window, and the year plan has nothing scheduled for the current week.</div>`;
     return;
   }
   const skuLabel=k=>{ const s=SKUS.find(x=>x.key===k); return s?`<span class="dot" style="background:${COLOR_HEX[s.color]}"></span>${s.label} · ${s.col} · ${s.rkl}`:k; };
-  document.getElementById('week-content').innerHTML = blockMsg + proposals.map(p=>{
+  document.getElementById('week-content').innerHTML = blockMsg + poMsg + proposals.map(p=>{
     const skus=Object.keys(p.rows).filter(k=>p.rows[k]>0).sort((a,b)=>p.rows[b]-p.rows[a]);
     const rowsHtml=skus.map(sku=>{
       const total=p.rows[sku], comm=p.comm[sku]||0, fill=Math.max(0,total-comm);
