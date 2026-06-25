@@ -366,7 +366,15 @@ let adjRemoteState='';       // '', 'saving', 'saved', 'local'
 try{const a=localStorage.getItem(ADJ_LS);if(a)recvAdj=JSON.parse(a)||{};}catch(e){recvAdj={};}
 function saveAdj(){try{localStorage.setItem(ADJ_LS,JSON.stringify(recvAdj));}catch(e){}}
 let sortKey='partName'; let sortDir=1;
-let usagePerBikeByFam={};   // famKey -> {productId: qty per one bike}
+let usagePerBikeByFam={};      // famKey -> {productId: qty per one bike} — MY26 recipe (default)
+let usagePerBikeByFamMY27={};  // famKey -> {productId: qty per one bike} — MY27 recipe (BoMs differ)
+// Pick the recipe for a given week: MY27 BoM from the MY27 production start (cutover) onward, else MY26.
+function usageForWeekMonday(monday){
+  const cut = productionPlan && productionPlan.cutover;
+  return (cut && (''+monday) >= (''+cut)) ? usagePerBikeByFamMY27 : usagePerBikeByFam;
+}
+// MY27 bikes share the AHFAM/AHFMC codes but carry "MY27" in the product/BoM name.
+function isMY27Name(nm){ return /my\s*-?\s*27/i.test(nm||''); }
 let bomByTmpl={}, prodToTmpl={};  // BoM graph — module-level so the wheel/MTB helpers can read it
 let bikeRefs=[];            // the exact bike references the PO Builder builds {id,code,name,tmplId,fam}
 let tmplParts={};           // bike template id -> Set(component productId) — for the per-reference filter
@@ -466,11 +474,12 @@ function renderMtbForecast(){
   const isWheelPid=(pid)=>mtbWheelTmpls.has(prodToTmpl[pid]);
   const wheelPids=new Set();
   for(const fam in usagePerBikeByFam){ for(const pid in usagePerBikeByFam[fam]){ if(isWheelPid(Number(pid))) wheelPids.add(Number(pid)); } }
+  for(const fam in usagePerBikeByFamMY27){ for(const pid in usagePerBikeByFamMY27[fam]){ if(isWheelPid(Number(pid))) wheelPids.add(Number(pid)); } }
   const wheelBom={}; for(const wp of wheelPids){ const t=prodToTmpl[wp]; wheelBom[wp]=(t!=null)?explodeUsage(t,bomByTmpl,prodToTmpl,true):{}; }
   const mtbCons={}; const ensure=(pid)=>{ if(!mtbCons[pid]) mtbCons[pid]=Array(wks.length).fill(0); return mtbCons[pid]; };
-  for(const fam in byFam){ const fu=usagePerBikeByFam[fam]||{};
-    for(const wp of wheelPids){ const perBike=fu[wp]||0; if(!perBike) continue; const bom=wheelBom[wp]||{};
-      for(let wi=0; wi<wks.length; wi++){ const wheels=perBike*(byFam[fam][wi]||0); if(!wheels) continue; const awi=Math.max(0, wi-WHEEL_LEAD_WEEKS);
+  for(const fam in byFam){
+    for(const wp of wheelPids){ const bom=wheelBom[wp]||{}; if(!Object.keys(bom).length) continue;
+      for(let wi=0; wi<wks.length; wi++){ const perBike=(usageForWeekMonday(wks[wi].monday)[fam]||{})[wp]||0; if(!perBike) continue; const wheels=perBike*(byFam[fam][wi]||0); if(!wheels) continue; const awi=Math.max(0, wi-WHEEL_LEAD_WEEKS);
         for(const comp in bom){ ensure(comp)[awi]+= wheels*bom[comp]; } } } }
   const catSel=document.getElementById('mtbfc-cat');
   if(catSel && catSel.options.length<=1){ const cats=[...new Set(rows.filter(r=>wheelComponentIds.has(r.id)).map(r=>r.category).filter(c=>c&&c!=='—'))].sort(); catSel.innerHTML='<option value="">All categories</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join(''); }
@@ -545,7 +554,7 @@ function fcInspect(pid){
     return `<tr><td style="padding:2px 6px">${esc(d.ref||'PO')}</td><td style="padding:2px 6px;text-align:right">${fmt(Math.round(d.qty))}</td><td style="padding:2px 6px">${when}</td></tr>`;
   }).join('');
   let cons=0;
-  if(productionPlan){ const byFam=productionPlan.byFam||{}; for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u){ for(let wi=0;wi<productionPlan.weeks.length;wi++) cons+=u*(byFam[fam][wi]||0); } } }
+  if(productionPlan){ const byFam=productionPlan.byFam||{}; for(let wi=0;wi<productionPlan.weeks.length;wi++){ const um=usageForWeekMonday(productionPlan.weeks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) cons+=u*(byFam[fam][wi]||0); } } }
   let inprodC=0;
   for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodC+=u*(inprodByFam[fam]||0); }
   document.getElementById('fc-modal-body').innerHTML=
@@ -652,7 +661,7 @@ async function publishPartsDeadlines(){
       if(skipForecast(r)) continue;   // no order/move tasks for uncounted fasteners
       const pid=r.id;
       let inprodCons=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
-      const consArr=wks.map((_,wi)=>{ let c=0; for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; return c; });
+      const consArr=wks.map((_,wi)=>{ let c=0; const um=usageForWeekMonday(wks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; return c; });
       let vv=(r.vvReal||0), andP=(r.andQty||0);
       const overdue=incBeforeFirst(pid);
       let shortWi=-1, minLevel=vv+andP, totCons=0; const moves=[];
@@ -690,6 +699,7 @@ async function publishComponentSupply(){
     const addDays=(ymd,n)=>{ if(!ymd) return null; const t=new Date(ymd+'T00:00:00Z'); t.setUTCDate(t.getUTCDate()+n); return t.toISOString().slice(0,10); };
     const used=new Set();
     for(const f in usagePerBikeByFam){ for(const pid in (usagePerBikeByFam[f]||{})) used.add(Number(pid)); }
+    for(const f in usagePerBikeByFamMY27){ for(const pid in (usagePerBikeByFamMY27[f]||{})) used.add(Number(pid)); }   // include MY27-only components
     // parts already committed to bikes in running Okazi POs (consumed up-front)
     const inprodCons={};
     for(const fam in inprodByFam){ const u=usagePerBikeByFam[fam]||{}; const n=inprodByFam[fam]||0; for(const pid in u) inprodCons[pid]=(inprodCons[pid]||0)+u[pid]*n; }
@@ -716,7 +726,7 @@ async function publishComponentSupply(){
         const pid=r.id; if(!used.has(Number(pid))) continue;
         if(skipForecast(r)) continue;
         let inprodC=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodC+=u*(inprodByFam[fam]||0); }
-        const consArr=wks.map((_,wi)=>{ let c=0; for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodC; return c; });
+        const consArr=wks.map((_,wi)=>{ let c=0; const um=usageForWeekMonday(wks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodC; return c; });
         let vv=(r.vvReal||0), andP=(r.andQty||0); const overdue=incBeforeFirst(pid);
         for(let wi=0; wi<wks.length; wi++){
           const cons=consArr[wi]; let arrv=incForWeek(pid,wi); if(wi===0) arrv+=overdue;
@@ -749,6 +759,24 @@ async function kvSetStore(key,value){
     await fetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});
     return true;
   }catch(e){ console.warn('[PartStock] store set failed:',e.message); return false; }
+}
+// Stitch the MY26 and MY27 production plans into one weekly plan for the forward stock:
+// MY26 weeks up to the MY27 start (cutover = MY27's first week), then MY27 weeks onward.
+// So component consumption switches source automatically at the model-year handover.
+function mergeProductionPlans(a,b){
+  if(!a||!a.weeks||!a.weeks.length){ if(b&&b.weeks&&b.weeks.length) b.cutover=''+b.weeks[0].monday; return b||a; }  // only MY27 → all weeks MY27
+  if(!b||!b.weeks||!b.weeks.length) return a;               // only MY26 → no cutover, all MY26
+  const cut=''+b.weeks[0].monday;                            // MY27 start = cutover
+  const keep=a.weeks.map((w,i)=>({w,i})).filter(x=> (''+x.w.monday) < cut);   // MY26 weeks before the handover
+  const weeks=keep.map(x=>x.w).concat(b.weeks);
+  const fams=new Set([...Object.keys(a.byFam||{}), ...Object.keys(b.byFam||{})]);
+  const byFam={};
+  for(const f of fams){
+    const a26=(a.byFam&&a.byFam[f])||[], b27=(b.byFam&&b.byFam[f])||[];
+    byFam[f]=keep.map(x=>a26[x.i]||0).concat(b27.map(v=>v||0));
+  }
+  return { merged:true, year:a.year, updated:b.updated||a.updated, deadline:b.deadline||a.deadline,
+           weeks, byFam, cutover:cut, my26Updated:a.updated, my27Updated:b.updated };
 }
 // Publish wheels already on hand (real VV count + finished wheels at MTB) so the PO Builder's wheel
 // tab nets demand against existing stock and doesn't rebuild wheels we already have.
@@ -811,13 +839,14 @@ async function publishWheelDeadlines(){
     const isWheelPid=(pid)=> mtbWheelTmpls.has(prodToTmpl[pid]);
     const wheelPids=new Set();
     for(const fam in usagePerBikeByFam){ for(const pid in usagePerBikeByFam[fam]){ if(isWheelPid(Number(pid))) wheelPids.add(Number(pid)); } }
+    for(const fam in usagePerBikeByFamMY27){ for(const pid in usagePerBikeByFamMY27[fam]){ if(isWheelPid(Number(pid))) wheelPids.add(Number(pid)); } }
     const wheelBom={}; for(const wp of wheelPids){ const t=prodToTmpl[wp]; wheelBom[wp]=(t!=null)?explodeUsage(t,bomByTmpl,prodToTmpl,true):{}; }
     // MTB component consumption per week, shifted WHEEL_LEAD_WEEKS earlier than the bike week
     const mtbCons={};
     const ensure=(pid)=>{ if(!mtbCons[pid]) mtbCons[pid]=Array(wks.length).fill(0); return mtbCons[pid]; };
-    for(const fam in byFam){ const fu=usagePerBikeByFam[fam]||{};
-      for(const wp of wheelPids){ const perBike=fu[wp]||0; if(!perBike) continue; const bom=wheelBom[wp]||{};
-        for(let wi=0; wi<wks.length; wi++){ const wheels=perBike*(byFam[fam][wi]||0); if(!wheels) continue; const awi=Math.max(0, wi-WHEEL_LEAD_WEEKS);
+    for(const fam in byFam){
+      for(const wp of wheelPids){ const bom=wheelBom[wp]||{}; if(!Object.keys(bom).length) continue;
+        for(let wi=0; wi<wks.length; wi++){ const perBike=(usageForWeekMonday(wks[wi].monday)[fam]||{})[wp]||0; if(!perBike) continue; const wheels=perBike*(byFam[fam][wi]||0); if(!wheels) continue; const awi=Math.max(0, wi-WHEEL_LEAD_WEEKS);
           for(const comp in bom){ ensure(comp)[awi]+= wheels*bom[comp]; } } } }
     const incForWeek=(pid,wi)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[wi].monday, end=wks[wi+1]?wks[wi+1].monday:null; let s=0; for(const d of list){ if(!d.date){ if(wi===0) s+=d.qty; continue; } if(d.date>=start && (!end||d.date<end)) s+=d.qty; } return s; };
     const incBeforeFirst=(pid)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[0].monday; let s=0; for(const d of list){ if(d.date && d.date<start) s+=d.qty; } return s; };
@@ -904,14 +933,15 @@ const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n)
 async function collectBomGraph(){
   bomByTmpl={}; prodToTmpl={};
   // Anchor to EXACTLY the bikes the PO Builder builds: AHFAM… (A-MAX) / AHFMC… (E-MAX) variants,
-  // current model year (no "MYxx" tag) in Alfine or Derailleur (no Nexus). No other products leak in.
+  // Current model year (no "MYxx" tag) PLUS MY27, in Alfine or Derailleur (no Nexus). Old
+  // model-year tags (MY25 etc.) and Nexus still leak-proofed; MY27 is allowed through explicitly.
   const EXCLUDE_RE=/\bMY\s?\d{2}\b|\bnexus\b/i;
   const bikeProds=await odoo('product.product','search_read',
     [['|',['default_code','=like','AHFAM%'],['default_code','=like','AHFMC%']]],
     {fields:['id','default_code','display_name','product_tmpl_id'],limit:500});
   bikeRefs=[]; const tmplSet=new Set(), tmplName={};
   for(const p of bikeProds){
-    const nm=p.display_name||''; if(EXCLUDE_RE.test(nm)) continue;
+    const nm=p.display_name||''; if(EXCLUDE_RE.test(nm) && !isMY27Name(nm)) continue;
     const up=nm.toUpperCase(); if(!(up.includes('ALFINE')||up.includes('DERAILLEUR'))) continue;  // PO Builder set only
     const t=arr(p.product_tmpl_id)[0]; if(t==null) continue;
     bikeRefs.push({id:p.id, code:p.default_code||'', name:nm, tmplId:t, fam:bikeFamilyKey(nm)});
@@ -1267,18 +1297,29 @@ async function loadData(){
 
     // ── FORWARD PROJECTION INPUTS ──
     // per-bike usage by family = average explodeUsage across that family's bike templates
-    usagePerBikeByFam={};
-    {
+    // Build the per-bike recipe per family, SEPARATELY for MY26 and MY27 (their BoMs differ).
+    const buildUsage=(filterFn)=>{
       const famTmpls={};
-      for(const bb of bikeBoms){ const fam=bikeFamilyKey(bb.name); if(!fam) continue; (famTmpls[fam]=famTmpls[fam]||[]).push(bb.tmplId); }
+      for(const bb of bikeBoms){ if(!filterFn(bb.name)) continue; const fam=bikeFamilyKey(bb.name); if(!fam) continue; (famTmpls[fam]=famTmpls[fam]||[]).push(bb.tmplId); }
+      const out={};
       for(const fam in famTmpls){
         const agg={}; const tmpls=famTmpls[fam];
         for(const t of tmpls){ let u=usageCache[t]; if(!u){ u=explodeUsage(t,bomByTmpl,prodToTmpl); usageCache[t]=u; } for(const pid in u) agg[pid]=(agg[pid]||0)+u[pid]; }
         const n=tmpls.length||1; const per={}; for(const pid in agg) per[pid]=agg[pid]/n;
-        usagePerBikeByFam[fam]=per;
+        out[fam]=per;
       }
-    }
-    productionPlan = await kvGetStore('production_plan');   // published by the PO Builder app
+      return out;
+    };
+    usagePerBikeByFam     = buildUsage(nm=>!isMY27Name(nm));   // MY26 recipe
+    usagePerBikeByFamMY27 = buildUsage(nm=> isMY27Name(nm));   // MY27 recipe
+    // Fallbacks so a missing model-year set never zeroes consumption.
+    if(!Object.keys(usagePerBikeByFam).length)     usagePerBikeByFam     = usagePerBikeByFamMY27;
+    if(!Object.keys(usagePerBikeByFamMY27).length) usagePerBikeByFamMY27 = usagePerBikeByFam;
+    console.log('[PartStock] recipes — MY26 families:', Object.keys(usagePerBikeByFam).length, '· MY27 families:', Object.keys(usagePerBikeByFamMY27).length);
+    // Forward stock is driven by BOTH PO Builders: MY26 up to the MY27 start, then MY27 onward.
+    const plan26 = await kvGetStore('production_plan');         // PO Builder — MY26 (current bikes)
+    const plan27 = await kvGetStore('production_plan_my27');    // PO Builder — MY27 (new model year)
+    productionPlan = mergeProductionPlans(plan26, plan27);
     productionBasis = await kvGetStore('production_basis'); // published by the Max Planner (running Okazi POs etc.)
     // Running Okazi POs: bikes already ordered for assembly but not yet built. Once a bike is built its
     // serial appears in Odoo (it leaves 'inprod') and its components show up in `consumed`, so inprodBySku
@@ -1589,7 +1630,7 @@ function renderForecast(){
   const ref=(refSel||{}).value||'';
   const onlyNeg=document.getElementById('fc-onlyneg').checked;
   const hideSub=(document.getElementById('fc-hidesub')||{checked:true}).checked;
-  const usedByModel=(pid)=> !model || ((usagePerBikeByFam[model]||{})[pid]||0)>0;
+  const usedByModel=(pid)=> !model || ((usagePerBikeByFam[model]||{})[pid]||0)>0 || ((usagePerBikeByFamMY27[model]||{})[pid]||0)>0;
   const usedByRef=(pid)=> !ref || (tmplParts[ref] && tmplParts[ref].has(Number(pid)));
 
   // incoming PO qty for a part within week wi  (monday wi inclusive → next monday exclusive; last week catches all later)
@@ -1618,7 +1659,7 @@ function renderForecast(){
     let inprodCons=0;                       // parts burned by bikes in running Okazi POs (not yet built)
     for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
     // per-week VV consumption (running Okazi POs folded into week 0) — precomputed for transfer look-ahead
-    const consArr=wks.map((_,wi)=>{ let c=0; for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; return c; });
+    const consArr=wks.map((_,wi)=>{ let c=0; const um=usageForWeekMonday(wks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; return c; });
     const cells=[]; let firstNeg=-1, minLevel=vv+andP, totCons=0;
     for(let wi=0; wi<wks.length; wi++){
       const cons=consArr[wi]; totCons+=cons;
@@ -1666,7 +1707,8 @@ function renderForecast(){
 
   const groupBy=(document.getElementById('fc-group')||{}).value||'area';
   const nWk=wks.length;
-  const head=`<tr><th class="fc-part">Component</th><th class="fc-w" title="Combined available now = Velovisie + Anderlecht. The ⇄ shows the AND→VV move still to do.">Available now<br><span style="font-weight:400;font-size:9px">VV + AND</span></th>${wks.map(w=>`<th class="fc-w" title="${esc(w.monday)}">${esc(w.label)}</th>`).join('')}</tr>`;
+  const cutover=productionPlan&&productionPlan.cutover;
+  const head=`<tr><th class="fc-part">Component</th><th class="fc-w" title="Combined available now = Velovisie + Anderlecht. The ⇄ shows the AND→VV move still to do.">Available now<br><span style="font-weight:400;font-size:9px">VV + AND</span></th>${wks.map(w=>{ const isCut=cutover&&(''+w.monday)===(''+cutover); return `<th class="fc-w" style="${isCut?'border-left:2px solid var(--purple)':''}" title="${esc(w.monday)}${isCut?' · MY27 production starts here':''}">${esc(w.label)}${isCut?' <span style="color:var(--purple);font-size:9px">MY27▶</span>':''}</th>`; }).join('')}</tr>`;
 
   const rowHtml=(p)=>{
     const tds=p.cells.map(c=>{
@@ -1702,7 +1744,7 @@ function renderForecast(){
   }
   grid.innerHTML=`<table class="fcg"><thead>${head}</thead><tbody>${body||`<tr><td class="fc-part" style="padding:20px">No components${onlyNeg?' go negative — all covered 🎉':' use parts in this plan.'}</td></tr>`}</tbody></table>`;
   const st=document.getElementById('fc-status');
-  if(st) st.textContent=`${view.length} components${model?(' for '+ (FAMILIES.find(f=>f.key===model)||{}).label):' used'} · cells = combined VV + AND · (+n) = PO into AND · ⇄ = AND→VV move`;
+  if(st) st.textContent=`${view.length} components${model?(' for '+ (FAMILIES.find(f=>f.key===model)||{}).label):' used'} · cells = combined VV + AND · (+n) = PO into AND · ⇄ = AND→VV move`+(cutover?` · MY26→MY27 handover ${cutover}`:'');
 }
 
 // ── CSV EXPORT ───────────────────────────────────────────────
