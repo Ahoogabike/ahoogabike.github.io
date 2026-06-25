@@ -112,13 +112,13 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 
   <div class="section">
     <div class="section-title">3 · Forecast going forward <span class="tag" style="background:var(--purple-bg);color:var(--purple)">generative</span></div>
-    <div class="section-note">SKU mix from YTD invoiced + order book. Past months use the real invoiced shares; forward months follow the tiered seasonality (Apr/May/Jun strongest → Mar/Jul/Sep → Aug/Feb/Oct → Jan/Nov/Dec), scaled to the run-rate the actuals imply, up to the projected annual total, and net of bikes already invoiced or on the order book that month.</div>
+    <div class="section-note">SKU mix from YTD invoiced + order book. Past months use the real invoiced shares; forward months follow the tiered seasonality (Apr/May/Jun strongest → Mar/Jul/Sep → Aug/Feb/Oct → Jan/Nov/Dec), scaled to the run-rate the actuals imply, up to the projected annual total, and net of bikes already invoiced or on the order book that month. The month in progress is pro-rated for the days still left — only the remaining share of the month is forecast (net of its open orders), not a whole month.</div>
     <div class="table-wrap"><div id="t3"></div></div>
   </div>
 
   <div class="section">
     <div class="section-title">4 · Full-year invoiced projection <span class="tag" style="background:var(--purple-bg);color:var(--purple)">actuals + forecast → 31 Dec</span></div>
-    <div class="section-note">How the year is projected to finish: each past month shows the real invoiced bikes, each remaining month shows the projected invoiced (seasonality × SKU mix). The Year column is the projected total invoiced at 31 December. Rolls automatically — in Jan 2027 it shows the 2027 projection.</div>
+    <div class="section-note">How the year is projected to finish: each past month shows the real invoiced bikes, the current month shows actual invoiced so far plus the pro-rated remainder, and each future month shows the projected invoiced (seasonality × SKU mix). The Year column is the projected total invoiced at 31 December. Rolls automatically — in Jan 2027 it shows the 2027 projection.</div>
     <div class="table-wrap"><div id="t4"></div></div>
   </div>
 </main>
@@ -288,6 +288,19 @@ function emptyGrid(){const g={};for(const s of SKUS)g[s.key]=Array(12).fill(0);r
 function fmt(n){ if(!n) return '·'; return Math.round(n).toLocaleString('en-GB'); }
 function monthIdx(dateStr){ if(!dateStr) return null; const d=new Date(dateStr); return isNaN(d)?null:d.getMonth(); }
 function selectedYear(){ return parseInt(document.getElementById('f-year').value)|| new Date().getFullYear(); }
+// Fraction of the current month already elapsed vs still remaining, for the SELECTED year.
+// idx = month index of the in-progress month, or -1 when the selected year isn't the current
+// calendar year (then there is no partial month — every month is fully past or fully future).
+// On the 25th of a 30-day month: remFrac = (30-25)/30 = 5/30 ≈ 0.167, elFrac ≈ 0.833.
+function currentMonthFraction(year){
+  const now=new Date();
+  if(year!==now.getFullYear()) return {idx:-1, elFrac:0, remFrac:0};
+  const m=now.getMonth();
+  const dim=new Date(year, m+1, 0).getDate();            // days in the current month
+  const day=now.getDate();
+  const remFrac=Math.max(0, Math.min(1, (dim-day)/dim)); // days still ahead ÷ days in month
+  return {idx:m, elFrac:1-remFrac, remFrac};
+}
 
 // ── LOAD DATA ────────────────────────────────────────────────
 async function loadData(){
@@ -394,8 +407,14 @@ async function loadOrderbook(year){
 function recompute(){
   const year=selectedYear();
   const now=new Date(); const curY=now.getFullYear(); const curM=now.getMonth();
-  const isElapsed=m=> year<curY ? true : year>curY ? false : m<curM;   // fully-past months
-  const isFuture =m=> !isElapsed(m);                                    // current + future
+  // Current month is treated as PARTIALLY elapsed: the days already gone feed the
+  // run-rate (so the annual projection updates continuously, not once a month), and
+  // only the days still remaining carry forward demand (so the current-month forecast
+  // is pro-rated for the time left instead of assuming a whole month is still ahead).
+  const cm=currentMonthFraction(year);                                  // {idx, elFrac, remFrac}
+  const isPastFull =m=> year<curY ? true : year>curY ? false : m<curM;  // fully-completed months
+  const isCurrent  =m=> cm.idx===m;                                     // the partial month in progress
+  const seasW=(m)=> SEASON_FWD[m];
 
   // SKU mix from pool = YTD invoiced + order book
   const pool={}; let poolTotal=0;
@@ -405,58 +424,78 @@ function recompute(){
     pool[s.key]=inv+ob; poolTotal+=pool[s.key];
   }
 
-  // Real monthly invoiced totals (used for the elapsed months — actual %)
+  // Real monthly invoiced totals
   const invMonthTotal=Array(12).fill(0);
   for(const s of SKUS){ const row=invoiced[s.key]||[]; for(let m=0;m<12;m++) invMonthTotal[m]+=row[m]||0; }
-  const elapsedRealTotal=invMonthTotal.reduce((a,v,m)=> a+(isElapsed(m)?v:0),0);
   const ytdTotal=invMonthTotal.reduce((a,b)=>a+b,0);
   const obTotal =Object.values(orderbook).reduce((a,row)=>a+row.reduce((x,y)=>x+y,0),0);
 
-  // Forward seasonality weights for elapsed vs future months
-  const elapsedSeason=SEASON_FWD.reduce((a,v,m)=> a+(isElapsed(m)?v:0),0);
-  const futureSeason =SEASON_FWD.reduce((a,v,m)=> a+(isFuture(m)?v:0),0);
+  // Elapsed actuals = every fully-past month PLUS the current month's sales so far.
+  const elapsedRealTotal=invMonthTotal.reduce((a,v,m)=> a + ((isPastFull(m)||isCurrent(m))?v:0), 0);
+
+  // Seasonality weight, split so the current month contributes elFrac to the elapsed
+  // side and remFrac to the forward side (elapsed + future still sums to the full year).
+  let elapsedSeason=0, futureSeason=0;
+  for(let m=0;m<12;m++){
+    if(isPastFull(m)) elapsedSeason+=seasW(m);
+    else if(isCurrent(m)){ elapsedSeason+=seasW(m)*cm.elFrac; futureSeason+=seasW(m)*cm.remFrac; }
+    else futureSeason+=seasW(m);                                        // fully-future months
+  }
 
   // Projected annual total:
-  //   manual override, else gross up the REAL elapsed actuals using the
-  //   tiered seasonality shape (annual = elapsed actual × totalShape ÷ elapsedShape)
+  //   manual override, else gross up the elapsed actuals (now including the current
+  //   month so far) by the tiered seasonality shape. Because the current month's
+  //   elapsed weight grows day by day, the projection updates continuously.
   const manual=parseFloat(document.getElementById('f-target').value)||0;
   let annual;
   if(manual>0) annual=manual;
   else annual = elapsedSeason>0 ? elapsedRealTotal*((elapsedSeason+futureSeason)/elapsedSeason) : 0;
   const futureTotal=Math.max(0, annual-elapsedRealTotal);
 
-  // Monthly total going forward = futureTotal spread by tiered seasonality.
-  // Past months keep their REAL invoiced total (their actual share of the year).
-  const monthTotal=Array(12).fill(0);
+  // monthFwd = demand STILL to come per month; monthTotal = full-month projected total.
+  //   past   : nothing forward · projected = actual
+  //   current: forward = pro-rated remaining share · projected = actual so far + remaining
+  //   future : forward = full seasonal share · projected = that share
+  const monthFwd=Array(12).fill(0), monthTotal=Array(12).fill(0);
   for(let m=0;m<12;m++){
-    if(isElapsed(m)) monthTotal[m]=invMonthTotal[m];
-    else monthTotal[m]= futureSeason>0 ? futureTotal*(SEASON_FWD[m]/futureSeason) : 0;
+    if(isPastFull(m)){ monthFwd[m]=0; monthTotal[m]=invMonthTotal[m]; }
+    else if(isCurrent(m)){
+      const rem = futureSeason>0 ? futureTotal*((seasW(m)*cm.remFrac)/futureSeason) : 0;
+      monthFwd[m]=rem; monthTotal[m]=invMonthTotal[m]+rem;
+    } else {
+      const full = futureSeason>0 ? futureTotal*(seasW(m)/futureSeason) : 0;
+      monthFwd[m]=full; monthTotal[m]=full;
+    }
   }
 
-  // Table 3: forward months only, split by SKU mix, net of invoiced + order book
+  // Table 3: forward demand still to come, split by SKU mix, net of commitments.
+  // For the current month we subtract ONLY the open order book — its already-invoiced
+  // sales sit in the elapsed portion and must not be subtracted from the remainder again.
   forecast=emptyGrid();
   for(const s of SKUS){
     const mix = poolTotal? pool[s.key]/poolTotal : 0;
     for(let m=0;m<12;m++){
-      if(isElapsed(m)){ forecast[s.key][m]=0; continue; }
-      const gross = monthTotal[m]*mix;
-      const known = (invoiced[s.key]?.[m]||0) + (orderbook[s.key]?.[m]||0);
-      forecast[s.key][m]=Math.max(0, Math.round(gross-known));
+      if(isPastFull(m)){ forecast[s.key][m]=0; continue; }
+      const grossFwd = monthFwd[m]*mix;
+      const known = (orderbook[s.key]?.[m]||0) + (isCurrent(m) ? 0 : (invoiced[s.key]?.[m]||0));
+      forecast[s.key][m]=Math.max(0, Math.round(grossFwd-known));
     }
   }
 
   const fcstTotal=Object.values(forecast).reduce((a,row)=>a+row.reduce((x,y)=>x+y,0),0);
 
-  // Per-SKU year-end projection for the current (selected) year, and the data
-  // table 4 needs: each month = actual invoiced (past) or projected (future).
+  // Per-SKU year-end projection = actuals to date (incl. current month) + remaining forecast.
   const skuMixObj={}, annualBySku={};
   for(const s of SKUS){
     const mix = poolTotal? pool[s.key]/poolTotal : 0;
     skuMixObj[s.key]=mix;
     const realYtdSku=(invoiced[s.key]||[]).reduce((a,b)=>a+b,0);
-    annualBySku[s.key]= realYtdSku + mix*futureTotal;   // actuals + remaining forecast
+    annualBySku[s.key]= realYtdSku + mix*futureTotal;   // actuals (incl. current month) + remaining forecast
   }
-  window._proj={ year, annual, annualBySku, skuMixObj, monthTotal, isElapsed:Array.from({length:12},(_,m)=>isElapsed(m)) };
+  window._proj={ year, annual, annualBySku, skuMixObj, monthTotal, monthFwd,
+    curIdx: cm.idx,
+    isPast:Array.from({length:12},(_,m)=>isPastFull(m)),
+    isElapsed:Array.from({length:12},(_,m)=>isPastFull(m)) };   // back-compat alias
 
   renderKPIs({annual,ytdTotal,obTotal,fcstTotal,elapsedSeason,futureSeason});
   renderTable('t1',invoiced,'plain');
@@ -471,10 +510,10 @@ function recompute(){
   document.getElementById('season-line').innerHTML=
     MONTHS.map((mo,i)=>{
       const pct=Math.round((monthTotal[i]/annDen)*100);
-      const tag=isElapsed(i)?'real':'seasonal';
-      const col=isElapsed(i)?'var(--text2)':'var(--purple)';
-      return `<span style="color:${col}">${mo} ${pct}%</span>`;
-    }).join('  ·  ')+'  <span style="color:var(--text3)">(past = actual, forward = seasonality)</span>';
+      const col=isPastFull(i)?'var(--text2)':(isCurrent(i)?'var(--success)':'var(--purple)');
+      const suffix=isCurrent(i)?` <span style="font-size:9px">(${Math.round(cm.remFrac*100)}% left)</span>`:'';
+      return `<span style="color:${col}">${mo} ${pct}%${suffix}</span>`;
+    }).join('  ·  ')+'  <span style="color:var(--text3)">(past = actual · current month pro-rated for days left · forward = seasonality)</span>';
 }
 
 function renderKPIs({annual,ytdTotal,obTotal,fcstTotal,elapsedSeason,futureSeason}){
@@ -524,10 +563,13 @@ function renderTable(elId,data,kind){
 // ── TABLE 4 — FULL-YEAR INVOICED PROJECTION (actuals + forecast → 31 Dec) ──
 function renderTable4(){
   const proj=window._proj; if(!proj){ document.getElementById('t4').innerHTML=''; return; }
-  // value per SKU/month: past month = real invoiced, future month = projected
-  const cellVal=(s,m)=> proj.isElapsed[m]
-      ? (invoiced[s.key]?.[m]||0)
-      : (proj.monthTotal[m]*(proj.skuMixObj[s.key]||0));
+  // value per SKU/month: past = real invoiced · current = actual so far + pro-rated remaining
+  // forecast · future = projected (seasonality × SKU mix)
+  const cellVal=(s,m)=>{
+    const mix=proj.skuMixObj[s.key]||0;
+    const actual=(proj.isPast[m]||m===proj.curIdx)?(invoiced[s.key]?.[m]||0):0;
+    return actual + (proj.monthFwd[m]||0)*mix;
+  };
   const colTot=Array(12).fill(0); let grand=0;
   const body=SKUS.map(s=>{
     let rt=0;
@@ -572,7 +614,9 @@ function exportCSV(){
       for(const s of SKUS){
         let rt=0;
         const row=Array.from({length:12},(_,m)=>{
-          const val=proj.isElapsed[m]?(invoiced[s.key]?.[m]||0):(proj.monthTotal[m]*(proj.skuMixObj[s.key]||0));
+          const mix=proj.skuMixObj[s.key]||0;
+          const actual=(proj.isPast[m]||m===proj.curIdx)?(invoiced[s.key]?.[m]||0):0;
+          const val=actual + (proj.monthFwd[m]||0)*mix;
           rt+=val; return Math.round(val);
         });
         out+=[`${s.label} ${s.col} ${s.rkl}`,...row,Math.round(rt)].join(',')+'\n';
