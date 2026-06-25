@@ -632,7 +632,8 @@ async function publishPartsDeadlines(){
       }
       if(totCons<=0.0001) continue;
       const nm=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
-      if(shortWi>=0) items.push({type:'order', id:'order:'+pid, pid, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[shortWi].monday, qty:Math.max(1,Math.ceil(-minLevel))});
+      const rate=wks.length?(totCons/wks.length):0;   // avg weekly consumption → lets the agenda size an order to cover N weeks
+      if(shortWi>=0) items.push({type:'order', id:'order:'+pid, pid, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[shortWi].monday, qty:Math.max(1,Math.ceil(-minLevel)), rate:Math.round(rate*100)/100});
       for(const mv of moves) items.push({type:'move', id:'move:'+pid+':'+wks[mv.wi].monday, pid, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[mv.wi].monday, qty:mv.qty});
     }
     await kvSetStore('parts_deadlines', { updated:new Date().toISOString(), transferLeadDays:3, weeks:wks.map(w=>w.monday), items });
@@ -802,7 +803,8 @@ async function publishWheelDeadlines(){
         if(combined<0 && shortWi<0) shortWi=wi;
       }
       const nm=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
-      if(shortWi>=0) out.items.push({type:'order', id:'worder:'+r.id, pid:r.id, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[shortWi].monday, qty:Math.max(1,Math.ceil(-minLevel)), tier:'MTB'});
+      const wrate=cons.length?(cons.reduce((a,b)=>a+b,0)/cons.length):0;
+      if(shortWi>=0) out.items.push({type:'order', id:'worder:'+r.id, pid:r.id, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[shortWi].monday, qty:Math.max(1,Math.ceil(-minLevel)), tier:'MTB', rate:Math.round(wrate*100)/100});
       for(const mv of moves) out.items.push({type:'move', id:'wmove:'+r.id+':'+wks[mv.wi].monday, pid:r.id, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[mv.wi].monday, qty:mv.qty, tier:'MTB', moveTo:'MTB'});
     }
     await kvSetStore('wheel_deadlines', out);
