@@ -288,6 +288,7 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
       <select id="fc-cat" onchange="renderForecast()"><option value="">All categories</option></select>
       <label class="toggle"><input type="checkbox" id="fc-onlyneg" checked onchange="renderForecast()"> Only shortages</label>
       <label class="toggle"><input type="checkbox" id="fc-hidesub" checked onchange="renderForecast()"> Hide in-house sub-assemblies</label>
+      <label class="toggle" title="Fasteners/bolts aren't counted reliably, so they're excluded from all forecasts and the reorder shortlist. Untick to include them."><input type="checkbox" id="fc-nofast" checked onchange="onFastenerToggle()"> Exclude fasteners/bolts</label>
       <button class="btn btn-sm btn-secondary" id="fc-overdue-btn" onclick="exportOverduePOs()" title="Download a CSV of every open PO whose expected arrival date is in the past (or missing) — these are the ones being dumped into week 1">⬇ Overdue POs</button>
       <button class="btn btn-sm btn-secondary" onclick="emailOverduePOs()" title="Open an email pre-filled with the overdue POs to correct">✉ Email overdue</button>
       <div class="sep"></div>
@@ -350,7 +351,7 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
 // ── CONFIG (shared with the other Ahooga apps) ───────────────
 const ODOO_URL='https://ahooga.odoo.com';
 const ODOO_DB ='logicasoft-aho-18-0-21599177';
-const CF_WORKER='https://ahooga-planner-proxy.massimiliano-d74.workers.dev';
+const CF_WORKER='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
 let odooUid=null;
 let rows=[];                 // computed part rows
 let totalBikes=0;            // total MAX bikes produced (serial lots)
@@ -374,6 +375,25 @@ let inprodByFam={};         // famKey -> count of bikes in running Okazi POs (no
 let mtbWheelTmpls=new Set();// template ids of wheel assemblies built at MTB (consumed as finished wheels at VV)
 let wheelComponentIds=new Set();// parts consumed into wheels at MTB → their VV theoretical is 0 (they live at MTB, not VV)
 let fcCollapsed={};         // group name -> true if collapsed in the Forward stock tab
+
+// Fasteners & bolts: their physical stock is never counted reliably, so they create false
+// shortages. We flag them and (by default) exclude them from every forward projection and the
+// reorder shortlist. Match on name + Odoo category, EN/FR/NL.
+const FASTENER_RE_WORD=/\b(bolt|bolts|screw|screws|nut|nuts|washer|washers|rivet|rivets|stud|studs|grub|circlip|circlips|cotter|spacer|spacers)\b/;
+const FASTENER_RE_SUB=/(visserie|boulonnerie|boulon|rondelle|écrou|ecrou|goujon|\bvis\b|fastener|schroef|\bbout\b|moer|\bring\b)/;
+function isFastenerPart(r){
+  const s=(((r&&r.partName)||'')+' '+((r&&r.category)||'')).toLowerCase();
+  return FASTENER_RE_WORD.test(s) || FASTENER_RE_SUB.test(s);
+}
+function excludeFasteners(){ const el=document.getElementById('fc-nofast'); return el ? el.checked : true; }
+function skipForecast(r){ return excludeFasteners() && r && r.isFastener; }
+// Re-run the forecasts, reorder shortlist and the published feeds when the toggle flips —
+// no need to re-read Odoo, we just re-filter the rows already loaded.
+function onFastenerToggle(){
+  if(!rows.length){ return; }
+  try{ publishComponentSupply(); publishPartsDeadlines(); publishWheelComponentSupply(); publishWheelDeadlines(); }catch(e){ console.warn(e); }
+  renderForecast(); renderMtbForecast(); renderSummary();
+}
 
 // Best-effort mapping of a component to an area of the bike (EN/FR/NL keywords).
 function bikeArea(name, category){
@@ -423,7 +443,7 @@ function renderMtbForecast(){
   const onlyNeg=document.getElementById('mtbfc-onlyneg').checked;
   const incForWeek=(pid,wi)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[wi].monday, end=wks[wi+1]?wks[wi+1].monday:null; let s=0; for(const d of list){ if(!d.date){ if(wi===0) s+=d.qty; continue; } if(d.date>=start && (!end||d.date<end)) s+=d.qty; } return s; };
   const incBeforeFirst=(pid)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[0].monday; let s=0; for(const d of list){ if(d.date && d.date<start) s+=d.qty; } return s; };
-  const proj=rows.filter(r=>wheelComponentIds.has(r.id)).map(r=>{
+  const proj=rows.filter(r=>wheelComponentIds.has(r.id) && !skipForecast(r)).map(r=>{
     const pid=r.id; const consArr=mtbCons[pid]||Array(wks.length).fill(0);
     let mtb=(r.mtbQty||0), andP=(r.andQty||0);
     const overdue=incBeforeFirst(pid);
@@ -593,6 +613,7 @@ async function publishPartsDeadlines(){
     const items=[];
     for(const r of rows){
       if(r.isSub) continue;
+      if(skipForecast(r)) continue;   // no order/move tasks for uncounted fasteners
       const pid=r.id;
       let inprodCons=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
       const consArr=wks.map((_,wi)=>{ let c=0; for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; return c; });
@@ -638,6 +659,7 @@ async function publishComponentSupply(){
     const stock={}, stockDetail={}, incoming={}, names={}, cats={}, partNos={};
     for(const r of rows){
       const pid=r.id; if(!used.has(Number(pid))) continue;
+      if(skipForecast(r)) continue;   // fasteners: stock not reliable → leave uncapped
       const vv=(r.vvReal||0), and=(r.andQty||0), inprod=(inprodCons[pid]||0);
       stock[pid]=vv+and-inprod;
       stockDetail[pid]={vv, and, inprod};                       // breakdown so consumers can explain the start figure
@@ -655,6 +677,7 @@ async function publishComponentSupply(){
       const incBeforeFirst=(pid)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[0].monday; let z=0; for(const d of list){ if(d.date && d.date<start) z+=d.qty; } return z; };
       for(const r of rows){
         const pid=r.id; if(!used.has(Number(pid))) continue;
+        if(skipForecast(r)) continue;
         let inprodC=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodC+=u*(inprodByFam[fam]||0); }
         const consArr=wks.map((_,wi)=>{ let c=0; for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodC; return c; });
         let vv=(r.vvReal||0), andP=(r.andQty||0); const overdue=incBeforeFirst(pid);
@@ -733,7 +756,7 @@ async function publishWheelComponentSupply(){
   try{
     const usageByWheel={}, stock={}, incoming={}, names={};
     for(const r of rows){ if(!r.isWheel) continue; const t=prodToTmpl[r.id]; if(t==null) continue; const code=r.partNo||('#'+r.id); usageByWheel[code]=explodeUsage(t,bomByTmpl,prodToTmpl,true); }
-    for(const r of rows){ if(!wheelComponentIds.has(r.id)) continue; stock[r.id]=(r.mtbQty||0)+(r.andQty||0); names[r.id]=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`; const inc=incomingByPart[r.id]; if(inc&&inc.length) incoming[r.id]=inc.map(d=>({date:d.date||null, qty:d.qty})); }
+    for(const r of rows){ if(!wheelComponentIds.has(r.id)) continue; if(skipForecast(r)) continue; stock[r.id]=(r.mtbQty||0)+(r.andQty||0); names[r.id]=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`; const inc=incomingByPart[r.id]; if(inc&&inc.length) incoming[r.id]=inc.map(d=>({date:d.date||null, qty:d.qty})); }
     await kvSetStore('wheel_component_supply', {updated:new Date().toISOString(), usageByWheel, stock, incoming, names});
     console.log('[PartStock] wheel_component_supply published — wheels', Object.keys(usageByWheel).length, '· components', Object.keys(stock).length);
   }catch(e){ console.warn('[PartStock] publishWheelComponentSupply failed:', e.message); }
@@ -763,6 +786,7 @@ async function publishWheelDeadlines(){
     const incBeforeFirst=(pid)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[0].monday; let s=0; for(const d of list){ if(d.date && d.date<start) s+=d.qty; } return s; };
     for(const r of rows){
       if(!wheelComponentIds.has(r.id)) continue;            // only wheel sub-parts
+      if(skipForecast(r)) continue;                         // skip uncounted fasteners
       const cons=mtbCons[r.id]; if(!cons) continue;
       if(cons.reduce((a,b)=>a+b,0)<=0.0001) continue;
       let mtb=(r.mtbQty||0), andP=(r.andQty||0);
@@ -1192,6 +1216,7 @@ async function loadData(){
         receivedPO,recvAdj:adj,received,consumed,sav,theo,andQty,louiQty,odoo,vv,vvReal,mtbQty,
         isSub:subIds.has(id),
         isWheel:mtbWheelTmpls.has(prodToTmpl[id]),
+        isFastener:isFastenerPart({partName, category:arr(pi.categ_id)[1]||'—'}),
         bomFams:ALL_FAM.filter(k=>famParts[k]&&famParts[k].has(id))
       };
       FAM_KEYS.forEach(k=>{ row[k]=famConsumed[k][id]||0; });
@@ -1457,6 +1482,7 @@ function getSummaryData(){
   const hideSub=document.getElementById('sum-hidesub')?.checked;
   const boms=selectedBoms('sum');
   return rows.filter(r=>{
+    if(skipForecast(r)) return false;   // fasteners excluded from the reorder shortlist (unreliable count)
     if(r.vv===null||r.vv>=VV_THRESHOLD) return false;
     if(boms.length&&!boms.some(k=>r.bomFams.includes(k))) return false;
     if(hideSub&&r.isSub) return false;
@@ -1545,7 +1571,7 @@ function renderForecast(){
     return s;
   };
 
-  const proj=rows.map(r=>{
+  const proj=rows.filter(r=>!skipForecast(r)).map(r=>{
     const pid=r.id;
     let vv=(r.vvReal||0);                   // Velovisie pool — REAL counted on-hand at Velovisie (stock.quant)
     let andP=(r.andQty||0);                 // Anderlecht (AND) warehouse pool — feeds VV via transfer

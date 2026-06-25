@@ -122,6 +122,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
     <div class="field"><label>Transit days</label><input type="number" id="f-lead" style="width:90px" value="2" oninput="recompute()"/></div>
     <div class="field"><label>Produce everything by</label><input type="date" id="f-deadline" style="width:150px" oninput="recompute()"/><span class="hint">last production week</span></div>
     <div class="field"><label>Default max / week</label><input type="number" id="f-weekly" style="width:140px" min="0" placeholder="auto" oninput="recompute()"/><span class="hint" id="weekly-hint">per-week boxes override this</span></div>
+    <div class="field"><label>Component lock (wks)</label><input type="number" id="f-complock" style="width:110px" min="0" value="3" oninput="recompute()"/><span class="hint">cap by parts on hand for this many weeks; demand after</span></div>
     <div class="field" style="flex:1;min-width:160px"><span class="hint" id="basis-line"></span></div>
   </div>
 
@@ -628,6 +629,9 @@ function recompute(){
 }
 
 function targetPerWeek(){ const v=parseInt(document.getElementById('f-weekly').value); return v>0?v:0; }
+// How many leading weeks are locked to real component availability (short-term). Beyond this
+// the plan builds to demand, assuming the missing components get ordered in time. Default 3.
+function compLockWeeks(){ const el=document.getElementById('f-complock'); const v=el?parseInt(el.value):NaN; return (!isNaN(v)&&v>=0)?v:3; }
 function hasMonthly(){ return forwardMonthlyBySku && Object.keys(forwardMonthlyBySku).length>0; }
 
 // The demand-month a bike STARTED in week wi becomes available to sell (production + transit later).
@@ -695,7 +699,10 @@ function buildYearPlan(){
   if(compOn && CS.incoming){ for(const cid in CS.incoming){ for(const e of (CS.incoming[cid]||[])){ const w=arrivalWeek(e.date); (incByWeek[w]=incByWeek[w]||{}); incByWeek[w][cid]=(incByWeek[w][cid]||0)+(e.qty||0); } } }
   const usageOf=(fk)=> (compOn ? (CS.usageByFam[fk]||null) : null);
 
-  // Scheduler. applyComp=false → "what we SHOULD build" (demand only); true → "what we CAN build" (component-capped).
+  // Scheduler. applyComp=false → "what we SHOULD build" (demand only, ignores components).
+  // applyComp=true → DUAL-HORIZON: the first `lockW` available weeks are capped by components
+  // you actually have/are receiving (you can't get parts faster than that); weeks beyond that
+  // are built to demand on the assumption you'll order the missing components in time.
   function schedule(applyComp){
     const grid={}; for(const s of SKUS) grid[s.key]=Array(W).fill(0);
     const queue={}, remaining={};
@@ -705,6 +712,7 @@ function buildYearPlan(){
     const earliestDue=(fk)=>{ for(const p of queue[fk]) if(p.qty>1e-9) return p.due; return Infinity; };
     const consume=(fk,n,wi)=>{ let need=n; for(const p of queue[fk]){ if(need<=1e-9)break; if(p.qty<=1e-9)continue; const t=Math.min(need,p.qty); grid[p.sku][wi]+=t; p.qty-=t; need-=t; } };
     const useComp=applyComp && compOn;
+    const lockW = useComp ? compLockWeeks() : 0;          // # of leading available weeks that are component-capped
     const compAvail={}; if(useComp){ for(const cid in CS.stock) compAvail[cid]=CS.stock[cid]; }
     const buildCap=(fk)=>{ const u=usageOf(fk); if(!u) return {m:Infinity,bind:null}; let m=Infinity,bind=null; for(const cid in u){ const per=u[cid]; if(per<=1e-9) continue; const cap=(compAvail[cid]||0)/per; if(cap<m){ m=cap; bind=cid; } } return {m,bind}; };
     const drawComp=(fk,n)=>{ const u=usageOf(fk); if(!u) return; for(const cid in u) compAvail[cid]=(compAvail[cid]||0)-u[cid]*n; };
@@ -714,12 +722,13 @@ function buildYearPlan(){
       const wi=av[i];
       if(useComp){ for(let w=lastW+1; w<=wi; w++){ const inc=incByWeek[w]; if(inc){ for(const cid in inc) compAvail[cid]=(compAvail[cid]||0)+inc[cid]; } } }
       lastW=wi;
+      const capThisWeek = useComp && (i < lockW);         // only the short-term weeks respect component limits
       let budget=capOf(wi); const used=new Set();
       while(budget>1e-9){
         let best=null, bestDue=Infinity;
         for(const fk of fams){
           if(remaining[fk]<=1e-9) continue;
-          if(useComp && buildCap(fk).m<1) continue;
+          if(capThisWeek && buildCap(fk).m<1) continue;
           if(!used.has(fk) && used.size>=2) continue;
           const ed=earliestDue(fk);
           if(ed<bestDue || (ed===bestDue && used.has(fk) && !(best&&used.has(best)))){ best=fk; bestDue=ed; }
@@ -727,20 +736,22 @@ function buildYearPlan(){
         if(!best) break;
         used.add(best);
         let take=Math.min(budget, remaining[best]);
-        if(useComp){ const bc=buildCap(best); if(isFinite(bc.m)){ const cap=Math.floor(bc.m+1e-9); if(cap<take){ take=cap; (limitByWeek[wi]=limitByWeek[wi]||{})[best]=bc.bind; } } }
+        if(capThisWeek){ const bc=buildCap(best); if(isFinite(bc.m)){ const cap=Math.floor(bc.m+1e-9); if(cap<take){ take=cap; (limitByWeek[wi]=limitByWeek[wi]||{})[best]=bc.bind; } } }
         if(take<=1e-9) break;
         consume(best, take, wi); budget-=take; remaining[best]-=take;
-        if(useComp) drawComp(best, take);
+        if(capThisWeek) drawComp(best, take);
       }
     }
     const leftover=fams.reduce((a,fk)=>a+remaining[fk],0);
     if(leftover>1e-9){
       const wi=av[av.length-1];
-      if(useComp){ for(let w=lastW+1; w<weeks.length; w++){ const inc=incByWeek[w]; if(inc){ for(const cid in inc) compAvail[cid]=(compAvail[cid]||0)+inc[cid]; } } }
+      // The dump week is beyond the component-lock horizon (the normal case), so place uncapped —
+      // long-term demand is built on the assumption the components will be ordered in time.
+      const lastBeyondLock = (av.length-1) >= lockW;
       for(const fk of fams){ if(remaining[fk]>1e-9){
-        const cap = useComp ? Math.max(0,Math.floor(buildCap(fk).m+1e-9)) : Infinity;
+        const cap = (useComp && !lastBeyondLock) ? Math.max(0,Math.floor(buildCap(fk).m+1e-9)) : Infinity;
         const place = Math.min(remaining[fk], cap);
-        if(place>1e-9){ consume(fk, place, wi); if(useComp) drawComp(fk, place); remaining[fk]-=place; }
+        if(place>1e-9){ consume(fk, place, wi); remaining[fk]-=place; }
       } }
     }
     if(useComp){ for(const fk of fams){ if(remaining[fk]>1e-9) unbuild[fk]={qty:Math.round(remaining[fk]), binding:buildCap(fk).bind}; } }
@@ -748,8 +759,8 @@ function buildYearPlan(){
     return {grid, limitByWeek, unbuild};
   }
 
-  yearGridDemand = schedule(false).grid;                 // what we SHOULD build (demand; ignores component delays)
-  const built = schedule(true);                          // what we CAN build (component-capped)
+  yearGridDemand = schedule(false).grid;                 // what we SHOULD build (pure demand)
+  const built = schedule(true);                          // dual-horizon: capped short-term, demand long-term
   yearGrid = built.grid; compLimitByWeek = built.limitByWeek; unbuildableByFam = built.unbuild;
 }
 
@@ -1056,7 +1067,7 @@ function renderYear(){
       }
       return '<td></td>';
     }).join('')}<td class="total"></td></tr>`;
-  const toggleBar=`<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap"><span style="font-size:11px;color:var(--text2);font-weight:600">VIEW:</span><button class="btn ${showDemandPlan?'btn-secondary':'btn-primary'}" style="padding:3px 10px" onclick="setPlanView(false)">📦 What we can build</button><button class="btn ${showDemandPlan?'btn-primary':'btn-secondary'}" style="padding:3px 10px" onclick="setPlanView(true)">🎯 What we should build</button>${showDemandPlan?`<span class="hint" style="color:var(--warn)">demand view — ignores component delays; switch back to “can build” to issue POs</span>`:(compGap>0?`<span class="hint" style="color:var(--warn)">${fmt(compGap)} bikes can't be built yet (components) — see “what we should build”</span>`:'')}</div>`;
+  const toggleBar=`<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap"><span style="font-size:11px;color:var(--text2);font-weight:600">VIEW:</span><button class="btn ${showDemandPlan?'btn-secondary':'btn-primary'}" style="padding:3px 10px" onclick="setPlanView(false)">📦 Plan (parts-aware ${compLockWeeks()}w, then demand)</button><button class="btn ${showDemandPlan?'btn-primary':'btn-secondary'}" style="padding:3px 10px" onclick="setPlanView(true)">🎯 What we should build</button>${showDemandPlan?`<span class="hint" style="color:var(--warn)">pure demand view — ignores components; switch back to the plan to issue POs</span>`:`<span class="hint" style="color:var(--text3)">first ${compLockWeeks()} weeks limited to parts on hand/incoming; later weeks build to demand (order the parts in time)${compGap>0?` · ${fmt(compGap)} short-term bikes deferred for components`:''}</span>`}</div>`;
   document.getElementById('year-grid').innerHTML=toggleBar+`<table class="grid"><thead>${head}</thead><tbody>${capRow}${body}</tbody><tfoot>${modelsRow}${foot}${issueRow}</tfoot></table>`;
 
   // blocked-week chips + deadline note
@@ -1228,7 +1239,8 @@ function saveCfg(){
     prod:document.getElementById('f-prod').value,
     lead:document.getElementById('f-lead').value,
     deadline:document.getElementById('f-deadline').value,
-    weekly:document.getElementById('f-weekly').value
+    weekly:document.getElementById('f-weekly').value,
+    complock:document.getElementById('f-complock').value
   })); }catch(e){}
 }
 function loadCfg(){
@@ -1244,6 +1256,7 @@ function loadCfg(){
   document.getElementById('f-lead').value=c.lead||2;
   document.getElementById('f-deadline').value=c.deadline||(y+'-10-31');
   document.getElementById('f-weekly').value=c.weekly||'';
+  document.getElementById('f-complock').value=(c.complock!=null&&c.complock!=='')?c.complock:3;
   syncBlockedForYear();
   syncCapsForYear();
 }
