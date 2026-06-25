@@ -390,6 +390,10 @@ function isFastenerPart(r){
   if(FASTENER_CAT_RE.test(cat)) return true;                 // in the Fasteners/Bolts category → fastener
   return FASTENER_NAME_RE.test(((r&&r.partName)||'').toLowerCase());
 }
+// Components placed in the "to update" category aren't tracked correctly in Odoo (counted/updated
+// by hand), so their stock is unreliable → always drop them from the forward views.
+const UNTRACKED_CAT_RE=/to update/;
+function isUntracked(r){ return UNTRACKED_CAT_RE.test(((r&&r.category)||'').toLowerCase()); }
 function excludeFasteners(){ const el=document.getElementById('fc-nofast'); return el ? el.checked : true; }
 // Manually-excluded part numbers: parts wrongly pulled into the MAX BoM scope (e.g. shared
 // sub-assemblies, packaging/transport lines). Comma/space separated, persisted in this browser.
@@ -416,7 +420,7 @@ function computeExcludedSubtrees(){
     for(const pid in sub) excludedSubParts.add(Number(pid));
   }
 }
-function skipForecast(r){ return (excludeFasteners() && r && r.isFastener) || isExcludedPart(r) || (r && excludedSubParts.has(r.id)); }
+function skipForecast(r){ return (excludeFasteners() && r && r.isFastener) || isUntracked(r) || isExcludedPart(r) || (r && excludedSubParts.has(r.id)); }
 // Re-run the forecasts, reorder shortlist and the published feeds when a filter changes —
 // no need to re-read Odoo, we just re-filter the rows already loaded.
 function onFastenerToggle(){
