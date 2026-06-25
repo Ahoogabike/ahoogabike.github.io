@@ -289,6 +289,8 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
       <label class="toggle"><input type="checkbox" id="fc-onlyneg" checked onchange="renderForecast()"> Only shortages</label>
       <label class="toggle"><input type="checkbox" id="fc-hidesub" checked onchange="renderForecast()"> Hide in-house sub-assemblies</label>
       <label class="toggle" title="Fasteners/bolts aren't counted reliably, so they're excluded from all forecasts and the reorder shortlist. Untick to include them."><input type="checkbox" id="fc-nofast" checked onchange="onFastenerToggle()"> Exclude fasteners/bolts</label>
+      <input type="text" id="fc-exclude" value="TRNCH00010" placeholder="exclude part #s…" onchange="onFastenerToggle()" style="min-width:150px;padding:6px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit" title="Comma-separated part numbers to drop from all forecasts, the component cap and the agenda (parts wrongly pulled into the MAX BoM scope)"/>
+      <input type="text" id="fc-leafsub" value="AOFV2C" placeholder="exclude sub-parts of…" onchange="onFastenerToggle()" style="min-width:170px;padding:6px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit" title="Pre-assemblies treated as a single unit: their sub-components are dropped from the forward stock. Match by part number or name, comma-separated (e.g. AOFV2C, Frame pre-assy)."/>
       <button class="btn btn-sm btn-secondary" id="fc-overdue-btn" onclick="exportOverduePOs()" title="Download a CSV of every open PO whose expected arrival date is in the past (or missing) — these are the ones being dumped into week 1">⬇ Overdue POs</button>
       <button class="btn btn-sm btn-secondary" onclick="emailOverduePOs()" title="Open an email pre-filled with the overdue POs to correct">✉ Email overdue</button>
       <div class="sep"></div>
@@ -379,20 +381,50 @@ let fcCollapsed={};         // group name -> true if collapsed in the Forward st
 // Fasteners & bolts: their physical stock is never counted reliably, so they create false
 // shortages. We flag them and (by default) exclude them from every forward projection and the
 // reorder shortlist. Match on name + Odoo category, EN/FR/NL.
-const FASTENER_RE_WORD=/\b(bolt|bolts|screw|screws|nut|nuts|washer|washers|rivet|rivets|stud|studs|grub|circlip|circlips|cotter|spacer|spacers)\b/;
-const FASTENER_RE_SUB=/(visserie|boulonnerie|boulon|rondelle|écrou|ecrou|goujon|\bvis\b|fastener|schroef|\bbout\b|moer|\bring\b)/;
+// Primary signal: the Odoo category. The user keeps all fasteners under "Fitting part / Fasteners / Bolts",
+// so matching the category path is authoritative. Name keywords are only a light net for mis-categorised parts.
+const FASTENER_CAT_RE=/fastener|bolt|boulonnerie|visserie/;
+const FASTENER_NAME_RE=/\b(bolt|bolts|screw|screws|nut|nuts|washer|washers|rivet|rivets|stud|studs|grub|circlip|circlips|cotter|moer)\b|(visserie|boulonnerie|boulon|rondelle|écrou|ecrou|goujon|schroef|\bvis\b|\bbout\b)/;
 function isFastenerPart(r){
-  const s=(((r&&r.partName)||'')+' '+((r&&r.category)||'')).toLowerCase();
-  return FASTENER_RE_WORD.test(s) || FASTENER_RE_SUB.test(s);
+  const cat=((r&&r.category)||'').toLowerCase();
+  if(FASTENER_CAT_RE.test(cat)) return true;                 // in the Fasteners/Bolts category → fastener
+  return FASTENER_NAME_RE.test(((r&&r.partName)||'').toLowerCase());
 }
 function excludeFasteners(){ const el=document.getElementById('fc-nofast'); return el ? el.checked : true; }
-function skipForecast(r){ return excludeFasteners() && r && r.isFastener; }
-// Re-run the forecasts, reorder shortlist and the published feeds when the toggle flips —
+// Manually-excluded part numbers: parts wrongly pulled into the MAX BoM scope (e.g. shared
+// sub-assemblies, packaging/transport lines). Comma/space separated, persisted in this browser.
+const EXCL_LS='partstock_exclude_parts';
+function excludedSet(){
+  const el=document.getElementById('fc-exclude'); const v=el?el.value:'';
+  return new Set((v||'').split(/[\s,;]+/).map(s=>s.trim().toUpperCase()).filter(Boolean));
+}
+function isExcludedPart(r){ if(!r) return false; const s=excludedSet(); if(!s.size) return false; const pn=(r.partNo||'').toUpperCase(); return !!pn && s.has(pn); }
+// Treat named pre-assemblies (e.g. AOFV2C "Frame pre-assy") as LEAF components: their sub-parts
+// are not forecast at VV (the pre-assy is built/received as a unit). We collect the pids reached
+// by exploding each matching assembly's BoM and drop those from every forward view.
+const LEAFSUB_LS='partstock_leafsub';
+let excludedSubParts=new Set();
+function leafAssemblyTokens(){ const el=document.getElementById('fc-leafsub'); const v=el?el.value:''; return (v||'').split(/[,;]+/).map(s=>s.trim().toLowerCase()).filter(Boolean); }
+function computeExcludedSubtrees(){
+  excludedSubParts=new Set();
+  const toks=leafAssemblyTokens(); if(!toks.length || !rows.length) return;
+  for(const r of rows){
+    const hay=((r.partNo||'')+' '+(r.partName||'')).toLowerCase();
+    if(!toks.some(t=>hay.includes(t))) continue;          // this row IS a matched pre-assembly
+    const tmpl=prodToTmpl[r.id]; if(tmpl==null||!bomByTmpl[tmpl]) continue;
+    const sub=explodeUsage(tmpl,bomByTmpl,prodToTmpl,true); // all components below it
+    for(const pid in sub) excludedSubParts.add(Number(pid));
+  }
+}
+function skipForecast(r){ return (excludeFasteners() && r && r.isFastener) || isExcludedPart(r) || (r && excludedSubParts.has(r.id)); }
+// Re-run the forecasts, reorder shortlist and the published feeds when a filter changes —
 // no need to re-read Odoo, we just re-filter the rows already loaded.
 function onFastenerToggle(){
+  try{ const el=document.getElementById('fc-exclude'); if(el) localStorage.setItem(EXCL_LS, el.value); const lf=document.getElementById('fc-leafsub'); if(lf) localStorage.setItem(LEAFSUB_LS, lf.value); }catch(e){}
   if(!rows.length){ return; }
+  computeExcludedSubtrees();   // re-resolve leaf-assembly sub-parts (config may have changed)
   try{ publishComponentSupply(); publishPartsDeadlines(); publishWheelComponentSupply(); publishWheelDeadlines(); }catch(e){ console.warn(e); }
-  renderForecast(); renderMtbForecast(); renderSummary();
+  renderForecast(); renderMtbForecast(); renderSummary(); render();
 }
 
 // Best-effort mapping of a component to an area of the bike (EN/FR/NL keywords).
@@ -1227,6 +1259,7 @@ async function loadData(){
 
     populateCats();
     buildBomMenu();
+    computeExcludedSubtrees();   // resolve leaf-assembly (e.g. AOFV2C) sub-parts to drop from forecasts
 
     // ── FORWARD PROJECTION INPUTS ──
     // per-bike usage by family = average explodeUsage across that family's bike templates
@@ -1768,6 +1801,8 @@ try{
   const c=localStorage.getItem('mxp_cfg');
   if(c){const cfg=JSON.parse(c);if(cfg.user)document.getElementById('cfg-user').value=cfg.user;if(cfg.key)document.getElementById('cfg-key').value=cfg.key;}
 }catch(e){}
+try{ const ex=localStorage.getItem('partstock_exclude_parts'); if(ex!=null){ const el=document.getElementById('fc-exclude'); if(el) el.value=ex; } }catch(e){}
+try{ const lf=localStorage.getItem('partstock_leafsub'); if(lf!=null){ const el=document.getElementById('fc-leafsub'); if(el) el.value=lf; } }catch(e){}
 window.addEventListener('load',()=>{
   try{
     const c=localStorage.getItem('mxp_cfg');
