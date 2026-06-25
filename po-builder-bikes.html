@@ -192,7 +192,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 // ── CONFIG (shared with the other Ahooga apps) ───────────────
 const ODOO_URL='https://ahooga.odoo.com';
 const ODOO_DB ='logicasoft-aho-18-0-21599177';
-const CF_WORKER='https://ahooga-planner-proxy.massimiliano-d74.workers.dev';
+const CF_WORKER='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
 const LS_CFG='ahooga_pobuilder_cfg';
 const LS_BLOCK='ahooga_pobuilder_blocked';
 const LS_CAPS='ahooga_pobuilder_weekcaps';
@@ -735,10 +735,31 @@ async function issueWheelPO(wi){
 async function openPoModal(o){
   const m=document.getElementById('po-modal'), body=document.getElementById('po-modal-body');
   body.innerHTML='<div style="padding:20px;text-align:center">Looking up vendor…</div>'; m.style.display='flex';
-  let vendors=[]; try{ vendors=await odoo('res.partner','search_read',[[['supplier_rank','>',0]]],{fields:['name'],order:'name',limit:400}); }catch(e){}
-  let def=null; for(const v of vendors){ if((v.name||'').toLowerCase().includes(o.vendorName.toLowerCase())){ def=v.id; break; } }
+  // Vendor lookup. We can't rely on supplier_rank>0 alone — a contact that exists in Odoo but
+  // has never had a PO/bill yet still has supplier_rank=0 and would be invisible. So we:
+  //   1) try to find the named vendor directly (by display_name OR name, ilike), regardless of rank;
+  //   2) load the ranked-supplier list for the dropdown;
+  //   3) make sure the named vendor is in the list (and selected) even if its rank is 0.
+  const vname=(o.vendorName||'').trim();
+  let vendors=[];
+  try{ vendors=await odoo('res.partner','search_read',[[['supplier_rank','>',0]]],{fields:['name','display_name'],order:'name',limit:2000}); }catch(e){}
+  let named=[];
+  if(vname){
+    try{ named=await odoo('res.partner','search_read',
+      [['|',['display_name','ilike',vname],['name','ilike',vname]]],
+      {fields:['name','display_name'],order:'name',limit:50}); }catch(e){}
+  }
+  // Merge any directly-found vendor(s) into the dropdown list (dedupe by id).
+  const seen=new Set(vendors.map(v=>v.id));
+  for(const v of named){ if(!seen.has(v.id)){ vendors.push(v); seen.add(v.id); } }
+  vendors.sort((a,b)=>(a.display_name||a.name||'').localeCompare(b.display_name||b.name||''));
+  const vlabel=v=>v.display_name||v.name||'';
+  // Default selection: prefer an exact-ish match found via the direct search, else substring match.
+  let def=null;
+  if(named.length) def=named[0].id;
+  if(!def){ const q=vname.toLowerCase(); for(const v of vendors){ if(vlabel(v).toLowerCase().includes(q)){ def=v.id; break; } } }
   _poDraft={lines:o.lines, dateStr:o.dateStr};
-  const vOpts=vendors.map(v=>`<option value="${v.id}" ${v.id===def?'selected':''}>${esc(v.name)}</option>`).join('');
+  const vOpts=vendors.map(v=>`<option value="${v.id}" ${v.id===def?'selected':''}>${esc(vlabel(v))}</option>`).join('');
   const totalQ=o.lines.reduce((a,l)=>a+l.qty,0);
   body.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>${esc(o.title)}</b><button class="btn btn-secondary" style="padding:3px 9px" onclick="document.getElementById('po-modal').style.display='none'">Close</button></div>
     <div style="font-size:13px;margin-bottom:10px">${o.lines.length} line(s) · ${totalQ} units${o.unresolved?` · <span style="color:var(--danger)">${o.unresolved} not matched to an Odoo product (skipped)</span>`:''}</div>
