@@ -116,13 +116,13 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   </div>
 
   <div class="controls">
-    <div class="field"><label>Model year</label><input type="number" id="f-year" style="width:90px" value="2027" readonly title="MY27 cycle: 1st Mon Nov 2026 → end Sept 2027"/></div>
+    <div class="field"><label>Model year</label><input type="number" id="f-year" style="width:90px" value="2027" readonly title="MY27 cycle: 1st Mon Oct 2026 → end Sept 2027"/></div>
     <div class="field"><label>MY27 target (units)</label><input type="number" id="f-target" style="width:120px" min="0" placeholder="from forecast" oninput="recompute()"/><span class="hint">total bikes to build — scales the forecast mix</span></div>
     <div class="field"><label>SKU mix from</label><select id="f-mix" onchange="recompute()" style="padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface)"><option value="invoiced">2026 invoiced sales</option><option value="forecast">Published forecast</option></select><span class="hint">how the target splits across SKUs</span></div>
     <div class="field"><label>Minimum batch (per PO)</label><input type="number" id="f-minbatch" style="width:120px" value="20" oninput="recompute()"/><span class="hint">smallest production run</span></div>
     <div class="field"><label>Production days</label><input type="number" id="f-prod" style="width:90px" value="12" oninput="recompute()"/></div>
     <div class="field"><label>Transit days</label><input type="number" id="f-lead" style="width:90px" value="2" oninput="recompute()"/></div>
-    <div class="field"><label>Produce everything by</label><input type="date" id="f-deadline" style="width:150px" min="2026-11-01" max="2027-09-30" oninput="recompute()"/><span class="hint">last production week (MY27 ends Sep 2027)</span></div>
+    <div class="field"><label>Produce everything by</label><input type="date" id="f-deadline" style="width:150px" min="2026-10-01" max="2027-09-30" oninput="recompute()"/><span class="hint">last production week (MY27 ends Sep 2027)</span></div>
     <div class="field"><label>Default max / week</label><input type="number" id="f-weekly" style="width:140px" min="0" placeholder="auto" oninput="recompute()"/><span class="hint" id="weekly-hint">per-week boxes override this</span></div>
     <div class="field" style="flex:1;min-width:160px"><span class="hint" id="basis-line"></span></div>
   </div>
@@ -222,7 +222,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 // ── CONFIG (shared with the other Ahooga apps) ───────────────
 const ODOO_URL='https://ahooga.odoo.com';
 const ODOO_DB ='logicasoft-aho-18-0-21599177';
-const CF_WORKER='https://ahooga-planner-proxy.massimiliano-d74.workers.dev';
+const CF_WORKER='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
 const LS_CFG='ahooga_pobuilder_my27_cfg';
 const LS_BLOCK='ahooga_pobuilder_my27_blocked';
 const LS_CAPS='ahooga_pobuilder_my27_weekcaps';
@@ -428,8 +428,8 @@ function allocateByMix(weights, total){
 }
 
 // ── BUILD THE WEEK AXIS (now → produce-by deadline, default 31 Oct) ──
-// MY27 model-year production cycle: first Monday of Nov 2026 → end of Sept 2027 (fixed window).
-const MY27_START = (function(){ let d=new Date(2026,10,1); while(((d.getDay()+6)%7)!==0) d.setDate(d.getDate()+1); d.setHours(0,0,0,0); return d; })(); // first Monday on/after 1 Nov 2026
+// MY27 model-year production cycle: first Monday of Oct 2026 → end of Sept 2027 (fixed window).
+const MY27_START = (function(){ let d=new Date(2026,9,1); while(((d.getDay()+6)%7)!==0) d.setDate(d.getDate()+1); d.setHours(0,0,0,0); return d; })(); // first Monday on/after 1 Oct 2026
 const MY27_END   = new Date(2027,8,30,0,0,0,0); // 30 Sep 2027
 
 function getDeadline(){
