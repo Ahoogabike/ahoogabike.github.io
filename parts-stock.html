@@ -662,6 +662,7 @@ async function publishPartsDeadlines(){
     const items=[];
     for(const r of rows){
       if(r.isSub) continue;
+      if(wheelComponentIds.has(r.id)) continue;   // wheel parts are consumed at MTB → handled by the wheel agenda (AND→MTB), not the Velovisie flow
       if(skipForecast(r)) continue;   // no order/move tasks for uncounted fasteners
       const pid=r.id;
       let inprodCons=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
