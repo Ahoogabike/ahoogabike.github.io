@@ -176,7 +176,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
               <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Sales</span></span>
               <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Sales</span></span>
               <span class="rc i"><span class="rkey ki">I</span> <span class="who-ah">Supply</span></span>
-              <span class="next">→ P200A · B · C</span>
+              <span class="next">→ P200A · B</span>
             </div>
           </div>
         </div>
@@ -187,39 +187,25 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
         <div class="step">
           <div class="pid">P200A</div>
           <div class="card ah">
-            <div class="desc">Input configuration to the Deco Coat Order Book (Excel) → create labels</div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">Order Book updated and error-free labels generated from it.</span></div>
+            <div class="desc">Generate the Deco Coat order pack from the sales order — <strong>Custom Colors</strong> app</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">The PO (created in Odoo), the order form and the print labels are generated straight from the live sales order — no Excel, no manual re-keying.</span></div>
             <div class="raci"><span class="rlab">RACI</span>
               <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Supply</span></span>
               <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
-              <span class="rc c"><span class="rkey kc">C</span> <span class="who-dc">Deco Coat</span></span>
               <span class="rc i"><span class="rkey ki">I</span> <span class="who-ah">Planning</span></span>
-              <span class="next">→ P300A · B</span>
+              <span class="next">→ P200B</span>
             </div>
           </div>
         </div>
         <div class="step">
           <div class="pid">P200B</div>
           <div class="card ah">
-            <div class="desc">Send Purchase Order (PO) to painting partner (Deco Coat)</div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">PO issued and acknowledged by Deco Coat.</span></div>
+            <div class="desc">Send the order to Deco Coat — app-generated supplier email (PO + order form + labels attached)</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Order sent and acknowledged; Deco Coat confirms a painting week. The email is produced by the app — you just review and send.</span></div>
             <div class="raci"><span class="rlab">RACI</span>
               <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Supply</span></span>
               <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
               <span class="rc i"><span class="rkey ki">I</span> <span class="who-dc">Deco Coat</span></span>
-              <span class="next">→ P300A · B</span>
-            </div>
-          </div>
-        </div>
-        <div class="step">
-          <div class="pid">P200C</div>
-          <div class="card ah">
-            <div class="desc">Send Order Form (Excel) to painting partner (Deco Coat)</div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">Order Form delivered alongside the PO and labels; Deco Coat confirms a painting week.</span></div>
-            <div class="raci"><span class="rlab">RACI</span>
-              <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Supply</span></span>
-              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
-              <span class="rc c"><span class="rkey kc">C</span> <span class="who-dc">Deco Coat</span></span>
               <span class="next">→ P300A · B</span>
             </div>
           </div>
@@ -389,22 +375,17 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   </section>
 
   <section id="docs">
-    <div class="s-head"><span class="s-num">03</span><h2>Key documents &amp; how to use them</h2></div>
-    <p class="s-lead">Two Excel files do most of the work in the Order Processing phase (the planner app can generate these pre-filled from the live Odoo sales orders). From painting onward, the apps take over — the Handover app moves the frame to Velovisie, and the VV receipt scan feeds the PO Builder.</p>
+    <div class="s-head"><span class="s-num">03</span><h2>The apps that run the flow</h2></div>
+    <p class="s-lead">The programme runs on a set of linked apps that share one live registry and talk to Odoo — no more hand-filled spreadsheets. Each app maps to a step above.</p>
     <div class="howto">
-      <h4><span class="pill">P200A</span> Deco Coat Order Book</h4>
-      <div class="file">Decocoat Order book.xlsm</div>
+      <h4><span class="pill">P200</span> Custom Colors</h4>
+      <div class="file">ahooga-custom-colors.html</div>
       <ol class="steps-list">
-        <li>Fill in the <span class="tabname">Configuration</span> tab with the new order's details.</li>
-        <li>Copy new orders across into the <span class="tabname">Order book</span> tab (the running register).</li>
-        <li>Copy this sheet into a <strong>new file</strong> — this is the file you attach to the email to Deco Coat.</li>
-        <li>Generate the labels in the <span class="tabname">Labels_Print</span> tab; its data is pulled automatically from the <span class="tabname">Order book</span> tab.</li>
+        <li>Open the live <span class="tabname">Custom Color Orders</span> view — every custom-colour sales order, pulled from Odoo.</li>
+        <li>Generate the <strong>order pack</strong>: the Deco Coat PO (created in Odoo), the order form and the print labels — all from the order data, no Excel.</li>
+        <li>Generate the <strong>supplier email</strong> to Deco Coat with those attached; review and send, asking for the painting week.</li>
+        <li>The same app shows live line status (from the Deco Coat scans) and the SO ↔ serial registry.</li>
       </ol>
-    </div>
-    <div class="howto">
-      <h4><span class="pill">P200B / P200C</span> Purchase Order &amp; Order Form</h4>
-      <div class="file">Order form.xlsx</div>
-      <p style="font-size:.93rem;color:var(--muted)">The Purchase Order (PO) and the Order Form (Excel) are sent to Deco Coat alongside the labels. Columns: Prod Week, PO#, SO#, Bike SKU, Configuration, Quantity, Status, frame colours &amp; finishes, logo colour/size, personal text, colour numbers and primers.</p>
     </div>
     <div class="howto">
       <h4><span class="pill">P400</span> Custom Colour Handover</h4>
@@ -429,7 +410,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 
   <section id="example">
     <div class="s-head"><span class="s-num">04</span><h2>What an actual order to Deco Coat looks like</h2></div>
-    <p class="s-lead">Reference from a real order, so you can see exactly what gets sent and what to attach.</p>
+    <p class="s-lead">For reference — this email is generated by the Custom Colors app from the order; you review and send it.</p>
     <div class="email">
       <div class="ehead">
         <div class="erow"><span class="lab">To</span><span>Wietze Hoppe | Deco Coat &lt;wietzehoppe@decocoat.nl&gt;</span></div>
@@ -439,7 +420,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
       <div class="ebody">
         <p style="font-size:.95rem">Short cover note: places the order (e.g. <em>1 order, 4 custom painted frames</em>), references the attached POs, labels and order forms, and asks Deco Coat to <strong>confirm which week the frames can be painted</strong>.</p>
         <div class="attlist">
-          <span class="att">labels.pdf</span><span class="att">New order.xlsx</span><span class="att">Purchase Order — P0####.pdf</span><span class="att">[date].zip</span>
+          <span class="att">labels.pdf</span><span class="att">Order form — P0####.pdf</span><span class="att">Purchase Order — P0####.pdf</span>
         </div>
       </div>
     </div>
@@ -473,9 +454,10 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
       <p>Frames produced before the scan system went live may still be missing their SO ↔ serial link.</p>
       <p class="ask"><b>Action:</b> back-fill the older serials against their orders so the registry is complete from here on.</p>
     </div>
-    <div class="imp">
-      <h4>↻ Is the separate Order Form still needed?</h4>
-      <p>Worth challenging whether the standalone Order Form (P200C) is still necessary, or whether the Order Book + PO already cover it — to discuss with Deco Coat.</p>
+    <div class="done">
+      <h4>✓ Ordering pack fully automated</h4>
+      <p>The Deco Coat PO, order form, print labels and supplier email are all generated by the Custom Colors app from the live Odoo sales order — the old Order Book (.xlsm) and Order Form (.xlsx) are no longer filled by hand.</p>
+      <p class="ask"><b>Owner &amp; trigger:</b> Ahooga · Supply, per order (step P200).</p>
     </div>
   </section>
 
