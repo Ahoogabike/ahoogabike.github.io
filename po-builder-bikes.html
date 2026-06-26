@@ -134,6 +134,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 
   <!-- THIS WEEK -->
   <div class="view active" id="view-week">
+    <div id="ready-frames"></div>
     <div class="kpis" id="week-kpis"></div>
     <div class="section">
       <div class="section-title">Purchase orders to place this week <span class="tag">production starts now</span></div>
@@ -344,6 +345,36 @@ async function kvSet(key,value){
   catch(e){ console.warn('KV set failed',e); }
 }
 
+let vvArrivals=[];
+/* custom frames that just arrived at Velovisie (published by the Handover app) */
+function renderReadyFrames(){
+  const box=document.getElementById('ready-frames'); if(!box) return;
+  const list=(vvArrivals||[]).filter(a=>a && a.status!=='built');
+  if(!list.length){ box.innerHTML=''; return; }
+  const rows=list.map(a=>{
+    const when=a.arrivedAt?new Date(a.arrivedAt).toLocaleDateString([], {month:'short',day:'numeric'}):'';
+    const colour=a.colour?(a.colour+(a.finish?(' ('+a.finish+')'):'')):'';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid var(--border)">
+      <span style="font-weight:800;font-family:ui-monospace,monospace">${esc(a.so||'')}</span>
+      <span>${esc(a.model||a.productCode||'custom frame')}</span>
+      ${colour?`<span style="color:var(--text2)">${esc(colour)}</span>`:''}
+      ${a.frameId?`<span style="color:var(--text2);font-family:ui-monospace,monospace;font-size:12px">${esc(a.frameId)}</span>`:''}
+      <span style="flex:1"></span>
+      <span style="color:var(--text2);font-size:12px">arrived ${esc(when)}</span>
+      <button class="btn btn-secondary" style="padding:3px 10px" onclick="markFrameBuilt('${esc(a.so)}')">✓ Mark built</button>
+    </div>`;
+  }).join('');
+  box.innerHTML=`<div class="section" style="border:1px solid var(--warn);background:var(--warn-bg);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px">
+    <div class="section-title">🎨 Custom frames arrived at Velovisie — ready to build now <span class="tag">${list.length}</span></div>
+    ${rows}</div>`;
+}
+async function markFrameBuilt(so){
+  vvArrivals=(vvArrivals||[]).filter(a=>a.so!==so);
+  renderReadyFrames();
+  try{ await kvSet('vv_frame_arrivals', vvArrivals); }catch(e){}
+}
+window.markFrameBuilt=markFrameBuilt;
+
 // ── DETECTION (same rules as the planner / forecast) ─────────
 function detectColor(n){const l=(n||'').toLowerCase();if(l.includes('yellow')||l.includes('bumblebee'))return'yellow';if(l.includes('black')||l.includes('cosmic'))return'black';if(l.includes('red')||l.includes('ruby'))return'red';return'custom';}
 function detectTransmission(n){const l=(n||'').toLowerCase();if(l.includes('alfine')||l.includes('alf'))return'alfine';if(l.includes('derailleur')||l.includes('der'))return'derailleur';return'unknown';}
@@ -490,6 +521,7 @@ async function loadData(){
     wheelStock=await kvGet('wheel_stock');             // wheels already on hand — net the wheel plan against these
     wheelMap=await kvGet('wheel_map');                 // which wheel SKU each bike family uses (per-SKU)
     const pb=await kvGet('production_basis');
+    vvArrivals=await kvGet('vv_frame_arrivals')||[]; if(!Array.isArray(vvArrivals)) vvArrivals=[]; renderReadyFrames();
     if(pb && (pb.unmatchedBySku || pb.freeStockBySku || pb.incomingBySku)){
       unmatchedBySku=pb.unmatchedBySku||{}; freeStockBySku=pb.freeStockBySku||{};
       incomingBySku=pb.incomingBySku||{}; inprodBySku=pb.inprodBySku||{}; basisUpdated=pb.updated;
