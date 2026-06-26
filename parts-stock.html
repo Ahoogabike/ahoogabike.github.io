@@ -271,7 +271,7 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
   <!-- FORWARD STOCK TAB -->
   <div class="view" id="view-forecast">
     <div class="explain">
-      <strong>Forward component stock — week by week.</strong> Models the real two-stage flow: incoming component POs (from the <strong>PO Tracker</strong>) are received into the <strong>Anderlecht (AND)</strong> warehouse, then moved to <strong>Velovisie (VV)</strong> for assembly. Each cell is the <strong>combined available stock (Velovisie + Anderlecht)</strong> after that week's consumption — i.e. assuming the AND→VV move has been made — driven by the <strong>PO Builder — Bikes</strong> plan (bikes/week × per-bike BoM usage, averaged per family). <code>(+n)</code> = a component PO arriving into AND that week; <code>⇄n</code> = the AND→VV transfer you still need to do (it also appears as a requested move in the <strong>Parts Agenda</strong>) — sized to cover ~8 weeks of build (or whatever AND holds), allow ~3 days for the move; <code>⚙n</code> in week 1 = parts consumed by bikes already in production at Okazi (running POs, not yet built — the future PO-Builder bikes are the weekly plan). A <strong style="color:#8b1f1f">red / negative</strong> cell means <strong>both</strong> AND and VV are exhausted — place or pull a PO forward. POs already received (including those delivered straight to VV via subcontracting) drop out of the open-PO feed and are already reflected in current stock. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
+      <strong>Forward component stock — week by week.</strong> Models the real two-stage flow: incoming component POs (from the <strong>PO Tracker</strong>) are received into the <strong>Anderlecht (AND)</strong> warehouse, then moved to <strong>Velovisie (VV)</strong> for assembly. Each cell is the <strong>combined available stock (Velovisie + Anderlecht)</strong> after that week's consumption — i.e. assuming the AND→VV move has been made — driven by the <strong>PO Builder — Bikes</strong> plan (bikes/week × per-bike BoM usage, averaged per family) — using the <strong>MY26 recipe up to the MY27 production start, then the MY27 recipe</strong> — <strong>plus</strong> the weekly <strong>after-sales / repair demand</strong> published by the <strong>Spares &amp; Accessories</strong> app, so parts used for repairs are ordered too. <code>(+n)</code> = a component PO arriving into AND that week; <code>⇄n</code> = the AND→VV transfer you still need to do (it also appears as a requested move in the <strong>Parts Agenda</strong>) — sized to cover ~8 weeks of build (or whatever AND holds), allow ~3 days for the move; <code>⚙n</code> in week 1 = parts consumed by bikes already in production at Okazi (running POs, not yet built — the future PO-Builder bikes are the weekly plan). A <strong style="color:#8b1f1f">red / negative</strong> cell means <strong>both</strong> AND and VV are exhausted — place or pull a PO forward. POs already received (including those delivered straight to VV via subcontracting) drop out of the open-PO feed and are already reflected in current stock. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
     </div>
     <div class="kpis" id="fc-kpis"></div>
     <div class="toolbar">
@@ -375,6 +375,10 @@ function usageForWeekMonday(monday){
 }
 // MY27 bikes share the AHFAM/AHFMC codes but carry "MY27" in the product/BoM name.
 function isMY27Name(nm){ return /my\s*-?\s*27/i.test(nm||''); }
+// After-sales / repair demand per component (units/week), published by the Spares & Accessories app.
+// Added on top of production consumption so each component is ordered once for production + repair.
+let repairRateByPid={};
+function repairOf(pid){ return repairRateByPid[pid]||0; }
 let bomByTmpl={}, prodToTmpl={};  // BoM graph — module-level so the wheel/MTB helpers can read it
 let bikeRefs=[];            // the exact bike references the PO Builder builds {id,code,name,tmplId,fam}
 let tmplParts={};           // bike template id -> Set(component productId) — for the per-reference filter
@@ -661,7 +665,7 @@ async function publishPartsDeadlines(){
       if(skipForecast(r)) continue;   // no order/move tasks for uncounted fasteners
       const pid=r.id;
       let inprodCons=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
-      const consArr=wks.map((_,wi)=>{ let c=0; const um=usageForWeekMonday(wks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; return c; });
+      const consArr=wks.map((_,wi)=>{ let c=0; const um=usageForWeekMonday(wks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; c+=repairOf(pid); return c; });
       let vv=(r.vvReal||0), andP=(r.andQty||0);
       const overdue=incBeforeFirst(pid);
       let shortWi=-1, minLevel=vv+andP, totCons=0; const moves=[];
@@ -726,7 +730,7 @@ async function publishComponentSupply(){
         const pid=r.id; if(!used.has(Number(pid))) continue;
         if(skipForecast(r)) continue;
         let inprodC=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodC+=u*(inprodByFam[fam]||0); }
-        const consArr=wks.map((_,wi)=>{ let c=0; const um=usageForWeekMonday(wks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodC; return c; });
+        const consArr=wks.map((_,wi)=>{ let c=0; const um=usageForWeekMonday(wks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodC; c+=repairOf(pid); return c; });
         let vv=(r.vvReal||0), andP=(r.andQty||0); const overdue=incBeforeFirst(pid);
         for(let wi=0; wi<wks.length; wi++){
           const cons=consArr[wi]; let arrv=incForWeek(pid,wi); if(wi===0) arrv+=overdue;
@@ -1320,6 +1324,8 @@ async function loadData(){
     const plan26 = await kvGetStore('production_plan');         // PO Builder — MY26 (current bikes)
     const plan27 = await kvGetStore('production_plan_my27');    // PO Builder — MY27 (new model year)
     productionPlan = mergeProductionPlans(plan26, plan27);
+    const sd = await kvGetStore('spares_demand');           // after-sales/repair demand per component (Spares app)
+    repairRateByPid = (sd && sd.ratePerWeek) ? sd.ratePerWeek : {};
     productionBasis = await kvGetStore('production_basis'); // published by the Max Planner (running Okazi POs etc.)
     // Running Okazi POs: bikes already ordered for assembly but not yet built. Once a bike is built its
     // serial appears in Odoo (it leaves 'inprod') and its components show up in `consumed`, so inprodBySku
@@ -1659,7 +1665,7 @@ function renderForecast(){
     let inprodCons=0;                       // parts burned by bikes in running Okazi POs (not yet built)
     for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
     // per-week VV consumption (running Okazi POs folded into week 0) — precomputed for transfer look-ahead
-    const consArr=wks.map((_,wi)=>{ let c=0; const um=usageForWeekMonday(wks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; return c; });
+    const consArr=wks.map((_,wi)=>{ let c=0; const um=usageForWeekMonday(wks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; c+=repairOf(pid); return c; });
     const cells=[]; let firstNeg=-1, minLevel=vv+andP, totCons=0;
     for(let wi=0; wi<wks.length; wi++){
       const cons=consArr[wi]; totCons+=cons;

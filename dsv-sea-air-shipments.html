@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ahooga DSV Shipments — Inbound components</title>
+<style>
+:root{--bg:#f2f1ed;--surface:#fff;--surface2:#f0efe9;--border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);--text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#14259b;--accent-bg:#e6f0fb;--success:#2d6e2d;--success-bg:#eaf3de;--warn:#7a4e0a;--warn-bg:#faeeda;--danger:#8b1f1f;--danger-bg:#fcebeb;--purple:#3c3489;--purple-bg:#eeedfe;--teal:#0f6e56;--teal-bg:#e1f5ee;--radius:10px;--radius-sm:6px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:52px;gap:12px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.logo{font-size:17px;font-weight:800}.logo span{color:var(--accent)}
+.nav-btn{padding:5px 12px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--text2)}
+.nav-btn.active{background:var(--accent-bg);color:var(--accent);border-color:rgba(20,37,155,0.2)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--text3);border:1px solid var(--border2)}
+.pill.ok{background:var(--success-bg);color:var(--success)}.pill.err{background:var(--danger-bg);color:var(--danger)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:inherit}
+.btn-primary{background:var(--accent);color:#fff}.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+.btn-sea{background:var(--accent-bg);color:var(--accent);border:1px solid rgba(20,37,155,0.25)}
+.btn-air{background:var(--warn-bg);color:var(--warn);border:1px solid rgba(122,78,10,0.25)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+main{padding:20px;max-width:1500px;margin:0 auto}
+.view{display:none}.view.active{display:block}
+.explain{background:var(--accent-bg);border:1px solid rgba(20,37,155,0.15);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--accent);line-height:1.55}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px}
+.kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:4px}
+.kpi-value{font-size:21px;font-weight:700}
+.toolbar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.toolbar input,.toolbar select{padding:6px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface);color:var(--text);outline:none}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.card-title{font-size:15px;font-weight:700}
+.tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px}
+.tag.sea{background:var(--accent-bg);color:var(--accent)}.tag.air{background:var(--warn-bg);color:var(--warn)}
+.tag.ok{background:var(--success-bg);color:var(--success)}.tag.late{background:var(--danger-bg);color:var(--danger)}
+table.grid{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+table.grid th,table.grid td{border-bottom:1px solid var(--border);padding:5px 8px;font-size:12px;text-align:right;white-space:nowrap}
+table.grid th{color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:0.03em;text-align:right}
+table.grid td:first-child,table.grid th:first-child{text-align:left;white-space:normal;min-width:200px}
+.pkg-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0;font-size:12px;color:var(--text2)}
+.pkg-row input{width:90px;padding:5px 7px;border:1px solid var(--border2);border-radius:4px;font-family:inherit;font-size:12px;text-align:right}
+.alert{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:12px;line-height:1.5}
+.alert.info{background:var(--accent-bg);color:var(--accent)}.alert.ok{background:var(--success-bg);color:var(--success)}
+.alert.warn{background:var(--warn-bg);color:var(--warn)}.alert.err{background:var(--danger-bg);color:var(--danger)}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.field label{font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text2);font-weight:600}
+.field input{padding:8px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none}
+.hint{font-size:11px;color:var(--text3);margin-top:3px}
+.settings-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.out{font-size:12px;margin-top:8px}
+a.link{color:var(--accent);font-weight:600;text-decoration:none}
+.ahooga-home{position:fixed;left:14px;bottom:14px;z-index:9999;display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px;padding:9px 14px;border-radius:999px;text-decoration:none;background:#14259b;color:#fff;border:1px solid rgba(255,255,255,.25);box-shadow:0 6px 18px rgba(20,37,155,.4);opacity:.9}
+@media print{.ahooga-home,header,.toolbar{display:none}}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>DSV Shipments</span></div>
+  <button class="nav-btn active" id="nav-plan" onclick="showTab('plan')">🚢 Shipment plan</button>
+  <button class="nav-btn" id="nav-settings" onclick="showTab('settings')">⚙ Settings</button>
+  <div class="header-right">
+    <span class="pill" id="data-pill">No data</span>
+    <span class="pill" id="dsv-pill">DSV: —</span>
+    <span class="pill" id="conn-pill">Odoo: not connected</span>
+    <button class="btn btn-primary" onclick="loadPlan()">↻ Refresh</button>
+  </div>
+</header>
+<main>
+  <div id="alert"></div>
+
+  <!-- PLAN -->
+  <div class="view active" id="view-plan">
+    <div class="explain">
+      <b>Book inbound component freight, sea or air.</b> Reads the component needs published by <b>Parts Stock / Parts Agenda</b> (the order tasks) and the sea/air lead times. For each part it works out the <b>sea booking deadline</b> = needed date − sea transit (≈10 wk) − the AND→VV move; if that deadline has already passed, the weeks of production sea can't reach in time are covered by <b>air</b> and the rest by <b>sea</b>. Bookings are grouped by <b>supplier</b> and sent to DSV through your <b>ahooga-dsv-proxy</b> worker — or download the exact booking JSON.
+    </div>
+    <div class="kpis" id="plan-kpis"></div>
+    <div class="toolbar">
+      <input type="text" id="f-search" placeholder="🔍 part / supplier…" style="min-width:220px;flex:1" oninput="renderPlan()"/>
+      <select id="f-mode" onchange="renderPlan()">
+        <option value="">All (need shipping)</option>
+        <option value="air">Needs air (sea is late)</option>
+        <option value="sea">Sea on time</option>
+      </select>
+      <span id="plan-status" class="hint"></span>
+    </div>
+    <div id="plan-body"></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="view" id="view-settings">
+    <div class="settings-grid">
+      <div class="card">
+        <div class="card-title" style="margin-bottom:10px">Odoo connection</div>
+        <div class="field"><label>Your Odoo email</label><input type="text" id="cfg-user" placeholder="yourname@ahooga.bike"/></div>
+        <div class="field"><label>API key</label><input type="password" id="cfg-key" placeholder="your-api-key"/><div class="hint">Used only to read supplier addresses for the booking.</div></div>
+        <button class="btn btn-primary" onclick="connectOdoo()">▶ Connect</button>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:10px">DSV &amp; transit</div>
+        <div class="field"><label>DSV proxy worker URL</label><input type="text" id="cfg-dsv" placeholder="https://ahooga-dsv-proxy…workers.dev"/></div>
+        <div class="field"><label>Sea transit (weeks)</label><input type="number" id="cfg-sea" min="1" value="10"/><div class="hint">"on the sea this long before needed"</div></div>
+        <div class="field"><label>Air transit (weeks)</label><input type="number" id="cfg-air" min="1" value="4"/></div>
+        <div class="field"><label>AND→VV move (days)</label><input type="number" id="cfg-move" min="0" value="3"/></div>
+        <div class="field"><label>Incoterm</label><input type="text" id="cfg-incoterm" value="EXW"/></div>
+        <div class="field"><label>Port of discharge — sea (UN/LOCODE)</label><input type="text" id="cfg-disc" placeholder="BEANR"/><div class="hint">e.g. BEANR = Antwerpen</div></div>
+        <div class="field"><label>Port of discharge — name</label><input type="text" id="cfg-discname" placeholder="Antwerpen"/></div>
+        <div class="field"><label>Destination airport — air (code, optional)</label><input type="text" id="cfg-destair" placeholder="BEBRU"/></div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:10px">Receiver (consignee)</div>
+        <div class="field"><label>Company</label><input type="text" id="rcv-company" placeholder="AHOOGA"/></div>
+        <div class="field"><label>Address line</label><input type="text" id="rcv-addr" placeholder="street + nr"/></div>
+        <div class="field"><label>City</label><input type="text" id="rcv-city"/></div>
+        <div class="field"><label>Country code</label><input type="text" id="rcv-country" placeholder="BE" maxlength="2"/></div>
+        <div class="field"><label>Zip</label><input type="text" id="rcv-zip"/></div>
+        <div class="field"><label>Contact email</label><input type="text" id="rcv-email"/></div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:10px">Delivery (where the truck drops it)</div>
+        <div class="field"><label>Company / agent</label><input type="text" id="dlv-company" placeholder="BRAIN E-LOG SPRL"/></div>
+        <div class="field"><label>Address line</label><input type="text" id="dlv-addr"/></div>
+        <div class="field"><label>City</label><input type="text" id="dlv-city"/></div>
+        <div class="field"><label>Country code</label><input type="text" id="dlv-country" placeholder="BE" maxlength="2"/></div>
+        <div class="field"><label>Zip</label><input type="text" id="dlv-zip"/></div>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:12px" onclick="saveCfg()">💾 Save settings</button>
+  </div>
+</main>
+<div class="modal"></div>
+
+<script>
+// ── CONFIG (shared with the other Ahooga apps) ───────────────
+const CF_WORKER='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';   // Odoo + KV store
+const ODOO_URL='https://ahooga.odoo.com';
+const ODOO_DB ='logicasoft-aho-18-0-21599177';
+const DSV_WORKER_DEFAULT='https://ahooga-dsv-proxy.ahoogahouse-1050-be.workers.dev';
+const LS='ahooga_dsv_ship_cfg';
+const LS_PORT='ahooga_dsv_loadports';   // { vendorName: {code,name} } — port of loading per supplier
+let odooUid=null;
+let DEADLINES=[], LEAD={seaDefault:90,airDefault:30,byPart:{},odoo:{}}, ITEMS=[], VENDORADDR={};
+// Common origin → seaport UN/LOCODE (used to pre-fill; always editable per supplier).
+const PORT_GUESS=[
+  [/shanghai/i,'CNSHA','Shanghai'],[/ningbo/i,'CNNGB','Ningbo'],[/shenzhen|yantian|dongguan|guangdong/i,'CNYTN','Yantian'],
+  [/nansha|guangzhou/i,'CNNSA','Nansha'],[/xiamen/i,'CNXMN','Xiamen'],[/qingdao/i,'CNTAO','Qingdao'],[/tianjin|xingang/i,'CNTXG','Xingang'],
+  [/kaohsiung|taiwan|taipei/i,'TWKHH','Kaohsiung'],[/ho chi minh|vietnam|saigon/i,'VNSGN','Ho Chi Minh'],[/hong ?kong/i,'HKHKG','Hong Kong']
+];
+function portByVendorMap(){ try{ return JSON.parse(localStorage.getItem(LS_PORT)||'{}'); }catch(e){ return {}; } }
+function loadPortFor(vendor){ return (portByVendorMap()[vendor])||null; }
+function saveLoadPort(vid){ const vendor=decodeURIComponent(vid); const code=($('pl-'+vid).value||'').trim().toUpperCase(); const m=portByVendorMap(); if(code){ m[vendor]={code,name:(m[vendor]&&m[vendor].name)||''}; } else { delete m[vendor]; } try{ localStorage.setItem(LS_PORT,JSON.stringify(m)); }catch(e){} }
+function inferPort(addr){ const s=((addr&&(addr.city||''))+' '+(addr&&addr.street||'')).toString(); for(const [re,code,name] of PORT_GUESS){ if(re.test(s)) return {code,name}; } return null; }
+
+const $=(id)=>document.getElementById(id);
+const esc=(s)=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const fmt=(n)=> (n==null||isNaN(n))?'0':Math.round(n).toLocaleString('en-GB');
+function alert_(msg,type){ $('alert').innerHTML=`<div class="alert ${type}">${msg}</div>`; if(type==='ok')setTimeout(()=>{$('alert').innerHTML='';},6000); }
+function todayYmd(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function addDays(ymd,n){ const t=new Date((''+ymd).split(' ')[0]+'T00:00:00'); if(isNaN(t)) return null; t.setDate(t.getDate()+n); return t.toISOString().slice(0,10); }
+function daysBetween(a,b){ const x=new Date(a+'T00:00:00'), y=new Date(b+'T00:00:00'); return Math.round((y-x)/86400000); }
+function fmtD(s){ if(!s) return '—'; const [y,m,d]=(''+s).split('-'); return `${d}/${m}/${y}`; }
+
+// ── SETTINGS (this browser) ──────────────────────────────────
+function cfg(){ try{ return JSON.parse(localStorage.getItem(LS)||'{}'); }catch(e){ return {}; } }
+function saveCfg(){
+  const c={ dsv:$('cfg-dsv').value.trim()||DSV_WORKER_DEFAULT, seaW:parseInt($('cfg-sea').value)||10, airW:parseInt($('cfg-air').value)||4,
+    moveD:parseInt($('cfg-move').value)||0, incoterm:$('cfg-incoterm').value.trim()||'EXW',
+    disc:$('cfg-disc').value.trim().toUpperCase(), discName:$('cfg-discname').value.trim(), destAir:$('cfg-destair').value.trim().toUpperCase(),
+    rcv:{company:$('rcv-company').value,addr:$('rcv-addr').value,city:$('rcv-city').value,country:$('rcv-country').value,zip:$('rcv-zip').value,email:$('rcv-email').value},
+    dlv:{company:$('dlv-company').value,addr:$('dlv-addr').value,city:$('dlv-city').value,country:$('dlv-country').value,zip:$('dlv-zip').value} };
+  try{ localStorage.setItem(LS, JSON.stringify(c)); }catch(e){}
+  // reuse the shared Odoo creds store
+  try{ const m=JSON.parse(localStorage.getItem('mxp_cfg')||'{}'); m.user=$('cfg-user').value.trim(); m.key=$('cfg-key').value.trim(); localStorage.setItem('mxp_cfg',JSON.stringify(m)); }catch(e){}
+  alert_('Settings saved.','ok'); renderPlan();
+}
+function loadCfgUI(){
+  const c=cfg();
+  $('cfg-dsv').value=c.dsv||DSV_WORKER_DEFAULT;
+  $('cfg-sea').value=c.seaW||10; $('cfg-air').value=c.airW||4; $('cfg-move').value=(c.moveD!=null?c.moveD:3);
+  $('cfg-incoterm').value=c.incoterm||'EXW';
+  $('cfg-disc').value=c.disc||''; $('cfg-discname').value=c.discName||''; $('cfg-destair').value=c.destAir||'';
+  const r=c.rcv||{}, d=c.dlv||{};
+  $('rcv-company').value=r.company||''; $('rcv-addr').value=r.addr||''; $('rcv-city').value=r.city||''; $('rcv-country').value=r.country||''; $('rcv-zip').value=r.zip||''; $('rcv-email').value=r.email||'';
+  $('dlv-company').value=d.company||''; $('dlv-addr').value=d.addr||''; $('dlv-city').value=d.city||''; $('dlv-country').value=d.country||''; $('dlv-zip').value=d.zip||'';
+  try{ const m=JSON.parse(localStorage.getItem('mxp_cfg')||'{}'); if(m.user)$('cfg-user').value=m.user; if(m.key)$('cfg-key').value=m.key; }catch(e){}
+}
+function dsvWorker(){ return (cfg().dsv||DSV_WORKER_DEFAULT).replace(/\/$/,''); }
+function seaWeeks(){ return cfg().seaW||10; }
+function airWeeks(){ return cfg().airW||4; }
+function moveDays(){ const m=cfg().moveD; return (m!=null)?m:3; }
+
+// ── KV store (read what Parts Stock / Agenda publish) ─────────
+async function kvGet(key){ try{ const r=await fetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`); const t=(await r.text()||'').trim(); return (!t||t==='null')?null:JSON.parse(t); }catch(e){ console.warn('kv',key,e); return null; } }
+
+// ── Odoo (supplier address lookup only) ──────────────────────
+function v(x){ if(x===null||x===undefined)return'<value><boolean>0</boolean></value>'; if(typeof x==='boolean')return`<value><boolean>${x?1:0}</boolean></value>`; if(typeof x==='number'&&Number.isInteger(x))return`<value><int>${x}</int></value>`; if(typeof x==='number')return`<value><double>${x}</double></value>`; if(Array.isArray(x))return`<value><array><data>${x.map(v).join('')}</data></array></value>`; if(typeof x==='object'){const m=Object.entries(x).map(([k,vv])=>`<member><name>${k}</name>${v(vv)}</member>`).join('');return`<value><struct>${m}</struct></value>`;} return`<value><string>${String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</string></value>`; }
+function parseXml(xml){ const doc=new DOMParser().parseFromString(xml,'text/xml'); if(doc.querySelector('fault'))throw new Error('Odoo: '+(doc.querySelector('faultString')?.textContent?.slice(0,160)||'fault')); function pv(n){if(!n)return null;const c=n.firstElementChild;if(!c)return n.textContent;switch(c.tagName){case'int':case'i4':case'i8':return parseInt(c.textContent);case'double':return parseFloat(c.textContent);case'boolean':return c.textContent==='1';case'string':return c.textContent;case'nil':return null;case'array':return Array.from(c.querySelector('data')?.children||[]).map(pv);case'struct':{const o={};c.querySelectorAll(':scope>member').forEach(m=>{o[m.querySelector('name').textContent]=pv(m.querySelector('value'))});return o;}default:return c.textContent;}} return pv(doc.querySelector('methodResponse>params>param>value')); }
+function arr(x){return Array.isArray(x)?x:[null,x?String(x):''];}
+function proxyUrl(p){ return `${CF_WORKER}/odoo/${encodeURIComponent(ODOO_URL+p)}`; }
+async function odoo(model,method,args,kwargs={}){
+  const user=$('cfg-user').value.trim(), key=$('cfg-key').value.trim();
+  if(!user||!key) throw new Error('Connect to Odoo first (Settings).');
+  if(!odooUid){ const b=`<?xml version="1.0"?><methodCall><methodName>authenticate</methodName><params>${[v(ODOO_DB),v(user),v(key),v({})].map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`; const r=await fetch(proxyUrl('/xmlrpc/2/common'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b}); odooUid=parseXml(await r.text()); if(!odooUid||typeof odooUid!=='number')throw new Error('Odoo auth failed.'); }
+  const params=[v(ODOO_DB),v(odooUid),v(key),v(model),v(method),v(args),v(kwargs)];
+  const b=`<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>${params.map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+  const r=await fetch(proxyUrl('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+  return parseXml(await r.text());
+}
+async function connectOdoo(){
+  odooUid=null;
+  try{ await odoo('res.users','search_count',[[]]); $('conn-pill').textContent='Odoo: ✓'; $('conn-pill').className='pill ok'; alert_('Connected to Odoo.','ok'); }
+  catch(e){ $('conn-pill').textContent='Odoo: error'; $('conn-pill').className='pill err'; alert_('Odoo: '+esc(e.message),'err'); }
+}
+// resolve a supplier address by vendor NAME (cached)
+async function supplierAddress(name){
+  if(!name) return null;
+  if(VENDORADDR[name]!==undefined) return VENDORADDR[name];
+  try{
+    const ps=await odoo('res.partner','search_read',[[['name','=',name]]],{fields:['name','street','street2','city','zip','country_id','email','phone'],limit:1});
+    const p=(ps&&ps[0])||null; VENDORADDR[name]=p; return p;
+  }catch(e){ VENDORADDR[name]=null; return null; }
+}
+
+// ── DSV worker ───────────────────────────────────────────────
+async function dsvPing(){
+  const p=$('dsv-pill');
+  try{ const r=await fetch(`${dsvWorker()}/health`); const j=await r.json().catch(()=>({})); if(r.ok&&(j.ok||j.status==='ok')){ p.textContent='DSV: '+(j.env||'ready'); p.className='pill ok'; } else { p.textContent='DSV: not ready'; p.className='pill err'; } }
+  catch(e){ p.textContent='DSV: unreachable'; p.className='pill err'; }
+}
+
+// ── LOAD DATA (component needs + lead times) ─────────────────
+async function loadPlan(){
+  $('data-pill').textContent='loading…'; $('data-pill').className='pill';
+  const [pd,wd,lc]=await Promise.all([ kvGet('parts_deadlines'), kvGet('wheel_deadlines'), kvGet('parts_lead_cfg') ]);
+  LEAD = lc || {seaDefault:90,airDefault:30,byPart:{},odoo:{}};
+  const items=[];
+  for(const src of [pd,wd]){ if(src&&src.items) for(const it of src.items){ if(it.type==='order') items.push(it); } }
+  DEADLINES=items;
+  const when = pd&&pd.updated? new Date(pd.updated).toLocaleString() : '—';
+  $('data-pill').textContent = items.length? `${items.length} order tasks · ${when}` : 'no order tasks';
+  $('data-pill').className = items.length? 'pill ok':'pill err';
+  if(!items.length) alert_('No order tasks found. Open <b>Parts Stock</b> and refresh so it publishes deadlines, then refresh here.','warn');
+  computeSplit(); renderPlan();
+}
+function leadDays(pid,mode){
+  const bp=(LEAD.byPart||{})[pid]||{};
+  if(bp[mode]!=null && bp[mode]!=='') return bp[mode];
+  if(mode==='sea'){ const od=(LEAD.odoo||{})[pid]; if(od&&od.delay!=null) return od.delay; }
+  // fall back to the app's configured transit
+  return mode==='sea'? seaWeeks()*7 : airWeeks()*7;
+}
+function vendorOf(it){ const o=(LEAD.odoo||{})[it.pid]; return (o&&o.vendor)||''; }
+
+// Sea/air split per the delay rule
+function computeSplit(){
+  const today=todayYmd(), mv=moveDays();
+  for(const it of DEADLINES){
+    const needAtSite = addDays(it.neededDate, -mv) || it.neededDate;   // needed at AND (truck drop), before AND→VV move
+    const seaShipBy = addDays(needAtSite, -leadDays(it.pid,'sea'));
+    const airShipBy = addDays(needAtSite, -leadDays(it.pid,'air'));
+    const rate = Number(it.rate)||0;
+    const qty = Math.max(0, Math.round(Number(it.qty)||0));
+    // how many weeks late is the sea booking?
+    let delayWeeks=0;
+    if(seaShipBy && seaShipBy < today) delayWeeks = Math.ceil(daysBetween(seaShipBy, today)/7);
+    let airQty = rate>0 ? Math.min(qty, Math.round(delayWeeks*rate)) : (delayWeeks>0?qty:0);
+    if(delayWeeks>0 && airQty<=0) airQty = qty;     // no rate but late → all air to be safe
+    airQty = Math.min(qty, airQty);
+    const seaQty = Math.max(0, qty-airQty);
+    it._needAtSite=needAtSite; it._seaShipBy=seaShipBy; it._airShipBy=airShipBy;
+    it._delayWeeks=delayWeeks; it._airQty=airQty; it._seaQty=seaQty; it._qty=qty; it._vendor=vendorOf(it)||'— vendor not loaded —';
+    it._airLate = !!(airShipBy && airShipBy < today);
+  }
+}
+
+// ── RENDER PLAN ──────────────────────────────────────────────
+function renderPlan(){
+  const host=$('plan-body'); if(!host) return;
+  const search=($('f-search').value||'').toLowerCase();
+  const modeF=$('f-mode').value;
+  let items=DEADLINES.filter(it=>it._qty>0);
+  if(modeF==='air') items=items.filter(it=>it._airQty>0);
+  if(modeF==='sea') items=items.filter(it=>it._airQty<=0);
+  if(search) items=items.filter(it=>(`${it.name} ${it._vendor}`).toLowerCase().includes(search));
+  // KPIs
+  const airTot=items.reduce((a,it)=>a+it._airQty,0), seaTot=items.reduce((a,it)=>a+it._seaQty,0);
+  const lateN=items.filter(it=>it._airQty>0).length;
+  const vendors=new Set(items.map(it=>it._vendor));
+  const k=(l,val,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${val}</div></div>`;
+  $('plan-kpis').innerHTML = k('Parts to ship', items.length, 'var(--accent)')+k('Suppliers', vendors.size, 'var(--purple)')+
+    k('By air (sea late)', fmt(airTot), airTot?'var(--warn)':'var(--success)')+k('By sea', fmt(seaTot), 'var(--accent)')+k('Parts needing air', lateN, lateN?'var(--danger)':'var(--success)');
+  $('plan-status').textContent=`sea transit ${seaWeeks()}w · air ${airWeeks()}w · +${moveDays()}d AND→VV move`;
+  // group by vendor
+  const byV={}; for(const it of items){ (byV[it._vendor]=byV[it._vendor]||[]).push(it); }
+  if(!Object.keys(byV).length){ host.innerHTML='<div class="alert info">Nothing to ship — no component order tasks match.</div>'; return; }
+  host.innerHTML = Object.keys(byV).sort().map(vn=>vendorCard(vn, byV[vn])).join('');
+}
+function vendorCard(vendor, items){
+  const vid=encodeURIComponent(vendor);
+  const airTot=items.reduce((a,it)=>a+it._airQty,0), seaTot=items.reduce((a,it)=>a+it._seaQty,0);
+  const seaBy=items.map(it=>it._seaShipBy).filter(Boolean).sort()[0]||'—';
+  const airBy=items.map(it=>it._airShipBy).filter(Boolean).sort()[0]||'—';
+  const rows=items.sort((a,b)=>(a._seaShipBy||'9999')<(b._seaShipBy||'9999')?-1:1).map(it=>{
+    const status = it._airQty<=0 ? `<span class="tag sea">sea on time</span>`
+      : it._airLate ? `<span class="tag late">${it._delayWeeks}w late · air too tight</span>`
+      : `<span class="tag air">${it._delayWeeks}w late → air</span>`;
+    return `<tr><td>${esc(it.name)}${it.tier==='MTB'?' <span class="hint">· MTB</span>':''}</td><td>${fmtD(it.neededDate)}</td><td>${fmt(it._qty)}</td><td style="color:var(--warn)">${it._airQty?fmt(it._airQty):'·'}</td><td style="color:var(--accent)">${it._seaQty?fmt(it._seaQty):'·'}</td><td>${fmtD(it._seaShipBy)}</td><td>${status}</td></tr>`;
+  }).join('');
+  return `<div class="card">
+    <div class="card-head">
+      <div><div class="card-title">${esc(vendor)}</div><div class="hint">${items.length} part(s) · sea book-by <b>${fmtD(seaBy)}</b> · air book-by ${fmtD(airBy)}</div></div>
+      <div><span class="tag air">air ${fmt(airTot)}</span> <span class="tag sea">sea ${fmt(seaTot)}</span></div>
+    </div>
+    <table class="grid"><thead><tr><th>Part</th><th>Needed</th><th>Qty</th><th>Air</th><th>Sea</th><th>Sea book-by</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
+    <div class="pkg-row">
+      <b style="color:var(--text)">Shipment totals →</b>
+      cartons <input type="number" id="pk-ctn-${vid}" min="1" value="1"/>
+      gross kg <input type="number" id="pk-kg-${vid}" min="0" value="0"/>
+      volume m³ <input type="number" id="pk-m3-${vid}" min="0" step="0.01" value="0"/>
+      <span style="margin-left:8px">load port <input type="text" id="pl-${vid}" placeholder="e.g. CNYTN" value="${esc((loadPortFor(vendor)||{}).code||'')}" onchange="saveLoadPort('${vid}')" style="width:90px;text-transform:uppercase"/></span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+      ${airTot>0?`<button class="btn btn-air" onclick="book('${vid}','Air')">✈ Book DSV air (${fmt(airTot)})</button>`:''}
+      ${seaTot>0?`<button class="btn btn-sea" onclick="book('${vid}','Sea')">🚢 Book DSV sea (${fmt(seaTot)})</button>`:''}
+      <button class="btn btn-secondary" onclick="downloadJSON('${vid}','Sea')">⬇ Sea JSON</button>
+      <button class="btn btn-secondary" onclick="downloadJSON('${vid}','Air')">⬇ Air JSON</button>
+    </div>
+    <div class="out" id="out-${vid}"></div>
+  </div>`;
+}
+
+// ── BUILD DSV ORDER PAYLOAD ──────────────────────────────────
+function itemsForVendor(vid){ const vendor=decodeURIComponent(vid); return DEADLINES.filter(it=>it._vendor===vendor && it._qty>0); }
+function pkgFor(vid){ return { ctn:Math.max(1,parseInt(($('pk-ctn-'+vid)||{}).value)||1), kg:Number(($('pk-kg-'+vid)||{}).value)||0, m3:Number(($('pk-m3-'+vid)||{}).value)||0 }; }
+function addrBlock(a){ return { companyName:(a.company||'').slice(0,60), addressLine1:a.addr||'', city:a.city||'', countryCode:(a.country||'').toUpperCase().slice(0,2), zipCode:a.zip||'' }; }
+async function buildOrder(vid, mode){
+  const vendor=decodeURIComponent(vid); const items=itemsForVendor(vid); const c=cfg(); const pk=pkgFor(vid);
+  const qtyKey = mode==='Air' ? '_airQty' : '_seaQty';
+  const lines = items.filter(it=>it[qtyKey]>0);
+  // sender from Odoo supplier (best effort)
+  let sa=null; try{ sa=await supplierAddress(vendor); }catch(e){}
+  const sender = sa ? { companyName:(sa.name||vendor).slice(0,60), addressLine1:sa.street||'', addressLine2:sa.street2||'', city:sa.city||'', countryCode:(Array.isArray(sa.country_id)? '' : ''), zipCode:sa.zip||'' } : { companyName:vendor.slice(0,60) };
+  // earliest ship-by date for this mode
+  const shipBy = lines.map(it=> mode==='Air'? it._airShipBy : it._seaShipBy).filter(Boolean).sort()[0] || todayYmd();
+  // Port of loading: per-supplier override, else inferred from the supplier address.
+  const savedPort = loadPortFor(vendor);
+  const loadCode = ((($('pl-'+vid)||{}).value)||'').trim().toUpperCase() || (savedPort&&savedPort.code) || ((inferPort(sa)||{}).code) || '';
+  const loadName = (savedPort&&savedPort.name) || ((inferPort(sa)||{}).name) || '';
+  const services = {};
+  if(mode==='Sea'){
+    const sp={};
+    if(loadCode) sp.portOfLoading={ code:loadCode, name:loadName };
+    if(c.disc)   sp.portOfDischarge={ code:c.disc, name:c.discName||'' };
+    if(Object.keys(sp).length) services.seaPortSelection=sp;
+  } else { // Air
+    const as={};
+    if(loadCode) as.airportOfDeparture={ code:loadCode, name:loadName };   // reuse the per-supplier code if it's an airport
+    if(c.destAir) as.airportOfDestination={ code:c.destAir, name:'' };
+    if(Object.keys(as).length) services.airportSelection=as;
+  }
+  const order = {
+    bookingReferenceCode: `AHOOGA-${(vendor||'SUP').replace(/[^A-Za-z0-9]/g,'').slice(0,12)}-${mode.toUpperCase()}-${todayYmd().replace(/-/g,'')}`,
+    autobook: false,
+    product: mode==='Air' ? { name:'Air', dropOff:false } : { name:'Sea', billOfLading:'Original', containerMode:'LCL', dropOff:false },
+    services: Object.keys(services).length ? services : undefined,
+    incoterms: { code:(c.incoterm||'EXW'), location:(sa&&sa.city)||'' },
+    pickupTime: { date: shipBy },
+    parties: {
+      sender:   { address: sender, contact:{ name:'', email:(sa&&sa.email)||'', telephone:(sa&&sa.phone)||'' } },
+      pickup:   { address: sender },
+      receiver: { address: addrBlock(c.rcv||{}), contact:{ email:(c.rcv&&c.rcv.email)||'' } },
+      delivery: { address: addrBlock(c.dlv||{}) }
+    },
+    packages: [ { quantity: pk.ctn, packageType:'CTN', totalWeight: pk.kg, totalVolume: pk.m3, description:'Bicycle parts' } ],
+    detailedGoodsDescription: lines.map(it=>({ description:(it.name||'').slice(0,60), quantity: it[qtyKey] })),
+    references: [ { value: order_ref(vendor,mode), type:'SHIPPER_REFERENCE' } ],
+    units: { dimension:'CM', weight:'KG', volume:'M3' }
+  };
+  return order;
+}
+function order_ref(vendor,mode){ return `AHOOGA ${mode} ${vendor}`.slice(0,35); }
+
+async function downloadJSON(vid, mode){
+  const order=await buildOrder(vid, mode);
+  const blob=new Blob([JSON.stringify(order,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download=`dsv-${mode.toLowerCase()}-${decodeURIComponent(vid).replace(/[^A-Za-z0-9]/g,'')}-${todayYmd()}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+}
+
+// ── BOOK via the dsv-proxy worker ────────────────────────────
+async function book(vid, mode){
+  const out=$('out-'+vid); out.innerHTML='<span class="spin"></span> Building booking…';
+  let order;
+  try{ order=await buildOrder(vid, mode); }catch(e){ out.innerHTML=`<div class="alert err">${esc(e.message)}</div>`; return; }
+  // basic guards
+  if(!(cfg().rcv&&cfg().rcv.company)){ out.innerHTML='<div class="alert warn">Set the receiver address in ⚙ Settings first.</div>'; return; }
+  out.innerHTML='<span class="spin"></span> Sending to DSV…';
+  try{
+    const r=await fetch(`${dsvWorker()}/bookings`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode, order})});
+    const t=await r.text(); let j; try{ j=JSON.parse(t); }catch(e){ j={ok:false,error:'Non-JSON from worker: '+t.slice(0,200)}; }
+    if(!r.ok || j.ok===false || j.error){ throw new Error(j.error||('HTTP '+r.status)); }
+    const ref=j.bookingReferenceCode||j.bookingId||j.reference||(j.result&&(j.result.bookingReferenceCode||j.result.id))||'(no ref returned)';
+    out.innerHTML=`<div class="alert ok">✓ ${esc(mode)} booking sent to DSV. Reference <b>${esc(String(ref))}</b>.</div>`;
+  }catch(e){
+    out.innerHTML=`<div class="alert err">Booking via worker failed: ${esc(e.message)}.<br>The dsv-proxy may not expose the freight <code>/bookings</code> endpoint yet — use <b>⬇ ${esc(mode)} JSON</b> and submit it in myDSV in the meantime.</div>`;
+  }
+}
+
+// ── TABS / INIT ──────────────────────────────────────────────
+function showTab(t){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  $('view-'+t).classList.add('active'); $('nav-'+t).classList.add('active');
+}
+loadCfgUI();
+dsvPing();
+loadPlan();
+</script>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>
