@@ -278,7 +278,10 @@ body{ padding-left:var(--nav-w); transition:padding-left .25s ease; }
 .nav-section.open>.nav-sec-btn{background:rgba(255,255,255,.06)}
 
 .nav-apps{max-height:0;overflow:hidden;transition:max-height .28s ease;background:rgba(0,0,0,.18)}
-.nav-section.open .nav-apps{max-height:560px}
+.nav-section.open .nav-apps{max-height:900px}
+.nav-sub{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.14em;color:var(--ink-faint);opacity:.7;padding:11px 16px 3px 30px;white-space:nowrap}
+.nav-section.open .nav-sub{border-top:1px solid rgba(255,255,255,.06)}
+.nav-apps>.nav-sub:first-child{border-top:0}
 .nav-app{
   display:flex;align-items:center;gap:11px;width:100%;border:0;background:transparent;cursor:pointer;
   color:#cfc9ba;font-family:'Archivo';font-weight:600;font-size:12.5px;text-align:left;
@@ -741,6 +744,52 @@ body{background:var(--paper)}
         <div class="card-arrow">→</div>
       </a>
       </div>
+
+      <div class="section-label" style="margin-top:40px">Finance</div>
+      <div class="grid">
+<a href="cash-out-plan-all.html" class="card featured" style="--accent:#14259b">
+        <div class="card-header">
+          <div class="card-num">F1</div>
+          <div class="card-icon-wrap">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#14259b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 6h18v12H3z"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>
+            </svg>
+          </div>
+        </div>
+        <div>
+          <div class="card-title">Finance IN / OUT</div>
+          <div class="card-desc">Cash in (revenue + AR) vs cash out (POs, payroll, overhead) to a projected bank balance, plus P&amp;L, EBITDA &amp; tax for 2026–2027.</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </a>
+<a href="cash-out-plan.html" class="card" style="--accent:#8b1f1f">
+        <div class="card-header">
+          <div class="card-num">F2</div>
+          <div class="card-icon-wrap">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#8b1f1f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 17l6-6 4 4 8-8"/><path d="M21 7v5h-5"/>
+            </svg>
+          </div>
+        </div>
+        <div class="card-title">Cash-Out Plan</div>
+        <div class="card-desc">Committed vendor bills and open-PO payments laid out month by month — the pure cash-out view.</div>
+        <div class="card-arrow">→</div>
+      </a>
+<a href="vendor-bills-pricing.html" class="card" style="--accent:#3c3489">
+        <div class="card-header">
+          <div class="card-num">F3</div>
+          <div class="card-icon-wrap">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#3c3489" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 2h9l5 5v15H6z"/><path d="M9 8h4M9 12h7M9 16h7"/>
+            </svg>
+          </div>
+        </div>
+        <div class="card-title">Vendor Bills &amp; Pricing</div>
+        <div class="card-desc">3-way bill check to catch overcharges (incl. foreign currency &amp; duplicates) and a price-negotiation shortlist by spend, volume and price trend.</div>
+        <div class="card-arrow">→</div>
+      </a>
+      </div>
+
       <div class="section-label" style="margin-top:40px">Shop Operation</div>
       <div class="grid">
 <a href="bike-time-tracker.html" class="card" style="--accent:#e08a1e">
@@ -1055,7 +1104,8 @@ document.getElementById('hp-key').addEventListener('keydown',e=>{if(e.key==='Ent
     shop:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2-2 2.6-2.6z"/></svg>',
     colour:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>',
     sav:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><path d="M5.6 5.6l3 3M15.4 15.4l3 3M18.4 5.6l-3 3M8.6 15.4l-3 3"/></svg>',
-    book:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 1 2-2h12"/></svg>'
+    book:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 1 2-2h12"/></svg>',
+    finance:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>'
   };
   const NAV=[
     {name:'Sales & forecasting',color:'#3f9b46',icon:I.chart,apps:[
@@ -1065,16 +1115,23 @@ document.getElementById('hp-key').addEventListener('keydown',e=>{if(e.key==='Ent
     {name:'Orders & integrations',color:'#2b7fd6',icon:I.orders,apps:[
       {t:'Shopify Convert',h:'shopify-convert.html',c:'#2b7fd6'}]},
     {name:'Supply',color:'#176f8c',icon:I.supply,apps:[
+      {sub:'Planning & production'},
       {t:'Production Planner',h:'MAX_planner.html',c:'#ea1d5e'},
       {t:'PO Builder — Bikes',h:'po-builder-bikes.html',c:'#176f8c'},
       {t:'PO Builder — MY27',h:'po-builder-my27.html',c:'#2a9d8f'},
       {t:'PO Tracker',h:'po-tracker.html',c:'#2f6df0'},
+      {sub:'Purchasing & parts'},
       {t:'Parts Stock Count',h:'parts-stock.html',c:'#8a4fd6'},
       {t:'Parts Agenda',h:'parts-agenda.html',c:'#b45309'},
+      {t:'Spare Parts & Accessories',h:'spares-accessories.html',c:'#0f7a52'},
+      {sub:'Shipping & logistics'},
       {t:'DSV Ship',h:'dsv-ship.html',c:'#0a4d8c'},
       {t:'DPD Ship',h:'dpd-ship.html',c:'#dc0032'},
-      {t:'Spare Parts & Accessories',h:'spares-accessories.html',c:'#0f7a52'},
       {t:'DSV Sea & Air Shipments',h:'dsv-sea-air-shipments.html',c:'#14259b'}]},
+    {name:'Finance',color:'#14259b',icon:I.finance,apps:[
+      {t:'Finance IN / OUT',h:'cash-out-plan-all.html',c:'#14259b'},
+      {t:'Cash-Out Plan',h:'cash-out-plan.html',c:'#8b1f1f'},
+      {t:'Vendor Bills & Pricing',h:'vendor-bills-pricing.html',c:'#3c3489'}]},
     {name:'Shop Operation',color:'#e08a1e',icon:I.shop,apps:[
       {t:'Bike Time Tracker',h:'bike-time-tracker.html',c:'#e08a1e'}]},
     {name:'Custom Colour Workflow',color:'#c0451f',icon:I.colour,apps:[
@@ -1108,6 +1165,7 @@ document.getElementById('hp-key').addEventListener('keydown',e=>{if(e.key==='Ent
       '</span><svg class="nav-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
     const apps=document.createElement('div');apps.className='nav-apps';
     sec.apps.forEach(a=>{
+      if(a.sub){ const sl=document.createElement('div'); sl.className='nav-sub'; sl.textContent=a.sub; apps.appendChild(sl); return; }
       const ab=document.createElement('button');
       ab.className='nav-app';ab.style.setProperty('--ac',a.c);ab.dataset.href=a.h;
       ab.innerHTML='<span class="dot"></span>'+a.t+(isExt(a.h)?'<span class="ext">↗</span>':'');
