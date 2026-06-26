@@ -120,6 +120,11 @@ header{
   color:var(--ink-faint);margin-bottom:20px;display:flex;align-items:center;gap:12px;
 }
 .section-label::after{content:'';flex:1;height:1px;background:var(--line)}
+.sub-label{
+  font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.16em;
+  color:var(--ink-faint);opacity:.85;margin:24px 0 12px;display:flex;align-items:center;gap:10px;
+}
+.sub-label::before{content:'';width:14px;height:2px;border-radius:1px;background:currentColor;opacity:.5}
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .card{
   --accent:var(--gold);
@@ -551,6 +556,7 @@ body{background:var(--paper)}
     </div>
 
     <div class="section-label" style="margin-top:40px">Supply</div>
+      <div class="sub-label">Planning &amp; production</div>
       <div class="grid">
 <a href="MAX_planner.html" class="card featured" style="--accent:#ea1d5e">
         <div class="card-header">
@@ -602,6 +608,9 @@ body{background:var(--paper)}
         <div class="card-desc">Model-year 2027 production plan (Nov 2026 → Sept 2027), split by 2026 invoiced mix, plus a Forward Stock burn-down showing when each part runs short</div>
         <div class="card-arrow">→</div>
       </a>
+      </div>
+      <div class="sub-label">Purchasing &amp; parts</div>
+      <div class="grid">
 <a href="po-tracker.html" class="card" style="--accent:#2f6df0">
         <div class="card-header">
           <div class="card-num">07</div>
@@ -658,9 +667,28 @@ body{background:var(--paper)}
         </div>
         <div class="card-arrow">→</div>
       </a>
-<a href="dsv-ship.html" class="card" style="--accent:#0a4d8c">
+<a href="spares-accessories.html" class="card" style="--accent:#0f7a52">
         <div class="card-header">
           <div class="card-num">10</div>
+          <div class="card-icon-wrap">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0f7a52" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </div>
+        </div>
+        <div>
+          <div class="card-title">Spare Parts &amp; Accessories</div>
+          <div class="card-desc">Catalogue of spare parts and accessories — references, stock and ordering</div>
+        </div>
+        <div class="card-arrow">→</div>
+      </a>
+      </div>
+      <div class="sub-label">Shipping &amp; logistics</div>
+      <div class="grid">
+<a href="dsv-ship.html" class="card" style="--accent:#0a4d8c">
+        <div class="card-header">
+          <div class="card-num">11</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <path d="M3 7h11v9H3z" stroke="#0a4d8c" stroke-width="1.6" stroke-linejoin="round"/>
@@ -679,7 +707,7 @@ body{background:var(--paper)}
       </a>
 <a href="dpd-ship.html" class="card" style="--accent:#dc0032">
         <div class="card-header">
-          <div class="card-num">11</div>
+          <div class="card-num">12</div>
           <div class="card-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
               <path d="M14 4l9 4.5v9L14 22l-9-4.5v-9L14 4z" stroke="#dc0032" stroke-width="1.6" stroke-linejoin="round"/>
@@ -692,22 +720,6 @@ body{background:var(--paper)}
         <div>
           <div class="card-title">DPD Ship</div>
           <div class="card-desc">Book accessory &amp; spare-part parcels with DPD — parcel sizes, Predict notifications, labels written back to the picking, plus parcel tracking.</div>
-        </div>
-        <div class="card-arrow">→</div>
-      </a>
-<a href="spares-accessories.html" class="card" style="--accent:#0f7a52">
-        <div class="card-header">
-          <div class="card-num">12</div>
-          <div class="card-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0f7a52" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </div>
-        </div>
-        <div>
-          <div class="card-title">Spare Parts &amp; Accessories</div>
-          <div class="card-desc">Catalogue of spare parts and accessories — references, stock and ordering</div>
         </div>
         <div class="card-arrow">→</div>
       </a>
