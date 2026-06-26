@@ -132,7 +132,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   <header>
     <div class="kicker">Ahooga · Internal Operations Playbook</div>
     <h1>Custom Colour Programme — <span class="hl">Ordering Process</span></h1>
-    <p class="sub">End-to-end workflow for ordering a custom-painted (MAX Custom Colour) frame — across Ahooga, Deco Coat and Velovisie. Each step lists its target and how responsibility is shared. Frames are now scanned on the Deco Coat line and at Velovisie assembly, so stage and serial stay live in the Custom Colors app.</p>
+    <p class="sub">End-to-end workflow for ordering a custom-painted (MAX Custom Colour) frame — across Ahooga, Deco Coat and Velovisie. Each step lists its target and how responsibility is shared. Frames are scanned on the Deco Coat line, handed over to Velovisie with an automatic DSV label, scanned again on arrival, and paired to their serial at assembly — so stage, transfer and serial all stay live in the apps, and the production planner is told the moment a frame is ready to build.</p>
     <div class="meta">
       <span class="chip"><b>Programme</b> MAX Custom Colour Frames</span>
       <span class="chip"><b>Steps</b> P100 → P800</span>
@@ -144,9 +144,9 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   <section id="players">
     <div class="s-head"><span class="s-num">01</span><h2>Who's involved</h2></div>
     <div class="players">
-      <div class="player ah"><div class="role">Brand / Owner</div><h4>Ahooga</h4><p>Takes the sales order, processes it, plans production, and handles final delivery to the customer. HQ in Anderlecht (AH), Belgium.</p></div>
+      <div class="player ah"><div class="role">Brand / Owner</div><h4>Ahooga</h4><p>Takes the sales order, processes it, plans production, and handles final delivery to the customer. Once a frame is painted, runs the <b>Custom Colour Handover</b> app to validate the purchase receipt, create the Anderlecht→Velovisie transfer and book the DSV label. HQ in Anderlecht (AH), Belgium.</p></div>
       <div class="player dc"><div class="role">Painting partner</div><h4>Deco Coat</h4><p>Paints the frame in the custom colour, then ships the painted frame plus configuration stickers onward. Scans each frame's stage on the line (waiting to paint → in painting → waiting to ship → shipped) so Ahooga sees live status and an estimated ship date. Contact: Wietze Hoppe (NL).</p></div>
-      <div class="player vv"><div class="role">Assembly &amp; logistics</div><h4>Velovisie</h4><p>Assembles the bike from the painted frame and configuration sticker, applies and registers the <span class="mono">MACU·······</span> frame serial (scanning the SO + serial to pair them), labels the box, and ships the finished bike back to Anderlecht.</p></div>
+      <div class="player vv"><div class="role">Assembly &amp; logistics</div><h4>Velovisie</h4><p>Assembles the bike from the painted frame and configuration sticker, scans the arriving painted frame to validate its transfer (telling the planner the order is ready to build), assembles the bike, applies and registers the <span class="mono">MACU·······</span> frame serial (scanning the SO + serial to pair them), labels the box, and ships the finished bike back to Anderlecht.</p></div>
     </div>
   </section>
 
@@ -225,7 +225,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
           </div>
         </div>
       </div>
-      <div class="branch">Flow splits: planning (P300A) and painting (P300B) proceed in parallel, both feeding P500</div>
+      <div class="branch">Flow splits: planning (P300A) runs alongside painting → handover → arrival (P300B · P350 · P400 · P420 · P450); both reconverge at assembly (P500)</div>
 
       <div class="phase">
         <div class="phase-label">Planning &amp; Painting (parallel)</div>
@@ -270,21 +270,47 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
         </div>
         <div class="step">
           <div class="pid">P400</div>
+          <div class="card ah">
+            <div class="desc">Hand the frame over to Velovisie in Odoo — <strong>Custom Colour Handover</strong> app</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">When the frame hits “waiting to ship”: the Deco Coat PO receipt is validated, the Anderlecht → Velovisie transfer is created, and the DSV label is booked &amp; auto-emailed to Deco Coat. Several frames can be batched into one pallet shipment.</span></div>
+            <div class="raci"><span class="rlab">RACI</span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc i"><span class="rkey ki">I</span> <span class="who-dc">Deco Coat</span></span>
+              <span class="next">→ P420</span>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="pid">P420</div>
           <div class="card dc">
-            <div class="desc">Ship painted frame + configuration stickers to Velovisie</div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">Painted frame and matching config stickers dispatched to Velovisie.</span></div>
+            <div class="desc">Apply the DSV label and ship the painted frame + configuration stickers to Velovisie</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Label applied to the box/pallet; painted frame and matching config stickers dispatched to Velovisie.</span></div>
             <div class="raci"><span class="rlab">RACI</span>
               <span class="rc r"><span class="rkey kr">R</span> <span class="who-dc">Deco Coat</span></span>
               <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
               <span class="rc i"><span class="rkey ki">I</span> <span class="who-vv">Velovisie</span></span>
-              <span class="next">→ P500</span>
+              <span class="next">→ P450</span>
             </div>
           </div>
         </div>
       </div>
 
       <div class="phase">
-        <div class="phase-label">Assembly — Velovisie</div>
+        <div class="phase-label">Arrival &amp; Assembly — Velovisie</div>
+        <div class="step">
+          <div class="pid">P450</div>
+          <div class="card vv">
+            <div class="desc">Receive &amp; scan the arriving painted frame — <strong>VV app · Velovisie receipt</strong></div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Scanning the frame validates the Anderlecht → Velovisie transfer in Odoo and flags the order as <strong>ready to build</strong> in the production planner.</span></div>
+            <div class="raci"><span class="rlab">RACI</span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-vv">Velovisie</span></span>
+              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc i"><span class="rkey ki">I</span> <span class="who-ah">Planning</span></span>
+              <span class="next">→ P500</span>
+            </div>
+          </div>
+        </div>
         <div class="step">
           <div class="pid">P500</div>
           <div class="card vv">
@@ -364,7 +390,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 
   <section id="docs">
     <div class="s-head"><span class="s-num">03</span><h2>Key documents &amp; how to use them</h2></div>
-    <p class="s-lead">Two Excel files do most of the work in the Order Processing phase. The planner app can now generate these pre-filled from the live Odoo sales orders (Custom Color Orders view → Forms).</p>
+    <p class="s-lead">Two Excel files do most of the work in the Order Processing phase (the planner app can generate these pre-filled from the live Odoo sales orders). From painting onward, the apps take over — the Handover app moves the frame to Velovisie, and the VV receipt scan feeds the PO Builder.</p>
     <div class="howto">
       <h4><span class="pill">P200A</span> Deco Coat Order Book</h4>
       <div class="file">Decocoat Order book.xlsm</div>
@@ -379,6 +405,25 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
       <h4><span class="pill">P200B / P200C</span> Purchase Order &amp; Order Form</h4>
       <div class="file">Order form.xlsx</div>
       <p style="font-size:.93rem;color:var(--muted)">The Purchase Order (PO) and the Order Form (Excel) are sent to Deco Coat alongside the labels. Columns: Prod Week, PO#, SO#, Bike SKU, Configuration, Quantity, Status, frame colours &amp; finishes, logo colour/size, personal text, colour numbers and primers.</p>
+    </div>
+    <div class="howto">
+      <h4><span class="pill">P400</span> Custom Colour Handover</h4>
+      <div class="file">cc-handover.html</div>
+      <ol class="steps-list">
+        <li>Open the app (Odoo login) — it lists the frames Deco Coat has marked <span class="tabname">waiting to ship</span>.</li>
+        <li>Tick one frame, or <strong>select all</strong> to send a pallet together, then <strong>Handover selected →</strong>.</li>
+        <li>It validates the Deco Coat PO receipt, creates the Anderlecht → Velovisie transfer, books the DSV label and emails it to <span class="mono">wietzehoppe@decocoat.nl</span> (cc you).</li>
+        <li>Grab the label yourself from the card or the <span class="tabname">History</span> tab if needed — every handover is logged.</li>
+      </ol>
+    </div>
+    <div class="howto">
+      <h4><span class="pill">P450</span> Velovisie receipt &amp; the production planner</h4>
+      <div class="file">vv-scan.html → 📦 Velovisie receipt  ·  po-builder-bikes.html</div>
+      <ol class="steps-list">
+        <li>On arrival, open <span class="tabname">VV app → Velovisie receipt</span> and scan the painted frame (or type the SO / serial).</li>
+        <li>The app finds the matching transfer, <strong>validates it in Odoo</strong>, and posts the order to the shared registry as ready to build.</li>
+        <li>In the <strong>PO Builder</strong> the order then appears in the <span class="tabname">🎨 ready to build now</span> lane on <em>This week</em> — schedule it, then hit <strong>Mark built</strong>.</li>
+      </ol>
     </div>
   </section>
 
@@ -412,6 +457,16 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
       <h4>✓ Live line status &amp; ship-date estimate</h4>
       <p>Deco Coat scans each frame's stage on the line (step P350). The Custom Colors app shows the live stage and auto-learns average stage durations to estimate when each frame will ship.</p>
       <p class="ask"><b>Note:</b> estimates sharpen as more frames flow through and build up timing history.</p>
+    </div>
+    <div class="done">
+      <h4>✓ Handover &amp; DSV label automated</h4>
+      <p>When a frame is ready to ship, the Custom Colour Handover app validates the PO receipt, creates the Anderlecht → Velovisie transfer and books the DSV label — emailed straight to Deco Coat (and several frames can ride on one pallet). No manual transfer or label step.</p>
+      <p class="ask"><b>Owner &amp; trigger:</b> Ahooga · Supply, per frame or per pallet (step P400).</p>
+    </div>
+    <div class="done">
+      <h4>✓ Arrival tells the planner what to build</h4>
+      <p>Scanning the painted frame on arrival at Velovisie validates the transfer and surfaces that exact order in the PO Builder's “ready to build now” lane — production is scheduled from physically-present frames, not guesswork.</p>
+      <p class="ask"><b>Owner &amp; trigger:</b> Velovisie scan on arrival (P450); planner schedules &amp; marks built.</p>
     </div>
     <div class="issue">
       <h4>⚠ Back-fill historic serials</h4>

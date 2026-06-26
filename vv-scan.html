@@ -70,6 +70,20 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 
 <div id="msg" class="msg"></div>
 
+<style>
+  .tabs2{display:flex;gap:8px;margin:0 0 14px}
+  .tabs2 .seg{font:inherit;font-weight:700;border:1px solid #34322a;background:transparent;color:#a39e8d;border-radius:10px;padding:9px 14px;cursor:pointer}
+  .tabs2 .seg.active{background:#c0451f;color:#fff;border-color:transparent}
+  #reader2{display:none;width:100%;min-height:240px;background:#000;border-radius:14px;overflow:hidden;margin-bottom:8px}
+  #reader2 video,#reader2 canvas{width:100%!important;height:auto!important;border-radius:14px}
+  .rc-inp{width:100%;padding:11px 12px;border:1px solid #34322a;border-radius:10px;background:#000;color:#f4f1e8;font-size:16px;margin-top:8px}
+</style>
+<div class="tabs2">
+  <button id="t2-reg" class="seg active" onclick="showView('register')">Register serial</button>
+  <button id="t2-rec" class="seg" onclick="showView('receipt')">📦 Velovisie receipt</button>
+</div>
+
+<section id="view-register">
 <div class="card">
   <div id="slot-so" class="slot">
     <div class="n">1</div>
@@ -101,6 +115,23 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 
 <h3>Recent registrations</h3>
 <div id="recent"><div class="hint" style="text-align:left">—</div></div>
+</section>
+
+<section id="view-receipt" style="display:none">
+  <div class="card">
+    <div class="lab">Odoo login</div>
+    <input id="rc-user" class="rc-inp" inputmode="email" autocapitalize="off" spellcheck="false" placeholder="Odoo email"/>
+    <input id="rc-key" class="rc-inp" type="password" placeholder="password / API key"/>
+    <div class="btn-row" style="margin-top:10px"><button id="rc-conn" class="btn-ghost">Connect to Odoo</button><span id="rc-state" class="hint" style="align-self:center"></span></div>
+  </div>
+  <div id="reader2"></div>
+  <div id="rc-hint" class="hint"></div>
+  <button id="rc-scan" class="btn-primary">📷 Scan arrived frame</button>
+  <div class="btn-row"><button id="rc-manual" class="btn-ghost">⌨ Type SO / serial</button></div>
+  <input id="rc-in" class="rc-inp" placeholder="type SO or serial, then press Enter" style="display:none"/>
+  <h3>Received this session</h3>
+  <div id="rc-recent"><div class="hint" style="text-align:left">—</div></div>
+</section>
 
 <script>
 /* ─────────────  CONFIG — fill these in  ─────────────
@@ -238,7 +269,118 @@ async function loadRecent(){
   }catch(e){ /* offline / not configured */ }
 }
 
-render(); loadRecent();
+
+/* ════════════════ Velovisie receipt → validate Odoo transfer + notify PO Builder ════════════════ */
+const CF_WORKER="https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev";
+const ODOO_URL="https://ahooga.odoo.com";
+const ODOO_DB="logicasoft-aho-18-0-21599177";
+let odooUid=null;
+function rcCreds(){ return { user:(($('rc-user')||{}).value||'').trim(), key:(($('rc-key')||{}).value||'').trim() }; }
+(function(){ try{ const c=JSON.parse(localStorage.getItem('mxp_cfg')||'{}'); if(c.user&&$('rc-user'))$('rc-user').value=c.user; if(c.key&&$('rc-key'))$('rc-key').value=c.key; }catch(e){} })();
+function _px(p){ return CF_WORKER+'/odoo/'+encodeURIComponent(ODOO_URL+p); }
+function _xv(x){
+  if(x===null||x===undefined) return '<value><boolean>0</boolean></value>';
+  if(typeof x==='boolean') return '<value><boolean>'+(x?1:0)+'</boolean></value>';
+  if(typeof x==='number'&&Number.isInteger(x)) return '<value><int>'+x+'</int></value>';
+  if(typeof x==='number') return '<value><double>'+x+'</double></value>';
+  if(Array.isArray(x)) return '<value><array><data>'+x.map(_xv).join('')+'</data></array></value>';
+  if(typeof x==='object'){ var m=Object.entries(x).map(function(kv){return '<member><name>'+kv[0]+'</name>'+_xv(kv[1])+'</member>';}).join(''); return '<value><struct>'+m+'</struct></value>'; }
+  return '<value><string>'+String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</string></value>';
+}
+function _xp(xml){
+  var doc=new DOMParser().parseFromString(xml,'text/xml');
+  var f=doc.querySelector('fault'); if(f) throw new Error('Odoo: '+((doc.querySelector('faultString')&&doc.querySelector('faultString').textContent.substring(0,200))||'fault'));
+  function pv(n){ if(!n)return null; var c=n.firstElementChild; if(!c)return n.textContent;
+    switch(c.tagName){ case'int':case'i4':case'i8':return parseInt(c.textContent); case'double':return parseFloat(c.textContent);
+      case'boolean':return c.textContent==='1'; case'string':return c.textContent; case'nil':return null;
+      case'array':{var d=c.querySelector('data');return Array.from(d?d.children:[]).map(pv);}
+      case'struct':{var o={};c.querySelectorAll(':scope>member').forEach(function(m){o[m.querySelector('name').textContent]=pv(m.querySelector('value'));});return o;}
+      default:return c.textContent; } }
+  return pv(doc.querySelector('methodResponse>params>param>value'));
+}
+async function odoo(model,method,args,kwargs){
+  kwargs=kwargs||{}; var c=rcCreds(); if(!c.user||!c.key) throw new Error('Connect to Odoo first.');
+  if(!odooUid){ var b='<?xml version="1.0"?><methodCall><methodName>authenticate</methodName><params>'+[_xv(ODOO_DB),_xv(c.user),_xv(c.key),_xv({})].map(function(x){return '<param>'+x+'</param>';}).join('')+'</params></methodCall>';
+    var r=await fetch(_px('/xmlrpc/2/common'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b}); odooUid=_xp(await r.text());
+    if(!odooUid||typeof odooUid!=='number') throw new Error('Odoo authentication failed — check email / API key.'); }
+  var params=[_xv(ODOO_DB),_xv(odooUid),_xv(c.key),_xv(model),_xv(method),_xv(args),_xv(kwargs)];
+  var b2='<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>'+params.map(function(x){return '<param>'+x+'</param>';}).join('')+'</params></methodCall>';
+  var r2=await fetch(_px('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b2}); return _xp(await r2.text());
+}
+async function kvGet(key){ try{ var r=await fetch(CF_WORKER+'/store/'+encodeURIComponent(key)); var x=await r.text(); return x==='null'?null:JSON.parse(x); }catch(e){ return null; } }
+async function kvSet(key,value){ try{ await fetch(CF_WORKER+'/store/'+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)}); }catch(e){} }
+
+function showView(v){
+  $('view-register').style.display = v==='register'?'block':'none';
+  $('view-receipt').style.display  = v==='receipt'?'block':'none';
+  $('t2-reg').classList.toggle('active', v==='register');
+  $('t2-rec').classList.toggle('active', v==='receipt');
+  try{ stopCam(); }catch(e){} rcStopCam();
+  if(v==='receipt') renderReceipts();
+}
+window.showView=showView;
+function rcMsg(text,kind){ var m=$('msg'); m.textContent=text; m.className='msg '+(kind||'err'); if(kind==='ok') setTimeout(function(){m.className='msg';},5000); }
+
+var rc={ scanner:null, scanning:false, busy:false };
+$('rc-conn').onclick=async function(){ var c=rcCreds(); if(!c.user||!c.key){ rcMsg('Enter your Odoo email and password / API key.'); return; }
+  odooUid=null; $('rc-state').textContent='Connecting…';
+  try{ try{ localStorage.setItem('mxp_cfg',JSON.stringify({user:c.user,key:c.key})); }catch(e){}
+    await odoo('res.users','search_read',[[['id','=',1]]],{fields:['name'],limit:1}); $('rc-state').textContent='✓ Connected'; }
+  catch(e){ $('rc-state').textContent='Could not connect: '+((e&&e.message)||e); } };
+
+$('rc-scan').onclick=function(){ rc.scanning?rcStopCam():rcStartCam(); };
+async function rcStartCam(){
+  if(typeof Html5Qrcode==='undefined'){ rcMsg('Scanner did not load — reload the page.'); return; }
+  if(!window.isSecureContext && !/^localhost|^127\./.test(location.hostname)){ rcMsg('Camera needs a secure https address.'); return; }
+  if(!rc.scanner) rc.scanner=new Html5Qrcode('reader2', (typeof SUPPORTED!=='undefined'&&SUPPORTED)?{formatsToSupport:SUPPORTED,verbose:false}:{verbose:false});
+  var conf={fps:12,qrbox:function(w,h){var m=Math.floor(Math.min(w,h)*0.8);return {width:m,height:Math.floor(m*0.62)};}};
+  var R=$('reader2'); R.style.display='block'; void R.offsetWidth; rc.scanning=true; $('rc-scan').textContent='■ Stop camera'; $('rc-hint').textContent='Point at the frame serial / SO barcode.';
+  try{ await rc.scanner.start({facingMode:'environment'},conf,function(t){rcDetected(t);},function(){}); }
+  catch(e1){ try{ var cams=await Html5Qrcode.getCameras(); var back=(cams&&cams.length)?((cams.find(function(c){return /back|rear|environment|achter|arri/i.test(c.label||'');}))||cams[cams.length-1]):null; if(!back) throw e1; await rc.scanner.start(back.id,conf,function(t){rcDetected(t);},function(){}); }
+    catch(e2){ rc.scanning=false; R.style.display='none'; $('rc-scan').textContent='📷 Scan arrived frame'; rcMsg('Camera could not start ('+((e2&&(e2.name||e2.message))||e2)+'). Use “Type SO / serial”.'); } }
+}
+async function rcStopCam(){ if(rc.scanner&&rc.scanning){ try{ await rc.scanner.stop(); }catch(e){} } rc.scanning=false; var R=$('reader2'); if(R){R.style.display='none';R.innerHTML='';} var b=$('rc-scan'); if(b) b.textContent='📷 Scan arrived frame'; }
+function rcDetected(text){ var code=String(text||'').trim(); if(!code||rc.busy) return; rc.busy=true; try{flash();}catch(e){} receiveFrame(code).finally(function(){ setTimeout(function(){rc.busy=false;},1400); }); }
+$('rc-manual').onclick=function(){ var i=$('rc-in'); i.style.display=(i.style.display==='none'||!i.style.display)?'block':'none'; if(i.style.display==='block'){ rcStopCam(); i.focus(); } };
+$('rc-in').addEventListener('keydown',function(e){ if(e.key==='Enter'){ var v=e.target.value.trim(); if(v){ rcDetected(v); e.target.value=''; } } });
+
+async function regList(){ try{ return await fetch(WORKER_URL).then(function(r){return r.json();}); }catch(e){ return []; } }
+async function soForCode(code, list){
+  if(looksLikeSO(code)) return cleanSO(code);
+  var s=cleanSerial(code); var hit=(list||[]).find(function(r){return cleanSerial(r.serial||'')===s;}); return hit?cleanSO(hit.so||''):'';
+}
+async function configFor(so){ try{ var c=await fetch(WORKER_URL+'?type=config').then(function(r){return r.json();}); return (Array.isArray(c)?c:[]).find(function(r){return r&&r.so===so;})||null; }catch(e){ return null; } }
+async function bikeLineForSO(so){ try{ var sol=await odoo('sale.order.line','search_read',[['&','&',['order_id.name','=',so],['product_id.categ_id.complete_name','ilike','Bikes'],['product_id.name','ilike','MAX']]],{fields:['product_id'],limit:1}); if(sol&&sol.length&&Array.isArray(sol[0].product_id)) return sol[0].product_id[1]; }catch(e){} return ''; }
+
+async function receiveFrame(code){
+  var c=rcCreds(); if(!c.user||!c.key){ rcMsg('Connect to Odoo first (login above).'); return; }
+  $('rc-hint').textContent='Looking up “'+code+'”…';
+  var list=await regList();
+  var so=await soForCode(code,list);
+  if(!so){ rcMsg('Could not identify an order for “'+code+'”. Scan the SO barcode or a registered frame serial.'); $('rc-hint').textContent=''; return; }
+  var picks;
+  try{ picks=await odoo('stock.picking','search_read',[[['origin','=',so],['picking_type_code','=','internal'],['state','in',['assigned','confirmed','waiting']]]],{fields:['id','name','state','carrier_tracking_ref'],limit:5}); }
+  catch(e){ rcMsg('Odoo error: '+((e&&e.message)||e)); $('rc-hint').textContent=''; return; }
+  if(!picks||!picks.length){ rcMsg('No open transfer to Velovisie for '+so+' (already received, or not created yet).','err'); $('rc-hint').textContent=''; return; }
+  var pk=picks[0];
+  try{ var res=await odoo('stock.picking','button_validate',[[pk.id]]);
+    if(res && typeof res==='object' && (res.res_model||res.type)){ try{ await odoo('stock.picking','button_validate',[[pk.id]],{context:{skip_backorder:true,picking_ids_not_to_backorder:[pk.id]}}); }catch(e){ rcMsg('Odoo needs a manual Validate for '+pk.name+' — open it in Odoo.','err'); $('rc-hint').textContent=''; return; } }
+  }catch(e){ rcMsg('Could not validate '+pk.name+': '+((e&&e.message)||e),'err'); $('rc-hint').textContent=''; return; }
+  try{ await odoo('stock.picking','message_post',[[pk.id]],{body:'Painted frame received at Velovisie — scanned in the VV app.',message_type:'comment',subtype_xmlid:'mail.mt_note'}); }catch(e){}
+  var serial = looksLikeSO(code) ? '' : cleanSerial(code);
+  if(!serial){ var h=(list||[]).find(function(r){return cleanSO(r.so||'')===so;}); if(h) serial=cleanSerial(h.serial||''); }
+  var cfg=await configFor(so); var model=await bikeLineForSO(so);
+  var rec={ so:so, frameId:serial, model:model, colour:(cfg&&cfg.main&&cfg.main.name)||'', finish:(cfg&&cfg.main&&cfg.main.finish)||'', arrivedAt:new Date().toISOString(), by:'VV', status:'ready' };
+  try{ var arr=await kvGet('vv_frame_arrivals'); if(!Array.isArray(arr)) arr=[]; arr=arr.filter(function(x){return x&&x.so!==so;}); arr.unshift(rec); arr=arr.slice(0,500); await kvSet('vv_frame_arrivals',arr); }catch(e){}
+  await rcStopCam();
+  rcMsg('✓ '+so+' received at Velovisie ('+pk.name+') — sent to the PO Builder as ready to build.','ok');
+  $('rc-hint').textContent=''; _recLog.unshift({so:so,frameId:serial,name:pk.name,ts:new Date().toISOString()}); renderReceipts();
+}
+var _recLog=[];
+function renderReceipts(){ var box=$('rc-recent'); if(!box) return; if(!_recLog.length){ box.innerHTML='<div class="hint" style="text-align:left">No receipts yet this session.</div>'; return; }
+  box.innerHTML=_recLog.slice(0,15).map(function(r){ return '<div class="rec"><span class="so">'+r.so+'</span><span class="sr">'+(r.frameId||'')+' · '+(r.name||'')+'</span><span class="t">'+new Date(r.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})+'</span></div>'; }).join(''); }
+
+render(); loadRecent(); showView('register');
 </script>
 <a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
 </body>
