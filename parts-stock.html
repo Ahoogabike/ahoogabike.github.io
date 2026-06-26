@@ -271,7 +271,7 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
   <!-- FORWARD STOCK TAB -->
   <div class="view" id="view-forecast">
     <div class="explain">
-      <strong>Forward component stock — week by week.</strong> Models the real two-stage flow: incoming component POs (from the <strong>PO Tracker</strong>) are received into the <strong>Anderlecht (AND)</strong> warehouse, then moved to <strong>Velovisie (VV)</strong> for assembly. Each cell is the <strong>combined available stock (Velovisie + Anderlecht)</strong> after that week's consumption — i.e. assuming the AND→VV move has been made — driven by the <strong>PO Builder — Bikes</strong> plan (bikes/week × per-bike BoM usage, averaged per family) — using the <strong>MY26 recipe up to the MY27 production start, then the MY27 recipe</strong> — <strong>plus</strong> the weekly <strong>after-sales / repair demand</strong> published by the <strong>Spares &amp; Accessories</strong> app, so parts used for repairs are ordered too. <code>(+n)</code> = a component PO arriving into AND that week; <code>⇄n</code> = the AND→VV transfer you still need to do (it also appears as a requested move in the <strong>Parts Agenda</strong>) — sized to cover ~8 weeks of build (or whatever AND holds), allow ~3 days for the move; <code>⚙n</code> in week 1 = parts consumed by bikes already in production at Okazi (running POs, not yet built — the future PO-Builder bikes are the weekly plan). A <strong style="color:#8b1f1f">red / negative</strong> cell means <strong>both</strong> AND and VV are exhausted — place or pull a PO forward. POs already received (including those delivered straight to VV via subcontracting) drop out of the open-PO feed and are already reflected in current stock. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
+      <strong>Forward component stock — week by week.</strong> Models the real two-stage flow: incoming component POs (from the <strong>PO Tracker</strong>) are received into the <strong>Anderlecht (AND)</strong> warehouse, then moved to <strong>Velovisie (VV)</strong> for assembly. Each cell is the <strong>combined available stock (Velovisie + Anderlecht)</strong> after that week's consumption — i.e. assuming the AND→VV move has been made — driven by the <strong>PO Builder — Bikes</strong> plan (bikes/week × per-bike BoM usage, averaged per family) — using the <strong>MY26 recipe up to the MY27 production start, then the MY27 recipe</strong> — <strong>plus</strong> the weekly <strong>after-sales / repair demand</strong> published by the <strong>Spares &amp; Accessories</strong> app, so parts used for repairs are ordered too. <code>(+n)</code> = a component PO arriving into AND that week; <code>⇄n</code> = the AND→VV transfer you still need to do (it also appears as a requested move in the <strong>Parts Agenda</strong>) — sized to cover ~8 weeks of build (or whatever AND holds), allow ~3 days for the move; <code>⚙n</code> in week 1 = parts consumed by bikes already in production at Okazi (running POs, not yet built — the future PO-Builder bikes are the weekly plan). A <strong style="color:#8b1f1f">red / negative</strong> cell means <strong>both</strong> AND and VV are exhausted — place or pull a PO forward. <strong>Finished wheels</strong> appear here too (badged <em>finished wheel</em>): they're assembled at MTB from the components on the “Forward stock at MTB” tab, then consumed at Velovisie when bikes are built — their start pool is <strong>VV + MTB</strong> on-hand, so a negative cell means you need to <strong>build more wheels</strong> (check the MTB tab for the components). POs already received (including those delivered straight to VV via subcontracting) drop out of the open-PO feed and are already reflected in current stock. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
     </div>
     <div class="kpis" id="fc-kpis"></div>
     <div class="toolbar">
@@ -1660,7 +1660,7 @@ function renderForecast(){
   const proj=rows.filter(r=>!skipForecast(r)).map(r=>{
     const pid=r.id;
     let vv=(r.vvReal||0);                   // Velovisie pool — REAL counted on-hand at Velovisie (stock.quant)
-    let andP=(r.andQty||0);                 // Anderlecht (AND) warehouse pool — feeds VV via transfer
+    let andP=r.isWheel?(r.mtbQty||0):(r.andQty||0); // upstream pool feeding VV: Anderlecht for components, MTB for finished wheels
     const overdue=incBeforeFirst(pid);      // component POs already past their date → arrive (into AND) in week 1
     let inprodCons=0;                       // parts burned by bikes in running Okazi POs (not yet built)
     for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
@@ -1680,9 +1680,9 @@ function renderForecast(){
       if(combined<minLevel) minLevel=combined;
       cells.push({level:vv, and:andP, arr:arrv, xfer:xfer, combined:combined, ip:(wi===0?inprodCons:0)});
     }
-    return {r, cells, firstNeg, minLevel, totCons, start:(r.vvReal||0), startAnd:(r.andQty||0)};
+    return {r, cells, firstNeg, minLevel, totCons, start:(r.vvReal||0), startAnd:(r.isWheel?(r.mtbQty||0):(r.andQty||0))};
   }).filter(p=>{
-    if(hideSub && p.r.isSub) return false;                 // built in-house, not purchased
+    if(hideSub && p.r.isSub && !p.r.isWheel) return false; // built in-house, not purchased — but finished wheels ARE consumed at VV → keep
     if(wheelComponentIds.has(p.r.id)) return false;        // wheel sub-parts live at MTB → see the “Forward stock at MTB” tab
     if(model && !usedByModel(p.r.id)) return false;
     if(ref && !usedByRef(p.r.id)) return false;
@@ -1717,15 +1717,17 @@ function renderForecast(){
   const head=`<tr><th class="fc-part">Component</th><th class="fc-w" title="Combined available now = Velovisie + Anderlecht. The ⇄ shows the AND→VV move still to do.">Available now<br><span style="font-weight:400;font-size:9px">VV + AND</span></th>${wks.map(w=>{ const isCut=cutover&&(''+w.monday)===(''+cutover); return `<th class="fc-w" style="${isCut?'border-left:2px solid var(--purple)':''}" title="${esc(w.monday)}${isCut?' · MY27 production starts here':''}">${esc(w.label)}${isCut?' <span style="color:var(--purple);font-size:9px">MY27▶</span>':''}</th>`; }).join('')}</tr>`;
 
   const rowHtml=(p)=>{
+    const up=p.r.isWheel?'MTB':'AND';
     const tds=p.cells.map(c=>{
       const a=Math.round(c.arr), x=Math.round(c.xfer), ip=Math.round(c.ip||0);
       const arrTxt=a>0?`<span class="fc-arr">(+${fmt(a)})</span>`:'';
-      const xferTxt=x>0?`<span class="fc-xfer" title="Move ${fmt(x)} from AND → VV this week (allow ~3 days for the transfer)">⇄${fmt(x)}</span>`:'';
+      const xferTxt=x>0?`<span class="fc-xfer" title="Move ${fmt(x)} from ${up} → VV this week (allow ~3 days for the transfer)">⇄${fmt(x)}</span>`:'';
       const ipTxt=ip>0?`<span class="fc-ip" title="${fmt(ip)} consumed by bikes already in production at Okazi (running POs, not yet built)">⚙${fmt(ip)}</span>`:'';
-      return `<td class="${c.combined<0?'fc-neg':''}" title="Combined ${fmt(Math.round(c.combined))} = Velovisie ${fmt(Math.round(c.level))} + AND ${fmt(Math.round(c.and))}${x>0?(' · move '+fmt(x)+' AND→VV'):''}">${fmt(Math.round(c.combined))}${arrTxt}${xferTxt}${ipTxt}</td>`;
+      return `<td class="${c.combined<0?'fc-neg':''}" title="Combined ${fmt(Math.round(c.combined))} = Velovisie ${fmt(Math.round(c.level))} + ${up} ${fmt(Math.round(c.and))}${x>0?(' · move '+fmt(x)+' '+up+'→VV'):''}">${fmt(Math.round(c.combined))}${arrTxt}${xferTxt}${ipTxt}</td>`;
     }).join('');
-    const nm=`${p.r.partNo?('['+esc(p.r.partNo)+'] '):''}${esc(p.r.partName)}`;
-    return `<tr><td class="fc-part" title="Click for incoming-PO breakdown · ${esc(p.r.category)}" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" onclick="fcInspect(${p.r.id})">${nm}</td><td class="fc-w" style="font-weight:600" title="Combined ${fmt(Math.round(p.start+p.startAnd))} = Velovisie ${fmt(Math.round(p.start))} + AND ${fmt(Math.round(p.startAnd))}">${fmt(Math.round(p.start+p.startAnd))}</td>${tds}</tr>`;
+    const badge=p.r.isWheel?' <span class="badge" title="Assembled at MTB from wheel components (see the “Forward stock at MTB” tab); consumed here at Velovisie when bikes are built">finished wheel</span>':'';
+    const nm=`${p.r.partNo?('['+esc(p.r.partNo)+'] '):''}${esc(p.r.partName)}${badge}`;
+    return `<tr><td class="fc-part" title="Click for incoming-PO breakdown · ${esc(p.r.category)}" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" onclick="fcInspect(${p.r.id})">${nm}</td><td class="fc-w" style="font-weight:600" title="Combined ${fmt(Math.round(p.start+p.startAnd))} = Velovisie ${fmt(Math.round(p.start))} + ${up} ${fmt(Math.round(p.startAnd))}">${fmt(Math.round(p.start+p.startAnd))}</td>${tds}</tr>`;
   };
 
   let body='';
