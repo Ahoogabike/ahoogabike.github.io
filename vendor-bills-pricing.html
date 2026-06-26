@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ahooga Vendor Bills &amp; Pricing</title>
+<style>
+:root{--bg:#f2f1ed;--surface:#fff;--surface2:#f0efe9;--border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);--text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#14259b;--accent-bg:#e6f0fb;--success:#2d6e2d;--success-bg:#eaf3de;--warn:#7a4e0a;--warn-bg:#faeeda;--danger:#8b1f1f;--danger-bg:#fcebeb;--purple:#3c3489;--purple-bg:#eeedfe;--teal:#0f6e56;--teal-bg:#e1f5ee;--radius:10px;--radius-sm:6px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:52px;gap:12px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.logo{font-size:17px;font-weight:800}.logo span{color:var(--accent)}
+.nav-btn{padding:5px 12px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--text2)}
+.nav-btn.active{background:var(--accent-bg);color:var(--accent);border-color:rgba(20,37,155,0.2)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--text3);border:1px solid var(--border2)}
+.pill.ok{background:var(--success-bg);color:var(--success)}.pill.err{background:var(--danger-bg);color:var(--danger)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:inherit}
+.btn-primary{background:var(--accent);color:#fff}.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+main{padding:20px;max-width:1600px;margin:0 auto}
+.view{display:none}.view.active{display:block}
+.explain{background:var(--accent-bg);border:1px solid rgba(20,37,155,0.15);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--accent);line-height:1.55}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px}
+.kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:4px}
+.kpi-value{font-size:21px;font-weight:700}
+.toolbar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.toolbar input,.toolbar select{padding:6px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface);color:var(--text);outline:none}
+.toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px}
+.tag.ok{background:var(--success-bg);color:var(--success)}.tag.bad{background:var(--danger-bg);color:var(--danger)}.tag.warn{background:var(--warn-bg);color:var(--warn)}
+.tag.spend{background:var(--purple-bg);color:var(--purple)}.tag.vol{background:var(--teal-bg);color:var(--teal)}.tag.up{background:var(--danger-bg);color:var(--danger)}
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface)}
+table.grid{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+table.grid th,table.grid td{border-bottom:1px solid var(--border);padding:6px 9px;font-size:12px;text-align:right;white-space:nowrap}
+table.grid th{background:var(--surface2);color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:0.03em;text-align:right;cursor:pointer}
+table.grid td:first-child,table.grid th:first-child{text-align:left;white-space:normal;min-width:220px}
+table.grid tr:hover td{background:var(--surface2)}
+td.bad{color:var(--danger);font-weight:700;background:rgba(139,31,31,0.05)}
+td.good{color:var(--success)}
+.alert{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:12px;line-height:1.5}
+.alert.info{background:var(--accent-bg);color:var(--accent)}.alert.ok{background:var(--success-bg);color:var(--success)}.alert.warn{background:var(--warn-bg);color:var(--warn)}.alert.err{background:var(--danger-bg);color:var(--danger)}
+.spin{display:inline-block;width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.field label{font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text2);font-weight:600}
+.field input{padding:8px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none}
+.hint{font-size:11px;color:var(--text3);margin-top:3px}
+.settings-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+a.link{color:var(--accent);font-weight:600;text-decoration:none}
+.ahooga-home{position:fixed;left:14px;bottom:14px;z-index:9999;display:inline-flex;gap:6px;font-weight:700;font-size:12.5px;padding:9px 14px;border-radius:999px;text-decoration:none;background:#14259b;color:#fff;border:1px solid rgba(255,255,255,.25);box-shadow:0 6px 18px rgba(20,37,155,.4);opacity:.9}
+@media print{.ahooga-home,header,.toolbar{display:none}}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>Vendor Bills &amp; Pricing</span></div>
+  <button class="nav-btn active" id="nav-bills" onclick="showTab('bills')">🧾 Bill check</button>
+  <button class="nav-btn" id="nav-nego" onclick="showTab('nego')">💬 Negotiation</button>
+  <button class="nav-btn" id="nav-settings" onclick="showTab('settings')">⚙ Settings</button>
+  <div class="header-right">
+    <span class="pill" id="conn-pill">Odoo: not connected</span>
+    <button class="btn btn-primary" onclick="loadAll()">↻ Load</button>
+  </div>
+</header>
+<main>
+  <div id="alert"></div>
+
+  <!-- BILL CHECK -->
+  <div class="view active" id="view-bills">
+    <div class="explain">
+      <b>3-way match — pay only what's right.</b> Each vendor bill line is matched to its purchase-order line and the goods received. It flags <b>overcharges</b> (invoiced unit price &gt; the agreed PO price) and <b>over-billing</b> (invoiced qty &gt; received). <b>Currencies are handled:</b> bills in USD, CNY, TWD… are converted to ${"€"} (using the rate Odoo booked on the bill, or the live rate for drafts) and compared against the EUR PO price, so a foreign bill is no longer falsely flagged. The original currency and the €-equivalent are both shown. Tolerance avoids rounding/FX noise.
+    </div>
+    <div class="kpis" id="bill-kpis"></div>
+    <div class="toolbar">
+      <input type="text" id="bf-search" placeholder="🔍 vendor / bill / part…" style="min-width:200px;flex:1" oninput="renderBills()"/>
+      <label class="toggle">Show
+        <select id="bf-mode" onchange="renderBills()">
+          <option value="issues" selected>issues only</option>
+          <option value="over">overcharges</option>
+          <option value="qty">over-billing (qty)</option>
+          <option value="dup">duplicates</option>
+          <option value="service">service / no-PO</option>
+          <option value="all">all bills</option>
+        </select>
+      </label>
+      <label class="toggle">min overcharge € <input type="number" id="bf-min" min="0" step="10" value="0" style="width:78px" oninput="renderBills()"/></label>
+      <label class="toggle">vendor <select id="bf-vendor" onchange="renderBills()"><option value="">all</option></select></label>
+      <button class="btn btn-secondary" onclick="exportBills()">⬇ Export</button>
+      <span id="bill-status" class="hint"></span>
+    </div>
+    <div id="bills-body"></div>
+  </div>
+
+  <!-- NEGOTIATION -->
+  <div class="view" id="view-nego">
+    <div class="explain">
+      <b>Negotiate where it counts.</b> Per part: current price, the price <b>trend</b> over time, your <b>annual spend</b> (qty × price — where the money is), and your <b>volume growth</b> (your leverage). Sorted by spend. Flags: <span class="tag spend">💰 high spend</span> <span class="tag vol">📈 volume up</span> <span class="tag up">⬆ price up</span> — these are the parts to push on.
+    </div>
+    <div class="kpis" id="nego-kpis"></div>
+    <div class="toolbar">
+      <input type="text" id="nf-search" placeholder="🔍 part / vendor…" style="min-width:220px;flex:1" oninput="renderNego()"/>
+      <label class="toggle"><input type="checkbox" id="nf-flagged" checked onchange="renderNego()"/> only parts to renegotiate</label>
+      <button class="btn btn-secondary" onclick="exportNego()">⬇ Export</button>
+      <span id="nego-status" class="hint"></span>
+    </div>
+    <div class="table-wrap"><div id="nego-body"></div></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="view" id="view-settings">
+    <div class="settings-grid">
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:10px">Odoo connection</div>
+        <div class="field"><label>Your Odoo email</label><input type="text" id="cfg-user" placeholder="yourname@ahooga.bike"/></div>
+        <div class="field"><label>API key</label><input type="password" id="cfg-key"/></div>
+        <button class="btn btn-primary" onclick="connectOdoo()">▶ Connect</button>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:10px">Bill check</div>
+        <div class="field"><label>Look back (days)</label><input type="number" id="cfg-bdays" min="7" value="120"/></div>
+        <div class="field"><label>Price tolerance (%)</label><input type="number" id="cfg-tol" min="0" step="0.1" value="1"/><div class="hint">ignore overcharges smaller than this (rounding)</div></div>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:10px">Negotiation</div>
+        <div class="field"><label>History window (months)</label><input type="number" id="cfg-nmonths" min="6" value="24"/></div>
+        <div class="field"><label>"High spend" = top N% by spend</label><input type="number" id="cfg-topspend" min="1" max="100" value="20"/></div>
+        <div class="field"><label>"Volume up" threshold (%)</label><input type="number" id="cfg-volgrow" min="0" value="10"/></div>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:12px" onclick="saveCfg()">💾 Save settings</button>
+  </div>
+</main>
+
+<script>
+const CF_WORKER='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
+const ODOO_URL='https://ahooga.odoo.com';
+const ODOO_DB ='logicasoft-aho-18-0-21599177';
+const LS='ahooga_billing_cfg';
+let odooUid=null;
+let BILLS=[], NEGO=[];
+let COMPANY_CUR={id:null,name:'EUR'};
+
+const $=(id)=>document.getElementById(id);
+const esc=(s)=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const eur=(n)=> (n==null||isNaN(n))?'€0':'€'+ (Math.round(n)).toLocaleString('en-GB');
+const eur2=(n)=> (n==null||isNaN(n))?'€0.00':'€'+ (Math.round(n*100)/100).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
+const pct=(n)=> (n==null||isNaN(n))?'0%':(n>=0?'+':'')+Math.round(n)+'%';
+function fcur(n,cur){ if(n==null||isNaN(n))return'—'; const num=(Math.round(n*100)/100).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2}); return (!cur||cur===COMPANY_CUR.name)?('€'+num):(esc(cur)+' '+num); }
+const fmt=(n)=> (n==null||isNaN(n))?'0':Math.round(n).toLocaleString('en-GB');
+function alert_(m,t){ $('alert').innerHTML=`<div class="alert ${t}">${m}</div>`; if(t==='ok')setTimeout(()=>{$('alert').innerHTML='';},6000); }
+function toArr(x){ return Array.isArray(x)?x:(x?[x]:[]); }
+function arr(x){return Array.isArray(x)?x:[null,x?String(x):''];}
+function chunk(a,n){ const o=[]; for(let i=0;i<a.length;i+=n) o.push(a.slice(i,i+n)); return o; }
+function today(){ const d=new Date(); return d.toISOString().slice(0,10); }
+
+function cfg(){ try{ return JSON.parse(localStorage.getItem(LS)||'{}'); }catch(e){ return {}; } }
+function saveCfg(){
+  const c={ bdays:parseInt($('cfg-bdays').value)||120, tol:parseFloat($('cfg-tol').value)||0, nmonths:parseInt($('cfg-nmonths').value)||24, topspend:parseInt($('cfg-topspend').value)||20, volgrow:parseFloat($('cfg-volgrow').value)||0 };
+  try{ localStorage.setItem(LS,JSON.stringify(c)); }catch(e){}
+  try{ const m=JSON.parse(localStorage.getItem('mxp_cfg')||'{}'); m.user=$('cfg-user').value.trim(); m.key=$('cfg-key').value.trim(); localStorage.setItem('mxp_cfg',JSON.stringify(m)); }catch(e){}
+  alert_('Settings saved.','ok'); renderBills(); renderNego();
+}
+function loadCfgUI(){
+  const c=cfg();
+  $('cfg-bdays').value=c.bdays||120; $('cfg-tol').value=(c.tol!=null?c.tol:1); $('cfg-nmonths').value=c.nmonths||24; $('cfg-topspend').value=c.topspend||20; $('cfg-volgrow').value=(c.volgrow!=null?c.volgrow:10);
+  try{ const m=JSON.parse(localStorage.getItem('mxp_cfg')||'{}'); if(m.user)$('cfg-user').value=m.user; if(m.key)$('cfg-key').value=m.key; }catch(e){}
+}
+const tol=()=>cfg().tol!=null?cfg().tol:1, bdays=()=>cfg().bdays||120, nmonths=()=>cfg().nmonths||24, topspend=()=>cfg().topspend||20, volgrow=()=>cfg().volgrow!=null?cfg().volgrow:10;
+
+// ── Odoo ─────────────────────────────────────────────────────
+function v(x){ if(x===null||x===undefined)return'<value><boolean>0</boolean></value>'; if(typeof x==='boolean')return`<value><boolean>${x?1:0}</boolean></value>`; if(typeof x==='number'&&Number.isInteger(x))return`<value><int>${x}</int></value>`; if(typeof x==='number')return`<value><double>${x}</double></value>`; if(Array.isArray(x))return`<value><array><data>${x.map(v).join('')}</data></array></value>`; if(typeof x==='object'){const m=Object.entries(x).map(([k,vv])=>`<member><name>${k}</name>${v(vv)}</member>`).join('');return`<value><struct>${m}</struct></value>`;} return`<value><string>${String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</string></value>`; }
+function parseXml(xml){ const doc=new DOMParser().parseFromString(xml,'text/xml'); if(doc.querySelector('fault'))throw new Error('Odoo: '+(doc.querySelector('faultString')?.textContent?.slice(0,160)||'fault')); function pv(n){if(!n)return null;const c=n.firstElementChild;if(!c)return n.textContent;switch(c.tagName){case'int':case'i4':case'i8':return parseInt(c.textContent);case'double':return parseFloat(c.textContent);case'boolean':return c.textContent==='1';case'string':return c.textContent;case'nil':return null;case'array':return Array.from(c.querySelector('data')?.children||[]).map(pv);case'struct':{const o={};c.querySelectorAll(':scope>member').forEach(m=>{o[m.querySelector('name').textContent]=pv(m.querySelector('value'))});return o;}default:return c.textContent;}} return pv(doc.querySelector('methodResponse>params>param>value')); }
+function proxyUrl(p){ return `${CF_WORKER}/odoo/${encodeURIComponent(ODOO_URL+p)}`; }
+async function odoo(model,method,args,kwargs={}){
+  const user=$('cfg-user').value.trim(), key=$('cfg-key').value.trim();
+  if(!user||!key) throw new Error('Connect to Odoo first (Settings).');
+  if(!odooUid){ const b=`<?xml version="1.0"?><methodCall><methodName>authenticate</methodName><params>${[v(ODOO_DB),v(user),v(key),v({})].map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`; const r=await fetch(proxyUrl('/xmlrpc/2/common'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b}); odooUid=parseXml(await r.text()); if(!odooUid||typeof odooUid!=='number')throw new Error('Odoo auth failed.'); }
+  const params=[v(ODOO_DB),v(odooUid),v(key),v(model),v(method),v(args),v(kwargs)];
+  const b=`<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>${params.map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+  const r=await fetch(proxyUrl('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+  return parseXml(await r.text());
+}
+async function connectOdoo(){ odooUid=null; try{ await odoo('res.users','search_count',[[]]); $('conn-pill').textContent='Odoo: ✓'; $('conn-pill').className='pill ok'; alert_('Connected.','ok'); loadAll(); }catch(e){ $('conn-pill').textContent='Odoo: error'; $('conn-pill').className='pill err'; alert_('Odoo: '+esc(e.message),'err'); } }
+
+// ── LOAD ─────────────────────────────────────────────────────
+async function loadAll(){
+  const user=$('cfg-user').value.trim(), key=$('cfg-key').value.trim();
+  if(!user||!key){ showTab('settings'); return; }
+  odooUid=null;
+  try{ await loadBills(); }catch(e){ alert_('Bill check: '+esc(e.message),'err'); }
+  try{ await loadNego(); }catch(e){ alert_('Negotiation: '+esc(e.message),'err'); }
+}
+
+// ── BILL CHECK (3-way match) ─────────────────────────────────
+async function loadBills(){
+  $('bill-status').textContent='loading…';
+  // company (base) currency — everything is compared in this
+  try{ const cc=toArr(await odoo('res.company','search_read',[[]],{fields:['currency_id'],limit:1}))[0]; if(cc){ COMPANY_CUR={id:arr(cc.currency_id)[0],name:arr(cc.currency_id)[1]||'EUR'}; } }catch(e){}
+  const since=(()=>{ const d=new Date(); d.setDate(d.getDate()-bdays()); return d.toISOString().slice(0,10); })();
+  const bills=toArr(await odoo('account.move','search_read',
+    [[['move_type','=','in_invoice'],['state','in',['draft','posted']],['invoice_date','>=',since]]],
+    {fields:['name','partner_id','invoice_date','state','amount_total','ref','currency_id','invoice_line_ids'],limit:3000,order:'invoice_date desc'}));
+  const billById={}; bills.forEach(b=>billById[b.id]=b);
+  // real invoice lines (products AND services). balance/amount_currency let us read the EUR value Odoo booked.
+  const lineIds=[].concat(...bills.map(b=>toArr(b.invoice_line_ids)));
+  const lineById={};
+  for(const c of chunk(lineIds,300)){ const ls=toArr(await odoo('account.move.line','read',[c],{fields:['move_id','product_id','name','quantity','price_unit','price_subtotal','balance','amount_currency','currency_id','purchase_line_id']})); for(const l of ls) lineById[l.id]=l; }
+  // PO lines referenced (incl. their currency)
+  const polIds=[...new Set(Object.values(lineById).map(l=>arr(l.purchase_line_id)[0]).filter(Boolean))];
+  const polById={};
+  for(const c of chunk(polIds,300)){ const pols=toArr(await odoo('purchase.order.line','read',[c],{fields:['price_unit','product_qty','qty_received','currency_id']})); for(const p of pols) polById[p.id]=p; }
+  // live currency rates (fallback when a bill isn't posted yet, so no booked EUR amount exists)
+  const curIds=[...new Set([].concat(Object.values(lineById).map(l=>arr(l.currency_id)[0]), Object.values(polById).map(p=>arr(p.currency_id)[0]), bills.map(b=>arr(b.currency_id)[0])).filter(Boolean))];
+  const ratesById={};
+  if(curIds.length){ try{ const cs=toArr(await odoo('res.currency','read',[curIds],{fields:['name','rate']})); for(const c of cs) ratesById[c.id]={name:c.name,rate:c.rate||1}; }catch(e){} }
+  const rateOf=id=> (id==null||id===COMPANY_CUR.id)?1:(ratesById[id]?.rate||1);
+  const eurByRate=(amt,id)=> amt/(rateOf(id)||1);   // foreign → company currency via live rate
+  // duplicate detection: same vendor + same total + same currency
+  const dkey=b=>arr(b.partner_id)[0]+'|'+arr(b.currency_id)[0]+'|'+Math.round((b.amount_total||0)*100);
+  const dmap={}; bills.forEach(b=>{ const k=dkey(b); (dmap[k]=dmap[k]||[]).push(b.id); });
+  const T=tol()/100;
+  const out=[];
+  for(const b of bills){
+    const poLines=[], svcLines=[]; let over=0;
+    for(const lid of toArr(b.invoice_line_ids)){
+      const l=lineById[lid]; if(!l) continue;
+      const polId=arr(l.purchase_line_id)[0]; const pol=polId?polById[polId]:null;
+      const billQty=l.quantity||0;
+      const cur=arr(l.currency_id)[1]||COMPANY_CUR.name, curId=arr(l.currency_id)[0];
+      const foreignPrice=l.price_unit||0, foreignAmt=l.price_subtotal||0;
+      // EUR value: prefer the amount Odoo actually booked (balance, in company currency); else convert by live rate
+      const bookedEUR=Math.abs(l.balance||0);
+      const amtEUR = bookedEUR>0.005 ? bookedEUR : eurByRate(foreignAmt,curId);
+      const billPriceEUR = billQty>0 ? amtEUR/billQty : eurByRate(foreignPrice,curId);
+      const name=arr(l.product_id)[1]||l.name||'(line)';
+      if(pol){ // linked to a PO → 3-way match, both sides in EUR
+        const poCur=arr(pol.currency_id)[1]||COMPANY_CUR.name, poCurId=arr(pol.currency_id)[0];
+        const poPrice=pol.price_unit||0, recv=pol.qty_received||0;
+        const poPriceEUR=eurByRate(poPrice,poCurId);
+        const overPrice=billPriceEUR>poPriceEUR*(1+T)?(billPriceEUR-poPriceEUR)*billQty:0;
+        const overQty=billQty>recv+0.001?(billQty-recv):0;
+        const status=overPrice>0.005?'over':(overQty>0.001?'qty':'ok'); over+=overPrice;
+        poLines.push({name,foreignPrice,cur,billPriceEUR,billQty,poPrice,poCur,poPriceEUR,recv,overPrice,overQty,status});
+      } else { // service / no-PO line (DSV freight, utilities, fees…)
+        svcLines.push({name,foreignAmt,cur,amtEUR,billQty,foreignPrice});
+      }
+    }
+    const dup=(dmap[dkey(b)]||[]).length>1;
+    const isService = poLines.length===0 && svcLines.length>0;
+    const flagged = over>0.005 || poLines.some(l=>l.status==='qty') || dup;
+    out.push({bill:b, poLines, svcLines, over, dup, isService, flagged});
+  }
+  BILLS=out.sort((a,b)=> (b.over-a.over) || ((b.dup?1:0)-(a.dup?1:0)));
+  $('bill-status').textContent=`${BILLS.length} bills · last ${bdays()}d · base ${COMPANY_CUR.name}`;
+  fillVendorFilter();
+  renderBills();
+}
+function fillVendorFilter(){
+  const sel=$('bf-vendor'); if(!sel) return; const cur=sel.value;
+  const names=[...new Set(BILLS.map(x=>arr(x.bill.partner_id)[1]||'').filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  sel.innerHTML='<option value="">all</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  if(names.includes(cur)) sel.value=cur;
+}
+function renderBills(){
+  const host=$('bills-body'); if(!host) return;
+  const search=($('bf-search').value||'').toLowerCase();
+  const mode=($('bf-mode')||{}).value||'issues';
+  const minOver=parseFloat(($('bf-min')||{}).value)||0;
+  const venF=($('bf-vendor')||{}).value||'';
+  const match=x=>{ if(venF && (arr(x.bill.partner_id)[1]||'')!==venF) return false; const hay=(x.bill.name+' '+(arr(x.bill.partner_id)[1]||'')+' '+x.poLines.concat(x.svcLines).map(l=>l.name).join(' ')).toLowerCase(); return !search||hay.includes(search); };
+  const prodPass=x=>{ if(!x.poLines.length) return false; if(minOver>0 && !(x.over>=minOver)) return false; switch(mode){ case 'all':return true; case 'over':return x.over>0.005; case 'qty':return x.poLines.some(l=>l.status==='qty'); case 'dup':return x.dup; case 'service':return false; default:return x.flagged; } };
+  const svcPass=x=>{ if(!x.isService) return false; switch(mode){ case 'service':case 'all':return true; case 'dup':case 'issues':return x.dup; default:return false; } };
+  const prodBills=BILLS.filter(x=>prodPass(x)&&match(x));   // already sorted by € overcharge desc
+  const svcBills=BILLS.filter(x=>svcPass(x)&&match(x));
+  const totalOver=BILLS.reduce((a,x)=>a+x.over,0);
+  const flaggedN=BILLS.filter(x=>x.flagged).length;
+  const dupN=BILLS.filter(x=>x.dup).length;
+  const svcN=BILLS.filter(x=>x.isService).length;
+  const k=(l,val,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${val}</div></div>`;
+  $('bill-kpis').innerHTML=k('Bills',BILLS.length,'var(--accent)')+k('With a discrepancy',flaggedN,flaggedN?'var(--danger)':'var(--success)')+k('Total overcharge',eur(totalOver),totalOver>0?'var(--danger)':'var(--success)')+k('Possible duplicates',dupN,dupN?'var(--danger)':'var(--success)')+k('Service / no-PO bills',svcN,'var(--accent)');
+  const sec=(t,n)=>`<div style="font-weight:700;margin:18px 0 8px;color:var(--accent)">${t}${n!=null?` <span class="hint" style="font-weight:600">· ${n}</span>`:''}</div>`;
+  let html='';
+  if(mode!=='service'){
+    html+=sec('Product bills · biggest overcharge first',prodBills.length);
+    html+= prodBills.length ? prodBills.map(billCard).join('')
+      : '<div class="alert ok">Nothing matches this filter 🎉 — no product bills with the selected issue.</div>';
+  }
+  if(svcBills.length || mode==='service'){
+    html+=sec('Service &amp; no-PO bills · review (DSV freight, utilities, fees…)',svcBills.length);
+    html+='<div class="hint" style="margin:-4px 0 10px">No PO price to match against, so these are listed for a quick eyeball. <b>⚠ possible duplicate</b> = same vendor billed the same total twice in the window.</div>';
+    html+= svcBills.length ? svcBills.map(billCard).join('') : '<div class="hint">No service bills match the filter.</div>';
+  }
+  host.innerHTML=html;
+}
+function billCard(x){
+  const ven=arr(x.bill.partner_id)[1]||''; const link=`${ODOO_URL}/odoo/account.move/${x.bill.id}`;
+  const feq=(foreign,cur,eurv)=> (cur&&cur!==COMPANY_CUR.name)?`${fcur(foreign,cur)} <span class="hint">≈ ${eur2(eurv)}</span>`:eur2(eurv);
+  const rows=x.poLines.map(l=>{
+    const st = l.status==='ok'?`<span class="tag ok">✓ matches</span>`
+      : l.status==='over'?`<span class="tag bad">⬆ overcharge ${eur2(l.overPrice)}</span>`
+      : l.status==='qty'?`<span class="tag warn">billed ${fmt(l.overQty)} &gt; received</span>`
+      : `<span class="tag warn">no PO link</span>`;
+    return `<tr><td>${esc(l.name)}</td><td>${feq(l.poPrice,l.poCur,l.poPriceEUR)}</td><td class="${l.status==='over'?'bad':''}">${feq(l.foreignPrice,l.cur,l.billPriceEUR)}</td><td>${fmt(l.billQty)}</td><td>${l.recv!=null?fmt(l.recv):'—'}</td><td>${st}</td></tr>`;
+  }).join('');
+  const svcRows=x.svcLines.map(l=>`<tr><td>${esc(l.name)}</td><td colspan="4" class="hint">${l.billQty?fmt(l.billQty)+' × '+fcur(l.foreignPrice,l.cur):'service'}</td><td>${feq(l.foreignAmt,l.cur,l.amtEUR)}</td></tr>`).join('');
+  const head = x.over>0.005?`<span class="tag bad">overcharge ${eur(x.over)}</span>`
+    : x.dup?`<span class="tag bad">⚠ possible duplicate</span>`
+    : x.isService?`<span class="tag warn">review</span>`
+    : `<span class="tag ok">ok</span>`;
+  const dupExtra = (x.dup && x.over>0.005)?` <span class="tag bad">⚠ duplicate</span>`:'';
+  const tbl = x.poLines.length
+    ? `<div class="table-wrap"><table class="grid"><thead><tr><th>Part</th><th>PO price</th><th>Bill price</th><th>Bill qty</th><th>Received</th><th>Check</th></tr></thead><tbody>${rows}${svcRows?`<tr><td colspan="6" class="hint" style="padding-top:6px">service / no-PO lines on this bill:</td></tr>`+svcRows:''}</tbody></table></div>`
+    : `<div class="table-wrap"><table class="grid"><thead><tr><th>Line</th><th colspan="4"></th><th>Amount</th></tr></thead><tbody>${svcRows}</tbody></table></div>`;
+  return `<div class="card">
+    <div class="card-head"><div><b>${esc(x.bill.name||'(draft)')}</b> · ${esc(ven)} <span class="hint">· ${esc(x.bill.invoice_date||'')} · ${esc(x.bill.state)} · total ${fcur(x.bill.amount_total||0,arr(x.bill.currency_id)[1])}</span></div>
+      <div>${head}${dupExtra} <a class="link" href="${link}" target="_blank">open ↗</a></div></div>
+    ${tbl}
+  </div>`;
+}
+function exportBills(){
+  const r2=n=>Math.round((n||0)*100)/100;
+  const rows=[['Bill','Vendor','Date','State','Type','Line','Currency','PO price (EUR)','Bill price (orig)','Bill price (EUR)','Bill qty','Received','Amount (EUR)','Overcharge €','Status','Duplicate']];
+  for(const x of BILLS){ const ven=arr(x.bill.partner_id)[1]||'';
+    for(const l of x.poLines) rows.push([x.bill.name,ven,x.bill.invoice_date,x.bill.state,'product',l.name,l.cur,r2(l.poPriceEUR),r2(l.foreignPrice),r2(l.billPriceEUR),l.billQty,l.recv??'','',r2(l.overPrice),l.status,x.dup?'YES':'']);
+    for(const l of x.svcLines) rows.push([x.bill.name,ven,x.bill.invoice_date,x.bill.state,'service',l.name,l.cur,'',r2(l.foreignPrice),'',l.billQty||'','',r2(l.amtEUR),'','review',x.dup?'YES':'']);
+  }
+  dl(rows,'vendor-bills-check');
+}
+
+// ── NEGOTIATION (price trend + spend + volume) ───────────────
+async function loadNego(){
+  $('nego-status').textContent='loading…';
+  const since=(()=>{ const d=new Date(); d.setMonth(d.getMonth()-nmonths()); return d.toISOString().slice(0,10); })();
+  const pol=toArr(await odoo('purchase.order.line','search_read',
+    [[['order_id.state','in',['purchase','done']],['create_date','>=',since+' 00:00:00'],['product_id','!=',false]]],
+    {fields:['product_id','price_unit','product_qty','create_date'],limit:60000}));
+  const by={};
+  const now=new Date(); const cut12=new Date(now.getFullYear(),now.getMonth()-12,now.getDate()).toISOString().slice(0,10);
+  for(const l of pol){ const pid=arr(l.product_id)[0]; if(pid==null) continue; const e=by[pid]||(by[pid]={pid, name:arr(l.product_id)[1]||('#'+pid), recs:[], qty12:0, qtyPrior:0, spend12:0}); const d=(''+(l.create_date||'')).slice(0,10); const price=l.price_unit||0, qty=l.product_qty||0; e.recs.push({d,price,qty}); if(d>=cut12){ e.qty12+=qty; e.spend12+=price*qty; } else { e.qtyPrior+=qty; } }
+  // vendor per product (first supplier; variant then template)
+  const pids=Object.keys(by).map(Number);
+  const vend={}, tmplOf={};
+  for(const c of chunk(pids,300)){ const ps=toArr(await odoo('product.product','read',[c],{fields:['product_tmpl_id']})); for(const p of ps) tmplOf[p.id]=arr(p.product_tmpl_id)[0]; }
+  for(const c of chunk(pids,200)){ const si=toArr(await odoo('product.supplierinfo','search_read',[[['product_id','in',c]]],{fields:['product_id','partner_id'],order:'sequence,min_qty'})); for(const s of si){ const pid=arr(s.product_id)[0]; if(pid!=null && !vend[pid]) vend[pid]=arr(s.partner_id)[1]||''; } }
+  const miss=pids.filter(p=>!vend[p]); const tmpls=[...new Set(miss.map(p=>tmplOf[p]).filter(Boolean))]; const byT={};
+  for(const c of chunk(tmpls,200)){ const si=toArr(await odoo('product.supplierinfo','search_read',[[['product_tmpl_id','in',c]]],{fields:['product_tmpl_id','partner_id'],order:'sequence,min_qty'})); for(const s of si){ const t=arr(s.product_tmpl_id)[0]; if(t!=null && !byT[t]) byT[t]=arr(s.partner_id)[1]||''; } }
+  for(const p of miss){ const t=tmplOf[p]; if(t&&byT[t]) vend[p]=byT[t]; }
+  // build rows
+  NEGO=Object.values(by).map(e=>{
+    e.recs.sort((a,b)=>a.d<b.d?-1:1);
+    const first=e.recs[0], last=e.recs[e.recs.length-1];
+    const priceNow=last?last.price:0, priceThen=first?first.price:0;
+    const priceChg = priceThen>0 ? (priceNow-priceThen)/priceThen*100 : 0;
+    const volGrow = e.qtyPrior>0 ? (e.qty12-e.qtyPrior)/e.qtyPrior*100 : (e.qty12>0?100:0);
+    return { pid:e.pid, name:e.name, vendor:vend[e.pid]||'', priceNow, priceThen, priceChg, qty12:e.qty12, qtyPrior:e.qtyPrior, volGrow, spend12:e.spend12 };
+  });
+  // mark high-spend = top N% by spend
+  const sorted=[...NEGO].sort((a,b)=>b.spend12-a.spend12);
+  const cutIdx=Math.max(1, Math.ceil(sorted.length*topspend()/100));
+  const highSet=new Set(sorted.slice(0,cutIdx).map(x=>x.pid));
+  NEGO.forEach(x=>{ x.highSpend=highSet.has(x.pid); x.priceUp=x.priceChg>0.5; x.volUp=x.volGrow>=volgrow(); x.flagged = x.highSpend && (x.priceUp || x.volUp) ? true : (x.priceUp && x.volUp); });
+  NEGO.sort((a,b)=>b.spend12-a.spend12);
+  $('nego-status').textContent=`${NEGO.length} purchased parts · ${nmonths()}m`;
+  renderNego();
+}
+function renderNego(){
+  const host=$('nego-body'); if(!host) return;
+  const search=($('nf-search').value||'').toLowerCase();
+  const only=$('nf-flagged').checked;
+  let list=NEGO.filter(x=>{ if(only && !x.flagged) return false; return !search||(`${x.name} ${x.vendor}`).toLowerCase().includes(search); });
+  const flaggedN=NEGO.filter(x=>x.flagged).length; const spendFlagged=NEGO.filter(x=>x.flagged).reduce((a,x)=>a+x.spend12,0);
+  const k=(l,val,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${val}</div></div>`;
+  $('nego-kpis').innerHTML=k('Purchased parts',NEGO.length,'var(--accent)')+k('To renegotiate',flaggedN,flaggedN?'var(--purple)':'var(--success)')+k('Spend on flagged',eur(spendFlagged),'var(--purple)');
+  if(!list.length){ host.innerHTML='<div class="alert ok">Nothing flagged — no high-spend parts with rising price or growing volume.</div>'; return; }
+  const rows=list.map(x=>{
+    const flags=[ x.highSpend?'<span class="tag spend">💰 spend</span>':'', x.volUp?'<span class="tag vol">📈 vol</span>':'', x.priceUp?'<span class="tag up">⬆ price</span>':'' ].filter(Boolean).join(' ');
+    return `<tr><td>${esc(x.name)}</td><td>${esc(x.vendor)}</td><td>${eur2(x.priceNow)}</td><td class="${x.priceUp?'bad':''}">${pct(x.priceChg)}</td><td>${fmt(x.qty12)}</td><td class="${x.volUp?'good':''}">${pct(x.volGrow)}</td><td><b>${eur(x.spend12)}</b></td><td>${flags||'·'}</td></tr>`;
+  }).join('');
+  host.innerHTML=`<table class="grid"><thead><tr><th>Part</th><th>Vendor</th><th>Price now</th><th>Price Δ</th><th>Qty 12m</th><th>Vol Δ</th><th>Spend 12m</th><th>Renegotiate</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function exportNego(){
+  const rows=[['Part','Vendor','Price now','Price change %','Qty 12m','Qty prior 12m','Volume change %','Spend 12m €','High spend','Price up','Volume up']];
+  for(const x of NEGO) rows.push([x.name,x.vendor,x.priceNow,Math.round(x.priceChg),x.qty12,x.qtyPrior,Math.round(x.volGrow),Math.round(x.spend12),x.highSpend?'Y':'',x.priceUp?'Y':'',x.volUp?'Y':'']);
+  dl(rows,'price-negotiation');
+}
+
+function dl(rows,base){ const csv=rows.map(r=>r.map(c=>{const s=String(c==null?'':c);return s.includes(',')||s.includes('"')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'})); a.download=base+'-'+today()+'.csv'; document.body.appendChild(a); a.click(); a.remove(); }
+function showTab(t){ document.querySelectorAll('.view').forEach(v=>v.classList.remove('active')); document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); $('view-'+t).classList.add('active'); $('nav-'+t).classList.add('active'); }
+loadCfgUI();
+if($('cfg-user').value && $('cfg-key').value) loadAll(); else showTab('settings');
+</script>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>
