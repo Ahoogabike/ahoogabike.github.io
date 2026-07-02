@@ -102,7 +102,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 </head>
 <body>
 <header>
-  <div class="logo">DSV <span class="b">Ship</span> <span class="tag">Odoo → DSV</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑07‑02 (SO search + link + customer msg HTML fix)</span></div>
+  <div class="logo">DSV <span class="b">Ship</span> <span class="tag">Odoo → DSV</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑07‑02b (+ StoreRocket opening-hours auto-fill)</span></div>
   <div class="pills">
     <span id="dsv-pill" class="pill">DSV: ?</span>
     <span id="conn-pill" class="pill">Not connected</span>
@@ -275,7 +275,7 @@ async function loadDeliveries(){
     catch(e){ if(_hasSaleId){ _hasSaleId=false; pickings=await odoo('stock.picking','search_read',[domain],{fields:baseFields,limit,order:'scheduled_date desc'}); } else throw e; }
     DELIVERIES=pickings||[];
     await attachPartners(DELIVERIES);
-    setPill('ok'); renderDeliveries();
+    setPill('ok'); renderDeliveries(); ensureStoreRocket();
     if(!DELIVERIES.length) alert_('No transfers found for this filter.','warn');
   }catch(e){ alert_('Could not load transfers: '+esc(e.message),'err'); setPill('err'); }
 }
@@ -381,6 +381,7 @@ async function toggle(id,forceOpen){
     catch(e){ d._lines=[]; d._loadErr=e.message; d._loaded=true; }
   }
   if(!PKGROWS[id]) PKGROWS[id]=buildRows(d);
+  await ensureStoreRocket();
   el.innerHTML=detailHtml(d,id);
 }
 
@@ -532,11 +533,74 @@ function contentsTable(d){
   return `<table class="tbl"><thead><tr><th>Product</th><th class="num">Qty</th><th>Serial / Lot</th><th class="num">Weight</th><th>Package</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
+/* ── StoreRocket opening-hours lookup ───────────────────────────────────────
+   Auto-fills the DSV "receiver instructions" with the destination shop's opening
+   hours, taken from Ahooga's public StoreRocket store locator (same public ID used
+   on be.ahooga.bike). Match order: exact e-mail, then postcode + name (+ country).
+   Silent fallback to the Odoo internal note if unreachable or no shop matches. */
+const SR_ACCOUNT='Y287q7A4AP';
+let SR_LOCATIONS=null;                 // null = not fetched, [] = fetched (maybe empty/failed)
+async function ensureStoreRocket(){
+  if(SR_LOCATIONS!==null) return;
+  SR_LOCATIONS=[];                     // mark attempted so we don't refetch on every open
+  try{
+    const url='https://storerocket.io/api/user/'+SR_ACCOUNT+'/locations?lat=50.5&lng=4.5&radius=100000&units=kilometers';
+    const r=await fetch(url); const d=await r.json();
+    SR_LOCATIONS=(d&&d.results&&d.results.locations)||d.locations||[];
+  }catch(e){ SR_LOCATIONS=[]; }
+}
+function srNorm(s){ return (s||'').toString().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim(); }
+function srMatchLocation(p, custName){
+  if(!SR_LOCATIONS||!SR_LOCATIONS.length) return null;
+  const email=((p&&p.email)||'').toString().trim().toLowerCase();
+  if(email){ const byMail=SR_LOCATIONS.find(l=>((l.email||'').toString().trim().toLowerCase())===email); if(byMail) return byMail; }
+  const zip=((p&&p.zip)||'').toString().trim();
+  if(!zip) return null;
+  const cc=(p&&Array.isArray(p.country_id))?((_ccache[p.country_id[0]]||'')).toString().toUpperCase():'';
+  const nameN=srNorm(custName||(p&&p.name)||'');
+  const tokens=nameN.split(' ').filter(t=>t.length>2);
+  const sameZip=SR_LOCATIONS.filter(l=>{
+    if(((l.postcode||'').toString().trim())!==zip) return false;
+    if(cc && l.country && String(l.country).toUpperCase()!==cc) return false;
+    return true;
+  });
+  if(!sameZip.length) return null;
+  let best=null,bestScore=0;
+  for(const l of sameZip){
+    const ln=srNorm(l.name); let score=0;
+    tokens.forEach(t=>{ if(ln.indexOf(t)>=0) score++; });
+    if(nameN && (ln.indexOf(nameN)>=0 || nameN.indexOf(ln)>=0)) score+=2;
+    if(score>bestScore){ bestScore=score; best=l; }
+  }
+  if(best && bestScore>0) return best;
+  if(sameZip.length===1) return sameZip[0];   // single shop at that postcode -> accept
+  return null;
+}
+const SR_DAYS=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
+function srFormatHours(hours){
+  if(!hours||typeof hours!=='object') return '';
+  const days=SR_DAYS.map(function(kv){ return {lab:kv[1], val:(hours[kv[0]]==null?'':String(hours[kv[0]]).trim())}; });
+  if(days.every(function(d){return !d.val;})) return '';
+  const segs=[]; let i=0;
+  while(i<days.length){
+    if(!days[i].val){ i++; continue; }
+    let j=i; while(j+1<days.length && days[j+1].val===days[i].val) j++;
+    const label=(i===j)?days[i].lab:(days[i].lab+'-'+days[j].lab);
+    segs.push(label+' '+days[i].val); i=j+1;
+  }
+  return segs.join('; ').slice(0,175);
+}
+
 function detailHtml(d,id){
   const p=d.partner||{};
-  // pre-fill receiver instructions from the customer's Odoo note (Internal Notes), stripped to plain text
-  const riPrefill=(p.comment&&typeof p.comment==='string')?p.comment.replace(/<[^>]+>/g,' ').replace(/&nbsp;/gi,' ').replace(/\s+/g,' ').trim().slice(0,175):'';
   const cust=Array.isArray(d.partner_id)?d.partner_id[1]:'';
+  // Receiver instructions: prefer the destination shop's opening hours from StoreRocket,
+  // otherwise fall back to the customer's Odoo internal note (stripped to plain text).
+  const odooNote=(p.comment&&typeof p.comment==='string')?p.comment.replace(/<[^>]+>/g,' ').replace(/&nbsp;/gi,' ').replace(/\s+/g,' ').trim().slice(0,175):'';
+  const srLoc=srMatchLocation(p, cust);
+  const srHours=srLoc?srFormatHours(srLoc.hours):'';
+  const riPrefill=srHours||odooNote;
+  const riNote=srHours?('↳ opening hours auto-filled from StoreRocket ('+esc(srLoc.name)+') — edit if needed'):'';
   const so=soOf(d);
   const booked=!!d.carrier_tracking_ref;
   const cc=Array.isArray(p.country_id)?(_ccache[p.country_id[0]]||''):'';
@@ -579,7 +643,7 @@ function detailHtml(d,id){
         <div id="pkgs-${id}">${pkgRowsHtml(id)}</div>
         <div style="margin-top:6px"><button class="btn ghost sm" onclick="pkgAdd('${id}')">+ Add package</button></div>
         <div class="minif" style="margin-top:10px"><div class="fld" style="flex:2"><label>Reference</label><input id="rf-${id}" value="${esc(d.name)}"/></div>
-          <div class="fld" style="flex:3"><label>Receiver instructions → DSV (e.g. opening hours)</label><input id="ri-${id}" maxlength="175" value="${esc(riPrefill)}" placeholder="e.g. Mon-Fri 8:00-16:00"/></div></div>
+          <div class="fld" style="flex:3"><label>Receiver instructions → DSV (e.g. opening hours)</label><input id="ri-${id}" maxlength="175" value="${esc(riPrefill)}" placeholder="e.g. Mon-Fri 8:00-16:00"/>${riNote?'<div class="cap" style="margin-top:4px">'+riNote+'</div>':''}</div></div>
         <label class="chk"><input type="checkbox" id="ab-${id}"/> Submit as <b>final booking</b> (unchecked = draft in myDSV)</label>
         <label class="chk"><input type="checkbox" id="nc-${id}"/> ✉ Notify customer — post tracking to the <b>sales order</b> followers (sends a real Odoo message)</label>
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn blue sm bk-${id}" onclick="bookDelivery('${id}')">Book with DSV →</button></div>
