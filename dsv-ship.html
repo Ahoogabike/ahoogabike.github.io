@@ -102,7 +102,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 </head>
 <body>
 <header>
-  <div class="logo">DSV <span class="b">Ship</span> <span class="tag">Odoo → DSV</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑07‑02b (+ StoreRocket opening-hours auto-fill)</span></div>
+  <div class="logo">DSV <span class="b">Ship</span> <span class="tag">Odoo → DSV</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑07‑02c (+ StoreRocket hours + myDSV tracking link)</span></div>
   <div class="pills">
     <span id="dsv-pill" class="pill">DSV: ?</span>
     <span id="conn-pill" class="pill">Not connected</span>
@@ -683,10 +683,10 @@ async function sendCustomerMessage(soId, cBody){
 /* ── customer-facing shipment message (posted to the sales order followers) ──
    EDIT WORDING / ADD LANGUAGES HERE. Picks the language from the customer's
    Odoo contact language (falls back to English). ref = order, num = tracking number. */
-const DSV_TRACK_PAGE='https://www.dsv.com/en-nl/our-solutions/modes-of-transport/road-transport/track-and-trace-shipments';
+const DSV_TRACK_PAGE='https://mydsv.com/new/tracking/track-shipment';
 function customerTrackingMsg(lang, ref, num){
-  const link='<a href='+DSV_TRACK_PAGE+'>Track and Trace</a>';
   const r=esc(ref), n=esc(num);
+  const link='<a href='+DSV_TRACK_PAGE+'?query='+n+'>Track and Trace</a>';
   const t={
     en:'Dear Customer,<br><br>Great news — your Ahooga order <b>'+r+'</b> has left our warehouse and is on its way to you with DSV. 🚲<br><br>Your DSV tracking number:<br><b>'+n+'</b><br><br>Follow your parcel here: '+link+'<br><br>If you have any questions, just reply to this message — we are always happy to help.<br><br>Warm regards,<br><b>The Ahooga Team</b><br><span style=color:#9a9384>With love from Brussels 🇧🇪</span>',
     fr:'Cher client, chère cliente,<br><br>Bonne nouvelle — votre commande Ahooga <b>'+r+'</b> a quitté notre entrepôt et est en route vers vous avec DSV. 🚲<br><br>Votre numéro de suivi DSV :<br><b>'+n+'</b><br><br>Suivez votre colis ici : '+link+'<br><br>Pour toute question, il vous suffit de répondre à ce message — nous sommes toujours ravis de vous aider.<br><br>Bien à vous,<br><b>L\'équipe Ahooga</b><br><span style=color:#9a9384>Avec amour depuis Bruxelles 🇧🇪</span>',
