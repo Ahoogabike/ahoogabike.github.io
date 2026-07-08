@@ -160,18 +160,18 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   <!-- LEAD TIMES -->
   <div class="view" id="view-leadtimes">
     <div class="explain">
-      <strong>Lead times — Supplier → Anderlecht.</strong> This is Odoo's vendor <em>Delivery Lead Time</em> (the <code>delay</code> on each supplier line). The order-by date is <code>shortage date − 3 days (AND→VV) − lead time</code>. Odoo holds one figure (your usual / sea route); add an <b>air</b> figure for the faster fallback. Edited values are used by the agenda and shared with the team — Odoo itself is not changed.
+      <strong>Lead times — Supplier → Anderlecht.</strong> This is Odoo's vendor <em>Delivery Lead Time</em> (the <code>delay</code> on each supplier line, Belgium company only). The order-by date is <code>shortage date − 3 days (AND→VV) − lead time</code>. <b>Sea</b> = the Odoo lead (blank box = use Odoo). <b>Air</b> is derived automatically: overseas imports (sea ≥ 90d) get <code>sea − 60d</code>; European parts (sea &lt; 90d) have no air option. Type a number in any box to override. Edits are shared with the team — Odoo itself is not changed.
     </div>
     <div class="toolbar">
       <button class="btn btn-primary" onclick="fetchOdooLeads()">⟳ Load lead times from Odoo</button>
       <div class="field" style="margin:0"><label>Default sea (days)</label><input type="number" id="lt-sea" min="0" value="90" style="width:90px"/></div>
-      <div class="field" style="margin:0"><label>Default air (days)</label><input type="number" id="lt-air" min="0" value="30" style="width:90px"/></div>
+      <div class="field" style="margin:0"><label title="Blank Air = sea lead minus this, for overseas imports (sea \u2265 90d). European parts (sea < 90d) get no air option.">Air saving (days)</label><input type="number" id="lt-air" min="0" value="60" style="width:90px"/></div>
       <button class="btn btn-secondary" onclick="saveLeadCfg()">💾 Save</button>
       <span id="lt-status" style="font-size:12px;color:var(--text2)"></span>
     </div>
     <div class="card">
       <table class="lt"><thead><tr><th>Part</th><th>Vendor (Odoo)</th><th class="num">Odoo lead</th><th class="num">Sea days (used)</th><th class="num">Air days</th></tr></thead><tbody id="lt-rows"></tbody></table>
-      <div class="hint" style="margin-top:10px">Sea/air boxes are blank = use the Odoo lead (sea) or the default. Connect in ⚙ Connection, then “Load lead times from Odoo”.</div>
+      <div class="hint" style="margin-top:10px">Blank Sea = use the Odoo lead. Blank Air = auto (sea − 60d for imports; “no air (EU)” under 90d). Override either by typing a number. Connect in ⚙ Connection, then “Load lead times from Odoo”.</div>
     </div>
   </div>
 
@@ -210,7 +210,7 @@ const LS_USER='ahooga_agenda_user', LS_KEY='ahooga_agenda_key';
 let odooUid=null;
 let deadlines=null;                                       // active dataset (components or wheels)
 let dsComponents=null, dsWheels=null, agendaSet='components';
-let leadCfg={seaDefault:90, airDefault:30, byPart:{}, odoo:{}};   // byPart[pid]={sea,air}; odoo[pid]={delay,vendor}
+let leadCfg={seaDefault:90, airDefault:30, airOffset:60, importCutoff:90, byPart:{}, odoo:{}};   // byPart[pid]={sea,air}; odoo[pid]={delay,vendor}. Blank air = (sea<importCutoff? sea : sea-airOffset)
 let snooze={};
 let calDate=new Date();
 let selectedMoves=new Set();      // item ids selected for a combined internal transfer
@@ -290,7 +290,7 @@ async function loadAll(toast){
   const [d,wd,cfg,sn]=await Promise.all([ kvGetStore('parts_deadlines'), kvGetStore('wheel_deadlines'), kvGetStore('parts_lead_cfg'), kvGetStore('parts_agenda_snooze') ]);
   dsComponents=d||{items:[]}; dsWheels=wd||{items:[]};
   deadlines=(agendaSet==='wheels'?dsWheels:dsComponents)||{items:[]};
-  if(cfg) leadCfg={seaDefault:cfg.seaDefault??90, airDefault:cfg.airDefault??30, byPart:cfg.byPart||{}, odoo:cfg.odoo||{}};
+  if(cfg) leadCfg={seaDefault:cfg.seaDefault??90, airDefault:cfg.airDefault??30, airOffset:cfg.airOffset??60, importCutoff:cfg.importCutoff??90, byPart:cfg.byPart||{}, odoo:cfg.odoo||{}};
   snooze=sn||{};
   document.getElementById('lt-sea').value=leadCfg.seaDefault; document.getElementById('lt-air').value=leadCfg.airDefault;
   const n=(deadlines.items||[]).length; const when=deadlines.updated?new Date(deadlines.updated).toLocaleString():'—';
@@ -309,11 +309,16 @@ function updateSetButtons(){
   if(bc){ bc.textContent=`🔧 Components · VV · ${cN}`; bc.className='btn btn-sm '+(agendaSet==='components'?'btn-primary':'btn-secondary'); }
   if(bw){ bw.textContent=`🛞 Wheels · MTB · ${wN}`; bw.className='btn btn-sm '+(agendaSet==='wheels'?'btn-primary':'btn-secondary'); }
 }
+function effSea(it){ const od=leadCfg.odoo[it.pid]; return (od&&od.delay!=null)?od.delay:leadCfg.seaDefault; }
 function leadFor(it,mode){
   const bp=leadCfg.byPart[it.pid]||{};
-  if(bp[mode]!=null && bp[mode]!=='') return bp[mode];
-  if(mode==='sea'){ const od=leadCfg.odoo[it.pid]; if(od&&od.delay!=null) return od.delay; return leadCfg.seaDefault; }
-  return leadCfg.airDefault;
+  if(bp[mode]!=null && bp[mode]!=='') return bp[mode];        // manual override wins
+  const base=effSea(it);
+  if(mode==='sea') return base;
+  // AIR: parts under the import cutoff (default 90d) come from Europe -> no air option, air = sea.
+  // Overseas sea imports (>= cutoff) arrive ~airOffset (default 60) days faster by air.
+  const cut=leadCfg.importCutoff??90, off=leadCfg.airOffset??60;
+  return base<cut ? base : Math.max(base-off,0);
 }
 function computeItem(it){
   const tl=transferLead(); const o={...it};
@@ -556,12 +561,18 @@ function openDay(ds){
 function uniqueParts(){ const seen={},out=[]; for(const it of (deadlines.items||[])){ if(seen[it.pid]) continue; seen[it.pid]=1; out.push({pid:it.pid,name:it.name,category:it.category}); } return out.sort((a,b)=>a.name<b.name?-1:1); }
 function renderLeadTable(){
   const tb=document.getElementById('lt-rows'); if(!tb) return;
+  const seaEl=document.getElementById('lt-sea'); if(seaEl) seaEl.value=leadCfg.seaDefault;
+  const airEl=document.getElementById('lt-air'); if(airEl) airEl.value=(leadCfg.airOffset??60);
   const parts=uniqueParts();
   tb.innerHTML = parts.length? parts.map(p=>{
     const bp=leadCfg.byPart[p.pid]||{}; const od=leadCfg.odoo[p.pid]||{};
     const odTxt = od.delay!=null ? `<span class="odoo-lead">${od.delay}d</span>` : '<span style="color:var(--text3)">—</span>';
     const vend = od.vendor || '<span style="color:var(--text3)">—</span>';
-    return `<tr><td>${esc(p.name)}</td><td>${esc(vend)}</td><td class="num">${odTxt}</td><td class="num"><input type="number" min="0" placeholder="${od.delay!=null?od.delay:leadCfg.seaDefault}" value="${bp.sea??''}" data-pid="${p.pid}" data-mode="sea"/></td><td class="num"><input type="number" min="0" placeholder="${leadCfg.airDefault}" value="${bp.air??''}" data-pid="${p.pid}" data-mode="air"/></td></tr>`;
+    const base = od.delay!=null ? od.delay : leadCfg.seaDefault;
+    const cut=leadCfg.importCutoff??90, off=leadCfg.airOffset??60;
+    const airCalc = base<cut ? null : Math.max(base-off,0);
+    const airPh = airCalc==null ? 'no air (EU)' : airCalc;
+    return `<tr><td>${esc(p.name)}</td><td>${esc(vend)}</td><td class="num">${odTxt}</td><td class="num"><input type="number" min="0" placeholder="${base}" value="${bp.sea??''}" data-pid="${p.pid}" data-mode="sea"/></td><td class="num"><input type="number" min="0" placeholder="${airPh}" value="${bp.air??''}" data-pid="${p.pid}" data-mode="air"/></td></tr>`;
   }).join('') : '<tr><td colspan="5" style="color:var(--text3)">Load the forecast first (open Parts Stock), then refresh here.</td></tr>';
 }
 async function fetchOdooLeads(){
@@ -596,7 +607,7 @@ async function fetchOdooLeads(){
 }
 async function saveLeadCfg(){
   leadCfg.seaDefault=parseInt(document.getElementById('lt-sea').value)||0;
-  leadCfg.airDefault=parseInt(document.getElementById('lt-air').value)||0;
+  leadCfg.airOffset=parseInt(document.getElementById('lt-air').value)||0;
   const byPart={};
   document.querySelectorAll('#lt-rows input').forEach(inp=>{ const pid=inp.dataset.pid, mode=inp.dataset.mode, val=inp.value.trim(); if(val!==''){ (byPart[pid]=byPart[pid]||{})[mode]=parseInt(val)||0; } });
   leadCfg.byPart=byPart;
