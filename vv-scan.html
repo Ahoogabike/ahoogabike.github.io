@@ -164,15 +164,15 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 <section id="view-receipt">
   <div class="card">
     <div class="lab">Odoo</div>
-    <div class="hint">✓ Connected automatically — no login needed. Just scan the arrived frame.</div>
+    <div class="hint">✓ Connected automatically — no login needed. Just scan the SO label on the frame.</div>
     <input id="rc-user" type="hidden"/><input id="rc-key" type="hidden"/>
     <button id="rc-conn" style="display:none"></button><span id="rc-state" style="display:none"></span>
   </div>
   <div id="reader2"></div>
   <div id="rc-hint" class="hint"></div>
-  <button id="rc-scan" class="btn-primary">📷 Scan arrived frame</button>
-  <div class="btn-row"><button id="rc-manual" class="btn-ghost">⌨ Type SO / serial</button></div>
-  <input id="rc-in" class="rc-inp" placeholder="type SO or serial, then press Enter" style="display:none"/>
+  <button id="rc-scan" class="btn-primary">📷 Scan SO label</button>
+  <div class="btn-row"><button id="rc-manual" class="btn-ghost">⌨ Type the SO</button></div>
+  <input id="rc-in" class="rc-inp" placeholder="type the SO (e.g. S25172), then Enter" style="display:none"/>
   <h3>Received this session</h3>
   <div id="rc-recent"><div class="hint" style="text-align:left">—</div></div>
 </section>
@@ -348,8 +348,8 @@ async function odoo(model,method,args,kwargs){
      as the MAX Ordering Service account and runs the call. Velovisie just scans. */
   kwargs=kwargs||{};
   var r=await fetch(CF_WORKER+'/odoo/rpc',{ method:'POST',
-    headers:{'Content-Type':'application/json','x-vv-token':VV_TOKEN},
-    body:JSON.stringify({ model:model, method:method, args:args||[], kwargs:kwargs }) });
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ token:VV_TOKEN, model:model, method:method, args:args||[], kwargs:kwargs }) });
   var j=null; try{ j=await r.json(); }catch(e){ throw new Error('Odoo proxy returned a non-JSON response ('+r.status+').'); }
   if(!r.ok || (j&&j.error)){ var em=(j&&j.error&&(j.error.message||j.error.data&&j.error.data.message||j.error))||('Odoo proxy error '+r.status); throw new Error(String(em)); }
   return j?j.result:null;
@@ -381,12 +381,12 @@ async function rcStartCam(){
   if(!window.isSecureContext && !/^localhost|^127\./.test(location.hostname)){ rcMsg('Camera needs a secure https address.'); return; }
   if(!rc.scanner) rc.scanner=new Html5Qrcode('reader2', (typeof SUPPORTED!=='undefined'&&SUPPORTED)?{formatsToSupport:SUPPORTED,verbose:false}:{verbose:false});
   var conf={fps:12,qrbox:function(w,h){var m=Math.floor(Math.min(w,h)*0.8);return {width:m,height:Math.floor(m*0.62)};}};
-  var R=$('reader2'); R.style.display='block'; void R.offsetWidth; rc.scanning=true; $('rc-scan').textContent='■ Stop camera'; $('rc-hint').textContent='Point at the frame serial / SO barcode.';
+  var R=$('reader2'); R.style.display='block'; void R.offsetWidth; rc.scanning=true; $('rc-scan').textContent='■ Stop camera'; $('rc-hint').textContent='Point at the SO label on the frame.';
   try{ await rc.scanner.start({facingMode:'environment'},conf,function(t){rcDetected(t);},function(){}); }
   catch(e1){ try{ var cams=await Html5Qrcode.getCameras(); var back=(cams&&cams.length)?((cams.find(function(c){return /back|rear|environment|achter|arri/i.test(c.label||'');}))||cams[cams.length-1]):null; if(!back) throw e1; await rc.scanner.start(back.id,conf,function(t){rcDetected(t);},function(){}); }
-    catch(e2){ rc.scanning=false; R.style.display='none'; $('rc-scan').textContent='📷 Scan arrived frame'; rcMsg('Camera could not start ('+((e2&&(e2.name||e2.message))||e2)+'). Use “Type SO / serial”.'); } }
+    catch(e2){ rc.scanning=false; R.style.display='none'; $('rc-scan').textContent='📷 Scan SO label'; rcMsg('Camera could not start ('+((e2&&(e2.name||e2.message))||e2)+'). Use “Type SO / serial”.'); } }
 }
-async function rcStopCam(){ if(rc.scanner&&rc.scanning){ try{ await rc.scanner.stop(); }catch(e){} } rc.scanning=false; var R=$('reader2'); if(R){R.style.display='none';R.innerHTML='';} var b=$('rc-scan'); if(b) b.textContent='📷 Scan arrived frame'; }
+async function rcStopCam(){ if(rc.scanner&&rc.scanning){ try{ await rc.scanner.stop(); }catch(e){} } rc.scanning=false; var R=$('reader2'); if(R){R.style.display='none';R.innerHTML='';} var b=$('rc-scan'); if(b) b.textContent='📷 Scan SO label'; }
 function rcDetected(text){ var code=String(text||'').trim(); if(!code||rc.busy) return; rc.busy=true; try{flash();}catch(e){} receiveFrame(code).finally(function(){ setTimeout(function(){rc.busy=false;},1400); }); }
 $('rc-manual').onclick=function(){ var i=$('rc-in'); i.style.display=(i.style.display==='none'||!i.style.display)?'block':'none'; if(i.style.display==='block'){ rcStopCam(); i.focus(); } };
 $('rc-in').addEventListener('keydown',function(e){ if(e.key==='Enter'){ var v=e.target.value.trim(); if(v){ rcDetected(v); e.target.value=''; } } });
@@ -426,6 +426,15 @@ async function rcMoveAndValidate(ptId,srcLoc,dstLoc,prodId,origin,label){
   var pr=await odoo('stock.picking','read',[[pk],['name']]); return { id:pk, name:(pr&&pr[0]&&pr[0].name)||('#'+pk) };
 }
 
+const SCAN_NOTIFY_TO="felix@ahooga.bike";   /* who gets the arrival notification */
+async function notifyFelixScan(so, poName){
+  var to=(SCAN_NOTIFY_TO||'').trim(); if(!to) return;
+  var body='<p>Hi Felix,</p><p>Custom-colour frame for order <b>'+so+'</b> was just scanned in at Velovisie'+(poName?(' (PO '+poName+')'):'')+' and validated in Odoo \u2014 it is now ready to build.</p><p>Ahooga \u00b7 Velovisie Scan</p>';
+  var vals={ subject:'Custom colour \u2014 '+so+' received at Velovisie', body_html:body, email_to:to, auto_delete:false };
+  var id=await odoo('mail.mail','create',[vals]);
+  try{ await odoo('mail.mail','send',[[id]]); }catch(e){}
+}
+
 /* Velovisie scan on arrival: validate the Deco Coat P0 receipt into Anderlecht,
    move it In Transit -> Warehouse, then create + validate the Warehouse -> Velovisie
    transfer, and flag the order ready to build. */
@@ -433,7 +442,7 @@ async function receiveFrame(code){
   $('rc-hint').textContent='Looking up “'+code+'”…';
   var list=await regList();
   var so=await soForCode(code,list);
-  if(!so){ rcMsg('Could not identify an order for “'+code+'”. Scan the SO barcode or a registered frame serial.'); $('rc-hint').textContent=''; return; }
+  if(!so){ rcMsg('Could not identify an order for “'+code+'”. Scan the SO label on the frame, or type the SO.'); $('rc-hint').textContent=''; return; }
 
   /* find the Deco Coat purchase order (P0####) that references this sales order */
   var poId=null, poName='', frameProd=null;
@@ -486,6 +495,7 @@ async function receiveFrame(code){
   var cfg=await configFor(so); var model=await bikeLineForSO(so);
   var rec={ so:so, frameId:serial, model:model, colour:(cfg&&cfg.main&&cfg.main.name)||'', finish:(cfg&&cfg.main&&cfg.main.finish)||'', arrivedAt:new Date().toISOString(), by:'VV', status:'ready' };
   try{ var arr=await kvGet('vv_frame_arrivals'); if(!Array.isArray(arr)) arr=[]; arr=arr.filter(function(x){return x&&x.so!==so;}); arr.unshift(rec); arr=arr.slice(0,500); await kvSet('vv_frame_arrivals',arr); }catch(e){}
+  try{ await notifyFelixScan(so, poName); }catch(e){}
   await rcStopCam();
   rcMsg('✓ '+so+' received — '+poName+' receipt validated, moved to warehouse, transferred to Velovisie ('+done.join(', ')+'). Sent to the PO Builder as ready to build.','ok');
   $('rc-hint').textContent=''; _recLog.unshift({so:so,frameId:serial,name:newPickName||poName,ts:new Date().toISOString()}); renderReceipts();
