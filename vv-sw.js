@@ -4,7 +4,7 @@
  * (so updates land as soon as the phone is online), cache fallback for offline open.
  * All Odoo / worker API traffic is passed straight through — never cached. */
 
-const CACHE = 'vv-scan-v1';           // bump this string whenever you redeploy vv-scan.html
+const CACHE = 'vv-scan-v3';           // bump this string whenever you redeploy vv-scan.html
 const SHELL = [
   'vv-scan.html',
   'manifest.webmanifest',
