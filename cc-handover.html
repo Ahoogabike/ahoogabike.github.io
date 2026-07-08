@@ -486,8 +486,7 @@ function settingsReady(){
 
 function newRun(so){
   return { busy:false, result:{}, steps:[
-    { key:'receipt',  label:'Validate PO receipt — receive the custom frame from Deco Coat into Anderlecht', status:'' },
-    { key:'transfer', label:'Internal transfer — move the frame Anderlecht → Velovisie',                       status:'' },
+    /* receipt + Anderlecht->Velovisie move now happen at the Velovisie arrival scan (VV app) */
     { key:'dsv',      label:'DSV label — book the Deco Coat → Velovisie shipment',                             status:'' },
     { key:'deliver',  label:'Deliver label to Deco Coat + mark frame shipped',                                status:'' }
   ]};
@@ -525,15 +524,11 @@ async function runHandover(soList){
   soList.forEach(so=>{ if(!RUN[so]) RUN[so]=newRun(so); RUN[so].busy=true; });
   renderQueue();
   // phase 1 — per frame: validate the PO receipt, then create the Anderlecht→Velovisie transfer
-  const ready=[];
-  for(const so of soList){
-    let good=true;
-    for(const key of ['receipt','transfer']){
-      if(stepObj(so,key).status==='done') continue;
-      if(!await runStep(so,key,true)){ good=false; break; }
-    }
-    if(good) ready.push(so);
-  }
+  // Receipt validation + the frame move to Velovisie now happen when Velovisie
+  // scans the arriving box (VV app -> Velovisie receipt). Validating here as well
+  // would double up (receipt already done, two transfers to Velovisie), so this
+  // app only books the DSV label so Deco Coat can ship.
+  const ready=[...soList];
   // phase 2 — ONE DSV booking covering every ready frame (pallet rule)
   const toBook=ready.filter(so=>stepObj(so,'dsv').status!=='done');
   if(toBook.length){
@@ -545,10 +540,15 @@ async function runHandover(soList){
       for(const so of toBook){
         const res=RUN[so].result;
         Object.assign(res,{ bookingId:bk.bookingId, dsvDraft:bk.draft, trackingUrl:bk.trackingUrl, labelBase64:bk.labelBase64, batchRef:bk.reference, batchCount:toBook.length, emailedTo, emailCc, emailState });
-        if(!dry && res.pickingId){
-          try{ await odoo('stock.picking','write',[[res.pickingId],{carrier_tracking_ref:String(bk.bookingId)}]); }catch(e){}
-          if(bk.labelBase64){ try{ await odoo('ir.attachment','create',[{name:'DSV-'+bk.bookingId+'.pdf',type:'binary',mimetype:'application/pdf',datas:bk.labelBase64,res_model:'stock.picking',res_id:res.pickingId}]); }catch(e){} }
-          try{ await odoo('stock.picking','message_post',[[res.pickingId]],{body:'DSV '+(bk.draft?'draft':'booking')+' '+bk.bookingId+(bk.trackingUrl?' \u00b7 '+bk.trackingUrl:''),message_type:'comment',subtype_xmlid:'mail.mt_note'}); }catch(e){}
+        if(!dry){
+          // pin the DSV label to the Deco Coat P0 receipt (the incoming picking of the PO that references this SO)
+          let attachId = res.pickingId;   // legacy: an internal transfer, if one was ever created
+          if(!attachId){ attachId = await poReceiptIdForSO(so); if(attachId) res.receiptId = attachId; }
+          if(attachId){
+            try{ await odoo('stock.picking','write',[[attachId],{carrier_tracking_ref:String(bk.bookingId)}]); }catch(e){}
+            if(bk.labelBase64){ try{ await odoo('ir.attachment','create',[{name:'DSV-'+bk.bookingId+'.pdf',type:'binary',mimetype:'application/pdf',datas:bk.labelBase64,res_model:'stock.picking',res_id:attachId}]); }catch(e){} }
+            try{ await odoo('stock.picking','message_post',[[attachId]],{body:'DSV '+(bk.draft?'draft':'booking')+' '+bk.bookingId+(bk.trackingUrl?' \u00b7 '+bk.trackingUrl:''),message_type:'comment',subtype_xmlid:'mail.mt_note'}); }catch(e){}
+          }
         }
         const lbl=bk.labelBase64?` \u00b7 <a href="#" onclick="openLabel('${so}');return false;">label</a>`:'';
         setStep(so,'dsv','done',(dry?'<b>[dry run]</b> ':'')+`DSV ${bk.draft?'draft':'booking'} <b>${esc(String(bk.bookingId))}</b>${toBook.length>1?` \u00b7 one shipment of ${toBook.length} frames`:''}${bk.trackingUrl?` \u00b7 <a href="${esc(bk.trackingUrl)}" target="_blank">track</a>`:''}${lbl}`);
@@ -764,6 +764,17 @@ async function stepTransfer(so,dry){
 }
 
 /* ── STEP C: DSV label ── */
+/* find the Deco Coat P0 receipt picking (incoming) for a sales order — used to pin the DSV label to it */
+async function poReceiptIdForSO(so){
+  try{
+    const pol=await odoo('purchase.order.line','search_read',[['|',['name','ilike',so],['order_id.origin','ilike',so]]],{fields:['order_id'],limit:1});
+    if(!(pol&&pol.length&&Array.isArray(pol[0].order_id))) return null;
+    const poName=pol[0].order_id[1];
+    const picks=await odoo('stock.picking','search_read',[[['origin','=',poName],['picking_type_code','=','incoming']]],{fields:['id'],order:'id desc',limit:1});
+    return (picks&&picks.length)?picks[0].id:null;
+  }catch(e){ return null; }
+}
+
 async function stepDSV(so,dry){
   const my=getMY(so), pm=PART_MAP[my];
   if(dry) return `Would book a DSV label, pickup <b>${esc(SET.pickupPartnerName||(SET.pickup&&SET.pickup.name)||'Deco Coat')}</b> → consignee <b>${esc(SET.consigneePartnerName||(SET.consignee&&SET.consignee.name)||'Okazi / Velovisie')}</b>, ref <b>${esc(so)}</b> (addresses read from Odoo at booking).`;
