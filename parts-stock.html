@@ -372,6 +372,7 @@ let productionPlan=null;    // {weeks:[{monday,label,iso}], byFam:{EMA:[],EMD:[]
 let productionBasis=null;   // {inprodBySku, unmatchedBySku, ...} published by Max Planner
 let inprodByFam={};         // famKey -> count of bikes in running Okazi POs (not yet built/consumed)
 let mtbWheelTmpls=new Set();// template ids of wheel assemblies built at MTB (consumed as finished wheels at VV)
+let preAssyTmpls=new Set(); // templates received pre-assembled from a stop-supplier (Kenstone) — BoM not exploded, children not tracked
 let wheelComponentIds=new Set();// parts consumed into wheels at MTB → their VV theoretical is 0 (they live at MTB, not VV)
 let fcCollapsed={};         // group name -> true if collapsed in the Forward stock tab
 
@@ -867,6 +868,16 @@ const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n)
 
 async function collectBomGraph(){
   bomByTmpl={}; prodToTmpl={};
+  // Stop-suppliers: parts received already assembled (e.g. Kenstone in Asia). We buy the assembly
+  // as one unit and never track or procure its children, so BoM explosion stops at these templates.
+  preAssyTmpls=new Set();
+  try{
+    const kss=await odoo('product.supplierinfo','search_read',[[['partner_id.name','ilike','kenstone']]],{fields:['product_tmpl_id','product_id'],limit:5000});
+    const needPid=[];
+    for(const sInfo of kss){ const t=arr(sInfo.product_tmpl_id)[0]; if(t!=null) preAssyTmpls.add(t); else if(sInfo.product_id) needPid.push(arr(sInfo.product_id)[0]); }
+    if(needPid.length){ for(const c of chunk(needPid,300)){ const pr=await odoo('product.product','read',[c],{fields:['product_tmpl_id']}); for(const p of pr){ const t=arr(p.product_tmpl_id)[0]; if(t!=null) preAssyTmpls.add(t); } } }
+    console.log('[PartStock] pre-assembled (Kenstone) stop-node templates:', preAssyTmpls.size);
+  }catch(e){ console.warn('[PartStock] pre-assembly detection failed:', e.message); }
   // Anchor to EXACTLY the bikes the PO Builder builds: AHFAM… (A-MAX) / AHFMC… (E-MAX) variants,
   // current model year (no "MYxx" tag) in Alfine or Derailleur (no Nexus). No other products leak in.
   const EXCLUDE_RE=/\bMY\s?\d{2}\b|\bnexus\b/i;
@@ -934,7 +945,9 @@ async function collectBomGraph(){
     const nextQueue=[];
     for(const sb of subBoms){
       const t=arr(sb.product_tmpl_id)[0];
-      if(t&&!seenTmpl.has(t)){seenTmpl.add(t);nextQueue.push({tmplId:t,productQty:sb.product_qty||1,lineIds:sb.bom_line_ids||[]});}
+      if(t&&!seenTmpl.has(t)){ seenTmpl.add(t);
+        if(preAssyTmpls.has(t)) continue;   // received pre-assembled (Kenstone) → do not explode its children
+        nextQueue.push({tmplId:t,productQty:sb.product_qty||1,lineIds:sb.bom_line_ids||[]}); }
     }
     queue=nextQueue;
   }
@@ -1223,6 +1236,12 @@ async function loadData(){
       FAM_KEYS.forEach(k=>{ row[k]=famConsumed[k][id]||0; });
       return row;
     });
+
+    // ── EXCLUDED CATEGORIES ──
+    // Fasteners / fittings / bolts (Odoo product category id 14) are not counted or tracked:
+    // drop them entirely so they never appear in the table, forecast, or Parts Agenda.
+    const EXCLUDE_CAT_IDS=new Set([14]);
+    rows=rows.filter(r=>!EXCLUDE_CAT_IDS.has(arr((info[r.id]||{}).categ_id)[0]));
 
     populateCats();
     buildBomMenu();
