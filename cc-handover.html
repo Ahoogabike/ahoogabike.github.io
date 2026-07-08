@@ -170,9 +170,9 @@
     <h4>Routing — discovered from Odoo (verify once)</h4>
     <div class="hint" style="margin-bottom:10px">These are looked up from your Odoo. Pick the right ones; choices are saved on this device.</div>
     <div class="grid2">
-      <label class="fld"><span>Source location — where the PO receipt lands (Anderlecht)</span><select id="cfg-src"></select></label>
-      <label class="fld"><span>Destination location — Velovisie stock</span><select id="cfg-dst"></select></label>
-      <label class="fld"><span>Internal picking type (Anderlecht → Velovisie)</span><select id="cfg-pt"></select></label>
+      <label class="fld" style="display:none"><span>Source location</span><select id="cfg-src"></select></label>
+      <label class="fld" style="display:none"><span>Destination location</span><select id="cfg-dst"></select></label>
+      <label class="fld" style="display:none"><span>Internal picking type</span><select id="cfg-pt"></select></label>
       <label class="fld"><span>Manufacturing op-type (not used in this flow)</span><select id="cfg-mpt"></select></label>
     </div>
     <details>
@@ -402,7 +402,7 @@ function showTab(name){
 let RUN={};   // so -> {steps:[{key,label,status,detail}], busy, result:{moId,pickingId,bookingId}}
 async function loadQueue(force){
   $('queue-sub').textContent='Loading…';
-  try{ await vvLoad(); renderQueue(); }
+  try{ await vvLoad(); renderQueue(); try{ await checkWaitshipNotify(); }catch(e){} }
   catch(e){ $('queue-sub').textContent='Could not reach the Deco Coat registry.'; }
 }
 function waitshipFrames(){ return STATUS.filter(r=>r.status==='WAITSHIP'); }
@@ -479,8 +479,12 @@ window.verifyHandover=verifyHandover;
 
 /* ── ensure settings are present before running ── */
 function settingsReady(){
-  const need=[['srcId','Anderlecht source location'],['dstId','Velovisie destination location'],['internalPT','internal picking type']];
-  const missing=need.filter(([k])=>!SET[k]).map(([,l])=>l);
+  // this app now only books a DSV label — it needs the pickup (Deco Coat) and consignee (Velovisie) addresses, nothing else
+  const missing=[];
+  const hasPickup    = SET.pickupPartnerId    || (SET.pickup    && SET.pickup.name    && SET.pickup.street);
+  const hasConsignee = SET.consigneePartnerId || (SET.consignee && SET.consignee.name && SET.consignee.street);
+  if(!hasPickup)    missing.push('Deco Coat pickup address');
+  if(!hasConsignee) missing.push('Velovisie consignee address');
   return missing;
 }
 
@@ -540,16 +544,6 @@ async function runHandover(soList){
       for(const so of toBook){
         const res=RUN[so].result;
         Object.assign(res,{ bookingId:bk.bookingId, dsvDraft:bk.draft, trackingUrl:bk.trackingUrl, labelBase64:bk.labelBase64, batchRef:bk.reference, batchCount:toBook.length, emailedTo, emailCc, emailState });
-        if(!dry){
-          // pin the DSV label to the Deco Coat P0 receipt (the incoming picking of the PO that references this SO)
-          let attachId = res.pickingId;   // legacy: an internal transfer, if one was ever created
-          if(!attachId){ attachId = await poReceiptIdForSO(so); if(attachId) res.receiptId = attachId; }
-          if(attachId){
-            try{ await odoo('stock.picking','write',[[attachId],{carrier_tracking_ref:String(bk.bookingId)}]); }catch(e){}
-            if(bk.labelBase64){ try{ await odoo('ir.attachment','create',[{name:'DSV-'+bk.bookingId+'.pdf',type:'binary',mimetype:'application/pdf',datas:bk.labelBase64,res_model:'stock.picking',res_id:attachId}]); }catch(e){} }
-            try{ await odoo('stock.picking','message_post',[[attachId]],{body:'DSV '+(bk.draft?'draft':'booking')+' '+bk.bookingId+(bk.trackingUrl?' \u00b7 '+bk.trackingUrl:''),message_type:'comment',subtype_xmlid:'mail.mt_note'}); }catch(e){}
-          }
-        }
         const lbl=bk.labelBase64?` \u00b7 <a href="#" onclick="openLabel('${so}');return false;">label</a>`:'';
         setStep(so,'dsv','done',(dry?'<b>[dry run]</b> ':'')+`DSV ${bk.draft?'draft':'booking'} <b>${esc(String(bk.bookingId))}</b>${toBook.length>1?` \u00b7 one shipment of ${toBook.length} frames`:''}${bk.trackingUrl?` \u00b7 <a href="${esc(bk.trackingUrl)}" target="_blank">track</a>`:''}${lbl}`);
       }
@@ -597,6 +591,30 @@ async function bookBatchDSV(sos,dry){
 }
 
 /* email the DSV label PDF to Deco Coat so they can print & apply it to the box/pallet */
+/* internal heads-up emails to a colleague (same Odoo mail channel as the DSV label) */
+const HANDOVER_NOTIFY_TO = 'felix@ahooga.bike';   /* who gets the handover notifications */
+async function notifyFelix(subject, bodyHtml){
+  const to=(HANDOVER_NOTIFY_TO||'').trim(); if(!to) return;
+  const vals={ subject:subject, body_html:bodyHtml, email_to:to, auto_delete:false };
+  let id; try{ id=await odoo('mail.mail','create',[vals]); }catch(e){ return; }
+  try{ await odoo('mail.mail','send',[[id]]); }catch(e){}
+}
+/* fire once when an SO first shows up as "waiting to ship" in the handover queue */
+async function checkWaitshipNotify(){
+  try{
+    const cur=[...new Set(waitshipFrames().map(r=>r.so).filter(Boolean))];
+    let seen=await kvGet('cch_waitship_notified');
+    if(!Array.isArray(seen)){ await kvSet('cch_waitship_notified', cur); return; }   // first run: seed silently, don't blast existing frames
+    const fresh=cur.filter(so=>!seen.includes(so));
+    if(fresh.length){
+      const list=fresh.map(so=>esc(so)).join('<br>');
+      await notifyFelix('Custom colour \u2014 new frame'+(fresh.length>1?'s':'')+' waiting to ship'+(fresh.length===1?(' \u2014 '+fresh[0]):(' ('+fresh.length+')')),
+        `<p>Hi Felix,</p><p>The following custom-colour frame ${fresh.length>1?'orders have':'order has'} been marked <b>waiting to ship</b> by Deco Coat and now appear in the Handover app:</p><p>${list}</p><p>Ahooga \u00b7 Custom Colour Handover</p>`);
+      await kvSet('cch_waitship_notified', seen.concat(fresh));
+    }
+  }catch(e){}
+}
+
 async function emailLabelToDecoCoat(bk, sos){
   let to=(SET.decoEmail!==undefined?SET.decoEmail:'wietzehoppe@decocoat.nl').trim();
   if(!to && SET.pickupPartnerId){ try{ const pa=await partnerAddr(SET.pickupPartnerId); to=pa.email||''; }catch(e){} }
@@ -660,9 +678,7 @@ async function runStep(so,key,chained){
   setStep(so,key,'run','');
   try{
     let detail='';
-    if(key==='receipt')   detail=await stepReceipt(so,dry);
-    else if(key==='transfer') detail=await stepTransfer(so,dry);
-    else if(key==='dsv')      detail=await stepDSV(so,dry);
+    if(key==='dsv')           detail=await stepDSV(so,dry);
     else if(key==='deliver')  detail=await stepDeliver(so,dry);
     setStep(so,key,'done',(dry?'<b>[dry run]</b> ':'')+detail);
     return true;
@@ -686,94 +702,9 @@ async function partnerAddr(id){
   return { name:p.name||'', street:p.street||'', street2:p.street2||'', zip:p.zip||'', city:p.city||'', cc, phone:p.phone||'', email:p.email||'' };
 }
 
-/* ── STEP A: validate the existing PO receipt from Deco Coat ──
-   No manufacturing order: the custom-colour frame (FRNAA0026x) is PURCHASED from
-   Deco Coat on a PO, which already created an incoming receipt. We find that receipt
-   via the SO it references, set the frame serial, and validate it. */
-async function stepReceipt(so,dry){
-  const my=getMY(so), pm=PART_MAP[my];
-  const frameId=(frameRec(so).frameId||'').trim();
-  if(dry) return `Would find the Deco Coat PO receipt that references order <b>${esc(so)}</b> and validate it — receiving <b>${esc(pm.output)}</b>${frameId?` serial <b>${esc(frameId)}</b>`:''} into Anderlecht.`;
-  // 1) find the purchase order via a PO line that references this sales order
-  let poId=null, poName='';
-  const pol=await odoo('purchase.order.line','search_read',[['|',['name','ilike',so],['order_id.origin','ilike',so]]],{fields:['order_id'],limit:1});
-  if(pol&&pol.length&&Array.isArray(pol[0].order_id)){ poId=pol[0].order_id[0]; poName=pol[0].order_id[1]; }
-  if(!poId) throw new Error('No purchase order references '+so+'. Check the PO to Deco Coat exists and mentions the SO on its lines.');
-  // 2) find the open incoming receipt for that PO
-  const picks=await odoo('stock.picking','search_read',[[['origin','=',poName],['picking_type_code','=','incoming'],['state','in',['assigned','confirmed','waiting']]]],{fields:['id','name','state'],limit:5});
-  if(!picks||!picks.length) throw new Error('No open receipt found for PO '+poName+' (it may already be received).');
-  const pk=picks[0];
-  Object.assign(RUN[so].result,{ receiptId:pk.id, receiptName:pk.name, poId, poName, inCode:pm.input, outCode:pm.output, serial:frameId });
-  // 3) set the frame serial on the custom-frame move line (if serial tracked)
-  let serialNote='';
-  if(frameId){
-    try{
-      const out=await productByCode(pm.output);
-      const mls=await odoo('stock.move.line','search_read',[[['picking_id','=',pk.id],['product_id','=',out.id]]],{fields:['id'],limit:1});
-      if(mls&&mls.length){ await odoo('stock.move.line','write',[[mls[0].id],{lot_name:frameId,quantity:1}]); serialNote=' · serial '+frameId; }
-    }catch(e){ serialNote=' · (serial not set: '+(e.message||e).toString().slice(0,80)+')'; }
-  }
-  // 4) validate the receipt (handle the immediate-transfer / backorder wizard)
-  let doneNote='validated';
-  try{
-    const res=await odoo('stock.picking','button_validate',[[pk.id]]);
-    if(res && typeof res==='object' && (res.res_model||res.type)){
-      try{ await odoo('stock.picking','button_validate',[[pk.id]],{context:{skip_backorder:true,picking_ids_not_to_backorder:[pk.id]}}); }
-      catch(e){ doneNote='needs a manual "Validate" in Odoo (a wizard popped up)'; }
-    }
-  }catch(e){ doneNote='could not auto-validate ('+(e.message||e).toString().slice(0,90)+')'; }
-  const p=await odoo('stock.picking','read',[[pk.id],['name','state']]);
-  RUN[so].result.receiptState=(p&&p[0]&&p[0].state)||'';
-  return `Receipt <b>${esc(pk.name)}</b> (PO ${esc(poName)}) — ${doneNote}${serialNote}. ${esc(pm.output)} received into Anderlecht.`;
-}
 
-/* ── STEP B: internal transfer Anderlecht → Velovisie ── */
-async function stepTransfer(so,dry){
-  const my=getMY(so), pm=PART_MAP[my];
-  const frameId=(frameRec(so).frameId||'').trim();
-  if(dry) return `Would create an internal transfer of <b>${esc(pm.output)}</b> (qty 1) from Anderlecht → Velovisie, origin <b>${esc(so)}</b>.`;
-  const out=await productByCode(pm.output);
-  const pick=await odoo('stock.picking','create',[{
-    picking_type_id: SET.internalPT,
-    location_id: SET.srcId,
-    location_dest_id: SET.dstId,
-    origin: so,
-    move_ids_without_package: [[0,0,{
-      name: pm.output,
-      product_id: out.id,
-      product_uom_qty: 1,
-      product_uom: (Array.isArray(out.uom_id)?out.uom_id[0]:1),
-      location_id: SET.srcId,
-      location_dest_id: SET.dstId
-    }]]
-  }]);
-  RUN[so].result.pickingId=pick;
-  try{ await odoo('stock.picking','action_confirm',[[pick]]); }catch(e){}
-  try{ await odoo('stock.picking','action_assign',[[pick]]); }catch(e){}
-  // set the serial on the move line if tracked
-  if(frameId && (out.tracking==='serial'||out.tracking==='lot')){
-    try{
-      const mls=await odoo('stock.move.line','search_read',[[['picking_id','=',pick]]],{fields:['id'],limit:1});
-      if(mls&&mls.length) await odoo('stock.move.line','write',[[mls[0].id],{lot_name:frameId}]);
-    }catch(e){}
-  }
-  const p=await odoo('stock.picking','read',[[pick],['name','state']]);
-  const name=(p&&p[0]&&p[0].name)||('WH/'+pick);
-  Object.assign(RUN[so].result,{ pickingName:name, pickingState:(p&&p[0]&&p[0].state)||'' });
-  return `Transfer <b>${esc(name)}</b> created &amp; reserved. Awaiting validation at Velovisie.`;
-}
 
 /* ── STEP C: DSV label ── */
-/* find the Deco Coat P0 receipt picking (incoming) for a sales order — used to pin the DSV label to it */
-async function poReceiptIdForSO(so){
-  try{
-    const pol=await odoo('purchase.order.line','search_read',[['|',['name','ilike',so],['order_id.origin','ilike',so]]],{fields:['order_id'],limit:1});
-    if(!(pol&&pol.length&&Array.isArray(pol[0].order_id))) return null;
-    const poName=pol[0].order_id[1];
-    const picks=await odoo('stock.picking','search_read',[[['origin','=',poName],['picking_type_code','=','incoming']]],{fields:['id'],order:'id desc',limit:1});
-    return (picks&&picks.length)?picks[0].id:null;
-  }catch(e){ return null; }
-}
 
 async function stepDSV(so,dry){
   const my=getMY(so), pm=PART_MAP[my];
