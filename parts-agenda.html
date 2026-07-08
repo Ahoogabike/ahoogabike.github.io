@@ -381,7 +381,7 @@ function itemHtml(it){
     const loc=it.tier==='MTB'?'MTB':'VV'; sub=`Order <b>${fmt(it.qty)}</b> · runs out at ${loc} <b>${fmtD(it.neededDate)}</b> · ${esc(it.category)}`;
     dateBlock=`<div class="item-date"><span class="tag sea">sea</span> <b>${fmtD(it.orderBySea)}</b><br><span class="tag air">air</span> ${fmtD(it.orderByAir)}<div style="margin-top:3px">${dueTxt}</div></div>`;
   } else {
-    const dest=it.moveTo==='MTB'?'MTB':'Velovisie'; sub=`Move <b>${fmt(it.qty)}</b> from AND → ${dest} · needed at ${dest} <b>${fmtD(it.neededDate)}</b> · ${esc(it.category)}`;
+    const dest=it.moveTo==='MTB'?'MTB':'Velovisie'; const srcN=it.moveFrom==='MTB'?'MTB':'AND'; sub=`Move <b>${fmt(it.qty)}</b> from ${srcN} → ${dest} · needed at ${dest} <b>${fmtD(it.neededDate)}</b> · ${esc(it.category)}`;
     dateBlock=`<div class="item-date">move by <b>${fmtD(it.moveBy)}</b><div style="margin-top:3px">${dueTxt}</div></div>`;
   }
   const s=snooze[it.id]||{};
@@ -435,6 +435,9 @@ async function unsnooze(id){ delete snooze[id]; await persistSnooze(); renderAge
 
 // ── INTERNAL TRANSFER (AND → Velovisie / MTB) ──
 function destOf(it){ return it.moveTo==='MTB' ? 'MTB' : 'VV'; }
+function srcOf(it){ return it.moveFrom==='MTB' ? 'MTB' : 'AND'; }
+function laneOf(it){ return srcOf(it)+'→'+destOf(it); }
+function laneLabel(l){ const p=l.split('→'); const nm=x=>x==='MTB'?'MTB · Maastricht':(x==='VV'?'Velovisie':'Anderlecht'); return nm(p[0])+' → '+nm(p[1]); }
 function toggleMoveSel(id,on){ if(on) selectedMoves.add(id); else selectedMoves.delete(id); updateBulkBar(); }
 function clearMoveSel(){ selectedMoves.clear(); document.querySelectorAll('.mv-check').forEach(c=>c.checked=false); updateBulkBar(); }
 function updateBulkBar(){ const bar=document.getElementById('bulk-bar'); if(!bar) return; const n=selectedMoves.size; bar.style.display=n?'flex':'none'; const c=document.getElementById('bulk-count'); if(c) c.textContent=`${n} move${n===1?'':'s'} selected`; }
@@ -445,14 +448,14 @@ async function resolveTransferLocs(){
   const whs=await odoo('stock.warehouse','search_read',[[]],{fields:['name','code','lot_stock_id','int_type_id']});
   let andWh=whs.find(w=>/anderlecht|(^|[^a-z])and([^a-z]|$)/i.test(`${w.name} ${w.code}`)) || whs[0];
   if(!andWh) throw new Error('No warehouse found in Odoo.');
-  const src=arr(andWh.lot_stock_id)[0];
+  const srcAND=arr(andWh.lot_stock_id)[0];
   let pickType=arr(andWh.int_type_id)[0];
   if(!pickType){ const pts=await odoo('stock.picking.type','search_read',[[['code','=','internal']]],{fields:['id'],limit:1}); pickType=pts&&pts[0]&&pts[0].id; }
-  if(!src||!pickType) throw new Error('Could not resolve Anderlecht stock location / internal operation type in Odoo.');
-  // Destination candidate locations (same matching as Parts Stock)
+  if(!srcAND||!pickType) throw new Error('Could not resolve Anderlecht stock location / internal operation type in Odoo.');
+  // Candidate locations (same matching as Parts Stock) — used as both sources and destinations
   const vv=await odoo('stock.location','search_read',[[['complete_name','ilike','velovisie']]],{fields:['id','complete_name'],limit:50});
   const mtb=await odoo('stock.location','search_read',[['|',['complete_name','ilike','mtb'],['complete_name','ilike','maastricht']]],{fields:['id','complete_name'],limit:50});
-  transferLocs={src, pickType, andName:andWh.name, dests:{VV:vv, MTB:mtb}};
+  transferLocs={ pickType, andName:andWh.name, srcAND, srcs:{AND:[{id:srcAND, complete_name:andWh.name}], MTB:mtb}, dests:{VV:vv, MTB:mtb} };
   return transferLocs;
 }
 
@@ -467,21 +470,24 @@ async function openTransferBulk(){
   body.innerHTML=`<div style="text-align:center;padding:20px"><span class="spinner"></span> Resolving warehouse locations from Odoo…</div>`; m.classList.add('open');
   let L; try{ L=await resolveTransferLocs(); }catch(e){ body.innerHTML=`<div style="display:flex;justify-content:space-between;margin-bottom:10px"><b>Internal transfer</b><button class="btn btn-secondary btn-sm" onclick="document.getElementById('tr-modal').classList.remove('open')">Close</button></div><div class="alert alert-err">${esc(e.message)}</div>`; return; }
   const groups={};
-  for(const it of items){ const d=destOf(it); (groups[d]=groups[d]||[]).push(it); }
-  const multi=Object.keys(groups).length>1;
+  for(const it of items){ const l=laneOf(it); (groups[l]=groups[l]||[]).push(it); }
+  const lanes=Object.keys(groups);
+  const multi=lanes.length>1;
   let html=`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px"><b>Create internal transfer${multi?'s':''}</b><button class="btn btn-secondary btn-sm" onclick="document.getElementById('tr-modal').classList.remove('open')">Close</button></div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">From <b>${esc(L.andName)}</b>${multi?' · selection spans two destinations, so one transfer is created per destination':''}. Created as <b>“Mark to do”</b> (confirmed, not validated) — open in Odoo to validate.</div>`;
+    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">${multi?'Selection spans several source→destination lanes, so one transfer is created per lane. ':''}Created as <b>“Mark to do”</b> (confirmed, not validated) — open in Odoo to validate.</div>`;
   let blocked=true;
-  for(const d of Object.keys(groups)){
-    const cands=L.dests[d]||[];
-    if(cands.length) blocked=false;
-    const dOpts=cands.map((c,i)=>`<option value="${c.id}" ${i===0?'selected':''}>${esc(c.complete_name)}</option>`).join('');
-    html+=`<div class="tr-grp"><h4>→ ${d==='MTB'?'MTB · Maastricht':'Velovisie'} (${groups[d].length})</h4>`;
-    html+= cands.length
-      ? `<div class="field" style="margin-bottom:8px"><label>Destination location</label><select class="tr-dest" data-dest="${d}">${dOpts}</select></div>`
-      : `<div class="alert alert-err">No ${d} destination location found in Odoo — this group can’t be created.</div>`;
-    for(const it of groups[d]){
-      html+=`<div class="tr-line" data-dest="${d}" data-pid="${it.pid}" data-id="${esc(it.id)}"><span style="flex:1;min-width:0">${esc(it.name)}</span><input type="number" min="1" value="${Math.max(1,Math.round(it.qty))}" class="tr-qty"/></div>`;
+  for(const l of lanes){
+    const p=l.split('→'), sk=p[0], dk=p[1];
+    const sCands=L.srcs[sk]||[], dCands=L.dests[dk]||[];
+    const ok=sCands.length&&dCands.length; if(ok) blocked=false;
+    const sOpts=sCands.map((c,i)=>`<option value="${c.id}" ${i===0?'selected':''}>${esc(c.complete_name)}</option>`).join('');
+    const dOpts=dCands.map((c,i)=>`<option value="${c.id}" ${i===0?'selected':''}>${esc(c.complete_name)}</option>`).join('');
+    html+=`<div class="tr-grp"><h4>${esc(laneLabel(l))} (${groups[l].length})</h4>`;
+    html+= ok
+      ? `<div class="field" style="margin-bottom:6px"><label>Source location</label><select class="tr-src" data-lane="${l}">${sOpts}</select></div><div class="field" style="margin-bottom:8px"><label>Destination location</label><select class="tr-dest" data-lane="${l}">${dOpts}</select></div>`
+      : `<div class="alert alert-err">No ${!sCands.length?(sk+' source'):(dk+' destination')} location found in Odoo — this lane can’t be created.</div>`;
+    for(const it of groups[l]){
+      html+=`<div class="tr-line" data-lane="${l}" data-pid="${it.pid}" data-id="${esc(it.id)}"><span style="flex:1;min-width:0">${esc(it.name)}</span><input type="number" min="1" value="${Math.max(1,Math.round(it.qty))}" class="tr-qty"/></div>`;
     }
     html+=`</div>`;
   }
@@ -493,28 +499,30 @@ async function submitTransfer(){
   const L=transferLocs; if(!L) return;
   const groups={};
   document.querySelectorAll('#tr-modal-body .tr-line').forEach(row=>{
-    const d=row.dataset.dest, pid=parseInt(row.dataset.pid), id=row.dataset.id;
+    const l=row.dataset.lane, pid=parseInt(row.dataset.pid), id=row.dataset.id;
     const qty=parseFloat(row.querySelector('.tr-qty').value)||0;
-    if(qty>0){ (groups[d]=groups[d]||[]).push({pid,id,qty}); }
+    if(qty>0){ (groups[l]=groups[l]||[]).push({pid,id,qty}); }
   });
-  const destSel={}; document.querySelectorAll('#tr-modal-body .tr-dest').forEach(s=>destSel[s.dataset.dest]=parseInt(s.value));
-  const dests=Object.keys(groups).filter(d=>destSel[d]);
-  if(!dests.length){ document.getElementById('tr-msg').innerHTML='<div class="alert alert-warn">Set a quantity above 0 and pick a destination for at least one line.</div>'; return; }
+  const srcSel={}, destSel={};
+  document.querySelectorAll('#tr-modal-body .tr-src').forEach(s=>srcSel[s.dataset.lane]=parseInt(s.value));
+  document.querySelectorAll('#tr-modal-body .tr-dest').forEach(s=>destSel[s.dataset.lane]=parseInt(s.value));
+  const lanes=Object.keys(groups).filter(l=>srcSel[l]&&destSel[l]);
+  if(!lanes.length){ document.getElementById('tr-msg').innerHTML='<div class="alert alert-warn">Set a quantity above 0 and pick source + destination for at least one lane.</div>'; return; }
   document.getElementById('tr-go').disabled=true;
   const msg=document.getElementById('tr-msg'); msg.innerHTML='<div class="alert alert-info"><span class="spinner"></span> Creating in Odoo…</div>';
   try{
-    const pids=[...new Set([].concat(...dests.map(d=>groups[d].map(x=>x.pid))))];
+    const pids=[...new Set([].concat(...lanes.map(l=>groups[l].map(x=>x.pid))))];
     const uom={}, pname={};
     const prods=await odoo('product.product','read',[pids],{fields:['uom_id','display_name']});
     for(const p of prods){ uom[p.id]=arr(p.uom_id)[0]; pname[p.id]=p.display_name; }
     const made=[];
-    for(const d of dests){
-      const destLoc=destSel[d];
-      const lines=groups[d].map(x=>[0,0,{name:pname[x.pid]||('Transfer '+x.pid), product_id:x.pid, product_uom_qty:x.qty, product_uom:uom[x.pid], location_id:L.src, location_dest_id:destLoc}]);
-      const pickId=await odoo('stock.picking','create',[{picking_type_id:L.pickType, location_id:L.src, location_dest_id:destLoc, move_ids_without_package:lines}]);
+    for(const l of lanes){
+      const srcLoc=srcSel[l], destLoc=destSel[l];
+      const lines=groups[l].map(x=>[0,0,{name:pname[x.pid]||('Transfer '+x.pid), product_id:x.pid, product_uom_qty:x.qty, product_uom:uom[x.pid], location_id:srcLoc, location_dest_id:destLoc}]);
+      const pickId=await odoo('stock.picking','create',[{picking_type_id:L.pickType, location_id:srcLoc, location_dest_id:destLoc, move_ids_without_package:lines}]);
       try{ await odoo('stock.picking','action_confirm',[[pickId]]); }catch(e){ console.warn('action_confirm',e.message); }
       let name='#'+pickId; try{ const rd=await odoo('stock.picking','read',[[pickId]],{fields:['name']}); if(rd&&rd[0]&&rd[0].name) name=rd[0].name; }catch(e){}
-      for(const x of groups[d]) snooze[x.id]={transfer:{id:pickId,name,dest:d,date:todayYmd()}};
+      for(const x of groups[l]) snooze[x.id]={transfer:{id:pickId,name,dest:l,date:todayYmd()}};
       made.push({name,id:pickId});
     }
     await persistSnooze();
