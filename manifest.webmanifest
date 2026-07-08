@@ -1,0 +1,17 @@
+{
+  "id": "/vv-scan.html",
+  "name": "Velovisie Frame Scan",
+  "short_name": "VV Scan",
+  "description": "Scan an arriving painted frame to validate the Deco Coat receipt and transfer to Velovisie in Odoo.",
+  "start_url": "vv-scan.html",
+  "scope": "vv-scan.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#14259b",
+  "theme_color": "#14259b",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
