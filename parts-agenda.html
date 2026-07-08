@@ -135,15 +135,12 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
       <select id="ag-type" onchange="renderAgenda()"><option value="">All tasks</option><option value="order">📦 Order only</option><option value="move">🔀 Move only</option></select>
       <label class="toggle"><input type="checkbox" id="ag-showsnoozed" onchange="renderAgenda()"/> show snoozed</label>
       <label class="toggle"><input type="checkbox" id="ag-showdone" onchange="renderAgenda()"/> show done / PO-created</label>
-      <label class="toggle" title="Group order tasks by their Odoo vendor (load lead times first to populate vendors)"><input type="checkbox" id="ag-groupvendor" onchange="renderAgenda()"/> group orders by vendor</label>
-      <button class="btn btn-sm btn-secondary" onclick="exportOrders()" title="Download a CSV of every order to place (part, qty, vendor, order-by sea/air, needed date)">⬇ Export orders</button>
     </div>
     <div id="bulk-bar" class="bulk-bar" style="display:none">
-      <span id="bulk-count">0 selected</span>
+      <span id="bulk-count">0 moves selected</span>
       <span style="flex:1"></span>
-      <button class="btn btn-sm btn-secondary" onclick="clearSel()">Clear</button>
-      <button class="btn btn-sm btn-primary" id="bulk-po-btn" style="display:none" onclick="openOrderBulk()">📦 Create combined PO(s)</button>
-      <button class="btn btn-sm btn-primary" id="bulk-tr-btn" style="display:none" onclick="openTransferBulk()">🔀 Create internal transfer</button>
+      <button class="btn btn-sm btn-secondary" onclick="clearMoveSel()">Clear</button>
+      <button class="btn btn-sm btn-primary" onclick="openTransferBulk()">🔀 Create internal transfer</button>
     </div>
     <div id="ag-list"></div>
   </div>
@@ -169,8 +166,6 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
       <button class="btn btn-primary" onclick="fetchOdooLeads()">⟳ Load lead times from Odoo</button>
       <div class="field" style="margin:0"><label>Default sea (days)</label><input type="number" id="lt-sea" min="0" value="90" style="width:90px"/></div>
       <div class="field" style="margin:0"><label>Default air (days)</label><input type="number" id="lt-air" min="0" value="30" style="width:90px"/></div>
-      <div class="field" style="margin:0"><label>Order to cover (weeks)</label><input type="number" id="lt-cover" min="0" value="4" style="width:110px" title="Each order is sized to cover at least this many weeks of demand (and the supplier minimum), so you don't place tiny repeat orders"/></div>
-      <div class="field" style="margin:0"><label>Default MOQ</label><input type="number" id="lt-moq" min="0" value="500" style="width:90px" title="Minimum order quantity used when Odoo has no min_qty on the supplier line (applies to MAX BoM parts)"/></div>
       <button class="btn btn-secondary" onclick="saveLeadCfg()">💾 Save</button>
       <span id="lt-status" style="font-size:12px;color:var(--text2)"></span>
     </div>
@@ -215,13 +210,11 @@ const LS_USER='ahooga_agenda_user', LS_KEY='ahooga_agenda_key';
 let odooUid=null;
 let deadlines=null;                                       // active dataset (components or wheels)
 let dsComponents=null, dsWheels=null, agendaSet='components';
-let leadCfg={seaDefault:90, airDefault:30, coverWeeks:4, moqDefault:500, byPart:{}, odoo:{}};   // byPart[pid]={sea,air}; odoo[pid]={delay,vendor,minq}
+let leadCfg={seaDefault:90, airDefault:30, byPart:{}, odoo:{}};   // byPart[pid]={sea,air}; odoo[pid]={delay,vendor}
 let snooze={};
 let calDate=new Date();
 let selectedMoves=new Set();      // item ids selected for a combined internal transfer
-let selectedOrders=new Set();     // order item ids selected for a combined PO (grouped by vendor)
 let transferLocs=null;            // cached {src, dests:{VV,MTB}} resolved from Odoo
-let _orderDraft=null;             // cached supplier resolution for the combined-PO modal
 
 // ── STORE ──
 async function kvGetStore(key){ try{ const r=await fetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`); if(!r.ok) return null; const t=(await r.text()||'').trim(); return (!t||t==='null')?null:JSON.parse(t); }catch(e){ console.warn('store get',key,e.message); return null; } }
@@ -263,6 +256,8 @@ async function odoo(model,method,args,kwargs={}){
     odooUid=parseXml(await r.text());
     if(!odooUid||typeof odooUid!=='number') throw new Error('Authentication failed — check email and API key');
   }
+  // COMPANY LOCK: exclude Ahooga Paris (company 2, closed/unreliable). Force company 1 (Belgium).
+  kwargs=Object.assign({},kwargs); kwargs.context=Object.assign({},kwargs.context,{allowed_company_ids:[1],company_id:1});
   const params=[v(ODOO_DB),v(odooUid),v(key),v(model),v(method),v(args),v(kwargs)];
   const b=`<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>${params.map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
   const r=await fetch(proxyUrl('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
@@ -295,12 +290,9 @@ async function loadAll(toast){
   const [d,wd,cfg,sn]=await Promise.all([ kvGetStore('parts_deadlines'), kvGetStore('wheel_deadlines'), kvGetStore('parts_lead_cfg'), kvGetStore('parts_agenda_snooze') ]);
   dsComponents=d||{items:[]}; dsWheels=wd||{items:[]};
   deadlines=(agendaSet==='wheels'?dsWheels:dsComponents)||{items:[]};
-  if(cfg) leadCfg={seaDefault:cfg.seaDefault??90, airDefault:cfg.airDefault??30, coverWeeks:cfg.coverWeeks??4, moqDefault:cfg.moqDefault??500, byPart:cfg.byPart||{}, odoo:cfg.odoo||{}};
+  if(cfg) leadCfg={seaDefault:cfg.seaDefault??90, airDefault:cfg.airDefault??30, byPart:cfg.byPart||{}, odoo:cfg.odoo||{}};
   snooze=sn||{};
-  pruneStale();   // drop snooze/done/PO state for tasks that no longer exist
   document.getElementById('lt-sea').value=leadCfg.seaDefault; document.getElementById('lt-air').value=leadCfg.airDefault;
-  const cov=document.getElementById('lt-cover'); if(cov) cov.value=leadCfg.coverWeeks;
-  const moq=document.getElementById('lt-moq'); if(moq) moq.value=leadCfg.moqDefault;
   const n=(deadlines.items||[]).length; const when=deadlines.updated?new Date(deadlines.updated).toLocaleString():'—';
   document.getElementById('conn-pill').textContent= n? `${n} tasks · ${when}` : 'no forecast yet';
   document.getElementById('conn-pill').className= n?'pill ok':'pill err';
@@ -310,30 +302,6 @@ async function loadAll(toast){
 }
 
 function transferLead(){ return (deadlines && deadlines.transferLeadDays!=null)? deadlines.transferLeadDays : 3; }
-// Drop snooze/done/PO/transfer state for tasks that no longer exist in the current deadlines,
-// so stale keys don't accumulate and an old "PO created" flag can't mask a fresh shortage.
-// Only prunes within a set that actually loaded items (avoids wiping on a transient empty fetch).
-function pruneStale(){
-  const compIds=new Set((dsComponents.items||[]).map(i=>i.id));
-  const wheelIds=new Set((dsWheels.items||[]).map(i=>i.id));
-  let pruned=false;
-  for(const id of Object.keys(snooze)){
-    const isWheel=/^(worder|wmove):/.test(id);
-    if(isWheel){ if(wheelIds.size && !wheelIds.has(id)){ delete snooze[id]; pruned=true; } }
-    else { if(compIds.size && !compIds.has(id)){ delete snooze[id]; pruned=true; } }
-  }
-  if(pruned) kvSetStore('parts_agenda_snooze', snooze);
-}
-function vendorOf(it){ const o=leadCfg.odoo[it.pid]; return (o&&o.vendor)||''; }
-function moqDefault(){ const el=document.getElementById('lt-moq'); const v=el?parseInt(el.value):NaN; return (!isNaN(v)&&v>=0)?v:(leadCfg.moqDefault||0); }
-// MOQ for a part: Odoo's supplier min_qty if set, else the configured default (Odoo is blank for MAX BoM parts).
-function minqOf(it){ const o=leadCfg.odoo[it.pid]; const m=(o&&o.minq)||0; return m>0?m:moqDefault(); }
-// Suggested order quantity: at least the shortage, the supplier minimum, and enough to cover
-// `coverWeeks` of demand (rate × weeks) — so you don't place a tiny order that re-shortages at once.
-function suggestQty(it){
-  const cover=Math.ceil((it.rate||0)*(leadCfg.coverWeeks||0));
-  return Math.max(1, Math.round(it.qty||0), Math.round(minqOf(it)), cover);
-}
 function setAgendaSet(x){ agendaSet=x; deadlines=(x==='wheels'?dsWheels:dsComponents)||{items:[]}; updateSetButtons(); renderAgenda(); renderCalendar(); renderLeadTable(); renderDone(); }
 function updateSetButtons(){
   const cN=(dsComponents&&dsComponents.items)?dsComponents.items.length:0, wN=(dsWheels&&dsWheels.items)?dsWheels.items.length:0;
@@ -387,28 +355,15 @@ function renderAgenda(){
     k('Orders to place', orders, 'var(--purple)')+
     k('Moves AND→VV', moves, 'var(--teal)')+
     k('Snoozed', snoozedA.length, 'var(--text3)');
-  const groupVendor=document.getElementById('ag-groupvendor')?.checked;
   let html='';
   if(!active.length && !(showSnoozed&&snoozedA.length) && !(showDone&&doneA.length)) html=`<div class="empty">Nothing to do 🎉 — no parts need an order or a move based on the current forecast.</div>`;
-  if(active.length){
-    if(groupVendor){
-      const orders=active.filter(i=>i.type==='order'), moves=active.filter(i=>i.type==='move');
-      const byV={}; for(const it of orders){ const v=vendorOf(it)||'— vendor not loaded (run Load lead times) —'; (byV[v]=byV[v]||[]).push(it); }
-      html+=`<div class="ag-group-hd">To do · ${active.length}</div>`;
-      for(const v of Object.keys(byV).sort()){ html+=`<div class="ag-group-hd" style="text-transform:none;color:var(--accent)">📦 ${esc(v)} · ${byV[v].length}</div>`+byV[v].map(itemHtml).join(''); }
-      if(moves.length) html+=`<div class="ag-group-hd" style="text-transform:none;color:var(--teal)">🔀 Moves AND→VV · ${moves.length}</div>`+moves.map(itemHtml).join('');
-    } else {
-      html+=`<div class="ag-group-hd">To do · ${active.length}</div>`+active.map(itemHtml).join('');
-    }
-  }
+  if(active.length) html+=`<div class="ag-group-hd">To do · ${active.length}</div>`+active.map(itemHtml).join('');
   if(showSnoozed && snoozedA.length) html+=`<div class="ag-group-hd">Snoozed · ${snoozedA.length}</div>`+snoozedA.map(itemHtml).join('');
   if(showDone && doneA.length) html+=`<div class="ag-group-hd">Done / PO created · ${doneA.length}</div>`+doneA.map(itemHtml).join('');
   list.innerHTML=html;
-  // keep selections limited to tasks still shown as active
+  // keep selection limited to moves still shown as active
   const activeMoveIds=new Set(active.filter(i=>i.type==='move').map(i=>i.id));
-  const activeOrderIds=new Set(active.filter(i=>i.type==='order').map(i=>i.id));
   for(const id of [...selectedMoves]) if(!activeMoveIds.has(id)) selectedMoves.delete(id);
-  for(const id of [...selectedOrders]) if(!activeOrderIds.has(id)) selectedOrders.delete(id);
   updateBulkBar();
 }
 function itemHtml(it){
@@ -418,15 +373,8 @@ function itemHtml(it){
   const dueTxt = du==null?'' : (du<0?`<span class="tag over">${-du}d overdue</span>`:(du===0?'today':`in ${du}d`));
   let sub='', dateBlock='', actions='';
   if(it.type==='order'){
-    const loc=it.tier==='MTB'?'MTB':'VV';
-    const ven=vendorOf(it); const sugg=suggestQty(it);
-    const qtyTxt = sugg>it.qty ? `<b>${fmt(sugg)}</b> <span style="color:var(--text3)">(short ${fmt(it.qty)}, sized to cover ${leadCfg.coverWeeks||0}w/MOQ)</span>` : `<b>${fmt(it.qty)}</b>`;
-    sub=`Order ${qtyTxt} · runs out at ${loc} <b>${fmtD(it.neededDate)}</b> · ${esc(it.category)}${ven?` · <span style="color:var(--text2)">${esc(ven)}</span>`:''}`;
-    const seaD=daysUntil(it.orderBySea), airD=daysUntil(it.orderByAir);
-    let feas='';
-    if(seaD<0 && airD>=0) feas=`<div style="margin-top:2px;font-size:10px;color:var(--warn)">sea missed · ✈ air by ${fmtD(it.orderByAir)}</div>`;
-    else if(seaD<0 && airD<0) feas=`<div style="margin-top:2px;font-size:10px;color:var(--danger)">⚠ sea &amp; air both late</div>`;
-    dateBlock=`<div class="item-date"><span class="tag sea">sea</span> <b>${fmtD(it.orderBySea)}</b><br><span class="tag air">air</span> ${fmtD(it.orderByAir)}<div style="margin-top:3px">${dueTxt}</div>${feas}</div>`;
+    const loc=it.tier==='MTB'?'MTB':'VV'; sub=`Order <b>${fmt(it.qty)}</b> · runs out at ${loc} <b>${fmtD(it.neededDate)}</b> · ${esc(it.category)}`;
+    dateBlock=`<div class="item-date"><span class="tag sea">sea</span> <b>${fmtD(it.orderBySea)}</b><br><span class="tag air">air</span> ${fmtD(it.orderByAir)}<div style="margin-top:3px">${dueTxt}</div></div>`;
   } else {
     const dest=it.moveTo==='MTB'?'MTB':'Velovisie'; sub=`Move <b>${fmt(it.qty)}</b> from AND → ${dest} · needed at ${dest} <b>${fmtD(it.neededDate)}</b> · ${esc(it.category)}`;
     dateBlock=`<div class="item-date">move by <b>${fmtD(it.moveBy)}</b><div style="margin-top:3px">${dueTxt}</div></div>`;
@@ -445,8 +393,6 @@ function itemHtml(it){
   }
   const checkbox = (st==='active' && it.type==='move')
     ? `<input type="checkbox" class="mv-check" data-id="${esc(it.id)}" ${selectedMoves.has(it.id)?'checked':''} onchange="toggleMoveSel('${it.id}',this.checked)" title="select for a combined transfer"/>`
-    : (st==='active' && it.type==='order')
-    ? `<input type="checkbox" class="mv-check" data-id="${esc(it.id)}" ${selectedOrders.has(it.id)?'checked':''} onchange="toggleOrderSel('${it.id}',this.checked)" title="select for a combined PO (grouped by vendor)"/>`
     : '';
   return `<div class="${cls}">${checkbox}<div class="item-ico">${ico}</div><div class="item-main"><div class="item-title">${esc(it.name)}</div><div class="item-sub">${sub}</div></div>${dateBlock}<div class="item-actions">${actions}</div></div>`;
 }
@@ -485,17 +431,8 @@ async function unsnooze(id){ delete snooze[id]; await persistSnooze(); renderAge
 // ── INTERNAL TRANSFER (AND → Velovisie / MTB) ──
 function destOf(it){ return it.moveTo==='MTB' ? 'MTB' : 'VV'; }
 function toggleMoveSel(id,on){ if(on) selectedMoves.add(id); else selectedMoves.delete(id); updateBulkBar(); }
-function toggleOrderSel(id,on){ if(on) selectedOrders.add(id); else selectedOrders.delete(id); updateBulkBar(); }
-function clearSel(){ selectedMoves.clear(); selectedOrders.clear(); document.querySelectorAll('.mv-check').forEach(c=>c.checked=false); updateBulkBar(); }
-function clearMoveSel(){ clearSel(); }
-function updateBulkBar(){
-  const bar=document.getElementById('bulk-bar'); if(!bar) return;
-  const no=selectedOrders.size, nm=selectedMoves.size, n=no+nm;
-  bar.style.display=n?'flex':'none';
-  const c=document.getElementById('bulk-count'); if(c){ const parts=[]; if(no)parts.push(`${no} order${no===1?'':'s'}`); if(nm)parts.push(`${nm} move${nm===1?'':'s'}`); c.textContent=(parts.join(' + ')||'0')+' selected'; }
-  const pob=document.getElementById('bulk-po-btn'); if(pob) pob.style.display=no?'inline-flex':'none';
-  const trb=document.getElementById('bulk-tr-btn'); if(trb) trb.style.display=nm?'inline-flex':'none';
-}
+function clearMoveSel(){ selectedMoves.clear(); document.querySelectorAll('.mv-check').forEach(c=>c.checked=false); updateBulkBar(); }
+function updateBulkBar(){ const bar=document.getElementById('bulk-bar'); if(!bar) return; const n=selectedMoves.size; bar.style.display=n?'flex':'none'; const c=document.getElementById('bulk-count'); if(c) c.textContent=`${n} move${n===1?'':'s'} selected`; }
 
 async function resolveTransferLocs(){
   if(transferLocs) return transferLocs;
@@ -601,7 +538,7 @@ function renderCalendar(){
   for(let d=1;d<=daysInMonth;d++){
     const ds=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const items=byDate[ds]||[]; const isToday=ds===today;
-    let pills=items.slice(0,4).map(it=>{ const over=daysUntil(it.actionDate)<0; const c=over?'over':it.type; const tip=it.type==='order'?`${esc(it.name)} — order by sea ${fmtD(it.orderBySea)} (air ${fmtD(it.orderByAir)}) · needed ${fmtD(it.neededDate)}`:`${esc(it.name)} — move by ${fmtD(it.moveBy)} · needed ${fmtD(it.neededDate)}`; return `<span class="cal-pill ${c}" title="${tip}" onclick="openDay('${ds}')">${it.type==='order'?'📦':'🔀'} ${esc(it.name.replace(/^\[[^\]]*\]\s*/,'').slice(0,16))}</span>`; }).join('');
+    let pills=items.slice(0,4).map(it=>{ const over=daysUntil(it.actionDate)<0; const c=over?'over':it.type; return `<span class="cal-pill ${c}" title="${esc(it.name)}" onclick="openDay('${ds}')">${it.type==='order'?'📦':'🔀'} ${esc(it.name.replace(/^\[[^\]]*\]\s*/,'').slice(0,16))}</span>`; }).join('');
     if(items.length>4) pills+=`<span class="cal-pill" style="background:var(--surface2);color:var(--text2)" onclick="openDay('${ds}')">+${items.length-4} more</span>`;
     html+=`<div class="cal-day ${isToday?'today':''}"><div class="cal-daynum">${d}</div>${pills}</div>`;
   }
@@ -635,8 +572,8 @@ async function fetchOdooLeads(){
     const odoMap={};
     for(let i=0;i<pids.length;i+=200){
       const chunk=pids.slice(i,i+200);
-      const si=await odoo('product.supplierinfo','search_read',[[['product_id','in',chunk]]],{fields:['product_id','partner_id','delay','min_qty'],order:'sequence,min_qty'});
-      for(const s of si){ const pid=arr(s.product_id)[0]; if(pid==null||odoMap[pid]) continue; odoMap[pid]={delay:s.delay, vendor:arr(s.partner_id)[1]||'', minq:s.min_qty||0}; }
+      const si=await odoo('product.supplierinfo','search_read',[[['product_id','in',chunk]]],{fields:['product_id','partner_id','delay'],order:'sequence,min_qty'});
+      for(const s of si){ const pid=arr(s.product_id)[0]; if(pid==null||odoMap[pid]) continue; odoMap[pid]={delay:s.delay, vendor:arr(s.partner_id)[1]||''}; }
     }
     // parts whose supplierinfo is on the template, not the variant
     const missing=pids.filter(p=>!odoMap[p]);
@@ -645,7 +582,7 @@ async function fetchOdooLeads(){
       const tmplOf={}, tmpls=[]; for(const pr of prods){ const t=arr(pr.product_tmpl_id)[0]; if(t){ tmplOf[pr.id]=t; tmpls.push(t); } }
       if(tmpls.length){
         const byTmpl={};
-        for(let i=0;i<tmpls.length;i+=200){ const chunk=tmpls.slice(i,i+200); const si=await odoo('product.supplierinfo','search_read',[[['product_tmpl_id','in',chunk]]],{fields:['product_tmpl_id','partner_id','delay','min_qty'],order:'sequence,min_qty'}); for(const s of si){ const t=arr(s.product_tmpl_id)[0]; if(t==null||byTmpl[t]) continue; byTmpl[t]={delay:s.delay,vendor:arr(s.partner_id)[1]||'',minq:s.min_qty||0}; } }
+        for(let i=0;i<tmpls.length;i+=200){ const chunk=tmpls.slice(i,i+200); const si=await odoo('product.supplierinfo','search_read',[[['product_tmpl_id','in',chunk]]],{fields:['product_tmpl_id','partner_id','delay'],order:'sequence,min_qty'}); for(const s of si){ const t=arr(s.product_tmpl_id)[0]; if(t==null||byTmpl[t]) continue; byTmpl[t]={delay:s.delay,vendor:arr(s.partner_id)[1]||''}; } }
         for(const p of missing){ const t=tmplOf[p]; if(t&&byTmpl[t]) odoMap[p]=byTmpl[t]; }
       }
     }
@@ -660,8 +597,6 @@ async function fetchOdooLeads(){
 async function saveLeadCfg(){
   leadCfg.seaDefault=parseInt(document.getElementById('lt-sea').value)||0;
   leadCfg.airDefault=parseInt(document.getElementById('lt-air').value)||0;
-  const cov=document.getElementById('lt-cover'); leadCfg.coverWeeks=cov?(parseInt(cov.value)||0):leadCfg.coverWeeks;
-  const moq=document.getElementById('lt-moq'); leadCfg.moqDefault=moq?(parseInt(moq.value)||0):leadCfg.moqDefault;
   const byPart={};
   document.querySelectorAll('#lt-rows input').forEach(inp=>{ const pid=inp.dataset.pid, mode=inp.dataset.mode, val=inp.value.trim(); if(val!==''){ (byPart[pid]=byPart[pid]||{})[mode]=parseInt(val)||0; } });
   leadCfg.byPart=byPart;
@@ -687,21 +622,19 @@ async function openPO(id){
   if(!user||!key){ showTab('connect'); alert_('Add your Odoo email + API key first, then come back and hit Create PO.','warn'); return; }
   const m=document.getElementById('po-modal'), body=document.getElementById('po-modal-body');
   body.innerHTML=`<div style="text-align:center;padding:20px"><span class="spinner"></span> Looking up vendor for ${esc(it.name)}…</div>`; m.classList.add('open');
-  let vendors=[], defVendor=null, defPrice=0, defMinq=0;
+  let vendors=[], defVendor=null, defPrice=0;
   try{
     let infos=await odoo('product.supplierinfo','search_read',[[['product_id','=',it.pid]]],{fields:['partner_id','price','delay','min_qty'],order:'sequence,min_qty',limit:5});
     if(!infos||!infos.length){ const pr=await odoo('product.product','read',[[it.pid]],{fields:['product_tmpl_id']}); const tmpl=pr&&pr[0]&&arr(pr[0].product_tmpl_id)[0]; if(tmpl) infos=await odoo('product.supplierinfo','search_read',[[['product_tmpl_id','=',tmpl]]],{fields:['partner_id','price','delay','min_qty'],order:'sequence,min_qty',limit:5}); }
-    if(infos&&infos.length){ defVendor=arr(infos[0].partner_id)[0]; defPrice=infos[0].price||0; defMinq=infos[0].min_qty||0; vendors=infos.map(i=>({id:arr(i.partner_id)[0],name:arr(i.partner_id)[1],price:i.price||0})).filter(x=>x.id); }
+    if(infos&&infos.length){ defVendor=arr(infos[0].partner_id)[0]; defPrice=infos[0].price||0; vendors=infos.map(i=>({id:arr(i.partner_id)[0],name:arr(i.partner_id)[1],price:i.price||0})).filter(x=>x.id); }
   }catch(e){}
   if(!vendors.length){ try{ const ps=await odoo('res.partner','search_read',[[['supplier_rank','>',0]]],{fields:['name'],order:'name',limit:300}); vendors=ps.map(p=>({id:p.id,name:p.name,price:0})); }catch(e){} }
   const vOpts=vendors.map(x=>`<option value="${x.id}" data-price="${x.price}" ${x.id===defVendor?'selected':''}>${esc(x.name)}${x.price?(' · €'+x.price):''}</option>`).join('');
-  const moq=defMinq>0?defMinq:moqDefault();
-  const defQty=Math.max(1, suggestQty(it), Math.round(moq));
   body.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px"><b>Create draft PO</b><button class="btn btn-secondary btn-sm" onclick="document.getElementById('po-modal').classList.remove('open')">Close</button></div>
     <div style="font-size:13px;margin-bottom:14px">${esc(it.name)}<div style="font-size:12px;color:var(--text3)">${esc(it.category)} · runs out at ${it.tier==='MTB'?'MTB':'VV'} ${fmtD(it.neededDate)}</div></div>
     <div class="field"><label>Vendor</label><select id="po-vendor" onchange="poVendorChange()">${vOpts||'<option value="">— no vendor found —</option>'}</select></div>
-    <div class="field"><label>Quantity</label><input type="number" id="po-qty" min="1" value="${defQty}"/><div class="hint">shortage ${fmt(it.qty)} · MOQ ${fmt(moq)}${defMinq>0?'':' (default)'}${it.rate?` · ~${it.rate}/wk × ${leadCfg.coverWeeks||0}w cover`:''}</div></div>
+    <div class="field"><label>Quantity</label><input type="number" id="po-qty" min="1" value="${Math.max(1,it.qty)}"/></div>
     <div class="field"><label>Unit price (optional)</label><input type="number" id="po-price" min="0" step="0.01" value="${defPrice||''}"/></div>
     <div class="field"><label>Planned receipt date (into AND)</label><input type="date" id="po-date" value="${it.needAtAnd||todayYmd()}"/><div class="hint">Default = when the part must be in AND (shortage − ${transferLead()}d transfer).</div></div>
     <div id="po-msg"></div>
@@ -731,87 +664,6 @@ async function submitPO(id){
   }catch(e){ document.getElementById('po-go').disabled=false; msg.innerHTML='<div class="alert alert-err">Failed: '+esc(e.message)+'</div>'; }
 }
 
-// ── CONSOLIDATED PO (group selected orders by vendor → one draft PO each) ──
-function openOrderOne(id){ selectedOrders=new Set([id]); openOrderBulk(); }
-async function openOrderBulk(){
-  const user=document.getElementById('cfg-user').value.trim(), key=document.getElementById('cfg-key').value.trim();
-  if(!user||!key){ showTab('connect'); alert_('Add your Odoo email + API key first, then come back and create the PO.','warn'); return; }
-  const ids=[...selectedOrders];
-  const items=(deadlines.items||[]).map(computeItem).filter(it=>ids.includes(it.id) && it.type==='order' && stateOf(it)==='active');
-  if(!items.length){ alert_('Select at least one order first (tick the boxes), or use “Create PO” on a row.','warn'); return; }
-  const m=document.getElementById('po-modal'), body=document.getElementById('po-modal-body');
-  body.innerHTML=`<div style="text-align:center;padding:20px"><span class="spinner"></span> Resolving vendors from Odoo…</div>`; m.classList.add('open');
-  const pids=[...new Set(items.map(it=>it.pid))];
-  const supByPid={};
-  try{
-    const si=await odoo('product.supplierinfo','search_read',[[['product_id','in',pids]]],{fields:['product_id','partner_id','price','min_qty'],order:'sequence,min_qty'});
-    for(const s of si){ const pid=arr(s.product_id)[0]; if(pid==null||supByPid[pid]) continue; supByPid[pid]={vendor:arr(s.partner_id)[0], vendorName:arr(s.partner_id)[1]||'', price:s.price||0, minq:s.min_qty||0}; }
-    const missing=pids.filter(p=>!supByPid[p]);
-    if(missing.length){
-      const prods=await odoo('product.product','read',[missing],{fields:['product_tmpl_id']});
-      const tmplOf={}, tmpls=[]; for(const pr of prods){ const t=arr(pr.product_tmpl_id)[0]; if(t){ tmplOf[pr.id]=t; tmpls.push(t); } }
-      if(tmpls.length){ const si2=await odoo('product.supplierinfo','search_read',[[['product_tmpl_id','in',tmpls]]],{fields:['product_tmpl_id','partner_id','price','min_qty'],order:'sequence,min_qty'}); const byT={}; for(const s of si2){ const t=arr(s.product_tmpl_id)[0]; if(t==null||byT[t]) continue; byT[t]={vendor:arr(s.partner_id)[0], vendorName:arr(s.partner_id)[1]||'', price:s.price||0, minq:s.min_qty||0}; } for(const p of missing){ const t=tmplOf[p]; if(t&&byT[t]) supByPid[p]=byT[t]; } }
-    }
-  }catch(e){}
-  let allVendors=[]; try{ const ps=await odoo('res.partner','search_read',[[['supplier_rank','>',0]]],{fields:['name'],order:'name',limit:500}); allVendors=ps.map(p=>({id:p.id,name:p.name})); }catch(e){}
-  _orderDraft={supByPid, allVendors};
-  const groups={}; for(const it of items){ const s=supByPid[it.pid]||{}; const vid=s.vendor||0; (groups[vid]=groups[vid]||[]).push(it); }
-  const vOptsFor=(sel)=> allVendors.map(v=>`<option value="${v.id}" ${v.id===sel?'selected':''}>${esc(v.name)}</option>`).join('');
-  let html=`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px"><b>Create combined PO${Object.keys(groups).length>1?'s':''}</b><button class="btn btn-secondary btn-sm" onclick="document.getElementById('po-modal').classList.remove('open')">Close</button></div>
-    <div style="font-size:12px;color:var(--text3);margin-bottom:12px">One draft PO per vendor, quantities pre-sized to cover ${leadCfg.coverWeeks||0} weeks / the supplier minimum. Review &amp; confirm in Odoo.</div>`;
-  for(const vid of Object.keys(groups)){
-    const arrItems=groups[vid]; const vname=(supByPid[arrItems[0].pid]||{}).vendorName||'';
-    html+=`<div class="tr-grp"><h4>→ ${esc(vname||'pick a vendor')} (${arrItems.length})</h4>
-      <div class="field" style="margin-bottom:8px"><label>Vendor</label><select class="po-vend">${vOptsFor(parseInt(vid)||0)||'<option value="">— none found —</option>'}</select></div>`;
-    for(const it of arrItems){ const s=supByPid[it.pid]||{}; const q=Math.max(1, suggestQty(it), Math.round(s.minq||0));
-      html+=`<div class="tr-line" data-pid="${it.pid}" data-id="${esc(it.id)}" data-price="${s.price||0}"><span style="flex:1;min-width:0">${esc(it.name)}</span><input type="number" min="1" value="${q}" class="po-qty" style="width:80px"/></div>`;
-    }
-    html+=`</div>`;
-  }
-  html+=`<div id="po-bmsg"></div><button class="btn btn-primary" id="po-bgo" onclick="submitOrderBulk()">Create draft PO(s) in Odoo</button>`;
-  body.innerHTML=html;
-}
-async function submitOrderBulk(){
-  if(!_orderDraft) return;
-  const groups={};
-  document.querySelectorAll('#po-modal-body .tr-grp').forEach(g=>{
-    const vsel=g.querySelector('.po-vend'); const vid=vsel?parseInt(vsel.value):0;
-    const lines=[];
-    g.querySelectorAll('.tr-line').forEach(row=>{ const pid=parseInt(row.dataset.pid), id=row.dataset.id, price=parseFloat(row.dataset.price)||0; const qty=parseFloat(row.querySelector('.po-qty').value)||0; if(qty>0) lines.push({pid,id,qty,price}); });
-    if(vid && lines.length){ groups[vid]=(groups[vid]||[]).concat(lines); }
-  });
-  const vids=Object.keys(groups);
-  if(!vids.length){ document.getElementById('po-bmsg').innerHTML='<div class="alert alert-warn">Pick a vendor and a quantity for at least one line.</div>'; return; }
-  document.getElementById('po-bgo').disabled=true;
-  const msg=document.getElementById('po-bmsg'); msg.innerHTML='<div class="alert alert-info"><span class="spinner"></span> Creating draft PO(s)…</div>';
-  try{
-    const made=[];
-    for(const vid of vids){
-      const ol=groups[vid].map(x=>{ const l={product_id:x.pid, product_qty:x.qty, date_planned:todayYmd()+' 08:00:00'}; if(x.price>0) l.price_unit=x.price; return [0,0,l]; });
-      const poId=await odoo('purchase.order','create',[{partner_id:parseInt(vid), date_order:todayYmd()+' 08:00:00', order_line:ol}]);
-      let name='#'+poId; try{ const rd=await odoo('purchase.order','read',[[poId]],{fields:['name']}); if(rd&&rd[0]&&rd[0].name) name=rd[0].name; }catch(e){}
-      for(const x of groups[vid]) snooze[x.id]={po:{id:poId,name,date:todayYmd()}};
-      made.push({name,id:poId});
-    }
-    await persistSnooze();
-    selectedOrders.clear();
-    const links=made.map(p=>`<a class="odoo-link" href="${ODOO_URL}/odoo/purchase/${p.id}" target="_blank">${esc(p.name)} ↗</a>`).join(' · ');
-    msg.innerHTML=`<div class="alert alert-success">✓ Created ${made.length} draft PO${made.length===1?'':'s'}: ${links} — review &amp; confirm in Odoo.</div>`;
-    renderAgenda(); renderCalendar(); renderDone();
-    setTimeout(()=>document.getElementById('po-modal').classList.remove('open'), 3200);
-  }catch(e){ document.getElementById('po-bgo').disabled=false; msg.innerHTML='<div class="alert alert-err">Failed: '+esc(e.message)+'</div>'; }
-}
-// ── EXPORT upcoming orders (CSV for purchasing) ──
-function exportOrders(){
-  const items=(deadlines.items||[]).map(computeItem).filter(it=>it.type==='order' && stateOf(it)==='active');
-  if(!items.length){ alert_('No active orders to export.','warn'); return; }
-  const hdr=['Part #','Part','Category','Vendor','Shortage qty','Suggested qty','Order-by (sea)','Order-by (air)','Needed at','Tier'];
-  const out=items.sort((a,b)=>(a.actionDate||'9999')<(b.actionDate||'9999')?-1:1).map(it=>[it.partNo||'', it.name.replace(/^\[[^\]]*\]\s*/,''), it.category||'', vendorOf(it), Math.round(it.qty||0), suggestQty(it), it.orderBySea||'', it.orderByAir||'', it.neededDate||'', it.tier||'VV']);
-  const csv=[hdr,...out].map(r=>r.map(c=>{const s=String(c==null?'':c); return s.includes(',')||s.includes('"')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n');
-  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='parts-orders-'+todayYmd()+'.csv'; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
-}
-
 // ── INIT ──
 (function init(){
   const u=localStorage.getItem(LS_USER), k=localStorage.getItem(LS_KEY);
@@ -821,5 +673,18 @@ function exportOrders(){
 })();
 </script>
 <a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+<script>/* AHOOGA_EMBED_HOOK_V1 */
+(function(){
+  var m=(location.hash+location.search).match(/embed=([\w-]+)/);if(!m)return;
+  var sc=m[1];document.documentElement.classList.add('ahooga-embed');
+  var st=document.createElement('style');st.textContent='.ahooga-embed header{display:none!important}.ahooga-embed .ahooga-home{display:none!important}.ahooga-embed main{max-width:860px;padding:14px}.ahooga-embed .explain,.ahooga-embed .kpis,.ahooga-embed .toolbar,.ahooga-embed .bulk-bar,.ahooga-embed .mv-check{display:none!important}.ahooga-embed .item{padding:8px 12px;margin-bottom:5px;border-left-width:3px;align-items:center;gap:10px}.ahooga-embed .item-ico{font-size:15px;width:18px}.ahooga-embed .item-sub{display:none}.ahooga-embed .item-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ahooga-embed .item-date{min-width:auto;font-size:11px;line-height:1.35;text-align:right}.ahooga-embed .item-actions{max-width:none}.ahooga-embed .item-actions .btn-secondary{display:none}.ahooga-embed .ag-group-hd{margin:10px 0 6px;font-size:11px}';if(sc==='transfers')st.textContent+='.ahooga-embed .item.order{display:none!important}';if(sc==='orders')st.textContent+='.ahooga-embed .item.move{display:none!important}';document.head.appendChild(st);
+  function apply(){
+    if(sc==='transfers'||sc==='orders'){if(typeof showTab==='function')showTab('agenda');var t=document.getElementById('ag-type');if(t){t.value=(sc==='orders'?'order':'move');t.disabled=true;}if(typeof renderAgenda==='function')renderAgenda();}
+  }
+  var n=0,iv=setInterval(function(){try{apply()}catch(e){}if(++n>25)clearInterval(iv)},400);
+  if(document.readyState!=='loading')setTimeout(apply,60);
+  else document.addEventListener('DOMContentLoaded',function(){setTimeout(apply,60)});
+})();
+<\/script>
 </body>
 </html>
