@@ -123,11 +123,11 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   .rc-inp{width:100%;padding:11px 12px;border:1px solid #34322a;border-radius:10px;background:#000;color:#f4f1e8;font-size:16px;margin-top:8px}
 </style>
 <div class="tabs2">
-  <button id="t2-reg" class="seg active" onclick="showView('register')">Register serial</button>
-  <button id="t2-rec" class="seg" onclick="showView('receipt')">📦 Velovisie receipt</button>
+  <button id="t2-reg" class="seg" onclick="showView('register')">Register serial</button>
+  <button id="t2-rec" class="seg active" onclick="showView('receipt')">📦 Velovisie receipt</button>
 </div>
 
-<section id="view-register">
+<section id="view-register" style="display:none">
 <div class="card">
   <div id="slot-so" class="slot">
     <div class="n">1</div>
@@ -161,7 +161,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 <div id="recent"><div class="hint" style="text-align:left">—</div></div>
 </section>
 
-<section id="view-receipt" style="display:none">
+<section id="view-receipt">
   <div class="card">
     <div class="lab">Odoo</div>
     <div class="hint">✓ Connected automatically — no login needed. Just scan the arrived frame.</div>
@@ -494,7 +494,7 @@ var _recLog=[];
 function renderReceipts(){ var box=$('rc-recent'); if(!box) return; if(!_recLog.length){ box.innerHTML='<div class="hint" style="text-align:left">No receipts yet this session.</div>'; return; }
   box.innerHTML=_recLog.slice(0,15).map(function(r){ return '<div class="rec"><span class="so">'+r.so+'</span><span class="sr">'+(r.frameId||'')+' · '+(r.name||'')+'</span><span class="t">'+new Date(r.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})+'</span></div>'; }).join(''); }
 
-render(); loadRecent(); showView('register');
+render(); loadRecent(); showView('receipt');
 </script>
 <!-- Home link removed: VV Scan is a standalone end-point app; no navigation back to the portal -->
 </body>
