@@ -185,8 +185,12 @@
     <h4>Pickup &amp; consignee — from the Odoo vendor list</h4>
     <div class="hint" style="margin-bottom:10px">Addresses are read live from Odoo: <b>Deco Coat</b> = pickup, <b>Okazi (Velovisie)</b> = consignee. Run <b>Connect &amp; discover</b> first to populate these.</div>
     <div class="grid2">
-      <label class="fld"><span>Pickup vendor — Deco Coat</span><select id="cfg-pickv"></select></label>
-      <label class="fld"><span>Consignee vendor — Okazi / Velovisie</span><select id="cfg-consv"></select></label>
+      <label class="fld"><span>Pickup vendor — Deco Coat</span>
+        <input type="search" placeholder="type to search vendors…" oninput="vendorSearch(this.value,'cfg-pickv')" style="width:100%;margin-bottom:6px;padding:8px 10px;border:1px solid var(--line,#ccc);border-radius:8px"/>
+        <select id="cfg-pickv"></select></label>
+      <label class="fld"><span>Consignee vendor — Okazi / Velovisie</span>
+        <input type="search" placeholder="type to search… e.g. Okazi" oninput="vendorSearch(this.value,'cfg-consv')" style="width:100%;margin-bottom:6px;padding:8px 10px;border:1px solid var(--line,#ccc);border-radius:8px"/>
+        <select id="cfg-consv"></select></label>
     </div>
     <details>
       <summary>Manual address override — only if a vendor's Odoo address is incomplete</summary>
@@ -269,6 +273,9 @@ function ago(ts){ if(!ts) return ''; const d=Date.now()-Date.parse(String(ts).re
 /* ── settings store ── */
 const SET_KEY='cch_settings';
 let SET = (function(){ try{ return Object.assign({}, JSON.parse(localStorage.getItem(SET_KEY)||'{}')); }catch(e){ return {}; } })();
+/* default vendors for the custom-colour route (Odoo partner IDs) — Deco Coat pickup, Okazi/Velovisie consignee */
+if(!SET.pickupPartnerId){    SET.pickupPartnerId=36210; SET.pickupPartnerName='Deco Coat'; }
+if(!SET.consigneePartnerId){ SET.consigneePartnerId=14896; SET.consigneePartnerName='Okazi Fiets Atelier - Velovisie'; }
 function persist(){ try{ localStorage.setItem(SET_KEY, JSON.stringify(SET)); }catch(e){} }
 
 /* ════════════════════════  Odoo XML-RPC client (from dsv-ship)  ════════════════════════ */
@@ -618,7 +625,7 @@ async function checkWaitshipNotify(){
 async function emailLabelToDecoCoat(bk, sos){
   let to=(SET.decoEmail!==undefined?SET.decoEmail:'wietzehoppe@decocoat.nl').trim();
   if(!to && SET.pickupPartnerId){ try{ const pa=await partnerAddr(SET.pickupPartnerId); to=pa.email||''; }catch(e){} }
-  const cc=(SET.labelCc!==undefined?SET.labelCc:'massimiliano@ahooga.bike').trim();
+  const cc=[(SET.labelCc!==undefined?SET.labelCc:'massimiliano@ahooga.bike'), 'felix@ahooga.bike'].map(s=>String(s||'').trim()).filter(Boolean).filter((v,i,a)=>a.indexOf(v)===i).join(',');
   if(!to && !cc) return { ok:false };
   let attIds=[];
   if(bk.labelBase64){ try{ const id=await odoo('ir.attachment','create',[{name:'DSV-'+bk.bookingId+'.pdf',type:'binary',mimetype:'application/pdf',datas:bk.labelBase64}]); if(id) attIds=[id]; }catch(e){} }
@@ -811,6 +818,20 @@ function saveSettings(){
 }
 window.saveSettings=saveSettings;
 
+let _vsTimer;
+function vendorSearch(term, selId){
+  clearTimeout(_vsTimer);
+  _vsTimer=setTimeout(async ()=>{
+    term=(term||'').trim();
+    try{
+      const dom = term ? [['name','ilike',term]] : [['supplier_rank','>',0]];
+      const vs = await odoo('res.partner','search_read',[dom],{fields:['id','name','city'],limit:50,order:'name'});
+      const cur = $(selId).value ? parseInt($(selId).value) : null;
+      $(selId).innerHTML = opt(vs, cur, x=>x.name+(x.city?' \u00b7 '+x.city:''));
+    }catch(e){}
+  }, 300);
+}
+window.vendorSearch=vendorSearch;
 function opt(list,sel,fmt){ return ['<option value="">— choose —</option>'].concat(list.map(x=>`<option value="${x.id}"${x.id===sel?' selected':''}>${esc(fmt(x))}</option>`)).join(''); }
 async function connectAndDiscover(){
   const st=$('connect-state'); st.textContent='Connecting…'; odooUid=null;
@@ -830,7 +851,7 @@ async function connectAndDiscover(){
     const mpts=await odoo('stock.picking.type','search_read',[[['code','=','mrp_operation']]],{fields:['id','name','warehouse_id'],limit:60,order:'name'});
     $('cfg-mpt').innerHTML=opt(mpts.length?mpts:[],SET.mfgPT,x=>(Array.isArray(x.warehouse_id)?x.warehouse_id[1]+' · ':'')+x.name);
     // vendors (for DSV pickup = Deco Coat, consignee = Okazi / Velovisie)
-    const vendors=await odoo('res.partner','search_read',[[['supplier_rank','>',0]]],{fields:['id','name','city'],limit:400,order:'name'});
+    const vendors=await odoo('res.partner','search_read',[[['supplier_rank','>',0]]],{fields:['id','name','city'],limit:1000,order:'name'});
     const fmtV=x=>x.name+(x.city?' · '+x.city:'');
     $('cfg-pickv').innerHTML=opt(vendors,SET.pickupPartnerId,fmtV);
     $('cfg-consv').innerHTML=opt(vendors,SET.consigneePartnerId,fmtV);
