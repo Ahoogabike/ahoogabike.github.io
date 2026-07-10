@@ -1182,7 +1182,8 @@ async function odooCall(model, method, args, kwargs={}) {
   const body = buildXmlrpc('execute_kw', [
     cfg.db, odooUid, cfg.key,
     model, method, args,
-    {...kwargs}
+    // COMPANY LOCK: exclude Ahooga Paris (company 2, closed/unreliable) -> force company 1
+    Object.assign({}, kwargs, { context: Object.assign({}, kwargs.context, { allowed_company_ids:[1], company_id:1 }) })
   ]);
   const text = await xmlrpcCall('/xmlrpc/2/object', body);
   if(text.includes('<fault>')) {
@@ -1416,6 +1417,12 @@ async function syncOdoo() {
             const t = (arr[j].name||'').replace(/\s+/g,' ').trim();
             if(arr[j].display_type==='line_note' && t){ txt = txt ? (txt+' '+t) : t; }
             else break;                                          // stop at the first non-note line
+          }
+          // fallback: text carried in the DEV line's OWN description (2nd+ line of its name,
+          // e.g. name = "[DEVDEV010101] DEV personalized text decal\nmeins.")
+          if(!txt){
+            const own = String(arr[i].name||'').split('\n').slice(1).join(' ').replace(/\s+/g,' ').trim();
+            if(own) txt = own;
           }
           // fallback: text typed on the same line after a colon ("… text: Hello")
           if(!txt){ const m = nm.match(/personali[sz]ed[^:]*[:\-]\s*(.+)$/i); if(m) txt = m[1].trim(); }
