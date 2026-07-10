@@ -5170,23 +5170,33 @@ function exportPOImport(opts){
   const extId = `AHOOGA_PO_DECOCOAT_${stamp}_${rand}`;
   const VENDOR  = 'Deco Coat';   // must match the vendor name in Odoo
   const PRODUCT = '[FRNAA00260] Frame pre-assy AOFV2C (MAX) (Custom)'; // VERIFY/adjust per frame type
+  const TEXT_PRODUCT = '[DEVDEV010101] DEV personalized text decal';   // DEV personal-text decal
   const PRICE   = 159.00;        // unit price per frame (EUR)
+  const PRICE_TEXT = 60.00;      // extra line when the bike carries personal text (EUR)
   // First row carries the PO header (id + vendor) + first line; later rows leave id/vendor blank
   // so Odoo attaches them to the same purchase order.
   const headers = ['id','partner_id','order_line/product_id','order_line/name','order_line/product_qty','order_line/price_unit'];
   const aoa = [headers];
-  list.forEach((o,i)=>{
+  let rowIdx = 0;
+  list.forEach((o)=>{
     const c = orderCols(o);
     const cfg = `Main: ${c.mainColor||''}${c.mainFinish?` (${c.mainFinish})`:''} | Rear: ${c.rearColor||c.mainColor||''}${c.rearFinish?` (${c.rearFinish})`:''} | Logo: ${c.logoColor||''}${c.logoSize?` (${c.logoSize})`:''}`;
     const desc = `Bike SKU: ${o.sku||''}\nSO#: ${o.name||''}\nConfiguration: ${cfg}`;
-    aoa.push([ i===0?extId:'', i===0?VENDOR:'', PRODUCT, desc, 1, PRICE ]);
+    aoa.push([ rowIdx===0?extId:'', rowIdx===0?VENDOR:'', PRODUCT, desc, 1, PRICE ]);
+    rowIdx++;
+    // Bikes with personal text get an extra DEV text-decal line @ €60 (same rule as the Odoo-create path).
+    const pt = String(c.personalText||'').trim();
+    if(pt){
+      aoa.push([ '', '', TEXT_PRODUCT, `SO# ${o.name||''} · Personal text: ${pt}`, 1, PRICE_TEXT ]);
+      rowIdx++;
+    }
   });
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   ws['!cols'] = [{wch:28},{wch:14},{wch:46},{wch:42},{wch:7},{wch:11}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'PO import');
   XLSX.writeFile(wb, `Odoo PO import - Deco Coat - ${stamp}.xlsx`);
-  formsAlert(`PO import file downloaded · 1 purchase order with ${list.length} line(s) for Deco Coat. Import it in Odoo (Purchase ▸ Orders ▸ Import); Odoo assigns the P0 number, then Sync to pull it back onto the forms.`);
+  formsAlert(`PO import file downloaded · 1 purchase order with ${aoa.length-1} line(s) for Deco Coat. Import it in Odoo (Purchase ▸ Orders ▸ Import); Odoo assigns the P0 number, then Sync to pull it back onto the forms.`);
 }
 
 // ─── CREATE PO DIRECTLY IN ODOO ───────────────────────────────────────────
