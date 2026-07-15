@@ -366,7 +366,37 @@ function showView(v){
   if(v==='receipt') renderReceipts();
 }
 window.showView=showView;
-function rcMsg(text,kind){ var m=$('msg'); m.textContent=text; m.className='msg '+(kind||'err'); if(kind==='ok') setTimeout(function(){m.className='msg';},5000); }
+/* ── scan feedback: sound + vibration + a live session tally ── */
+var _scanLog=[], _scanStats={ok:0,warn:0,fail:0};
+var _ac=null;
+function rcAudio(){ try{ if(!_ac) _ac=new (window.AudioContext||window.webkitAudioContext)(); if(_ac.state==='suspended') _ac.resume(); }catch(e){} return _ac; }
+function rcTone(freq,start,dur,type,gain){ var ac=rcAudio(); if(!ac) return; try{ var o=ac.createOscillator(), g=ac.createGain(); o.type=type||'sine'; o.frequency.value=freq; o.connect(g); g.connect(ac.destination); var t0=ac.currentTime+start; g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(gain||0.3,t0+0.012); g.gain.exponentialRampToValueAtTime(0.0001,t0+dur); o.start(t0); o.stop(t0+dur+0.03);}catch(e){} }
+function rcBeep(kind){
+  if(kind==='ok'){ rcTone(880,0,0.12,'sine',0.35); rcTone(1320,0.11,0.16,'sine',0.35); }
+  else if(kind==='warn'){ rcTone(560,0,0.22,'triangle',0.35); }
+  else { rcTone(200,0,0.32,'sawtooth',0.4); rcTone(140,0.16,0.42,'sawtooth',0.4); }
+}
+function rcVibrate(kind){ try{ if(!navigator.vibrate) return; navigator.vibrate(kind==='ok'?70:(kind==='warn'?[40,60,40]:[240,90,240])); }catch(e){} }
+function escHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function renderScanLog(){
+  var box=$('rc-recent'); if(!box) return;
+  var head='<div style="text-align:left;font-weight:800;font-size:15px;margin-bottom:8px">This session &nbsp; <span style="color:#1a7f4b">✓ '+_scanStats.ok+'</span> &nbsp; <span style="color:#b8860b">⚠ '+_scanStats.warn+'</span> &nbsp; <span style="color:#c81e4a">✗ '+_scanStats.fail+'</span></div>';
+  if(!_scanLog.length){ box.innerHTML=head+'<div class="hint" style="text-align:left">No scans yet this session.</div>'; return; }
+  box.innerHTML=head+_scanLog.slice(0,40).map(function(r){
+    var c=r.kind==='ok'?'#1a7f4b':(r.kind==='warn'?'#b8860b':'#c81e4a');
+    var ic=r.kind==='ok'?'✓':(r.kind==='warn'?'⚠':'✗');
+    return '<div class="rec" style="border-left:4px solid '+c+';padding:4px 0 4px 8px;margin-bottom:4px;text-align:left">'
+      +'<span style="color:'+c+';font-weight:800">'+ic+'</span> '
+      +'<span>'+escHtml(r.text)+'</span> '
+      +'<span class="t" style="opacity:.55;font-size:12px">'+new Date(r.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})+'</span></div>';
+  }).join('');
+}
+function rcMsg(text,kind){
+  kind=kind||'err';
+  var m=$('msg'); if(m){ m.textContent=text; m.className='msg '+kind; if(kind==='ok') setTimeout(function(){ if(m.className==='msg '+kind) m.className='msg'; },6000); }
+  try{ rcBeep(kind); rcVibrate(kind); }catch(e){}
+  if(rc && rc.busy){ _scanLog.unshift({text:text,kind:kind,ts:Date.now()}); if(kind==='ok')_scanStats.ok++; else if(kind==='warn')_scanStats.warn++; else _scanStats.fail++; renderScanLog(); }
+}
 
 var rc={ scanner:null, scanning:false, busy:false };
 $('rc-conn').onclick=async function(){ var c=rcCreds(); if(!c.user||!c.key){ rcMsg('Enter your Odoo email and password / API key.'); return; }
@@ -381,7 +411,7 @@ async function rcStartCam(){
   if(!window.isSecureContext && !/^localhost|^127\./.test(location.hostname)){ rcMsg('Camera needs a secure https address.'); return; }
   if(!rc.scanner) rc.scanner=new Html5Qrcode('reader2', (typeof SUPPORTED!=='undefined'&&SUPPORTED)?{formatsToSupport:SUPPORTED,verbose:false}:{verbose:false});
   var conf={fps:12,qrbox:function(w,h){var m=Math.floor(Math.min(w,h)*0.8);return {width:m,height:Math.floor(m*0.62)};}};
-  var R=$('reader2'); R.style.display='block'; void R.offsetWidth; rc.scanning=true; $('rc-scan').textContent='■ Stop camera'; $('rc-hint').textContent='Point at the SO label on the frame.';
+  var R=$('reader2'); R.style.display='block'; void R.offsetWidth; rc.scanning=true; try{rcAudio();}catch(e){} $('rc-scan').textContent='■ Stop camera'; $('rc-hint').textContent='Point at the SO label on the frame.';
   try{ await rc.scanner.start({facingMode:'environment'},conf,function(t){rcDetected(t);},function(){}); }
   catch(e1){ try{ var cams=await Html5Qrcode.getCameras(); var back=(cams&&cams.length)?((cams.find(function(c){return /back|rear|environment|achter|arri/i.test(c.label||'');}))||cams[cams.length-1]):null; if(!back) throw e1; await rc.scanner.start(back.id,conf,function(t){rcDetected(t);},function(){}); }
     catch(e2){ rc.scanning=false; R.style.display='none'; $('rc-scan').textContent='📷 Scan SO label'; rcMsg('Camera could not start ('+((e2&&(e2.name||e2.message))||e2)+'). Use “Type SO / serial”.'); } }
@@ -455,7 +485,7 @@ async function receiveFrame(code){
   /* guard against a re-scan: if this order was already transferred to Velovisie, stop */
   try{
     var already=await odoo('stock.picking','search_read',[[['origin','=',so],['location_dest_id','=',LOC_VELOVISIE],['state','=','done']]],{fields:['name'],limit:1});
-    if(already&&already.length){ rcMsg('✓ '+so+' was already received & transferred to Velovisie ('+already[0].name+').','ok'); $('rc-hint').textContent=''; return; }
+    if(already&&already.length){ rcMsg('⚠ '+so+' was already received earlier ('+already[0].name+') — nothing to do.','warn'); $('rc-hint').textContent=''; return; }
   }catch(e){}
 
   var done=[];
@@ -498,11 +528,10 @@ async function receiveFrame(code){
   try{ await notifyFelixScan(so, poName); }catch(e){}
   await rcStopCam();
   rcMsg('✓ '+so+' received — '+poName+' receipt validated, moved to warehouse, transferred to Velovisie ('+done.join(', ')+'). Sent to the PO Builder as ready to build.','ok');
-  $('rc-hint').textContent=''; _recLog.unshift({so:so,frameId:serial,name:newPickName||poName,ts:new Date().toISOString()}); renderReceipts();
+  $('rc-hint').textContent=''; renderScanLog();
 }
 var _recLog=[];
-function renderReceipts(){ var box=$('rc-recent'); if(!box) return; if(!_recLog.length){ box.innerHTML='<div class="hint" style="text-align:left">No receipts yet this session.</div>'; return; }
-  box.innerHTML=_recLog.slice(0,15).map(function(r){ return '<div class="rec"><span class="so">'+r.so+'</span><span class="sr">'+(r.frameId||'')+' · '+(r.name||'')+'</span><span class="t">'+new Date(r.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})+'</span></div>'; }).join(''); }
+function renderReceipts(){ renderScanLog(); }
 
 render(); loadRecent(); showView('receipt');
 </script>
