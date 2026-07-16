@@ -102,7 +102,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 </head>
 <body>
 <header>
-  <div class="logo">DPD <span class="b">Ship</span> <span class="tag">Odoo → DPD</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑07‑02 (draft≠sent clarity + live DPD status)</span></div>
+  <div class="logo">DPD <span class="b">Ship</span> <span class="tag">Odoo → DPD</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑07‑02c (+ editable sender per shipment)</span></div>
   <div class="pills">
     <span id="dpd-pill" class="pill">DPD: ?</span>
     <span id="conn-pill" class="pill">Not connected</span>
@@ -524,6 +524,14 @@ function detailHtml(d,id){
           <div class="fld" style="flex:2"><label>Predict email</label><input id="pe-${id}" value="${esc(contactEmail)}" placeholder="recipient@email"/></div>
           <div class="fld" style="flex:2"><label>Predict SMS</label><input id="ps-${id}" value="${esc(contactPhone)}" placeholder="+32…"/></div>
         </div>
+        <div class="minif" style="margin-top:8px">
+          <div class="fld" style="flex:2"><label>Sender — DPD collects from</label><input id="sn-name-${id}" value="${esc((sender||{}).name||'')}" placeholder="AHOOGA"/></div>
+          <div class="fld" style="flex:3"><label>Street</label><input id="sn-street-${id}" value="${esc((sender||{}).street||'')}" placeholder="street + number"/></div>
+          <div class="fld" style="flex:1"><label>Zip</label><input id="sn-zip-${id}" value="${esc((sender||{}).zip||'')}"/></div>
+          <div class="fld" style="flex:2"><label>City</label><input id="sn-city-${id}" value="${esc((sender||{}).city||'')}"/></div>
+          <div class="fld" style="flex:1"><label>Country</label><input id="sn-cc-${id}" value="${esc((sender||{}).countryCode||'')}" placeholder="BE"/></div>
+        </div>
+        <div class="cap">Sender = where DPD collects the parcel. Pre-filled with your warehouse; edit here if this shipment leaves from elsewhere.</div>
         <label class="chk"><input type="checkbox" id="pn-${id}" ${defs.predict?'checked':''}/> Send DPD <b>Predict</b> notification to recipient</label>
         <label class="chk"><input type="checkbox" id="ab-${id}"/> Submit as <b>final booking</b> (unchecked = draft in myDPD)</label>
         <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn red sm bk-${id}" onclick="bookDelivery('${id}')">Book with DPD →</button></div>
@@ -542,7 +550,8 @@ async function bookDelivery(id){
   out.innerHTML='';
   try{
     const cc=Array.isArray(p.country_id)?(_ccache[p.country_id[0]]||''):'';
-    const defs=getDefaults(); const sender=getSender();
+    const defs=getDefaults();
+    const sender={ name:($('sn-name-'+id)?.value||'').trim(), street:($('sn-street-'+id)?.value||'').trim(), zip:($('sn-zip-'+id)?.value||'').trim(), city:($('sn-city-'+id)?.value||'').trim(), countryCode:($('sn-cc-'+id)?.value||'').trim().toUpperCase() };
     const rows=pkgRead(id);
     const parcels=[];
     rows.forEach(r=>{ const q=Math.max(1,r.qty||1); for(let k=0;k<q;k++){ parcels.push({ weight:Number(r.weight)||defs.weight, length:Number(r.l)||defs.length, width:Number(r.w)||defs.width, height:Number(r.h)||defs.height, content:((r.content||soOf(d)||'Accessories / spare parts')).slice(0,35) }); } });
@@ -553,7 +562,7 @@ async function bookDelivery(id){
       autobook: !!$('ab-'+id)?.checked,
       service: defs.service,
       cargoDesc: (soOf(d)||'Accessories / spare parts').slice(0,35),
-      sender: sender||undefined,
+      sender: (sender.street||sender.city||sender.zip||sender.name)?sender:undefined,
       parcels, totalWeight,
       predict: predict ? {
         enabled:true,
@@ -597,7 +606,8 @@ async function bookDelivery(id){
 
 /* ── defaults + sender (editable in Settings, stored on this device) ── */
 function getDefaults(){ try{ return Object.assign({service:'Classic',predict:true,predictChannel:'email',weight:2,length:30,width:20,height:15}, JSON.parse(localStorage.getItem('dpd_defaults')||'{}')); }catch(e){ return {service:'Classic',predict:true,predictChannel:'email',weight:2,length:30,width:20,height:15}; } }
-function getSender(){ try{ const v=JSON.parse(localStorage.getItem('dpd_sender')||'null'); return (v&&typeof v==='object')?v:null; }catch(e){ return null; } }
+const DPD_SENDER_DEFAULT={ name:'AHOOGA', street:'rue Henri-Joseph Genesse 34 A7', zip:'1070', city:'Anderlecht', countryCode:'BE' };
+function getSender(){ try{ const v=JSON.parse(localStorage.getItem('dpd_sender')||'null'); if(v&&typeof v==='object'&&(v.street||v.city||v.zip||v.name)) return v; }catch(e){} return DPD_SENDER_DEFAULT; }
 
 /* ── open a base64 PDF in a new tab (for printing) ── */
 function openPdf(b64,name){
