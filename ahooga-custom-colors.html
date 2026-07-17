@@ -750,7 +750,8 @@ const AHOOGA_PALETTE = {
   'belgian chocolate':'#493935','purple pulse':'#6E2070','poppy pink':'#E8547E',
   'lemon glow':'#DCE89B','taxi yellow':'#F1C535','golden hour':'#DB9A52',
   'bay breeze blue':'#1E89A0','mint vibe':'#85BD94','central park green':'#0B6B3B',
-  'street olive':'#4E4F2A','urban reef blue':'#3C5359'
+  'street olive':'#4E4F2A','urban reef blue':'#3C5359',
+  'castle bronze':'#7A5A34'   // approximate swatch
 };
 function colourHex(name){ return name ? (AHOOGA_PALETTE[String(name).trim().toLowerCase()]||'') : ''; }
 
@@ -766,7 +767,8 @@ const COLOUR_REF = {
   'poppy pink':{ref:'MH1118',primer:'Wit'}, 'street olive':{ref:'MH0961',primer:'Zwart'},
   'purple pulse':{ref:'MH0949',primer:'Zwart'}, 'skyline blue':{ref:'MH0953',primer:'Wit'},
   'bay breeze blue':{ref:'MH0954',primer:'Wit'}, 'atomium grey':{ref:'029/90045',primer:'x'},
-  'magma red':{ref:'RAL3002',primer:'x'}, 'parisian white':{ref:'MH0250',primer:'Wit'}
+  'magma red':{ref:'RAL3002',primer:'x'}, 'parisian white':{ref:'MH0250',primer:'Wit'},
+  'castle bronze':{ref:'MH0155',primer:''}   // primer TBC — confirm with Deco Coat
 };
 function colourRef(name){ return name ? (COLOUR_REF[String(name).trim().toLowerCase()]||{ref:'',primer:''}) : {ref:'',primer:''}; }
 function titleWords(s){ return String(s).replace(/\b\w/g,c=>c.toUpperCase()); }
