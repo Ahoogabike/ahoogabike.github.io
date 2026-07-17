@@ -4763,6 +4763,10 @@ function parsePairs(text){
 function mapToCols(pairs){
   const r = { mainColor:'', mainFinish:'', rearColor:'', rearFinish:'', logoColor:'', logoSize:'', personalText:'' };
   const set = (k,v)=>{ if(v && !r[k]) r[k]=v; };
+  const FIN  = /\b(matte?|mat|glossy?|gloss|satin|glans|glanz|metallic)\b/i;
+  const SIZE = /\b(big|large|small|medium|grand|petit|klein|groot|gross|groß|xl|xs)\b/i;
+  // "Glossy Central Park Green" → ["Central Park Green","Glossy"] (finish word glued to the colour)
+  const splitFin = (val,fallback)=>{ let c=val, fin=fallback||''; const m=c.match(FIN); if(m){ if(!fin) fin=m[1]; c=c.replace(FIN,' ').replace(/\s+/g,' ').trim(); } return [c,fin]; };
   for(const p of pairs){
     const k=_k(p.attr); let v=String(p.val||'').trim(); if(!v) continue;
     // "Nightfall Blue (Matte)" → colour + inline finish
@@ -4775,13 +4779,15 @@ function mapToCols(pairs){
     const isSize=k.includes('size')||k.includes('maat');
     const isText=k.includes('text')||k.includes('tekst')||k.includes('personal');
     if(isLogo && isSize) set('logoSize',v);
-    else if(isLogo) set('logoColor',v);
+    else if(isLogo){                                             // "Small Midnight Black" → size + colour
+      let lv=v; const sz=lv.match(SIZE); if(sz){ set('logoSize',sz[1]); lv=lv.replace(SIZE,' ').replace(/\s+/g,' ').trim(); }
+      set('logoColor',lv);
+    }
     else if(isText) set('personalText',v);
     else if(isRear && isFinish) set('rearFinish',v);
-    else if(isRear){ set('rearColor',v); set('rearFinish',inlineFinish); }
-    else if(isFinish) set('mainFinish',v);
-    else if(isColor){ set('mainColor',v); set('mainFinish',inlineFinish); }
-    else if(isMain){ set('mainColor',v); set('mainFinish',inlineFinish); }
+    else if(isRear){ const [c,f]=splitFin(v,inlineFinish); set('rearColor',c); set('rearFinish',f); }
+    else if(isFinish){ if(FIN.test(v)) set('mainFinish',v); }   // only real finish words (skip "Type: E-MAX-A")
+    else if(isColor||isMain){ const [c,f]=splitFin(v,inlineFinish); set('mainColor',c); set('mainFinish',f); }
   }
   return r;
 }
@@ -4819,6 +4825,12 @@ function orderCols(o){
   let pairs = parsePairs(o && (o.configRaw || o.config));
   pairs = pairs.concat(Array.isArray(o && o.attrs) ? o.attrs : []);
   let cols = mapToCols(pairs);
+  // 1b) the whole config may live in ONE pipe/newline note line
+  //     ("… | Main frame: Glossy Central Park Green | Rear frame: … | Logo: Small Midnight Black")
+  if(o && o.colourNote){
+    const nc = mapToCols(parsePairs(o.colourNote));
+    for(const k of Object.keys(cols)){ if(!cols[k] && nc[k]) cols[k] = nc[k]; }
+  }
   // 2) fall back to the informal free-text note ("Skyline Blue und Nightfall Blue. big yellow logo")
   if(o && o.colourNote){
     const f = parseFreeColour(o.colourNote);
