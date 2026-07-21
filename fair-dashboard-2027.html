@@ -190,6 +190,9 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
     <input type="search" id="q" placeholder="Search fair or city…">
     <select id="fYear"><option value="">All years</option><option value="2026">2026 (remaining)</option><option value="2027">2027 season</option></select>
     <select id="fType"><option value="">All types</option><option value="bike">🚲 Bike</option><option value="caravan">🚐 Caravan</option></select>
+    <select id="fCity"><option value="">All cities</option></select>
+    <select id="fFrom"><option value="">From: any month</option><option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option><option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option><option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option></select>
+    <select id="fTo"><option value="">To: any month</option><option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option><option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option><option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option></select>
     <select id="fSort"><option value="priority">Sort: Priority ↓</option><option value="date">Sort: Date ↑</option><option value="visitors">Sort: Visitors ↓</option><option value="name">Sort: Name A→Z</option></select>
     <label class="btn"><input type="checkbox" id="showHidden"> Show unticked</label>
     <button class="btn" id="collapseAll">▸ Collapse all</button>
@@ -471,9 +474,9 @@ function fmtVis(v){return v==null||v===''?'—':(+v).toLocaleString('en-US');}
 
 // ---------- FAIR TRACKER ----------
 function renderFairs(){
-  const q=$('#q').value.trim().toLowerCase(),ft=$('#fType').value,fy=$('#fYear').value,sort=$('#fSort').value,showHidden=$('#showHidden').checked;
+  const q=$('#q').value.trim().toLowerCase(),ft=$('#fType').value,fy=$('#fYear').value,fcity=$('#fCity').value,ffrom=+$('#fFrom').value||1,fto=+$('#fTo').value||12,sort=$('#fSort').value,showHidden=$('#showHidden').checked;
   const cont=$('#fairContainer');cont.innerHTML='';
-  let list=FAIRS.map(f=>({f,s:score(f)})).filter(o=>(!ft||o.f.type===ft)&&(!fy||(''+o.f.year)===fy)&&(!q||o.f.name.toLowerCase().includes(q)||(rec(o.f).city||'').toLowerCase().includes(q)));
+  let list=FAIRS.map(f=>({f,s:score(f)})).filter(o=>(!ft||o.f.type===ft)&&(!fy||(''+o.f.year)===fy)&&(!fcity||fairCity(o.f)===fcity)&&(o.f.month>=ffrom&&o.f.month<=fto)&&(!q||o.f.name.toLowerCase().includes(q)||(rec(o.f).city||'').toLowerCase().includes(q)||fairCity(o.f).toLowerCase().includes(q)));
   const cmp={priority:(a,b)=>b.s-a.s,date:(a,b)=>(a.f.year-b.f.year)||a.f.month-b.f.month||a.f.name.localeCompare(b.f.name),visitors:(a,b)=>(getVis(b.f)||0)-(getVis(a.f)||0),name:(a,b)=>a.f.name.localeCompare(b.f.name)}[sort];
   CO_ORDER.forEach(ct=>{
     let rows=list.filter(o=>o.f.ct===ct); if(!rows.length)return;
@@ -499,8 +502,8 @@ function renderFairs(){
         <td><span class="rank"><span class="score">${s}</span><span class="badge ${b}">${b}</span></span></td>
         <td class="name">${esc(f.name)}${f.year!==2027?` <span class="yrtag">${f.year}</span>`:''}<small>${esc(r.city||f.name.split(',').slice(1).join(',').trim())}</small></td>
         <td class="datecell">
-          <div class="drow"><span>Start</span><input type="date" class="inp dt" data-start="${f.id}" value="${getStart(f)}"></div>
-          <div class="drow"><span>End</span><input type="date" class="inp dt" data-end="${f.id}" value="${esc(getEnd(f))}"></div>
+          <div class="drow"><span>Start</span><input type="date" class="inp dt" min="${f.year}-01-01" max="${f.year}-12-31" data-start="${f.id}" value="${getStart(f)}"></div>
+          <div class="drow"><span>End</span><input type="date" class="inp dt" min="${getStart(f)}" max="${f.year}-12-31" data-end="${f.id}" value="${esc(getEnd(f))}"></div>
           <div class="nrow">${nightsOf(f)!=null?'<b>'+nightsOf(f)+'</b> nights':'<span class="approx">set end date</span>'} · <a class="bookbtn" href="${bookingURL(f)}" target="_blank" rel="noopener" title="Open Booking.com pre-filled with city, dates & ${guestsOf(f)} guest(s)">🏨 Book</a></div>
         </td>
         <td><span class="pill ${f.type}">${f.type==='bike'?'🚲':'🚐'}</span></td>
@@ -633,6 +636,7 @@ function renderVanTab(){
 }
 
 // ---------- PM TAB ----------
+function populateCityFilter(){const sel=$('#fCity');if(!sel)return;const cur=sel.value;const cities=[...new Set(FAIRS.map(f=>fairCity(f)).filter(Boolean))].sort((a,b)=>a.localeCompare(b));sel.innerHTML='<option value="">All cities</option>'+cities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');sel.value=cur;}
 function refreshFairSelects(){
   const opts='<option value="">— General —</option>'+FAIRS.filter(f=>ticked[f.id]).sort((a,b)=>a.month-b.month).map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
   $('#tFair').innerHTML=opts;
@@ -828,7 +832,7 @@ $$('nav button').forEach(b=>b.onclick=()=>{$$('nav button').forEach(x=>x.classLi
   if(b.dataset.tab==='plan'){refreshFairSelects();renderPlan();}});
 
 // ---------- WIRE ----------
-['q','fYear','fType','fSort','showHidden'].forEach(id=>$('#'+id).oninput=renderFairs);
+['q','fYear','fType','fCity','fFrom','fTo','fSort','showHidden'].forEach(id=>$('#'+id).oninput=renderFairs);
 $('#collapseAll').onclick=()=>{CO_ORDER.forEach(ct=>collapsedCo[ct]=true);store.set('collapsedCo',collapsedCo);renderFairs();};
 $('#expandAll').onclick=()=>{collapsedCo={};store.set('collapsedCo',collapsedCo);renderFairs();};
 $('#allOn').onclick=()=>{FAIRS.forEach(f=>ticked[f.id]=true);saveTicked();renderFairs();};
@@ -850,7 +854,7 @@ $('#exportTasks').onclick=exportTasks;
 $('#planFair').onchange=renderPlan;
 
 // ---------- BOOT ----------
-syncW();refreshFairSelects();renderFairs();loadCloud();
+syncW();populateCityFilter();refreshFairSelects();renderFairs();loadCloud();
 $('#foot').textContent='Ahooga MAX · Fair Event Dashboard · '+FAIRS.length+' fairs · edits sync live to the shared Ahooga cloud (Cloudflare) for the whole team. Export CSV for a backup.';
 </script>
 </body>
