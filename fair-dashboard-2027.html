@@ -150,12 +150,14 @@ tr.detail td{background:#fbfbfc;padding:0}
 footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
 .note{background:#fffbe6;border:1px solid #f2e2a0;border-radius:8px;padding:10px 14px;font-size:12.5px;margin-bottom:16px}
 .yrtag{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.04em;background:#c2255c;color:#fff;border-radius:5px;padding:1px 5px;vertical-align:middle;margin-left:2px}
+.cloud{display:inline-block;margin-top:6px;font-size:11.5px;font-weight:700;color:#0891b2}.cloud.saving{color:#d98a00}.cloud.ok{color:#1a9c6b}.cloud.err{color:#c0392b}
 </style>
 </head>
 <body>
 <header>
   <div class="brand">AHOOGA <span>MAX</span> · Fair Event Dashboard · 2026–2027</div>
-  <div class="sub">A living tracker — rank fairs, record your own data, track booking status, plan vans, and run the team to-do list. Everything you type is saved in this browser.</div>
+  <div class="sub">A living tracker — rank fairs, record your own data, track booking status, plan vans, and run the team to-do list. Everything you type syncs live to the shared Ahooga cloud, so the whole team sees the same data.</div>
+  <div class="cloud" id="cloudStatus">☁ …</div>
 </header>
 <nav>
   <button class="on" data-tab="fairs">📋 Fair Tracker</button>
@@ -414,7 +416,19 @@ const LOADOUT={
 };
 
 // ---------- STATE ----------
-const store={get(k,d){try{const v=localStorage.getItem('ahfd2_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('ahfd2_'+k,JSON.stringify(v));return true}catch(e){return false}}};
+const store={get(k,d){try{const v=localStorage.getItem('ahfd2_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){let ok=true;try{localStorage.setItem('ahfd2_'+k,JSON.stringify(v))}catch(e){ok=false}kvSet(k,v);return ok}};
+// ── Shared cloud storage (Cloudflare KV via the same worker the Production Planner uses) ──
+const CF_WORKER_URL='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
+const CLOUD_ON=location.protocol.indexOf('http')===0&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1';
+const CLOUD_KEYS=['ticked','recs','tasks','vanOverride','weights','planState','collapsedCo','budgetDef'];
+const CKEY=k=>'fairdash_'+k; // flat key, no colon (required by the worker /store route)
+function setCloud(txt,cls){const el=document.getElementById('cloudStatus');if(el){el.textContent=txt;el.className='cloud '+(cls||'');}}
+async function kvGet(k){if(!CLOUD_ON)return undefined;try{const r=await fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(CKEY(k))}`);const t=await r.text();return t==='null'?undefined:JSON.parse(t);}catch(e){console.warn('cloud get failed',k,e);return undefined;}}
+const _cloudTimers={};
+function kvSet(k,v){if(!CLOUD_ON||!CLOUD_KEYS.includes(k))return;clearTimeout(_cloudTimers[k]);setCloud('☁ saving…','saving');_cloudTimers[k]=setTimeout(()=>{fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(CKEY(k))}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(v)}).then(r=>setCloud(r.ok?'☁ saved':'⚠ save failed',r.ok?'ok':'err')).catch(e=>{console.warn('cloud set failed',k,e);setCloud('⚠ offline — saved on this device','err');});},600);}
+function _assignCloud(k,v){if(k==='ticked')ticked=v;else if(k==='recs')recs=v;else if(k==='tasks')tasks=v;else if(k==='vanOverride')vanOverride=v;else if(k==='weights')weights=v;else if(k==='planState')planState=v;else if(k==='collapsedCo')collapsedCo=v;else if(k==='budgetDef')budgetDef=v;}
+function _curCloud(k){return{ticked,recs,tasks,vanOverride,weights,planState,collapsedCo,budgetDef}[k];}
+async function loadCloud(){if(!CLOUD_ON)return;setCloud('☁ syncing…','saving');try{const vals=await Promise.all(CLOUD_KEYS.map(kvGet));let got=false;CLOUD_KEYS.forEach((k,i)=>{const v=vals[i];if(v!==undefined){try{localStorage.setItem('ahfd2_'+k,JSON.stringify(v))}catch(e){}_assignCloud(k,v);got=true;}else{const cur=_curCloud(k);if(cur!==undefined)fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(CKEY(k))}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cur)}).catch(()=>{});}});if(got){syncW();refreshFairSelects();renderFairs();const at=document.querySelector('nav button.on');if(at)at.click();}setCloud('☁ synced','ok');}catch(e){console.warn(e);setCloud('⚠ sync failed — using this device','err');}}
 let ticked=store.get('ticked',null); if(!ticked){ticked={};FAIRS.forEach(f=>ticked[f.id]=true);}
 let recs=store.get('recs',{});            // per-fair editable record {visitors,days,status:{...},...}
 let vanOverride=store.get('vanOverride',{});
@@ -823,7 +837,7 @@ $('#exportBtn').onclick=exportCSV;
 $('#exportBudget').onclick=exportBudget;
 $('#roadZoom').value=roadZoom;
 $('#roadZoom').oninput=e=>{roadZoom=+e.target.value;store.set('roadZoom',roadZoom);renderRoadmap();};
-$('#resetAll').onclick=()=>{if(confirm('Reset selections, records, tasks and weights? This clears everything.')){localStorage.clear();location.reload();}};
+$('#resetAll').onclick=()=>{if(confirm('Reset the SHARED dashboard for EVERYONE — selections, records, tasks and weights? This cannot be undone.')){try{localStorage.clear()}catch(e){}if(CLOUD_ON){Promise.all(CLOUD_KEYS.map(k=>fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(CKEY(k))}`,{method:'POST',headers:{'Content-Type':'application/json'},body:'null'}).catch(()=>{}))).then(()=>location.reload());}else location.reload();}};
 ['v','c','t','e'].forEach(k=>{const el=$('#w-'+k);el.oninput=()=>{weights[k]=+el.value;$('#vw-'+k).textContent=el.value;store.set('weights',weights);renderFairs();};});
 function syncW(){['v','c','t','e'].forEach(k=>{$('#w-'+k).value=weights[k];$('#vw-'+k).textContent=weights[k];});}
 $('#tWho').innerHTML='<option value="">—</option>'+PEOPLE.map(p=>`<option>${p}</option>`).join('');
@@ -836,8 +850,8 @@ $('#exportTasks').onclick=exportTasks;
 $('#planFair').onchange=renderPlan;
 
 // ---------- BOOT ----------
-syncW();refreshFairSelects();renderFairs();
-$('#foot').textContent='Ahooga MAX · Fair Event Dashboard 2027 · '+FAIRS.length+' fairs · all edits saved in this browser (localStorage). Use Export CSV to back up or share.';
+syncW();refreshFairSelects();renderFairs();loadCloud();
+$('#foot').textContent='Ahooga MAX · Fair Event Dashboard · '+FAIRS.length+' fairs · edits sync live to the shared Ahooga cloud (Cloudflare) for the whole team. Export CSV for a backup.';
 </script>
 </body>
 </html>
