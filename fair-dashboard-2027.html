@@ -166,12 +166,16 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
 .staff td.cell.on.amber{background:#d98a00}
 .staff td.cell.on.red{background:#c0392b}
 .staff td.cell:hover{outline:2px solid var(--blue);outline-offset:-2px}
-.vroute{margin:0 0 26px}
-.vmap{width:100%;max-width:720px;height:auto;display:block;margin:6px 0}
-.vitin{font-size:11.5px;line-height:2.1;color:#444}
-.vstop{background:#f2f3f5;border-radius:5px;padding:2px 6px;white-space:nowrap}
+.vroute{margin:0 0 30px}
+.vq-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.vq{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff}
+.vq-h{font-size:12px;font-weight:800;margin-bottom:4px}
+.vq-h span{color:var(--dim);font-weight:600}
+.vmap{width:100%;height:auto;display:block;margin:2px 0 6px}
+.vitin{display:flex;flex-wrap:wrap;gap:6px;font-size:11px;color:#444;margin-top:4px}
+.vstop{background:#f2f3f5;border-radius:7px;padding:3px 8px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
 .vstop.base{background:#e6e9ee;color:#111;font-weight:600}
-.varr{color:var(--dim);margin:0 3px}
+.vnum{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;color:#fff;font-size:9.5px;font-weight:800;flex:none}
 </style>
 </head>
 <body>
@@ -954,7 +958,7 @@ function buildRoute(van){
   const fs=vanFairs(van);
   if(!fs.length)return {stops:[],km:0,fairs:0};
   const baseStop=c=>({city:c,lat:CITY_GEO[c][0],lon:CITY_GEO[c][1],type:'base'});
-  const fairStop=f=>{const c=FAIR_CITY[f.name];return {city:c,lat:CITY_GEO[c][0],lon:CITY_GEO[c][1],type:'fair',label:getDays(f),name:f.name};};
+  const fairStop=f=>{const c=FAIR_CITY[f.name];return {city:c,lat:CITY_GEO[c][0],lon:CITY_GEO[c][1],type:'fair',label:getDays(f),date:getStart(f),name:f.name};};
   const stops=[baseStop(van.base)];
   fs.forEach((f,i)=>{
     if(i>0){const prev=fs[i-1];const gap=_dayN(getStart(f))-_dayN(getStart(prev));
@@ -965,28 +969,41 @@ function buildRoute(van){
   let km=0;for(let i=1;i<stops.length;i++)km+=_hav(stops[i-1].lat,stops[i-1].lon,stops[i].lat,stops[i].lon);
   return {stops,km:Math.round(km*1.3),fairs:fs.length};
 }
-function vanSVG(van,route){
-  const W=680,H=430,pad=54;const pts=route.stops;if(!pts.length)return '';
-  const lats=pts.map(p=>p.lat),lons=pts.map(p=>p.lon);
+function routeSVG(van,stops){
+  const W=360,H=270,pad=32;if(!stops.length)return '';
+  const lats=stops.map(p=>p.lat),lons=stops.map(p=>p.lon);
   let minLa=Math.min(...lats),maxLa=Math.max(...lats),minLo=Math.min(...lons),maxLo=Math.max(...lons);
-  if(maxLa-minLa<0.4){minLa-=0.4;maxLa+=0.4;}if(maxLo-minLo<0.4){minLo-=0.4;maxLo+=0.4;}
+  if(maxLa-minLa<0.3){minLa-=0.3;maxLa+=0.3;}if(maxLo-minLo<0.3){minLo-=0.3;maxLo+=0.3;}
   const X=lo=>pad+((lo-minLo)/(maxLo-minLo))*(W-2*pad);
   const Y=la=>pad+((maxLa-la)/(maxLa-minLa))*(H-2*pad);
-  let lines='',labels='',dots='';const lab={};
-  for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i];const x1=X(a.lon),y1=Y(a.lat),x2=X(b.lon),y2=Y(b.lat);
-    lines+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${van.color}" stroke-width="1.5" opacity="0.65"/>`;
-    if(b.type==='fair'&&b.label){const mx=(x1+x2)/2,my=(y1+y2)/2;labels+=`<text x="${mx}" y="${my-3}" font-size="8.5" fill="${van.color}" text-anchor="middle">${esc(b.label.split('–')[0])}</text>`;}
+  let lines='',arrows='',nodes='',labels='';const lab={};
+  for(let i=1;i<stops.length;i++){const a=stops[i-1],b=stops[i];const x1=X(a.lon),y1=Y(a.lat),x2=X(b.lon),y2=Y(b.lat);
+    if(Math.abs(x1-x2)<0.5&&Math.abs(y1-y2)<0.5)continue;
+    lines+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${van.color}" stroke-width="1.6" opacity="0.5"/>`;
+    const mx=x1+(x2-x1)*0.55,my=y1+(y2-y1)*0.55,deg=Math.atan2(y2-y1,x2-x1)*180/Math.PI;
+    arrows+=`<path d="M-5,-3.2 L5,0 L-5,3.2 Z" transform="translate(${mx},${my}) rotate(${deg})" fill="${van.color}" opacity="0.9"/>`;
   }
-  pts.forEach(p=>{const x=X(p.lon),y=Y(p.lat);dots+=`<circle cx="${x}" cy="${y}" r="${p.type==='base'?5:3.2}" fill="${p.type==='base'?'#111':van.color}"/>`;
-    const k=p.city;if(!lab[k]){lab[k]=1;labels+=`<text x="${x+5}" y="${y+3}" font-size="9" fill="#333">${esc(p.city)}${p.type==='base'?' ⌂':''}</text>`;}});
-  return `<svg viewBox="0 0 ${W} ${H}" class="vmap" xmlns="http://www.w3.org/2000/svg"><rect width="${W}" height="${H}" rx="10" fill="#fbfbfa"/>${lines}${dots}${labels}</svg>`;
+  stops.forEach(p=>{const x=X(p.lon),y=Y(p.lat);
+    if(p.type==='base'){nodes+=`<rect x="${x-5}" y="${y-5}" width="10" height="10" rx="2" fill="#111"/>`;}
+    else{nodes+=`<circle cx="${x}" cy="${y}" r="9" fill="${van.color}"/><text x="${x}" y="${y+3.4}" font-size="9.5" font-weight="700" fill="#fff" text-anchor="middle">${p.num}</text>`;}
+    if(!lab[p.city]){lab[p.city]=1;labels+=`<text x="${x+8}" y="${y+3}" font-size="9" fill="#333">${esc(p.city)}${p.type==='base'?' ⌂':''}</text>`;}});
+  return `<svg viewBox="0 0 ${W} ${H}" class="vmap" xmlns="http://www.w3.org/2000/svg"><rect width="${W}" height="${H}" rx="10" fill="#fbfbfa"/>${lines}${arrows}${nodes}${labels}</svg>`;
 }
+const QSHORT=['Q1 · Jan–Mar','Q2 · Apr–Jun','Q3 · Jul–Sep','Q4 · Oct–Dec'];
 function renderVanMap(){
   const body=$('#vanmapBody'),stc=$('#vanmapStats');let total=0;let html='';
   const routes=VANS.map(v=>buildRoute(v));
   VANS.forEach((van,ix)=>{const r=routes[ix];total+=r.km;
-    const itin=r.stops.map(s=>s.type==='fair'?`<span class="vstop"><b>${esc(s.label)}</b> ${esc(s.city)}</span>`:`<span class="vstop base">⌂ ${esc(s.city)}</span>`).join('<span class="varr">→</span>');
-    html+=`<div class="vroute"><h3 style="color:${van.color};margin:0 0 4px">${esc(van.name)} <span style="color:var(--dim);font-weight:600;font-size:13px">· ${r.fairs} fairs · ~${r.km.toLocaleString('en-US')} km</span></h3>${r.fairs?vanSVG(van,r):''}<div class="vitin">${r.fairs?itin:'<span class="hint">No ticked fairs in these countries — nothing to route.</span>'}</div></div>`;});
+    let fn=0;
+    r.stops.forEach(s=>{if(s.type==='fair'){fn++;s.num=fn;const y=+s.date.slice(0,4),mo=+s.date.slice(5,7);s.qk=y*4+Math.floor((mo-1)/3);}});
+    r.stops.forEach((s,i)=>{if(s.type==='base'){let q=null;for(let j=i+1;j<r.stops.length;j++){if(r.stops[j].type==='fair'){q=r.stops[j].qk;break;}}if(q===null)for(let j=i-1;j>=0;j--){if(r.stops[j].type==='fair'){q=r.stops[j].qk;break;}}s.qk=(q==null?0:q);}});
+    const qks=[...new Set(r.stops.filter(s=>s.type==='fair').map(s=>s.qk))].sort((a,b)=>a-b);
+    let qhtml='';
+    qks.forEach(qk=>{const qs=r.stops.filter(s=>s.qk===qk);const nf=qs.filter(s=>s.type==='fair').length;if(!nf)return;
+      const yr=Math.floor(qk/4),qi=qk%4;
+      const chips=qs.map(s=>s.type==='fair'?`<span class="vstop"><span class="vnum" style="background:${van.color}">${s.num}</span><b>${esc(s.label)}</b> ${esc(s.city)}</span>`:`<span class="vstop base">⌂ ${esc(s.city)}</span>`).join('');
+      qhtml+=`<div class="vq"><div class="vq-h">${yr} · ${QSHORT[qi]} <span>· ${nf} fair${nf===1?'':'s'}</span></div>${routeSVG(van,qs)}<div class="vitin">${chips}</div></div>`;});
+    html+=`<div class="vroute"><h3 style="color:${van.color};margin:0 0 8px">${esc(van.name)} <span style="color:var(--dim);font-weight:600;font-size:13px">· ${r.fairs} fairs · ~${r.km.toLocaleString('en-US')} km/year</span></h3>${r.fairs?`<div class="vq-grid">${qhtml}</div>`:'<div class="vitin"><span class="hint">No ticked fairs in these countries — nothing to route.</span></div>'}</div>`;});
   body.innerHTML=html;
   stc.innerHTML=VANS.map((v,ix)=>`<div class="card"><div class="n" style="color:${v.color}">${routes[ix].km.toLocaleString('en-US')}<span style="font-size:13px"> km</span></div><div class="l">${esc(v.name.split('·').slice(1).join('·').trim()||v.name)}</div></div>`).join('')+`<div class="card"><div class="n">${total.toLocaleString('en-US')}<span style="font-size:13px"> km</span></div><div class="l">All 3 vans · total</div></div>`;
 }
