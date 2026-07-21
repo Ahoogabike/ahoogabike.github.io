@@ -269,7 +269,7 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
 <!-- ============ BUDGET ============ -->
 <section class="tab" id="budget">
   <h2>Budget estimation</h2>
-  <p class="hint">Live estimate for the fairs you've ticked, built from real drivers: <b>Stand space = m² × €/m²</b>, <b>Stand build = m² × €/m²</b>, <b>Accommodation = people × nights × hotel rate</b>, <b>Meals = people × days × per-diem</b>, plus transport (by van × country distance) and marketing. <b>People</b> come from who's assigned on the Staffing grid (or HR-needed); <b>nights</b> from each fair's dates; <b>m²</b> is set per fair (defaults by van size until you enter it). Edit the global rates in Assumptions, the m² per fair in the table, or type over any single figure to override it. Dealer fees are income and subtracted for the net.</p>
+  <p class="hint">Fill the rates directly in each row. The table computes: <b>Rent = m² × €/m²</b>, <b>Build = m² × €/m²</b>, <b>Hotel = people × nights × €/night</b>, <b>Meals = people × days × €/meal</b>, <b>Transport = people × 2 × €/person</b>, plus flat <b>Electricity</b>, <b>WiFi</b> and <b>Marketing</b>, minus the <b>Dealer fee</b>, to give the <b>Total</b>. <b>People</b> come from the Staffing grid (or HR-needed) and <b>nights</b> from each fair's dates; <b>m²</b> and <b>days</b> are editable. Leave any rate blank to use the default from Assumptions. Scroll the table sideways to see every column.</p>
 
   <div class="cards" id="budgetStats"></div>
 
@@ -513,16 +513,18 @@ const TEXT_GROUPS=[
 
 // ---- Budget model ----
 const BUDGET_CATS=[
- {k:'space',l:'Stand space',c:'#2563eb',scale:false},
- {k:'build',l:'Stand building',c:'#d98a00',scale:false},
- {k:'transport',l:'Transport',c:'#1a9c6b',scale:true},
- {k:'accom',l:'Accommodation',c:'#7c3aed',scale:true},
- {k:'meals',l:'Meals & per diem',c:'#0891b2',scale:false},
- {k:'other',l:'Marketing & other',c:'#be185d',scale:false}
+ {k:'space',l:'Stand rent',c:'#2563eb'},
+ {k:'build',l:'Stand build',c:'#d98a00'},
+ {k:'accom',l:'Accommodation',c:'#7c3aed'},
+ {k:'meals',l:'Meals',c:'#0891b2'},
+ {k:'transport',l:'Transport',c:'#1a9c6b'},
+ {k:'elec',l:'Electricity',c:'#e11d48'},
+ {k:'wifi',l:'WiFi',c:'#0ea5e9'},
+ {k:'other',l:'Marketing & other',c:'#be185d'}
 ];
 const CO_TRANSPORT={BE:0.5,NL:0.8,DE:1.0,UK:1.5,AT:1.6,SE:2.0};
 const BUDGET_DEF_BASE={space:{big:3000,small:1400},build:{big:2500,small:800},transport:{big:900,small:500},accom:{big:1200,small:600},meals:{big:500,small:300},other:{big:400,small:200}};
-const BUDGET_MODEL_BASE={pricePerM2:180,buildPerM2:120,hotelPerNight:110,perDiem:45,transportBig:900,transportSmall:500,otherBig:400,otherSmall:200,m2Big:30,m2Small:12,nightsBig:3,nightsSmall:2,peopleBig:4,peopleSmall:2};
+const BUDGET_MODEL_BASE={pricePerM2:180,buildPerM2:120,hotelPerNight:110,perDiem:45,transportPerPerson:100,elec:250,wifi:120,otherBig:400,otherSmall:200,m2Big:30,m2Small:12,nightsBig:3,nightsSmall:2,peopleBig:4,peopleSmall:2};
 
 const PLAN=[
  ['Register & secure the space',['Contact the fair','Get info on the fair event','Get contact-person info','Register to the fair','Get space quotation','Confirm space (12 or 18 m²)','Clarify all deadlines (booking, utilities, marketing, build, forms, payments)']],
@@ -583,6 +585,16 @@ function peopleOf(f){const r=rec(f);if(r.presence){const y=EMP_PRESENCE.filter(p
 function guestsOf(f){return peopleOf(f);}
 function standM2(f){const r=rec(f);if(r.standSize&&+r.standSize>0)return +r.standSize;return vanFor(f)==='big'?(+budgetModel.m2Big||30):(+budgetModel.m2Small||12);}
 function nightsEst(f){const n=nightsOf(f);if(n!=null)return n;return vanFor(f)==='big'?(+budgetModel.nightsBig||3):(+budgetModel.nightsSmall||2);}
+function rateM2(f){const r=rec(f);return r.rateM2!=null&&r.rateM2!==''?+r.rateM2:(+budgetModel.pricePerM2||0);}
+function rateNight(f){const r=rec(f);return r.rateNight!=null&&r.rateNight!==''?+r.rateNight:(+budgetModel.hotelPerNight||0);}
+function rateMeal(f){const r=rec(f);return r.rateMeal!=null&&r.rateMeal!==''?+r.rateMeal:(+budgetModel.perDiem||0);}
+function daysOf(f){const r=rec(f);return r.days!=null&&r.days!==''?+r.days:nightsEst(f)+1;}
+function transportOf(f){return Math.round(peopleOf(f)*2*rateTrans(f));}
+function otherOf(f){const r=rec(f);if(r.other!=null&&r.other!=='')return +r.other;return vanFor(f)==='big'?(+budgetModel.otherBig||0):(+budgetModel.otherSmall||0);}
+function rateBuild(f){const r=rec(f);return r.rateBuild!=null&&r.rateBuild!==''?+r.rateBuild:(+budgetModel.buildPerM2||0);}
+function rateTrans(f){const r=rec(f);return r.rateTrans!=null&&r.rateTrans!==''?+r.rateTrans:(+budgetModel.transportPerPerson||100);}
+function elecOf(f){const r=rec(f);return r.elec!=null&&r.elec!==''?+r.elec:(+budgetModel.elec||0);}
+function wifiOf(f){const r=rec(f);return r.wifi!=null&&r.wifi!==''?+r.wifi:(+budgetModel.wifi||0);}
 function fairCity(f){const r=rec(f);return r.city||f.name.split(',').slice(1).join(',').trim()||f.name.split(',')[0];}
 function bookingURL(f){const s=getStart(f);if(!s)return'#';const e=getEnd(f);const ci=addDays(s,-1),co=e||addDays(s,1);const g=guestsOf(f);
   return `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(fairCity(f))}&checkin=${ci}&checkout=${co}&group_adults=${g}&no_rooms=${g}&group_children=0`;}
@@ -881,19 +893,19 @@ function renderRoadmap(){
 
 // ---------- BUDGET ----------
 function catDefault(f,catk){
-  const van=vanFor(f), m=budgetModel;
-  const m2=standM2(f), ppl=peopleOf(f), nights=nightsEst(f), days=nights+1, cf=CO_TRANSPORT[f.ct]||1;
   switch(catk){
-    case 'space':     return Math.round(m2*(+m.pricePerM2||0));
-    case 'build':     return Math.round(m2*(+m.buildPerM2||0));
-    case 'transport': return Math.round((van==='big'?(+m.transportBig||0):(+m.transportSmall||0))*cf);
-    case 'accom':     return Math.round(ppl*nights*(+m.hotelPerNight||0));
-    case 'meals':     return Math.round(ppl*days*(+m.perDiem||0));
-    case 'other':     return Math.round(van==='big'?(+m.otherBig||0):(+m.otherSmall||0));
+    case 'space':     return Math.round(standM2(f)*rateM2(f));
+    case 'build':     return Math.round(standM2(f)*rateBuild(f));
+    case 'accom':     return Math.round(peopleOf(f)*nightsEst(f)*rateNight(f));
+    case 'meals':     return Math.round(peopleOf(f)*daysOf(f)*rateMeal(f));
+    case 'transport': return transportOf(f);
+    case 'elec':      return elecOf(f);
+    case 'wifi':      return wifiOf(f);
+    case 'other':     return otherOf(f);
   }
   return 0;
 }
-function catValue(f,catk){ const r=rec(f); if(r.budget&&r.budget[catk]!=null&&r.budget[catk]!=='') return +r.budget[catk]; return catDefault(f,catk); }
+function catValue(f,catk){ return catDefault(f,catk); }
 function fairCost(f){ return BUDGET_CATS.reduce((a,c)=>a+catValue(f,c.k),0); }
 function fairIncome(f){ const r=rec(f); return r.dealerFee?(+r.dealerFee||0):0; }
 function eur(n){ return '€'+Math.round(n).toLocaleString('en-US'); }
@@ -919,30 +931,31 @@ function renderBudget(){
   $('#countryBreakdown').innerHTML=CO_ORDER.filter(ct=>coTot[ct]).map(ct=>{const v=coTot[ct],pct=gross?(100*v/gross):0;
     return `<div class="bar-row"><div class="bl"><span>${CO_NAME[ct]}</span><b>${eur(v)} · ${pct.toFixed(0)}%</b></div><div class="bar-track"><i style="width:${100*v/maxCo}%;background:var(--${ct})"></i></div></div>`;}).join('')||'<span class="hint">No fairs ticked.</span>';
   // assumptions editor
-  const MODEL_ROWS=[['pricePerM2','Stand space rental','€ / m²'],['buildPerM2','Stand construction','€ / m²'],['hotelPerNight','Hotel','€ / person / night'],['perDiem','Meals & per diem','€ / person / day'],['transportBig','Transport — big van','€ base (×country)'],['transportSmall','Transport — small van','€ base (×country)'],['otherBig','Marketing & other — big van','€'],['otherSmall','Marketing & other — small van','€'],['m2Big','Default stand size — big van','m²'],['m2Small','Default stand size — small van','m²'],['nightsBig','Default nights — big van','nights'],['nightsSmall','Default nights — small van','nights'],['peopleBig','Default people — big van','people'],['peopleSmall','Default people — small van','people']];
+  const MODEL_ROWS=[['pricePerM2','Default stand rent','€ / m²'],['buildPerM2','Default stand build','€ / m²'],['hotelPerNight','Default hotel','€ / person / night'],['perDiem','Default meals','€ / person / day'],['transportPerPerson','Default transport','€ / person (×2 return)'],['elec','Default electricity','€ / fair'],['wifi','Default WiFi','€ / fair'],['otherBig','Marketing & other — big van','€'],['otherSmall','Marketing & other — small van','€'],['m2Big','Default stand size — big van','m²'],['m2Small','Default stand size — small van','m²'],['nightsBig','Default nights — big van','nights'],['nightsSmall','Default nights — small van','nights'],['peopleBig','Default people — big van','people'],['peopleSmall','Default people — small van','people']];
   $('#assumBody').innerHTML=MODEL_ROWS.map(([k,l,u])=>`<tr><td>${l} <span style="color:var(--dim)">(${u})</span></td><td><input type="number" data-model="${k}" value="${budgetModel[k]}" style="width:120px"></td></tr>`).join('');
   $$('[data-model]').forEach(i=>i.onchange=e=>{budgetModel[e.target.dataset.model]=+e.target.value||0;store.set('budgetModel',budgetModel);renderBudget();});
   // per-fair table
-  $('#budgetHead').innerHTML=`<tr><th>Fair</th><th>Country</th><th>Van</th><th>m²</th><th>People</th><th>Nights</th>${BUDGET_CATS.map(c=>`<th>${c.l}</th>`).join('')}<th>Dealer fee</th><th>Net</th></tr>`;
+  $('#budgetHead').innerHTML=`<tr><th>Fair</th><th>Country</th><th>m²</th><th>€/m² rent</th><th>Rent €</th><th>€/m² build</th><th>Build €</th><th>People</th><th>Nights</th><th>€/night</th><th>Hotel €</th><th>Days</th><th>€/meal</th><th>Meals €</th><th>€/pers ×2</th><th>Transport €</th><th>Elec €</th><th>WiFi €</th><th>Mktg €</th><th>−Dealer €</th><th>Total €</th></tr>`;
   const body=$('#budgetBody');
+  const sy=window.scrollY;
   body.innerHTML=active.slice().sort((a,b)=>getStart(a).localeCompare(getStart(b))).map(f=>{const r=rec(f);
-    const cells=BUDGET_CATS.map(c=>{const ov=r.budget&&r.budget[c.k]!=null?r.budget[c.k]:'';
-      return `<td><input type="number" data-bud="${f.id}|${c.k}" value="${ov}" placeholder="${catDefault(f,c.k)}"></td>`;}).join('');
     const nl=nightsOf(f)!=null?(''+nightsEst(f)):(nightsEst(f)+'*');
-    return `<tr><td class="name">${esc(f.name)}</td><td>${CO_NAME[f.ct]}</td><td><span class="pill ${vanFor(f)}">${vanFor(f)==='big'?'Big':'Small'}</span></td>
-      <td><input type="number" data-m2="${f.id}" value="${r.standSize!=null&&r.standSize!==''?r.standSize:''}" placeholder="${standM2(f)}" style="width:58px"></td>
-      <td>${peopleOf(f)}</td><td>${nl}</td>
-      ${cells}<td><input type="number" data-fee="${f.id}" value="${r.dealerFee!=null?r.dealerFee:''}" placeholder="0"></td>
-      <td class="rowtot">${eur(fairCost(f)-fairIncome(f))}</td></tr>`;}).join('')
-    ||`<tr><td colspan="${BUDGET_CATS.length+8}" style="color:var(--dim);padding:18px">No fairs ticked — select fairs on the tracker to build a budget.</td></tr>`;
-  $$('[data-bud]').forEach(i=>i.onchange=e=>{const[id,k]=e.target.dataset.bud.split('|');const r=rec2(id);r.budget=r.budget||{};r.budget[k]=e.target.value;saveRecs();renderBudget();});
-  $$('[data-m2]').forEach(i=>i.onchange=e=>{rec2(e.target.dataset.m2).standSize=e.target.value;saveRecs();renderBudget();});
-  $$('[data-fee]').forEach(i=>i.onchange=e=>{rec2(e.target.dataset.fee).dealerFee=e.target.value;saveRecs();renderBudget();});
+    const inp=(k,ph,w)=>`<input type="number" data-rate="${f.id}|${k}" value="${r[k]!=null&&r[k]!==''?r[k]:''}" placeholder="${ph}" style="width:${w}px">`;
+    return `<tr><td class="name">${esc(f.name)}</td><td>${CO_NAME[f.ct]}</td>
+      <td>${inp('standSize',standM2(f),48)}</td><td>${inp('rateM2',(+budgetModel.pricePerM2||0),52)}</td><td class="rowtot">${eur(catValue(f,'space'))}</td>
+      <td>${inp('rateBuild',(+budgetModel.buildPerM2||0),52)}</td><td class="rowtot">${eur(catValue(f,'build'))}</td>
+      <td>${peopleOf(f)}</td><td>${nl}</td><td>${inp('rateNight',(+budgetModel.hotelPerNight||0),52)}</td><td class="rowtot">${eur(catValue(f,'accom'))}</td>
+      <td>${inp('days',nightsEst(f)+1,44)}</td><td>${inp('rateMeal',(+budgetModel.perDiem||0),52)}</td><td class="rowtot">${eur(catValue(f,'meals'))}</td>
+      <td>${inp('rateTrans',(+budgetModel.transportPerPerson||100),52)}</td><td class="rowtot">${eur(catValue(f,'transport'))}</td>
+      <td>${inp('elec',(+budgetModel.elec||0),52)}</td><td>${inp('wifi',(+budgetModel.wifi||0),52)}</td><td>${inp('other',otherOf(f),52)}</td>
+      <td>${inp('dealerFee',0,52)}</td><td class="rowtot"><b>${eur(fairCost(f)-fairIncome(f))}</b></td></tr>`;}).join('')
+    ||`<tr><td colspan="21" style="color:var(--dim);padding:18px">No fairs ticked — select fairs on the tracker to build a budget.</td></tr>`;
+  $$('[data-rate]').forEach(i=>i.onchange=e=>{const[id,k]=e.target.dataset.rate.split('|');rec2(id)[k]=e.target.value;saveRecs();renderBudget();window.scrollTo(0,sy);});
 }
 function exportBudget(){
   const active=FAIRS.filter(f=>ticked[f.id]);
-  let out=[['Fair','Country','Van','m2','People','Nights',...BUDGET_CATS.map(c=>c.l),'Gross','Dealer fee','Net'].join(',')];
-  active.forEach(f=>{let row=[f.name,f.ct,vanFor(f),standM2(f),peopleOf(f),nightsEst(f),...BUDGET_CATS.map(c=>catValue(f,c.k)),fairCost(f),fairIncome(f),fairCost(f)-fairIncome(f)];
+  let out=[['Fair','Country','m2','EUR/m2rent','Rent','EUR/m2build','Build','People','Nights','EUR/night','Hotel','Days','EUR/meal','Meals','EURpers','Transport','Elec','WiFi','Mktg','DealerFee','Total'].join(',')];
+  active.forEach(f=>{let row=[f.name,f.ct,standM2(f),rateM2(f),catValue(f,'space'),rateBuild(f),catValue(f,'build'),peopleOf(f),nightsEst(f),rateNight(f),catValue(f,'accom'),daysOf(f),rateMeal(f),catValue(f,'meals'),rateTrans(f),catValue(f,'transport'),elecOf(f),wifiOf(f),otherOf(f),fairIncome(f),fairCost(f)-fairIncome(f)];
     out.push(row.map(x=>`"${(''+x).replace(/"/g,'""')}"`).join(','));});
   dl(out.join('\n'),'ahooga_budget_2027.csv');
 }
