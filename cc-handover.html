@@ -579,13 +579,13 @@ async function bookBatchDSV(sos,dry){
   let pk = SET.pickupPartnerId ? await partnerAddr(SET.pickupPartnerId) : (SET.pickup||{});
   let cn = SET.consigneePartnerId ? await partnerAddr(SET.consigneePartnerId) : (SET.consignee||{});
   if(!cn.name||!cn.street) throw new Error('No consignee address \u2014 pick the Velovisie vendor in Settings.');
-  const w=Number(SET.frameWeight)||22; let packagesList;
+  const w=Number(SET.frameWeight)||5; let packagesList;
   if(sos.length>=PALLET_AT){
     const pallets=Math.max(1,Math.ceil(sos.length/FRAMES_PER_PALLET));
     const per=Math.ceil(sos.length/pallets); let left=sos.length; packagesList=[];
     for(let i=0;i<pallets;i++){ const m=Math.min(per,left); left-=m; packagesList.push({packageType:'EUR',quantity:1,totalWeight:Math.round(m*w*10)/10,length:120,width:80,height:150,description:('Frames x'+m).slice(0,30)}); }
   } else {
-    packagesList=sos.map(so=>({packageType:'CTN',quantity:1,totalWeight:w,length:72,width:42,height:74,description:('Frame '+((frameRec(so).frameId)||so)).slice(0,30)}));
+    packagesList=sos.map(so=>({packageType:'CTN',quantity:1,totalWeight:w,length:110,width:60,height:25,description:('Frame '+((frameRec(so).frameId)||so)).slice(0,30)}));
   }
   const payload={ reference:ref, autobook:!!SET.autobook, cargoDesc:'Custom colour frames', productCode:SET.dsvProductCode||'CMG', packageType:'CTN',
     pickup:(pk&&pk.street)?{name:pk.name,street:pk.street,zip:pk.zip,city:pk.city,countryCode:pk.cc,phone:pk.phone}:undefined,
