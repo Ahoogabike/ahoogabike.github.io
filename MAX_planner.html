@@ -221,7 +221,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
     </div>
 
     <div class="toolbar">
-      <input type="text" id="q-search" placeholder="Search order, customer, SKU…" oninput="renderQueue()"/>
+      <input type="text" id="q-search" placeholder="Search order, customer, SKU, Bike ID…" oninput="renderQueue()"/>
       <select id="q-filter" onchange="renderQueue()">
         <option value="">All</option>
         <option value="stock">✓ Ready to ship (warehouse)</option>
@@ -345,7 +345,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
       <div id="forms-alert" style="margin-top:8px"></div>
     </div>
     <div class="toolbar">
-      <input type="text" id="custom-search" placeholder="Search order, customer…" oninput="renderCustom()"/>
+      <input type="text" id="custom-search" placeholder="Search order, customer, Bike ID…" oninput="renderCustom()"/>
       <select id="custom-filter" onchange="renderCustom()">
         <option value="">All</option>
         <option value="queued">Queued</option>
@@ -1624,25 +1624,61 @@ function addDaysStr(dateStr, days){
 }
 function fmtDate(d){ if(!d) return '—'; return new Date(d).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); }
 function colorDot(c){ const m={yellow:'#f5c842',black:'#2a2a2a',red:'#c0392b',custom:'#7f77dd'}; return `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${m[c]||'#aaa'};vertical-align:middle;margin-right:4px"></span>`; }
+// Dot for an ORDER: purple only for a genuine custom-paint job; otherwise a swatch that
+// reflects the real catalogue colour name (Graphite Black -> dark, etc.), else the base colour.
+function colorDotFor(o){
+  if(!o) return colorDot('');
+  if(isTrueCustomColor(o)) return colorDot('custom');
+  if(o.color && o.color !== 'custom') return colorDot(o.color);
+  const n = (catalogueColorName(o)||'').toLowerCase();
+  if(n){
+    const swatch =
+      /black|noir|zwart|graphite|anthra|cosmic/.test(n) ? '#2a2a2a' :
+      /white|blanc|wit|pearl/.test(n)                  ? '#e6e6e1' :
+      /grey|gray|gris|grijs|silver/.test(n)            ? '#9a9a95' :
+      /red|rouge|rood|ruby/.test(n)                    ? '#c0392b' :
+      /blue|bleu|blauw|navy/.test(n)                   ? '#2b6cb0' :
+      /green|vert|groen/.test(n)                       ? '#2f855a' :
+      /yellow|jaune|geel|bumblebee/.test(n)            ? '#f5c842' :
+      /orange|oranje/.test(n)                          ? '#dd6b20' :
+      /pink|rose|roze/.test(n)                         ? '#d53f8c' :
+      /purple|violet|paars/.test(n)                    ? '#7f77dd' : '#aaa';
+    return `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${swatch};border:1px solid rgba(0,0,0,.15);vertical-align:middle;margin-right:4px"></span>`;
+  }
+  return colorDot(o.color);
+}
 
 // ─── PRODUCT DETECTION ───────────────────────────────────
 function detectColor(n){ const l=n.toLowerCase(); if(l.includes('yellow')||l.includes('bumblebee')) return 'yellow'; if(l.includes('black')||l.includes('cosmic')) return 'black'; if(l.includes('red')||l.includes('ruby')) return 'red'; return 'custom'; }
 function isCustomColor(o){ return o.color === 'custom'; }
-// A GENUINE custom-colour bike is a MAX whose paint isn't a standard yellow/black/red.
-// detectColor() uses 'custom' as a catch-all for any name it can't classify, so MODULAR /
-// FOLDING / other models also fall into that bucket — but they are NOT custom colours, just a
-// different model. Use this to decide when the word "Custom" may be shown to the user.
-function isTrueCustomColor(o){ return !!(o && o.color === 'custom' && isMaxBike(o)); }
-// Human-readable label for the Color column / exports. Never calls a non-MAX model "custom".
+// The bike's real catalogue paint colour from its STRUCTURED Odoo data — the colour attribute
+// on the line/variant, or a clean "Colour: X" configuration line (e.g. "Graphite Black").
+// This deliberately ignores the free-text colour NOTE: a genuine MAX custom-colour job carries
+// its colour only as that note, never as a catalogue attribute, so this returns '' for it.
+function catalogueColorName(o){
+  if(!o) return '';
+  let pairs = (typeof parsePairs==='function' ? (parsePairs(o.configRaw || o.config) || []) : []);
+  if(Array.isArray(o.attrs)) pairs = pairs.concat(o.attrs);
+  const cols = (typeof mapToCols==='function') ? mapToCols(pairs) : {};
+  return (cols && cols.mainColor) ? String(cols.mainColor).trim() : '';
+}
+// A GENUINE custom-colour bike is a MAX in the Decocoat custom-paint programme. detectColor()
+// buckets ANY unrecognised colour as 'custom', so MODULAR / FOLDING / other models land here
+// too — but they aren't custom colours, they just have a catalogue colour (e.g. Graphite Black).
+// A bike that carries a real catalogue colour is therefore never a "true custom".
+function isTrueCustomColor(o){ return !!(o && o.color === 'custom' && isMaxBike(o) && !catalogueColorName(o)); }
+// Human-readable label for the Color column / exports. Shows the real paint colour whenever it
+// is known, and only ever says "Custom" for a genuine MAX custom-paint job.
 function colorLabel(o){
-  if(o && o.color === 'custom'){
-    if(isMaxBike(o)) return 'Custom';
-    if(o.bikeType === 'modular') return 'Modular';
-    if(o.bikeType === 'folding') return 'Folding';
-    return 'n/a';
-  }
-  const c = o && o.color;
-  return c ? c.charAt(0).toUpperCase() + c.slice(1) : '—';
+  if(!o) return '—';
+  if(o.color && o.color !== 'custom') return o.color.charAt(0).toUpperCase() + o.color.slice(1);
+  // 'custom' bucket — prefer the real catalogue colour (e.g. "Graphite Black").
+  const real = catalogueColorName(o);
+  if(real) return real;
+  if(isMaxBike(o)) return 'Custom';
+  if(o.bikeType === 'modular') return 'Modular';
+  if(o.bikeType === 'folding') return 'Folding';
+  return 'n/a';
 }
 function detectTransmission(n){ const l=n.toLowerCase(); if(l.includes('alfine')||l.includes('alf')) return 'alfine'; if(l.includes('derailleur')||l.includes('der')) return 'derailleur'; if(l.includes('nexus')||l.includes('nex')) return 'nexus'; return 'unknown'; }
 function detectBikeType(n){ const l=n.toLowerCase(); if(l.includes('e-max')||l.includes('emax')) return 'emax'; if(l.includes('a-max')||l.includes('amax')) return 'amax'; if(l.includes('modular')||l.includes('ahmun')) return 'modular'; if(l.includes('folding')||l.includes('ahfan')||l.includes('analog')) return 'folding'; return 'other'; }
@@ -1975,7 +2011,9 @@ function renderQueue() {
   const allOrders = [...orders, ...manualOrders];
   let filtered=allOrders.filter(o=>{
     if(o.status==='shipped') return false;
-    const txt=`${o.name} ${o.customer} ${o.sku} ${o.color}`.toLowerCase();
+    // Searchable text includes the Bike ID (serial), so you can look a line up by e.g. "MACU0000101".
+    const bikeId = `${(typeof orderSerial==='function'?orderSerial(o):'')||''} ${o.serialEst||''}`;
+    const txt=`${o.name} ${o.customer} ${o.sku} ${colorLabel(o)} ${o.color} ${bikeId}`.toLowerCase();
     if(search&&!txt.includes(search)) return false;
     if(filter==='stock'&&o.status!=='stock_match') return false;
     if(filter==='transit_match'&&o.status!=='transit_match') return false;
@@ -2074,7 +2112,7 @@ function renderQueue() {
       {key:'name',     td:`<td style="font-weight:600;white-space:nowrap">${o.name}${louiBadge}${customBadge}</td>`},
       {key:'customer', td:`<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.customer}</td>`},
       {key:'sku',      td:`<td style="font-size:12px">${o.sku}</td>`},
-      {key:'color',    td:`<td>${colorDot(o.color)} ${colorLabel(o)}</td>`},
+      {key:'color',    td:`<td>${colorDotFor(o)} ${colorLabel(o)}</td>`},
       {key:'rack',     td:`<td>${o.rack}</td>`},
       {key:'qty',      td:`<td style="text-align:center">${o.qty}</td>`},
       {key:'deadline', td:`<td>${dl}</td>`},
@@ -4099,7 +4137,7 @@ function renderCustom() {
       if(!isMaxBike(o)) return false;
       if(o.status === 'shipped') return false;
       if(Number(o.delivered) > 0) return false;   // already delivered — frame is done
-      if(search && !`${o.name} ${o.customer} ${o.sku}`.toLowerCase().includes(search)) return false;
+      if(search && !`${o.name} ${o.customer} ${o.sku} ${orderSerial(o)||''} ${o.serialEst||''}`.toLowerCase().includes(search)) return false;
       if(filter && o.status !== filter) return false;
       return true;
     })
