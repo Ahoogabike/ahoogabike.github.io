@@ -1628,6 +1628,22 @@ function colorDot(c){ const m={yellow:'#f5c842',black:'#2a2a2a',red:'#c0392b',cu
 // ─── PRODUCT DETECTION ───────────────────────────────────
 function detectColor(n){ const l=n.toLowerCase(); if(l.includes('yellow')||l.includes('bumblebee')) return 'yellow'; if(l.includes('black')||l.includes('cosmic')) return 'black'; if(l.includes('red')||l.includes('ruby')) return 'red'; return 'custom'; }
 function isCustomColor(o){ return o.color === 'custom'; }
+// A GENUINE custom-colour bike is a MAX whose paint isn't a standard yellow/black/red.
+// detectColor() uses 'custom' as a catch-all for any name it can't classify, so MODULAR /
+// FOLDING / other models also fall into that bucket — but they are NOT custom colours, just a
+// different model. Use this to decide when the word "Custom" may be shown to the user.
+function isTrueCustomColor(o){ return !!(o && o.color === 'custom' && isMaxBike(o)); }
+// Human-readable label for the Color column / exports. Never calls a non-MAX model "custom".
+function colorLabel(o){
+  if(o && o.color === 'custom'){
+    if(isMaxBike(o)) return 'Custom';
+    if(o.bikeType === 'modular') return 'Modular';
+    if(o.bikeType === 'folding') return 'Folding';
+    return 'n/a';
+  }
+  const c = o && o.color;
+  return c ? c.charAt(0).toUpperCase() + c.slice(1) : '—';
+}
 function detectTransmission(n){ const l=n.toLowerCase(); if(l.includes('alfine')||l.includes('alf')) return 'alfine'; if(l.includes('derailleur')||l.includes('der')) return 'derailleur'; if(l.includes('nexus')||l.includes('nex')) return 'nexus'; return 'unknown'; }
 function detectBikeType(n){ const l=n.toLowerCase(); if(l.includes('e-max')||l.includes('emax')) return 'emax'; if(l.includes('a-max')||l.includes('amax')) return 'amax'; if(l.includes('modular')||l.includes('ahmun')) return 'modular'; if(l.includes('folding')||l.includes('ahfan')||l.includes('analog')) return 'folding'; return 'other'; }
 function detectRack(n){ const l=n.toLowerCase(); return (l.includes('rack')&&!l.includes('no rack'))?'rack':'no rack'; }
@@ -2017,7 +2033,13 @@ function renderQueue() {
     const canMove = o.status !== 'shipped';
     const louiBadge = o.isLoui ? '<span class="badge badge-warn" style="font-size:10px;margin-left:4px">Louise</span>' : '';
     const v = visibleCols; void v;
-    const customBadge = o.color==='custom' ? '<span class="badge" style="font-size:10px;margin-left:4px;background:var(--purple-bg);color:var(--purple)">Custom</span>' : '';
+    const customBadge = isTrueCustomColor(o)
+      ? '<span class="badge" style="font-size:10px;margin-left:4px;background:var(--purple-bg);color:var(--purple)">Custom</span>'
+      : (o.color==='custom' && o.bikeType==='modular')
+        ? '<span class="badge badge-neutral" style="font-size:10px;margin-left:4px">Modular</span>'
+        : (o.color==='custom' && o.bikeType==='folding')
+          ? '<span class="badge badge-neutral" style="font-size:10px;margin-left:4px">Folding</span>'
+          : '';
     const locBadge = o.stockLocation
       ? o.stockLocation.includes('LOUI') && o.stockLocation.includes('AND')
         ? '<span class="badge badge-warn" style="font-size:10px">LOUI+AND</span>'
@@ -2052,7 +2074,7 @@ function renderQueue() {
       {key:'name',     td:`<td style="font-weight:600;white-space:nowrap">${o.name}${louiBadge}${customBadge}</td>`},
       {key:'customer', td:`<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.customer}</td>`},
       {key:'sku',      td:`<td style="font-size:12px">${o.sku}</td>`},
-      {key:'color',    td:`<td>${colorDot(o.color)} ${o.color}</td>`},
+      {key:'color',    td:`<td>${colorDot(o.color)} ${colorLabel(o)}</td>`},
       {key:'rack',     td:`<td>${o.rack}</td>`},
       {key:'qty',      td:`<td style="text-align:center">${o.qty}</td>`},
       {key:'deadline', td:`<td>${dl}</td>`},
@@ -3795,6 +3817,11 @@ function ingestDecocoatCSV(text, opts){
     const iCustomer = col('Customer');
     const iColor = col('Main Frame custom color');
     const iDecocoatReady = col('Expected readiness date at Decocoat');
+    // Column O carries the sales order that a custom-colour (MACU) frame belongs to.
+    // The Bike ID (col G) is unique per bike; col O ties that exact frame to its SO.
+    // Prefer an explicit header, else fall back to the fixed spreadsheet column O (index 14, 0-based).
+    let iBikeSO = header.findIndex(h => /(sales\s*order|so).*(bike|frame|macu|custom)|(bike|frame|macu|custom).*(sales\s*order|so\b)/.test(h));
+    if(iBikeSO < 0) iBikeSO = 14;
 
     decocoatData = [];
     for(let i=1; i<rows.length; i++){
@@ -3809,9 +3836,16 @@ function ingestDecocoatCSV(text, opts){
       } else if(decocoatReady){
         estWarehouse = addDaysStr(parseEuropeanDate(decocoatReady), 5 + 14); // 5 days shipping + 14 days assembly
       }
+      const rawBikeId = (r[iBikeId]||'').trim();
+      // For a MACU (custom-colour) frame, column O is the authoritative SO. A wrong/blank
+      // column O safely falls back to the standard SO# column, so this can never mis-map.
+      const colO_SO = (r[iBikeSO] || '').trim();
+      const isMacuRow = /^MACU/i.test(rawBikeId.replace(/\s+/g,''));
+      const effectiveSO = (isMacuRow && /S\s*\d+/i.test(colO_SO)) ? colO_SO : (r[iSO]||'').trim();
       decocoatData.push({
-        so: (r[iSO]||'').trim(),
-        bikeId: (r[iBikeId]||'').trim(),
+        so: effectiveSO,
+        soSheet: (r[iSO]||'').trim(),   // original SO# column, kept for reference
+        bikeId: rawBikeId,
         sku: (r[iSku]||'').trim(),
         status: (r[iStatus]||'').trim(),
         arrivalAtVV: arrivalVV,
@@ -3836,12 +3870,19 @@ function ingestDecocoatCSV(text, opts){
         (o.name === d.so || o.name === baseSO) && o.color === 'custom'
       );
       for(const o of matchingOrders){
-        o.serialEst = d.bikeId;
+        // serialEst (the unique per-bike Bike ID) is assigned below via buildCustomSerialMap(),
+        // so an SO with several custom frames no longer shares one serial across all its bikes.
         o.estimatedDelivery = d.estimatedWarehouse;
         if(d.poRef){ o.poRef = d.poRef; o.decoCoatPO = d.poRef; }  // Decocoat-file PO = Deco Coat painting PO
         if(d.status) o.decocoatStatus = d.status;
         matched++;
       }
+    }
+
+    // Assign each custom order line its OWN unique Bike ID (MACU serial), keyed off column O.
+    buildCustomSerialMap();
+    for(const o of [...orders,...manualOrders]){
+      if(customSerialByOrderId[o.id]) o.serialEst = customSerialByOrderId[o.id];
     }
 
     // Save lastSerials for MACU
@@ -3952,6 +3993,9 @@ function applyDecocoatToOrders() {
   //                                             nor the PO is double-proposed.
   // Custom orders with neither signal stay queued and can be proposed.
 
+  // Ensure each custom order line knows its own unique Bike ID (MACU serial).
+  buildCustomSerialMap();
+
   // Index decocoat rows by SO (exact + base number, e.g. "S22337 (1/5)" -> S22337)
   const bySO = {};
   for(const d of decocoatData){
@@ -3976,7 +4020,9 @@ function applyDecocoatToOrders() {
     const row = rows.find(d=>d.bikeId) || rows[0];
 
     // Always surface the latest Decocoat display info
-    if(row.bikeId) o.serialEst = row.bikeId;
+    // Unique per-bike Bike ID from the map (col-O keyed); fall back to this SO's row serial.
+    if(customSerialByOrderId[o.id]) o.serialEst = customSerialByOrderId[o.id];
+    else if(row.bikeId) o.serialEst = row.bikeId;
     if(row.estimatedWarehouse) o.estimatedDelivery = row.estimatedWarehouse;
     if(row.status) o.decocoatStatus = row.status;
 
@@ -4159,7 +4205,7 @@ function exportShipList() {
       <td>${o.customer}</td>
       <td>${o.sku}</td>
       <td>${o.bikeType==='emax'?'E-MAX':'A-MAX'}</td>
-      <td>${o.color}</td>
+      <td>${colorLabel(o)}</td>
       <td>${o.rack}</td>
       <td>${o.deadline ? new Date(o.deadline).toLocaleDateString('en-GB') : '&#8212;'}</td>
       <td style="font-family:monospace;font-size:11px">${o.serialEst||'&#8212;'}</td>
@@ -4254,18 +4300,62 @@ function paintCodeCell(colour){ const p = paintInfo(colour); return p ? `${p.cod
 function paintPrimerCell(colour){ const p = paintInfo(colour); return p ? p.primer : ''; }
 
 // ─── CUSTOM-FRAME SERIALS (MACU#######) ────────────────────────────────────
-// The painted-frame serial (MACU#######) is assigned by DECOCOAT during painting and
-// comes back in the Decocoat order book. The app NEVER invents one. It is only ever
-// surfaced when it is genuinely known (Decocoat file, or a serial the user pasted in).
+// The painted-frame serial (MACU#######) IS the bike's unique "Bike ID". It is assigned by
+// DECOCOAT during painting and comes back in the Decocoat order book (Bike ID = column G,
+// linked to its sales order in column O). The app NEVER invents one.
+//
+// HOW A CUSTOM ORDER GETS ITS BIKE ID
+// Each MACU frame belongs to exactly one sales order, and a sales order with several custom
+// frames gets several MACU serials — one per bike. We therefore build a strict 1-to-1 map:
+//   • collect every real MACU serial in the book, grouped by its sales order (col O), and
+//   • collect that SO's custom-colour MAX order lines, sorted by bike index,
+// then pair the k-th serial to the k-th bike. A serial is consumed by only one order line, so
+// two bikes on the same SO can never share a Bike ID, and a custom frame can never be pinned
+// to a bike it wasn't painted for.
+let customSerialByOrderId = {};
+function macuSerial(s){ const m = String(s||'').match(/MACU\s*0*\d+/i); return m ? m[0].replace(/\s+/g,'').toUpperCase() : ''; }
+function buildCustomSerialMap(){
+  customSerialByOrderId = {};
+  // 1) Real MACU serials from the book, grouped by their sales order.
+  const serialsBySO = {};
+  for(const d of (decocoatData||[])){
+    const v = macuSerial(d.bikeId);
+    if(!v) continue;
+    const k = soKey(d.so);          // col O drives d.so for MACU rows
+    if(!k) continue;
+    (serialsBySO[k] = serialsBySO[k] || []).push(v);
+  }
+  // De-dupe + sort ascending so pairing is stable and deterministic.
+  for(const k in serialsBySO){
+    serialsBySO[k] = [...new Set(serialsBySO[k])]
+      .sort((a,b)=>((parseInt(a.replace(/\D/g,''))||0)-(parseInt(b.replace(/\D/g,''))||0)));
+  }
+  // 2) Custom-colour MAX order lines, grouped by SO and sorted by bike index.
+  const ordersBySO = {};
+  for(const o of [...orders,...manualOrders]){
+    if(!isTrueCustomColor(o)) continue;
+    const k = soKey(o.name);
+    if(!k) continue;
+    (ordersBySO[k] = ordersBySO[k] || []).push(o);
+  }
+  // 3) Pair 1-to-1: k-th serial -> k-th bike on that SO.
+  for(const k in ordersBySO){
+    const os = ordersBySO[k].sort((a,b)=>((a.bikeIndex||0)-(b.bikeIndex||0))||((a.priority||0)-(b.priority||0)));
+    const serials = serialsBySO[k] || [];
+    os.forEach((o,i)=>{ if(serials[i]) customSerialByOrderId[o.id] = serials[i]; });
+  }
+  return customSerialByOrderId;
+}
 function orderSerial(o){
-  const b = baseSO(o && o.name);
-  const real = s => { const m = String(s||'').match(/MACU\s*0*\d+/i); return m ? m[0].replace(/\s+/g,'').toUpperCase() : ''; };
-  // 1) Real serial from the synced Decocoat order book (the source of truth)
-  for(const x of (decocoatData||[])){ if(baseSO(x.so)===b){ const v = real(x.bikeId); if(v) return v; } }
-  // 2) A linked serial — trusted ONLY if that exact serial actually appears in the
-  //    Decocoat file. This guarantees a leftover fabricated number can never resurface.
+  if(!o) return '';
+  // 1) The unique Bike ID paired to THIS order line (rebuild if the map is empty/stale).
+  if(!Object.keys(customSerialByOrderId).length) buildCustomSerialMap();
+  if(customSerialByOrderId[o.id]) return customSerialByOrderId[o.id];
+  // 2) Fallback: a linked serial, trusted ONLY if it actually appears in the Decocoat file
+  //    (guarantees a leftover fabricated number can never resurface).
+  const b = baseSO(o.name);
   const a = (serialAssignments[b]||'').toUpperCase();
-  if(/^MACU\d/.test(a) && (decocoatData||[]).some(x => real(x.bikeId)===a)) return a;
+  if(/^MACU\d/.test(a) && (decocoatData||[]).some(x => macuSerial(x.bikeId)===a)) return a;
   return '';
 }
 // Link REAL frame serials from the Decocoat order book to their SOs — never fabricates.
@@ -4277,6 +4367,9 @@ function assignSerials(){
     const m = String(d.bikeId||'').match(/MACU\s*0*\d+/i);
     if(b && m){ const v = m[0].replace(/\s+/g,'').toUpperCase(); if(serialAssignments[b]!==v){ serialAssignments[b]=v; linked++; } }
   }
+  // Re-pair unique per-bike Bike IDs and refresh each order's serialEst.
+  buildCustomSerialMap();
+  for(const o of [...orders,...manualOrders]){ if(customSerialByOrderId[o.id]) o.serialEst = customSerialByOrderId[o.id]; }
   save(); saveSharedState();
   if(typeof renderCustom==='function') renderCustom();
   if(typeof renderQueue==='function') renderQueue();
