@@ -320,8 +320,12 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
       <button class="btn btn-primary btn-sm" onclick="syncDecocoat()">↻ Sync Decocoat Sheet</button>
       <input type="file" id="decocoat-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="loadDecocoatFile(this)"/>
       <button class="btn btn-secondary btn-sm" title="If the live sync fails (network/CORS), export the sheet from Google (File ▸ Download ▸ CSV) and load it here." onclick="document.getElementById('decocoat-file').click()">📄 Load Deco Coat file</button>
+      <button class="btn btn-primary btn-sm" title="Pull the confirmed custom Bike IDs (MACU serials) from VV_total_raw column O." onclick="syncVVTotalRaw()">↻ Sync VV_total_raw</button>
+      <input type="file" id="vvraw-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="loadVVTotalRawFile(this)"/>
+      <button class="btn btn-secondary btn-sm" title="If the live sync fails, download VV_total_raw from Google (File ▸ Download ▸ CSV) and load it here." onclick="document.getElementById('vvraw-file').click()">📄 Load VV_total_raw file</button>
     </div>
     <div id="decocoat-alert"></div>
+    <div id="vvraw-alert"></div>
     <div class="alert alert-info" style="margin-bottom:16px">
       Custom color bikes have serials assigned manually via your paint supplier (Decocoat). 
       Serial numbers are tracked in your Sharepoint file. 
@@ -3795,6 +3799,8 @@ async function syncDecocoat() {
       `<div class="alert alert-danger">✗ Couldn't reach the Google Sheet (${(lastErr&&lastErr.message)||'network / CORS'}).<br>` +
       `• Make sure the sheet is shared <strong>“Anyone with the link”</strong>.<br>` +
       `• As a backup you can also use <strong>“📄 Load Deco Coat file”</strong> (File ▸ Download ▸ CSV from the sheet).</div>`;
+    // Even if the Decocoat book is unreachable, still refresh the VV_total_raw Bike ID links.
+    try { await syncVVTotalRaw(); } catch(e){ console.warn('VV_total_raw sync skipped:', e && e.message); }
     return;
   }
   try { ingestDecocoatCSV(text); }
@@ -3814,7 +3820,7 @@ function parseVVTotalRaw(text){
   if(!rows.length) return 0;
   const map = {};
   let n = 0;
-  for(let i=1; i<rows.length; i++){       // row 0 = header
+  for(let i=0; i<rows.length; i++){        // scan all rows; the header row simply has no MACU in col G
     const r = rows[i] || [];
     const serial = macuSerial(r[6]);      // column G — bike ID NR
     if(!serial) continue;
@@ -3827,13 +3833,73 @@ function parseVVTotalRaw(text){
   vvSerialSO = map;
   return n;
 }
-async function syncVVTotalRaw(){
+function vvAlert(html){ const el=document.getElementById('vvraw-alert'); if(el) el.innerHTML = html; }
+// Build the serial->SO map from a gviz JSON table (used by the JSONP path). Robust to columns
+// being dropped: we locate columns by their sheet letter id (G = serial, O = SO) with a
+// positional fallback (index 6 / 14).
+function parseVVTotalRawTable(table){
+  const cols = (table && table.cols) || [];
+  const rows = (table && table.rows) || [];
+  const idxOf = letter => cols.findIndex(c => c && c.id === letter);
+  let gi = idxOf('G'); if(gi < 0) gi = 6;
+  let oi = idxOf('O'); if(oi < 0) oi = 14;
+  const map = {}; let n = 0;
+  for(const row of rows){
+    const c = (row && row.c) || [];
+    const serial = macuSerial(c[gi] && (c[gi].v != null ? c[gi].v : c[gi].f));
+    if(!serial) continue;
+    const raw = c[oi] ? (c[oi].v != null ? c[oi].v : c[oi].f) : '';
+    const m = String(raw == null ? '' : raw).toUpperCase().match(/S\s*\d{3,}/);
+    if(!m) continue;
+    map[serial] = m[0].replace(/\s+/g,'');
+    n++;
+  }
+  vvSerialSO = map;
+  return n;
+}
+// Primary sync: JSONP via a <script> tag — the reliable, CORS-free way to read a PUBLIC Google
+// Sheet from the browser (no proxy needed). Falls back to the CSV/proxy fetch if JSONP fails.
+function syncVVTotalRaw(){
   const sheetId = cfg.vvSheetId || '1d8fnvHZvV9O2rackEBn17cIuP5x8PxjKY2g7xOaX89w';
   const gid = cfg.vvGid || '406393168';
+  vvAlert('<div class="alert alert-info">Syncing VV_total_raw…</div>');
+  return new Promise((resolve)=>{
+    const cb = '__vvcb_' + Date.now() + '_' + Math.floor(Math.random()*1e6);
+    let done = false;
+    const s = document.createElement('script');
+    const finish = (n)=>{
+      if(done) return; done = true;
+      try { delete window[cb]; } catch(e){ window[cb] = undefined; }
+      if(s && s.parentNode) s.parentNode.removeChild(s);
+      resolve(n);
+    };
+    const timer = setTimeout(()=>{ if(done) return; console.warn('[VV_total_raw] JSONP timeout — trying CSV fallback'); syncVVTotalRawCSV().then(finish); }, 12000);
+    window[cb] = (resp)=>{
+      clearTimeout(timer);
+      try {
+        const n = parseVVTotalRawTable(resp && resp.table);
+        console.log(`[VV_total_raw] linked ${n} MACU serial(s) to a sales order via column O (JSONP).`);
+        applyCustomSerials();
+        vvAlert(`<div class="alert alert-success">✓ VV_total_raw: linked ${n} custom Bike ID(s) to their sales order via column O.</div>`);
+        setTimeout(()=>vvAlert(''), 6000);
+        finish(n);
+      } catch(e){ console.warn('[VV_total_raw] JSONP parse error:', e && e.message); syncVVTotalRawCSV().then(finish); }
+    };
+    s.src = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json;responseHandler:${cb}&gid=${gid}`;
+    s.onerror = ()=>{ clearTimeout(timer); if(done) return; console.warn('[VV_total_raw] JSONP load error — trying CSV fallback'); syncVVTotalRawCSV().then(finish); };
+    document.head.appendChild(s);
+  });
+}
+// Secondary sync: CSV over fetch (+ CORS proxies). Only reached if JSONP fails.
+async function syncVVTotalRawCSV(){
+  const sheetId = cfg.vvSheetId || '1d8fnvHZvV9O2rackEBn17cIuP5x8PxjKY2g7xOaX89w';
+  const gid = cfg.vvGid || '406393168';
+  const gviz   = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&gid=${gid}`;
   const direct = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
   const urls = [
-    direct,
-    'https://corsproxy.io/?url=' + encodeURIComponent(direct),
+    gviz, direct,
+    'https://corsproxy.io/?url=' + encodeURIComponent(gviz),
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(gviz),
     'https://api.allorigins.win/raw?url=' + encodeURIComponent(direct),
   ];
   let text = null;
@@ -3846,11 +3912,18 @@ async function syncVVTotalRaw(){
       text = t; break;
     } catch(e){ /* try next endpoint */ }
   }
-  if(text == null){ console.warn('[VV_total_raw] Could not reach the sheet (network/CORS). Keeping last known links.'); return 0; }
+  if(text == null){
+    console.warn('[VV_total_raw] Could not reach the sheet (JSONP + CSV + proxies all failed).');
+    vvAlert('<div class="alert alert-danger">✗ Couldn\'t reach VV_total_raw. Check the sheet is shared “Anyone with the link”, or use “📄 Load VV_total_raw file”.</div>');
+    setTimeout(()=>vvAlert(''), 10000);
+    return 0;
+  }
   let n = 0;
-  try { n = parseVVTotalRaw(text); } catch(e){ console.warn('[VV_total_raw] parse error:', e && e.message); return 0; }
-  console.log(`[VV_total_raw] linked ${n} MACU serial(s) to a sales order via column O.`);
+  try { n = parseVVTotalRaw(text); } catch(e){ console.warn('[VV_total_raw] parse error:', e && e.message); vvAlert('<div class="alert alert-danger">✗ VV_total_raw parse error: '+(e&&e.message)+'</div>'); return 0; }
+  console.log(`[VV_total_raw] linked ${n} MACU serial(s) to a sales order via column O (CSV).`);
   applyCustomSerials();
+  vvAlert(`<div class="alert alert-success">✓ VV_total_raw: linked ${n} custom Bike ID(s) to their sales order via column O.</div>`);
+  setTimeout(()=>vvAlert(''), 6000);
   return n;
 }
 // Load VV_total_raw from a downloaded CSV/XLSX (offline fallback, mirrors loadDecocoatFile).
@@ -3872,7 +3945,9 @@ function loadVVTotalRawFile(input){
       const n = parseVVTotalRaw(csv);
       console.log('[VV_total_raw] loaded', n, 'serial→SO links from file');
       applyCustomSerials();
-    } catch(e){ console.warn('[VV_total_raw] file load error:', e && e.message); }
+      vvAlert(`<div class="alert alert-success">✓ Loaded VV_total_raw from ${f.name}: ${n} custom Bike ID(s) linked.</div>`);
+      setTimeout(()=>vvAlert(''), 6000);
+    } catch(e){ console.warn('[VV_total_raw] file load error:', e && e.message); vvAlert('<div class="alert alert-danger">✗ '+(e&&e.message)+'</div>'); }
     input.value = '';
   };
   if(isXlsx) reader.readAsArrayBuffer(f); else reader.readAsText(f);
@@ -5401,6 +5476,9 @@ ${pages}
 load();
 // Init queue header
 setTimeout(()=>{ renderQueueHeader(); },100);
+// Refresh the custom Bike ID ↔ SO links from VV_total_raw on load (independent of a full sync),
+// so serials appear without waiting for the next Odoo sync. Non-blocking.
+setTimeout(()=>{ try { syncVVTotalRaw(); } catch(e){ console.warn('VV_total_raw load-sync skipped:', e && e.message); } }, 300);
 if(orders.length>0){
   matchStockToOrders();
   assignSerials();
