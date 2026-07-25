@@ -585,6 +585,9 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 let cfg = {
   url:'', db:'', user:'', key:'',
   leadtime:2, prodtime:12, minBatch:40, minEmax:40, minAmax:20, trackedPOs:[], decocoatSheetId:'1hsfsJyKJuJjsQcIkYjnE8OQwQqIgEF_cD5d3bPxwVFA', decocoatGid:'222048185',
+  // VV_total_raw — master frame register. Column G = serial (bike ID NR), column O = the sales
+  // order a MACU (custom) frame belongs to. Authoritative source for the custom Bike ID ↔ SO link.
+  vvSheetId:'1d8fnvHZvV9O2rackEBn17cIuP5x8PxjKY2g7xOaX89w', vvGid:'406393168',
   prefixes:{ yellow:'MAYA', black:'MABS', red:'MARA', custom:'MACU' }
 };
 
@@ -614,6 +617,8 @@ let visibleCols = {
 };
 let manualOrders = []; // Virtual orders (e.g. Matt Cooke reservations)
 let decocoatData = [];
+// MACU frame serial -> sales order, read from VV_total_raw column O (authoritative link).
+let vvSerialSO = {};
 let vvStock = [];
 let issuedPOSupply = []; // remaining-to-receive on every open purchase order for bikes (mirrors the Coming Next app)
 let forecastMix = null;  // {color:{yellow,black,red}, rack:{'rack','no rack'}} pools = YTD invoiced + current order book
@@ -630,6 +635,7 @@ function save() {
   // These are read back in load() but were never being written — without this the Deco Coat
   // sheet (and its PO numbers) is lost on reload / wiped by the next Odoo sync.
   try { localStorage.setItem('mxp_decocoat', JSON.stringify(decocoatData||[])); } catch(e){}
+  try { localStorage.setItem('mxp_vvserials', JSON.stringify(vvSerialSO||{})); } catch(e){}
   try { localStorage.setItem('mxp_vv', JSON.stringify(vvStock||[])); } catch(e){}
   try { if(typeof visibleCols!=='undefined') localStorage.setItem('mxp_viscols', JSON.stringify(visibleCols)); } catch(e){}
 }
@@ -644,6 +650,7 @@ function load() {
     const sr = localStorage.getItem('mxp_serials'); if(sr) lastSerials=JSON.parse(sr);
     const mn = localStorage.getItem('mxp_manual'); if(mn) manualOrders=JSON.parse(mn);
     const dc = localStorage.getItem('mxp_decocoat'); if(dc) decocoatData=JSON.parse(dc);
+    const vs = localStorage.getItem('mxp_vvserials'); if(vs) vvSerialSO=JSON.parse(vs);
     const vv = localStorage.getItem('mxp_vv'); if(vv) vvStock=JSON.parse(vv);
     const vc = localStorage.getItem('mxp_viscols'); if(vc) visibleCols={...visibleCols,...JSON.parse(vc)};
     applyConfigToUI();
@@ -2118,7 +2125,7 @@ function renderQueue() {
       {key:'deadline', td:`<td>${dl}</td>`},
       {key:'urgent',   td:`<td>${urgentBadge}</td>`},
       {key:'stock',    td:`<td>${stockBadge}</td>`},
-      {key:'serial',   td:`<td><span class="serial-chip">${o.serialEst||'—'}</span></td>`},
+      {key:'serial',   td:`<td>${bikeIdCell(o)}</td>`},
       {key:'location', td:`<td>${locBadge}</td>`},
       {key:'predicted',td:`<td>${deliveryTd}</td>`},
       {key:'po',       td:`<td style="font-size:12px;color:var(--text3)">${o.poRef||'—'}</td>`},
@@ -2911,7 +2918,7 @@ function renderPOList() {
           <td>${colorDot(o.color)}${o.color}</td>
           <td style="text-align:center">${o.qty}</td>
           <td>${o.deadline?fmtDate(o.deadline):'—'}</td>
-          <td><span class="serial-chip">${o.serialEst||'—'}</span></td>
+          <td>${bikeIdCell(o)}</td>
           <td><span class="badge ${o.status==='shipped'?'badge-stock':'badge-po'}">${o.status}</span></td>
         </tr>`;
       }).join('');
@@ -3623,7 +3630,7 @@ function renderStock() {
         <td>${colorDot(o.color)} ${o.color}</td>
         <td>${o.rack}</td>
         <td>${o.deadline?fmtDate(o.deadline):'—'}</td>
-        <td><span class="serial-chip">${o.serialEst||'—'}</span></td>
+        <td>${bikeIdCell(o)}</td>
         <td>${o.isUrgent?'<span class="badge badge-urgent">⚠ Urgent</span>':''}</td>
       </tr>`).join('');
 
@@ -3790,6 +3797,94 @@ async function syncDecocoat() {
   }
   try { ingestDecocoatCSV(text); }
   catch(e){ if(alertEl) alertEl.innerHTML = `<div class="alert alert-danger">✗ ${e.message}</div>`; }
+  // Also refresh the authoritative custom Bike ID ↔ SO links from VV_total_raw.
+  try { await syncVVTotalRaw(); } catch(e){ console.warn('VV_total_raw sync skipped:', e && e.message); }
+}
+
+// ─── VV_TOTAL_RAW SYNC (authoritative custom Bike ID ↔ SO link) ───────────────
+// VV_total_raw is the master frame register. Column G (index 6) = the frame serial (bike ID NR);
+// column O (index 14) = a comments cell that, for a MACU (custom) frame, usually holds its sales
+// order — "S24347", "P01882 S22882", "S24418 | paint damage…", etc. We pull the S-number out of
+// column O and map MACU serial -> SO. When column O has no SO, the row is skipped and the planner
+// falls back to its previous Decocoat-book matching for that order.
+function parseVVTotalRaw(text){
+  const rows = parseCSV(text);
+  if(!rows.length) return 0;
+  const map = {};
+  let n = 0;
+  for(let i=1; i<rows.length; i++){       // row 0 = header
+    const r = rows[i] || [];
+    const serial = macuSerial(r[6]);      // column G — bike ID NR
+    if(!serial) continue;
+    const soCell = String(r[14]==null ? '' : r[14]);   // column O — comments / SO
+    const m = soCell.toUpperCase().match(/S\s*\d{3,}/); // an actual sales-order number
+    if(!m) continue;                       // no SO here -> leave this frame to the fallback
+    map[serial] = m[0].replace(/\s+/g,'');
+    n++;
+  }
+  vvSerialSO = map;
+  return n;
+}
+async function syncVVTotalRaw(){
+  const sheetId = cfg.vvSheetId || '1d8fnvHZvV9O2rackEBn17cIuP5x8PxjKY2g7xOaX89w';
+  const gid = cfg.vvGid || '406393168';
+  const direct = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+  const urls = [
+    direct,
+    'https://corsproxy.io/?url=' + encodeURIComponent(direct),
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent(direct),
+  ];
+  let text = null;
+  for(let u=0; u<urls.length; u++){
+    try {
+      const resp = await fetch(urls[u], { redirect:'follow' });
+      if(!resp.ok) throw new Error('HTTP ' + resp.status);
+      const t = await resp.text();
+      if(!t || (/<html/i.test(t.slice(0,200)) && !/,/.test(t.slice(0,200)))) throw new Error('not CSV (login or empty)');
+      text = t; break;
+    } catch(e){ /* try next endpoint */ }
+  }
+  if(text == null){ console.warn('[VV_total_raw] Could not reach the sheet (network/CORS). Keeping last known links.'); return 0; }
+  let n = 0;
+  try { n = parseVVTotalRaw(text); } catch(e){ console.warn('[VV_total_raw] parse error:', e && e.message); return 0; }
+  console.log(`[VV_total_raw] linked ${n} MACU serial(s) to a sales order via column O.`);
+  applyCustomSerials();
+  return n;
+}
+// Load VV_total_raw from a downloaded CSV/XLSX (offline fallback, mirrors loadDecocoatFile).
+function loadVVTotalRawFile(input){
+  const f = input && input.files && input.files[0]; if(!f) return;
+  const isXlsx = /\.xlsx?$/i.test(f.name);
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      let csv;
+      if(isXlsx){
+        if(typeof XLSX === 'undefined') throw new Error('Excel library still loading — try again in a second.');
+        const wb = XLSX.read(new Uint8Array(reader.result), { type:'array' });
+        const name = wb.SheetNames.find(nm=>/vv.*total.*raw|total.*raw|vv_total/i.test(nm)) || wb.SheetNames[0];
+        csv = XLSX.utils.sheet_to_csv(wb.Sheets[name]);
+      } else {
+        csv = (typeof reader.result === 'string') ? reader.result : new TextDecoder().decode(reader.result);
+      }
+      const n = parseVVTotalRaw(csv);
+      console.log('[VV_total_raw] loaded', n, 'serial→SO links from file');
+      applyCustomSerials();
+    } catch(e){ console.warn('[VV_total_raw] file load error:', e && e.message); }
+    input.value = '';
+  };
+  if(isXlsx) reader.readAsArrayBuffer(f); else reader.readAsText(f);
+}
+// Rebuild the per-bike Bike ID map and push each serial onto its order, then re-render + persist.
+function applyCustomSerials(){
+  buildCustomSerialMap();
+  for(const o of [...orders,...manualOrders]){
+    if(customSerialByOrderId[o.id]) o.serialEst = customSerialByOrderId[o.id];
+    else if(isTrueCustomColor(o)) o.serialEst = '';   // no VV-confirmed Bike ID -> never keep a guess
+  }
+  try { save(); } catch(e){}
+  if(typeof renderCustom==='function') renderCustom();
+  if(typeof renderQueue==='function') renderQueue();
 }
 
 // Load the Deco Coat sheet from a file the user downloaded from Google (CSV or XLSX).
@@ -4058,9 +4153,10 @@ function applyDecocoatToOrders() {
     const row = rows.find(d=>d.bikeId) || rows[0];
 
     // Always surface the latest Decocoat display info
-    // Unique per-bike Bike ID from the map (col-O keyed); fall back to this SO's row serial.
+    // Bike ID comes ONLY from the VV_total_raw column-O map. Never fall back to the book's
+    // SO-matched serial here — an unverified frame must read "please check manually" instead.
     if(customSerialByOrderId[o.id]) o.serialEst = customSerialByOrderId[o.id];
-    else if(row.bikeId) o.serialEst = row.bikeId;
+    else o.serialEst = '';
     if(row.estimatedWarehouse) o.estimatedDelivery = row.estimatedWarehouse;
     if(row.status) o.decocoatStatus = row.status;
 
@@ -4184,9 +4280,7 @@ function renderCustom() {
       <td>${dl}</td>
       <td>${statusBadge}</td>
       <td>
-        ${ orderSerial(o)
-          ? `<span class="serial-chip" style="color:var(--purple)">${orderSerial(o)}</span>`
-          : '<span style="font-size:12px;color:var(--text3)">— assign serial</span>' }
+        ${ bikeIdCell(o) }
         ${o.decocoatStatus ? `<span style="font-size:11px;color:var(--text3);margin-left:4px">${o.decocoatStatus}</span>` : ''}
         ${o.estimatedDelivery ? `<br><span style="font-size:11px;color:var(--text3)">~${fmtDate(o.estimatedDelivery)}</span>` : ''}
       </td>
@@ -4246,7 +4340,7 @@ function exportShipList() {
       <td>${colorLabel(o)}</td>
       <td>${o.rack}</td>
       <td>${o.deadline ? new Date(o.deadline).toLocaleDateString('en-GB') : '&#8212;'}</td>
-      <td style="font-family:monospace;font-size:11px">${o.serialEst||'&#8212;'}</td>
+      <td style="font-family:monospace;font-size:11px">${bikeIdText(o)||'&#8212;'}</td>
       <td>${o.stockLocation||'AND/Warehouse'}</td>
       <td style="text-align:center">${o.isUrgent?'&#9888;':'&#8212;'}</td>
     </tr>`).join('');
@@ -4354,21 +4448,17 @@ let customSerialByOrderId = {};
 function macuSerial(s){ const m = String(s||'').match(/MACU\s*0*\d+/i); return m ? m[0].replace(/\s+/g,'').toUpperCase() : ''; }
 function buildCustomSerialMap(){
   customSerialByOrderId = {};
-  // 1) Real MACU serials from the book, grouped by their sales order.
-  const serialsBySO = {};
-  for(const d of (decocoatData||[])){
-    const v = macuSerial(d.bikeId);
-    if(!v) continue;
-    const k = soKey(d.so);          // col O drives d.so for MACU rows
+  const asc = arr => [...new Set(arr)].sort((a,b)=>((parseInt(a.replace(/\D/g,''))||0)-(parseInt(b.replace(/\D/g,''))||0)));
+
+  // SOURCE 1 (authoritative): VV_total_raw column O — SO -> [MACU serials].
+  const vvBySO = {};
+  for(const serial in (vvSerialSO||{})){
+    const k = soKey(vvSerialSO[serial]);
     if(!k) continue;
-    (serialsBySO[k] = serialsBySO[k] || []).push(v);
+    (vvBySO[k] = vvBySO[k] || []).push(serial.toUpperCase());
   }
-  // De-dupe + sort ascending so pairing is stable and deterministic.
-  for(const k in serialsBySO){
-    serialsBySO[k] = [...new Set(serialsBySO[k])]
-      .sort((a,b)=>((parseInt(a.replace(/\D/g,''))||0)-(parseInt(b.replace(/\D/g,''))||0)));
-  }
-  // 2) Custom-colour MAX order lines, grouped by SO and sorted by bike index.
+
+  // Custom-colour MAX order lines, grouped by SO and sorted by bike index.
   const ordersBySO = {};
   for(const o of [...orders,...manualOrders]){
     if(!isTrueCustomColor(o)) continue;
@@ -4376,25 +4466,43 @@ function buildCustomSerialMap(){
     if(!k) continue;
     (ordersBySO[k] = ordersBySO[k] || []).push(o);
   }
-  // 3) Pair 1-to-1: k-th serial -> k-th bike on that SO.
+
+  // Pair 1-to-1 per SO: k-th serial -> k-th bike, using ONLY the VV_total_raw column-O link.
+  // We deliberately do NOT guess a serial from the Decocoat book when column O is empty — an
+  // unmatched bike is surfaced as "please check manually" so we never ship on a wrong serial.
   for(const k in ordersBySO){
     const os = ordersBySO[k].sort((a,b)=>((a.bikeIndex||0)-(b.bikeIndex||0))||((a.priority||0)-(b.priority||0)));
-    const serials = serialsBySO[k] || [];
+    const serials = asc(vvBySO[k] || []);
     os.forEach((o,i)=>{ if(serials[i]) customSerialByOrderId[o.id] = serials[i]; });
   }
   return customSerialByOrderId;
 }
 function orderSerial(o){
   if(!o) return '';
-  // 1) The unique Bike ID paired to THIS order line (rebuild if the map is empty/stale).
+  // The unique Bike ID paired to THIS order line comes ONLY from VV_total_raw column O.
+  // No column-O link => no serial (the UI then shows "please check manually").
   if(!Object.keys(customSerialByOrderId).length) buildCustomSerialMap();
-  if(customSerialByOrderId[o.id]) return customSerialByOrderId[o.id];
-  // 2) Fallback: a linked serial, trusted ONLY if it actually appears in the Decocoat file
-  //    (guarantees a leftover fabricated number can never resurface).
-  const b = baseSO(o.name);
-  const a = (serialAssignments[b]||'').toUpperCase();
-  if(/^MACU\d/.test(a) && (decocoatData||[]).some(x => macuSerial(x.bikeId)===a)) return a;
-  return '';
+  return customSerialByOrderId[o.id] || '';
+}
+// ── BIKE ID DISPLAY ──────────────────────────────────────────────────────────
+// A custom-colour frame must never show a guessed serial. Show the VV-confirmed MACU serial,
+// or an explicit manual-check note — so nobody ships a bike on an unverified Bike ID.
+const BIKEID_MANUAL_NOTE = 'Please check manually';
+function customNeedsManual(o){ return isTrueCustomColor(o) && !orderSerial(o); }
+// Plain-text Bike ID (for exports / printable lists).
+function bikeIdText(o){
+  if(isTrueCustomColor(o)) return orderSerial(o) || ('⚠ ' + BIKEID_MANUAL_NOTE);
+  return o && o.serialEst ? o.serialEst : '';
+}
+// HTML Bike ID cell (for on-screen tables).
+function bikeIdCell(o){
+  if(isTrueCustomColor(o)){
+    const s = orderSerial(o);
+    return s
+      ? `<span class="serial-chip" style="color:var(--purple)">${s}</span>`
+      : `<span class="badge badge-warn" title="No confirmed frame serial in VV_total_raw column O yet — verify the frame before shipping">⚠ ${BIKEID_MANUAL_NOTE}</span>`;
+  }
+  return (o && o.serialEst) ? `<span class="serial-chip">${o.serialEst}</span>` : '<span style="color:var(--text3)">—</span>';
 }
 // Link REAL frame serials from the Decocoat order book to their SOs — never fabricates.
 // (Replaces the old auto-numbering, which was inventing MACU numbers on its own.)
