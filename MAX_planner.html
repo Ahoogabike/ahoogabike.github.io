@@ -1635,8 +1635,8 @@ function colorDot(c){ const m={yellow:'#f5c842',black:'#2a2a2a',red:'#c0392b',cu
 // reflects the real catalogue colour name (Graphite Black -> dark, etc.), else the base colour.
 function colorDotFor(o){
   if(!o) return colorDot('');
-  if(isTrueCustomColor(o)) return colorDot('custom');
   if(o.color && o.color !== 'custom') return colorDot(o.color);
+  if(isTrueCustomColor(o)) return colorDot('custom');   // MAX custom -> purple (matches "Custom")
   const n = (catalogueColorName(o)||'').toLowerCase();
   if(n){
     const swatch =
@@ -1669,20 +1669,22 @@ function catalogueColorName(o){
   const cols = (typeof mapToCols==='function') ? mapToCols(pairs) : {};
   return (cols && cols.mainColor) ? String(cols.mainColor).trim() : '';
 }
-// A GENUINE custom-colour bike is a MAX in the Decocoat custom-paint programme. detectColor()
-// buckets ANY unrecognised colour as 'custom', so MODULAR / FOLDING / other models land here
-// too — but they aren't custom colours, they just have a catalogue colour (e.g. Graphite Black).
-// A bike that carries a real catalogue colour is therefore never a "true custom".
-function isTrueCustomColor(o){ return !!(o && o.color === 'custom' && isMaxBike(o) && !catalogueColorName(o)); }
+// A GENUINE custom-colour bike is a MAX (E-MAX / A-MAX) in the custom-paint programme. Its paint
+// often DOES have a name (e.g. "Central Park Green"), so we must NOT exclude bikes that carry a
+// colour name — the deciding factor is the MODEL: MAX + custom bucket = true custom. MODULAR /
+// FOLDING land in the 'custom' bucket too but are excluded because isMaxBike() is false for them.
+function isTrueCustomColor(o){ return !!(o && o.color === 'custom' && isMaxBike(o)); }
 // Human-readable label for the Color column / exports. Shows the real paint colour whenever it
 // is known, and only ever says "Custom" for a genuine MAX custom-paint job.
 function colorLabel(o){
   if(!o) return '—';
   if(o.color && o.color !== 'custom') return o.color.charAt(0).toUpperCase() + o.color.slice(1);
-  // 'custom' bucket — prefer the real catalogue colour (e.g. "Graphite Black").
+  // 'custom' bucket. A MAX custom-paint job is simply labelled "Custom" (the exact shade doesn't
+  // matter here). A non-MAX model (modular/folding) is NOT custom — show its real catalogue colour
+  // (e.g. "Graphite Black"), so it never reads "Custom".
+  if(isMaxBike(o)) return 'Custom';
   const real = catalogueColorName(o);
   if(real) return real;
-  if(isMaxBike(o)) return 'Custom';
   if(o.bikeType === 'modular') return 'Modular';
   if(o.bikeType === 'folding') return 'Folding';
   return 'n/a';
