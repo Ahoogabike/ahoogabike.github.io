@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ahooga · Fair Event Dashboard 2027</title>
+<title>Ahooga · Fair Event Dashboard · 2026–2027</title>
 <style>
 :root{
   --bg:#f4f5f7; --panel:#ffffff; --ink:#111827; --dim:#6b7280; --line:#e5e7eb;
@@ -13,14 +13,7 @@
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
-header{background:var(--ink);color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
-.yearbar{display:flex;align-items:center;gap:8px;font-size:12.5px}
-.yearbar label{color:#c9ccd1;font-weight:700}
-.yearbar select{padding:6px 10px;border-radius:8px;border:none;font-weight:700;font-size:14px}
-.rosterchip{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:3px 6px 3px 10px;font-size:12px;font-weight:600;margin:0 6px 6px 0}
-.rosterchip button{border:none;background:#eee;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:11px}
-.res-in{width:84px;text-align:right;padding:4px 6px;border:1px solid var(--line);border-radius:6px;font-size:12.5px;font-family:inherit}
-.prevbox{font-size:11px;color:var(--dim);background:#f4f5f7;border-radius:6px;padding:3px 7px;white-space:nowrap}
+header{background:var(--ink);color:#fff;padding:18px 24px}
 .brand{font-weight:800;font-size:20px;letter-spacing:.5px}
 .brand span{color:var(--gold)}
 .sub{color:#c9ccd1;font-size:12.5px;margin-top:2px}
@@ -156,20 +149,42 @@ tr.detail td{background:#fbfbfc;padding:0}
 .av.on{background:var(--ink);color:#fff;border-color:var(--ink)}
 footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
 .note{background:#fffbe6;border:1px solid #f2e2a0;border-radius:8px;padding:10px 14px;font-size:12.5px;margin-bottom:16px}
+.yrtag{display:inline-block;font-size:9.5px;font-weight:800;letter-spacing:.04em;background:#c2255c;color:#fff;border-radius:5px;padding:1px 5px;vertical-align:middle;margin-left:2px}
+.cloud{display:inline-block;margin-top:6px;font-size:11.5px;font-weight:700;color:#0891b2}.cloud.saving{color:#d98a00}.cloud.ok{color:#1a9c6b}.cloud.err{color:#c0392b}
+.staff-scroll{overflow:auto;max-height:72vh;border:1px solid var(--line);border-radius:8px}
+.staff{border-collapse:separate;border-spacing:0;font-size:12px;background:#fff}
+.staff th,.staff td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:5px 7px;text-align:center;white-space:nowrap;box-sizing:border-box}
+.staff thead th{position:sticky;top:0;background:#f5f6f8;z-index:3;font-size:11px}
+.staff thead th small{display:block;color:var(--dim);font-weight:700;font-size:10px}
+.staff .sticky-l{position:sticky;left:0;background:#fff;z-index:2;text-align:left;min-width:86px;width:86px}
+.staff .sticky-l2{position:sticky;left:86px;background:#fff;z-index:2;text-align:left;min-width:200px;max-width:240px;overflow:hidden;text-overflow:ellipsis}
+.staff thead th.sticky-l,.staff thead th.sticky-l2{z-index:4}
+.staff .dt{color:var(--ink);font-weight:600}
+.staff .name small{display:block;font-size:10px;color:var(--dim);font-weight:400}
+.staff td.cell{cursor:pointer;color:#fff;font-weight:700;min-width:34px}
+.staff td.cell.on{background:#1a9c6b}
+.staff td.cell.on.amber{background:#d98a00}
+.staff td.cell.on.red{background:#c0392b}
+.staff td.cell:hover{outline:2px solid var(--blue);outline-offset:-2px}
+.vroute{margin:0 0 30px}
+.vq-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.vq{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:#fff}
+.vq-h{font-size:12px;font-weight:800;margin-bottom:4px}
+.vq-h span{color:var(--dim);font-weight:600}
+.vmap{width:100%;height:auto;display:block;margin:2px 0 6px}
+.vitin{display:flex;flex-wrap:wrap;gap:6px;font-size:11px;color:#444;margin-top:4px}
+.vstop{background:#f2f3f5;border-radius:7px;padding:3px 8px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.vstop.base{background:#e6e9ee;color:#111;font-weight:600}
+.vnum{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;color:#fff;font-size:9.5px;font-weight:800;flex:none}
+.res-in{width:80px;text-align:right;padding:4px 6px;border:1px solid var(--line);border-radius:6px;font-size:12.5px;font-family:inherit}
+.prevbox{font-size:11px;color:var(--dim);background:#f4f5f7;border-radius:6px;padding:3px 7px;white-space:nowrap}
 </style>
 </head>
 <body>
 <header>
-  <div>
-    <div class="brand">AHOOGA <span>MAX</span> · Fair Event Dashboard</div>
-    <div class="sub">A living, multi-year tracker — rank fairs, record your own data, track status, plan vans & budget, run the team to-do list. Saved in this browser.</div>
-  </div>
-  <div class="yearbar">
-    <label>Season</label>
-    <select id="yearSel"></select>
-    <button class="btn" id="addYear" title="Open any season/year — past or future">＋ / open year</button>
-    <button class="btn" id="carryOver" title="Copy stable info from the previous year">⤵ Carry over</button>
-  </div>
+  <div class="brand">AHOOGA <span>MAX</span> · Fair Event Dashboard · 2026–2027</div>
+  <div class="sub">A living tracker — rank fairs, record your own data, track booking status, plan vans, and run the team to-do list. Everything you type syncs live to the shared Ahooga cloud, so the whole team sees the same data.</div>
+  <div class="cloud" id="cloudStatus">☁ …</div>
 </header>
 <nav>
   <button class="on" data-tab="fairs">📋 Fair Tracker</button>
@@ -179,6 +194,9 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
   <button data-tab="results">📊 Results</button>
   <button data-tab="pm">📌 To-Do / Project Plan</button>
   <button data-tab="plan">✅ A–Z Checklist</button>
+  <button data-tab="emp">👤 Employees</button>
+  <button data-tab="staff">🗂️ Staffing grid</button>
+  <button data-tab="vanmap">🚚 Van routes</button>
 </nav>
 <main>
 
@@ -201,13 +219,18 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
 
   <div class="toolbar">
     <input type="search" id="q" placeholder="Search fair or city…">
+    <select id="fYear"><option value="">All years</option><option value="2026">2026 (remaining)</option><option value="2027">2027 season</option></select>
     <select id="fType"><option value="">All types</option><option value="bike">🚲 Bike</option><option value="caravan">🚐 Caravan</option></select>
+    <select id="fCity"><option value="">All cities</option></select>
+    <select id="fFrom"><option value="">From: any month</option><option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option><option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option><option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option></select>
+    <select id="fTo"><option value="">To: any month</option><option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option><option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option><option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option><option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option></select>
     <select id="fSort"><option value="priority">Sort: Priority ↓</option><option value="date">Sort: Date ↑</option><option value="visitors">Sort: Visitors ↓</option><option value="name">Sort: Name A→Z</option></select>
     <label class="btn"><input type="checkbox" id="showHidden"> Show unticked</label>
     <button class="btn" id="collapseAll">▸ Collapse all</button>
     <button class="btn" id="expandAll">▾ Expand all</button>
     <button class="btn" id="addFairBtn">➕ Add fair</button>
     <button class="btn" id="rosterBtn">👥 Roster</button>
+    <button class="btn" id="carryBtn">⤵ Carry to next year</button>
     <button class="btn" id="allOn">Tick all</button>
     <button class="btn" id="allOff">Untick all</button>
     <button class="btn" id="exportBtn">⬇ Export CSV</button>
@@ -220,10 +243,11 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
     <div class="f"><label>Type</label><select id="nfType"><option value="bike">🚲 Bike</option><option value="caravan">🚐 Caravan</option></select></div>
     <div class="f"><label>City</label><input id="nfCity" placeholder="City"></div>
     <div class="f"><label>Start date</label><input type="date" id="nfStart"></div>
+    <div class="f"><label>Year</label><input type="number" id="nfYear" value="2027" style="width:80px"></div>
     <button class="btn gold" id="nfAdd">Add</button>
   </div>
   <div id="rosterPanel" style="display:none" class="addrow">
-    <div class="f grow"><label>Employee presence roster (used in each fair's record)</label><div id="rosterList" style="margin-top:4px"></div></div>
+    <div class="f grow"><label>Staffing roster (people shown in the staffing grid & presence)</label><div id="rosterList" style="margin-top:4px"></div></div>
     <div class="f"><label>Add person</label><input id="rosterNew" placeholder="Name"></div>
     <button class="btn gold" id="rosterAdd">Add person</button>
   </div>
@@ -248,8 +272,8 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
 
 <!-- ============ ROADMAP ============ -->
 <section class="tab" id="roadmap">
-  <h2>Roadmap — 2027 season timeline</h2>
-  <p class="hint">Every ticked fair on a month timeline, one lane per country. Fairs lining up vertically happen at the same time — a ⚠ red ring flags fairs in the same week (potential clash / double-booking). Untick a fair on the tracker and it disappears here too.</p>
+  <h2>Roadmap — season timeline</h2>
+  <p class="hint">Every ticked fair on a chronological timeline, one lane per country. When both years are shown the timeline runs 2026 → 2027; use the <b>year filter</b> on the Fair Tracker to show just one season. Fairs lining up vertically happen at the same time — a ⚠ red ring flags fairs in the same week (potential clash / double-booking). Untick a fair on the tracker and it disappears here too.</p>
   <div class="cards" id="roadStats"></div>
   <div class="toolbar">
     <label style="font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px">🔍 Zoom
@@ -265,15 +289,15 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
 <!-- ============ BUDGET ============ -->
 <section class="tab" id="budget">
   <h2>Budget estimation</h2>
-  <p class="hint">Live estimate for the fairs you've ticked, broken down by category. Each fair starts from a smart default (based on van size &amp; travel distance) — edit any figure in the table to override it. Dealer fees are treated as income and subtracted to give the net cost.</p>
+  <p class="hint">Fill the rates directly in each row. The table computes: <b>Rent = m² × €/m²</b>, <b>Build = m² × €/m²</b>, <b>Hotel = people × nights × €/night</b>, <b>Meals = people × days × €/meal</b>, <b>Transport = people × 2 × €/person</b>, plus flat <b>Electricity</b>, <b>WiFi</b> and <b>Marketing</b>, minus the <b>Dealer fee</b>, to give the <b>Total</b>. <b>People</b> come from the Staffing grid (or HR-needed) and <b>nights</b> from each fair's dates; <b>m²</b> and <b>days</b> are editable. Leave any rate blank to use the default from Assumptions. Scroll the table sideways to see every column.</p>
 
   <div class="cards" id="budgetStats"></div>
 
   <details class="weights">
     <summary>⚙️ Assumptions — default cost per fair (edit to re-estimate everything)</summary>
     <div style="padding:6px 0 16px">
-      <div class="tbl-wrap"><table id="assumTable"><thead><tr><th>Category</th><th>Big-van fair (€)</th><th>Small-van fair (€)</th><th>Travel-scaled?</th></tr></thead><tbody id="assumBody"></tbody></table></div>
-      <p class="hint" style="margin:8px 0 0">Travel-scaled categories are multiplied by a distance factor per country (BE ×0.5, NL ×0.8, DE ×1.0, UK ×1.5, AT ×1.6, SE ×2.0).</p>
+      <div class="tbl-wrap"><table id="assumTable"><thead><tr><th>Assumption</th><th>Value</th></tr></thead><tbody id="assumBody"></tbody></table></div>
+      <p class="hint" style="margin:8px 0 0">Transport is multiplied by a country distance factor (BE ×0.5, NL ×0.8, DE ×1.0, UK ×1.5, AT ×1.6, SE ×2.0). All other categories are computed from the drivers above. Defaults (stand size, nights, people) are only used when you haven't set the real value on the fair.</p>
     </div>
   </details>
 
@@ -286,16 +310,15 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
   <div class="country-block"><div class="tbl-wrap"><table><thead id="budgetHead"></thead><tbody id="budgetBody"></tbody></table></div></div>
 </section>
 
-<!-- ============ RESULTS ============ -->
+<!-- ============ PM / TODO ============ -->
 <section class="tab" id="results">
   <h2>Results &amp; KPIs</h2>
-  <p class="hint">Record the outcome of each fair so you can decide whether to repeat it. Cost is the net budget for that fair; the <b>Prev. year</b> column shows last season's result for the same fair. Everything exports for your report.</p>
+  <p class="hint">Record the outcome of each fair to decide whether to repeat it. Cost is the net budget for that fair; <b>Prev. year</b> shows the same-named fair from the year before (if present). Everything exports for reporting.</p>
   <div class="cards" id="resStats"></div>
-  <div class="toolbar"><button class="btn" id="exportResults">⬇ Export results CSV</button><span class="hint" style="margin:0">Only ticked fairs are shown. Cost is auto from the Budget tab.</span></div>
+  <div class="toolbar"><button class="btn" id="exportResults">⬇ Export results CSV</button><span class="hint" style="margin:0">Ticked fairs only. Cost auto-pulled from the Budget tab.</span></div>
   <div class="country-block"><div class="tbl-wrap"><table><thead id="resHead"></thead><tbody id="resBody"></tbody></table></div></div>
 </section>
 
-<!-- ============ PM / TODO ============ -->
 <section class="tab" id="pm">
   <h2>To-do / project plan</h2>
   <p class="hint">Assign every task to a person, set a deadline, track status. Overdue open tasks turn red. Use “Seed A–Z tasks” to auto-create the full checklist for a specific fair.</p>
@@ -345,6 +368,42 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
   <div id="planContainer"></div>
 </section>
 
+<!-- ============ EMPLOYEES ============ -->
+<section class="tab" id="emp">
+  <h2>Employee view — my fairs &amp; tasks</h2>
+  <p class="hint">Pick your name to see the fairs you're assigned to (from <b>employee presence</b> on each fair record) with dates and hotel nights, plus any to-do tasks assigned to you. Your name is remembered on this device.</p>
+  <div style="margin-bottom:14px">
+    <label style="font-weight:600;font-size:13px">I am: </label>
+    <select id="empPick" class="vanpick" style="min-width:220px"></select>
+  </div>
+  <div class="cards" id="empStats"></div>
+  <div class="country-block" style="margin-bottom:16px">
+    <div class="country-head"><span class="cn">📅 Fairs I'm assigned to</span></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Fair</th><th>Country</th><th>City</th><th>Start → End · nights</th><th>Van</th><th>Booked</th></tr></thead><tbody id="empFairs"></tbody></table></div>
+  </div>
+  <div class="country-block">
+    <div class="country-head"><span class="cn">✅ My tasks</span></div>
+    <div class="tbl-wrap"><table><thead><tr><th>Task</th><th>Fair</th><th>Deadline</th><th>Status</th></tr></thead><tbody id="empTasks"></tbody></table></div>
+  </div>
+</section>
+
+<!-- ============ STAFFING GRID ============ -->
+<section class="tab" id="staff">
+  <h2>Staffing grid — who goes where</h2>
+  <p class="hint">Fairs are rows (with their dates), people are columns. <b>Click a cell to assign / unassign</b> someone — it saves to that fair's employee presence and syncs to the cloud. Cells turn <b style="color:#c0392b">red ⚠</b> when that person is also on another fair within a week, and <b style="color:#d98a00">amber</b> within two weeks, so you can spot overloaded people. Only ticked fairs appear here.</p>
+  <div class="cards" id="staffStats"></div>
+  <div id="staffGrid"></div>
+  <div id="staffWarn"></div>
+</section>
+
+<!-- ============ VAN ROUTES ============ -->
+<section class="tab" id="vanmap">
+  <h2>Van routes &amp; mileage</h2>
+  <p class="hint">Three vans: a <b>big van</b> for <b>Germany &amp; Austria</b>, a <b>small van</b> for the <b>UK</b>, and a <b>small van</b> for <b>Belgium &amp; Netherlands</b>. Each visits its ticked fairs in date order. Between fairs the German van returns to <b>Stuttgart / München</b> only when there's a long gap (&gt; 10 days); the UK van waits in <b>London</b> and the BE/NL van in <b>Brussels</b> between fairs. Lines are trips (labelled with the destination fair's date); mileage is straight-line × 1.3 as a rough road estimate. Untick a fair on the tracker and it drops out of the route. <i>Sweden is not covered by these vans.</i></p>
+  <div class="cards" id="vanmapStats"></div>
+  <div id="vanmapBody"></div>
+</section>
+
 <footer id="foot"></footer>
 </main>
 
@@ -352,11 +411,91 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
 // ---------- STATIC DATA ----------
 const CO_NAME={DE:'🇩🇪 Germany',AT:'🇦🇹 Austria',BE:'🇧🇪 Belgium',NL:'🇳🇱 Netherlands',UK:'🇬🇧 UK',SE:'🇸🇪 Sweden'};
 const CO_ORDER=['BE','DE','NL','AT','UK','SE'];
+// ---- Van routing data ----
+const CITY_GEO={
+ "Magdeburg":[52.13,11.63],"Chemnitz":[50.83,12.92],"Oldenburg":[53.14,8.21],"Stuttgart":[48.78,9.18],
+ "Erfurt":[50.98,11.03],"Dresden":[51.05,13.74],"Hamburg":[53.55,9.99],"Hannover":[52.37,9.74],
+ "München":[48.14,11.58],"Saarbrücken":[49.24,6.99],"Regensburg":[49.01,12.10],"Diepholz":[52.60,8.37],
+ "Cottbus":[51.76,14.33],"Essen":[51.46,7.01],"Osnabrück":[52.28,8.05],"Nürnberg":[49.45,11.08],
+ "Düsseldorf":[51.23,6.78],"Rostock":[54.09,12.14],"Friedrichshafen":[47.65,9.48],"Münster":[51.96,7.63],
+ "Siegburg":[50.80,7.20],"Berlin":[52.52,13.40],"Dortmund":[51.51,7.47],"Frankfurt":[50.11,8.68],
+ "Lauchringen":[47.63,8.35],"Bad Salzuflen":[52.09,8.75],"Bad Kissingen":[50.20,10.08],"Köln":[50.94,6.96],
+ "Rendsburg":[54.30,9.66],"Hockenheim":[49.32,8.55],"Freiburg":[47.99,7.85],"Bremen":[53.08,8.80],"Leipzig":[51.34,12.37],
+ "Graz":[47.07,15.44],"Wien":[48.21,16.37],"Wels":[48.16,14.03],"Ried":[48.21,13.49],"Innsbruck":[47.27,11.39],
+ "Salzburg":[47.81,13.06],"Klagenfurt":[46.62,14.31],"Wieselburg":[48.13,15.14],"Tulln":[48.33,16.06],
+ "Brussels":[50.85,4.35],"Kortrijk":[50.83,3.27],"Ghent":[51.05,3.72],"Antwerpen":[51.22,4.40],"Hastière":[50.22,4.83],
+ "Amsterdam":[52.37,4.90],"Utrecht":[52.09,5.12],"Leeuwarden":[53.20,5.79],"Den Bosch":[51.70,5.30],"Haarlem":[52.38,4.64],
+ "Houten":[52.03,5.17],"Maastricht":[50.85,5.69],"Hardenberg":[52.58,6.62],
+ "Stoneleigh":[52.35,-1.52],"Glasgow":[55.86,-4.25],"Manchester":[53.48,-2.24],"London":[51.51,-0.13],
+ "Birmingham":[52.48,-1.90],"Towcester":[52.13,-0.99],"Harrogate":[53.99,-1.54],"Ardingly":[51.05,-0.08],
+ "Newbury":[51.40,-1.32],"Sandringham":[52.83,0.51],"Newark":[53.08,-0.81],"Nottingham":[52.95,-1.15],
+ "Norwich":[52.63,1.30],"Malvern":[52.11,-2.32],"Farnborough":[51.29,-0.75],"Shepton Mallet":[51.19,-2.55],"Lincoln":[53.23,-0.54]
+};
+const FAIR_CITY={
+ "TOURISMA & Caravaning, Magdeburg":"Magdeburg","Reisen & Caravaning, Chemnitz":"Chemnitz","Caravan Freizeit Reisen, Oldenburg":"Oldenburg",
+ "CMT Stuttgart":"Stuttgart","e-bike-days Erfurt":"Erfurt","e-bike-days Dresden":"Dresden","Reisemesse Dresden":"Dresden",
+ "Reisen & Caravaning, Hamburg":"Hamburg","RAD Hamburg":"Hamburg","ABF Hannover (Fahrrad)":"Hannover","ABF Caravaning & Camping, Hannover":"Hannover",
+ "f.re.e München":"München","Reisebörse Erfurt":"Erfurt","Reisen & Freizeit Saar, Saarbrücken":"Saarbrücken","Reisebörse Regensburg":"Regensburg",
+ "RAD-REISE Info, Diepholz":"Diepholz","Ferien & Freizeit, Cottbus":"Cottbus","Reise + Camping Essen":"Essen","Fahrrad Essen":"Essen",
+ "Osnabrücker Fahrradmesse":"Osnabrück","Freizeit Touristik & Garten, Nürnberg":"Nürnberg","Cyclingworld Europe, Düsseldorf":"Düsseldorf",
+ "Boot & Angeln / Camping, Rostock":"Rostock","IBO Frühjahrsmesse, Friedrichshafen":"Friedrichshafen","Leezenfrühling, Münster":"Münster",
+ "Caravanfrühling, Münster":"Münster","ADFC Rad+Freizeit, Siegburg":"Siegburg","VELOBerlin":"Berlin","i-Mobility, Stuttgart":"Stuttgart",
+ "DEW21 E-Bike Festival, Dortmund":"Dortmund","Expo Eschborn-Frankfurt":"Frankfurt","E-Bike Days München":"München","SPEZI, Lauchringen":"Lauchringen",
+ "VELOFrankfurt":"Frankfurt","Faszination Fahrrad, Bad Salzuflen":"Bad Salzuflen","Abenteuer & Allrad, Bad Kissingen":"Bad Kissingen",
+ "Eurobike, Frankfurt":"Frankfurt","European Bike Show, Köln":"Köln","Caravan Salon Düsseldorf":"Düsseldorf","Caravan und Co, Rendsburg":"Rendsburg",
+ "E4 Testival, Hockenheim":"Hockenheim","caravan live, Freiburg":"Freiburg","Reisen & Caravan, Erfurt":"Erfurt","Caravan Bremen":"Bremen",
+ "Caravan & Camping, Berlin":"Berlin","Touristik & Caravaning, Leipzig":"Leipzig",
+ "ReiseZeit Graz":"Graz","Ferien-Messe Wien":"Wien","Häuslbauermesse Graz":"Graz","Bike Festival Austria, Wels":"Wels","Sportmesse Ried":"Ried",
+ "Tiroler Frühjahrsmesse, Innsbruck":"Innsbruck","Freizeit Messe Salzburg":"Salzburg","Blühendes Österreich, Wels":"Wels","Urlaub & Ausflug, Wels":"Wels",
+ "Freizeitmesse Klagenfurt":"Klagenfurt","Bike Festival Wien":"Wien","Wiener Fahrradschau":"Wien","Peicher Camping Messe":"Wels",
+ "Outdoor Erlebnistage, Wieselburg":"Wieselburg","Adventure Allrad Austria, Tulln":"Tulln","Caravan Salon Austria, Wels":"Wels",
+ "Vakantiesalon, Brussels":"Brussels","Velofollies, Kortrijk":"Kortrijk","E-bike Challenge, Ghent":"Ghent","Fiets en Wandelbeurs Vlaanderen, Ghent":"Ghent",
+ "Motorhomesalon Antwerpen":"Antwerpen","Bike Brussels":"Brussels","Motorhomesalon Gent":"Ghent","Belgium Bike Fest, Hastière":"Hastière",
+ "Mobicar, Brussels":"Brussels","Motorhomesalon Kortrijk":"Kortrijk",
+ "Vakantiebeurs bijzondere reizen, Amsterdam":"Amsterdam","Vakantiebeurs Utrecht":"Utrecht","Caravana, Leeuwarden":"Leeuwarden",
+ "Fiets en Wandelbeurs, Utrecht":"Utrecht","Camperbeurs Den Bosch":"Den Bosch","Bike-Adventure Fair, Haarlem":"Haarlem","CamperExpo, Houten":"Houten",
+ "Camperworld Maastricht":"Maastricht","Dutch Cycling Week, Utrecht":"Utrecht","Kampeer & Caravan Jaarbeurs, Utrecht":"Utrecht",
+ "Camperbeurs Hardenberg":"Hardenberg","CycleExpo Amsterdam":"Amsterdam","Bike Motion, Utrecht":"Utrecht",
+ "January Motorhome & Campervan Sale, Stoneleigh":"Stoneleigh","Scottish Caravan & Motorhome Show, Glasgow":"Glasgow","iceBike*, Manchester":"Manchester",
+ "iceBike*, London":"London","Caravan, Camping & Motorhome Show, NEC":"Birmingham","COREbike, Towcester":"Towcester","London Bike Show":"London",
+ "National Cycling Show, Birmingham":"Birmingham","Yorkshire Motorhome & Camping, Harrogate":"Harrogate","Bespoked, Manchester":"Manchester",
+ "Spin Cycling Festival, London":"London","National Motorhome & Camping, Stoneleigh":"Stoneleigh","Campervan Campout, Ardingly":"Ardingly",
+ "Southern Motorhome & Campervan, Newbury":"Newbury","ClubFest, Sandringham":"Sandringham","East Midlands Motorhome & Campervan, Newark":"Newark",
+ "Cycle Live, Nottingham":"Nottingham","Norfolk Motorhome & Campervan, Norwich":"Norwich","Western Motorhome & Campervan, Malvern":"Malvern",
+ "The Cycle Show, London":"London","Fully Charged Live, Farnborough":"Farnborough","South West Motorhome & Campervan, Shepton Mallet":"Shepton Mallet",
+ "Season Finale Motorhome Show, Lincoln":"Lincoln","Motorhome & Caravan Show, NEC":"Birmingham","Malvern Caravan & Motorhome Show":"Malvern"
+};
+const VANS=[
+ {id:'de',name:'Big van · Germany & Austria',size:'big',cts:['DE','AT'],color:'#c0392b',base:'Stuttgart',bases:['Stuttgart','München'],gapDays:10},
+ {id:'uk',name:'Small van · United Kingdom',size:'small',cts:['UK'],color:'#2563eb',base:'London',bases:['London'],gapDays:2},
+ {id:'benl',name:'Small van · Belgium & Netherlands',size:'small',cts:['BE','NL'],color:'#1a9c6b',base:'Brussels',bases:['Brussels'],gapDays:2}
+];
 const CO_FOCUS={BE:1.0,DE:0.9,NL:0.7,AT:0.6,UK:0.55,SE:0.5};
 const CO_EFFORT={BE:1.0,NL:0.85,DE:0.8,AT:0.55,UK:0.5,SE:0.4};
-const PEOPLE=['Cara','Julia','Alix','Stuart','Daniel','Mass','Arthur','Hendrik','Frank','Peter','Abdala','David'];
+const PEOPLE=['Cara','Julia','Alix','Stuart','Daniel','Mass','Arthur','Hendrik','Frank','Peter','Abdala','David','Mike','Ralf','UK new member'];
 
-const FAIRS=[{"ct":"DE","type":"caravan","name":"TOURISMA & Caravaning, Magdeburg","date":"08/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"Reisen & Caravaning, Chemnitz","date":"08/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"Caravan Freizeit Reisen, Oldenburg","date":"15/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"CMT Stuttgart","date":"16/01","month":1,"visitors":260000,"approx":false,"van":"big"},{"ct":"DE","type":"bike","name":"e-bike-days Erfurt","date":"22/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"bike","name":"e-bike-days Dresden","date":"29/01","month":1,"visitors":32000,"approx":false,"van":"big"},{"ct":"DE","type":"caravan","name":"Reisemesse Dresden","date":"29/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"Reisen & Caravaning, Hamburg","date":"04/02","month":2,"visitors":110000,"approx":false,"van":"big"},{"ct":"DE","type":"bike","name":"RAD Hamburg","date":"04/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"bike","name":"ABF Hannover (Fahrrad)","date":"10/02","month":2,"visitors":86000,"approx":false,"van":"big"},{"ct":"DE","type":"caravan","name":"ABF Caravaning & Camping, Hannover","date":"10/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"f.re.e München","date":"10/02","month":2,"visitors":130000,"approx":false,"van":"big"},{"ct":"DE","type":"caravan","name":"Reisebörse Erfurt","date":"12/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"Reisen & Freizeit Saar, Saarbrücken","date":"13/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"Reisebörse Regensburg","date":"19/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"bike","name":"RAD-REISE Info, Diepholz","date":"~Feb","month":2,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"Ferien & Freizeit, Cottbus","date":"~Feb","month":2,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"Reise + Camping Essen","date":"24/02","month":2,"visitors":100000,"approx":false,"van":"big"},{"ct":"DE","type":"bike","name":"Fahrrad Essen","date":"25/02","month":2,"visitors":80000,"approx":false,"van":"big"},{"ct":"DE","type":"bike","name":"Osnabrücker Fahrradmesse","date":"28/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"Freizeit Touristik & Garten, Nürnberg","date":"10/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"bike","name":"Cyclingworld Europe, Düsseldorf","date":"12/03","month":3,"visitors":27000,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"Boot & Angeln / Camping, Rostock","date":"19/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"IBO Frühjahrsmesse, Friedrichshafen","date":"~Mar","month":3,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"bike","name":"Leezenfrühling, Münster","date":"~Mar","month":3,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"Caravanfrühling, Münster","date":"~Mar","month":3,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"bike","name":"ADFC Rad+Freizeit, Siegburg","date":"04/04","month":4,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"bike","name":"VELOBerlin","date":"10/04","month":4,"visitors":19000,"approx":false,"van":"small"},{"ct":"DE","type":"bike","name":"i-Mobility, Stuttgart","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"bike","name":"DEW21 E-Bike Festival, Dortmund","date":"~Apr","month":4,"visitors":60000,"approx":true,"van":"big"},{"ct":"DE","type":"bike","name":"Expo Eschborn-Frankfurt","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"bike","name":"E-Bike Days München","date":"23/04","month":4,"visitors":65000,"approx":false,"van":"big"},{"ct":"DE","type":"bike","name":"SPEZI, Lauchringen","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"bike","name":"VELOFrankfurt","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"bike","name":"Faszination Fahrrad, Bad Salzuflen","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"Abenteuer & Allrad, Bad Kissingen","date":"27/05","month":5,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"bike","name":"Eurobike, Frankfurt","date":"01/09","month":9,"visitors":34000,"approx":false,"van":"big"},{"ct":"DE","type":"bike","name":"European Bike Show, Köln","date":"06/09","month":9,"visitors":20000,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"Caravan Salon Düsseldorf","date":"28/08","month":8,"visitors":250000,"approx":false,"van":"big"},{"ct":"DE","type":"caravan","name":"Caravan und Co, Rendsburg","date":"~Sep","month":9,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"bike","name":"E4 Testival, Hockenheim","date":"~Oct","month":10,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"caravan live, Freiburg","date":"~Oct","month":10,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"Reisen & Caravan, Erfurt","date":"~Nov","month":11,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"Caravan Bremen","date":"~Nov","month":11,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"Caravan & Camping, Berlin","date":"~Nov","month":11,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"Touristik & Caravaning, Leipzig","date":"17/11","month":11,"visitors":100000,"approx":false,"van":"big"},{"ct":"AT","type":"caravan","name":"ReiseZeit Graz","date":"09/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"AT","type":"caravan","name":"Ferien-Messe Wien","date":"14/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"AT","type":"caravan","name":"Häuslbauermesse Graz","date":"21/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"AT","type":"bike","name":"Bike Festival Austria, Wels","date":"30/01","month":1,"visitors":8000,"approx":false,"van":"small"},{"ct":"AT","type":"bike","name":"Sportmesse Ried","date":"12/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"AT","type":"caravan","name":"Tiroler Frühjahrsmesse, Innsbruck","date":"11/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"AT","type":"caravan","name":"Freizeit Messe Salzburg","date":"~Mar","month":3,"visitors":null,"approx":true,"van":"small"},{"ct":"AT","type":"caravan","name":"Blühendes Österreich, Wels","date":"~Mar","month":3,"visitors":null,"approx":true,"van":"small"},{"ct":"AT","type":"caravan","name":"Urlaub & Ausflug, Wels","date":"02/04","month":4,"visitors":null,"approx":false,"van":"small"},{"ct":"AT","type":"caravan","name":"Freizeitmesse Klagenfurt","date":"02/04","month":4,"visitors":null,"approx":false,"van":"small"},{"ct":"AT","type":"bike","name":"Bike Festival Wien","date":"10/04","month":4,"visitors":8000,"approx":false,"van":"small"},{"ct":"AT","type":"bike","name":"Wiener Fahrradschau","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"AT","type":"caravan","name":"Peicher Camping Messe","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"AT","type":"caravan","name":"Outdoor Erlebnistage, Wieselburg","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"AT","type":"caravan","name":"Adventure Allrad Austria, Tulln","date":"~Jun","month":6,"visitors":null,"approx":true,"van":"small"},{"ct":"AT","type":"caravan","name":"Caravan Salon Austria, Wels","date":"~Oct","month":10,"visitors":null,"approx":true,"van":"small"},{"ct":"BE","type":"caravan","name":"Vakantiesalon, Brussels","date":"~Jan","month":1,"visitors":null,"approx":true,"van":"small"},{"ct":"BE","type":"bike","name":"Velofollies, Kortrijk","date":"22/01","month":1,"visitors":40000,"approx":false,"van":"big"},{"ct":"BE","type":"bike","name":"E-bike Challenge, Ghent","date":"20/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"BE","type":"bike","name":"Fiets en Wandelbeurs Vlaanderen, Ghent","date":"20/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"BE","type":"caravan","name":"Motorhomesalon Antwerpen","date":"27/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"BE","type":"bike","name":"Bike Brussels","date":"05/03","month":3,"visitors":17000,"approx":false,"van":"small"},{"ct":"BE","type":"caravan","name":"Motorhomesalon Gent","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"BE","type":"bike","name":"Belgium Bike Fest, Hastière","date":"~May","month":5,"visitors":null,"approx":true,"van":"small"},{"ct":"BE","type":"caravan","name":"Mobicar, Brussels","date":"~Oct","month":10,"visitors":null,"approx":true,"van":"small"},{"ct":"BE","type":"caravan","name":"Motorhomesalon Kortrijk","date":"~Oct","month":10,"visitors":null,"approx":true,"van":"small"},{"ct":"NL","type":"caravan","name":"Vakantiebeurs bijzondere reizen, Amsterdam","date":"02/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"NL","type":"caravan","name":"Vakantiebeurs Utrecht","date":"07/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"NL","type":"caravan","name":"Caravana, Leeuwarden","date":"27/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"NL","type":"bike","name":"Fiets en Wandelbeurs, Utrecht","date":"12/02","month":2,"visitors":30000,"approx":false,"van":"big"},{"ct":"NL","type":"caravan","name":"Camperbeurs Den Bosch","date":"19/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"NL","type":"bike","name":"Bike-Adventure Fair, Haarlem","date":"~Mar","month":3,"visitors":null,"approx":true,"van":"small"},{"ct":"NL","type":"caravan","name":"CamperExpo, Houten","date":"12/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"NL","type":"caravan","name":"Camperworld Maastricht","date":"10/09","month":9,"visitors":null,"approx":false,"van":"small"},{"ct":"NL","type":"bike","name":"Dutch Cycling Week, Utrecht","date":"~Sep","month":9,"visitors":null,"approx":true,"van":"small"},{"ct":"NL","type":"caravan","name":"Kampeer & Caravan Jaarbeurs, Utrecht","date":"~Sep","month":9,"visitors":40000,"approx":true,"van":"big"},{"ct":"NL","type":"caravan","name":"Camperbeurs Hardenberg","date":"~Sep","month":9,"visitors":null,"approx":true,"van":"small"},{"ct":"NL","type":"bike","name":"CycleExpo Amsterdam","date":"06/10","month":10,"visitors":null,"approx":false,"van":"small"},{"ct":"NL","type":"bike","name":"Bike Motion, Utrecht","date":"~Nov","month":11,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"January Motorhome & Campervan Sale, Stoneleigh","date":"15/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"caravan","name":"Scottish Caravan & Motorhome Show, Glasgow","date":"04/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"bike","name":"iceBike*, Manchester","date":"~Feb","month":2,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"bike","name":"iceBike*, London","date":"~Feb","month":2,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"Caravan, Camping & Motorhome Show, NEC","date":"16/02","month":2,"visitors":90000,"approx":false,"van":"big"},{"ct":"UK","type":"bike","name":"COREbike, Towcester","date":"21/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"bike","name":"London Bike Show","date":"~Mar","month":3,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"bike","name":"National Cycling Show, Birmingham","date":"~Mar","month":3,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"Yorkshire Motorhome & Camping, Harrogate","date":"19/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"bike","name":"Bespoked, Manchester","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"bike","name":"Spin Cycling Festival, London","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"National Motorhome & Camping, Stoneleigh","date":"16/04","month":4,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"caravan","name":"Campervan Campout, Ardingly","date":"30/04","month":4,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"caravan","name":"Southern Motorhome & Campervan, Newbury","date":"14/05","month":5,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"caravan","name":"ClubFest, Sandringham","date":"28/05","month":5,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"caravan","name":"East Midlands Motorhome & Campervan, Newark","date":"11/06","month":6,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"bike","name":"Cycle Live, Nottingham","date":"~Jun","month":6,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"Norfolk Motorhome & Campervan, Norwich","date":"~Jul","month":7,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"Western Motorhome & Campervan, Malvern","date":"~Aug","month":8,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"bike","name":"The Cycle Show, London","date":"~Sep","month":9,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"bike","name":"Fully Charged Live, Farnborough","date":"~Sep","month":9,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"South West Motorhome & Campervan, Shepton Mallet","date":"~Sep","month":9,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"Season Finale Motorhome Show, Lincoln","date":"~Sep","month":9,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"Motorhome & Caravan Show, NEC","date":"~Oct","month":10,"visitors":85000,"approx":true,"van":"big"},{"ct":"UK","type":"caravan","name":"Malvern Caravan & Motorhome Show","date":"~Oct","month":10,"visitors":null,"approx":true,"van":"small"},{"ct":"SE","type":"caravan","name":"Trettonhelgens husvagnsmässor","date":"06/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"SE","type":"caravan","name":"Kistamässan Husbil & Husvagn","date":"~Feb","month":2,"visitors":null,"approx":true,"van":"small"},{"ct":"SE","type":"caravan","name":"Stockholm Husvagn Husbil, Älvsjö","date":"04/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"SE","type":"bike","name":"Sweden Bike Expo, Älvsjö","date":"24/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"SE","type":"bike","name":"Stockholm Bike Show","date":"27/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"SE","type":"bike","name":"Nordic Bike Expo, Motala","date":"11/06","month":6,"visitors":6000,"approx":false,"van":"small"},{"ct":"SE","type":"caravan","name":"Elmia Husvagn Husbil, Jönköping","date":"08/09","month":9,"visitors":40000,"approx":false,"van":"big"}];
+const FAIRS=[{"ct":"DE","type":"caravan","name":"TOURISMA & Caravaning, Magdeburg","date":"08/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"Reisen & Caravaning, Chemnitz","date":"08/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"Caravan Freizeit Reisen, Oldenburg","date":"15/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"CMT Stuttgart","date":"16/01","month":1,"visitors":260000,"approx":false,"van":"big"},{"ct":"DE","type":"bike","name":"e-bike-days Erfurt","date":"22/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"bike","name":"e-bike-days Dresden","date":"29/01","month":1,"visitors":32000,"approx":false,"van":"big"},{"ct":"DE","type":"caravan","name":"Reisemesse Dresden","date":"29/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"Reisen & Caravaning, Hamburg","date":"04/02","month":2,"visitors":110000,"approx":false,"van":"big"},{"ct":"DE","type":"bike","name":"RAD Hamburg","date":"04/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"bike","name":"ABF Hannover (Fahrrad)","date":"10/02","month":2,"visitors":86000,"approx":false,"van":"big"},{"ct":"DE","type":"caravan","name":"ABF Caravaning & Camping, Hannover","date":"10/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"f.re.e München","date":"10/02","month":2,"visitors":130000,"approx":false,"van":"big"},{"ct":"DE","type":"caravan","name":"Reisebörse Erfurt","date":"12/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"Reisen & Freizeit Saar, Saarbrücken","date":"13/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"Reisebörse Regensburg","date":"19/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"bike","name":"RAD-REISE Info, Diepholz","date":"~Feb","month":2,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"Ferien & Freizeit, Cottbus","date":"~Feb","month":2,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"Reise + Camping Essen","date":"24/02","month":2,"visitors":100000,"approx":false,"van":"big"},{"ct":"DE","type":"bike","name":"Fahrrad Essen","date":"25/02","month":2,"visitors":80000,"approx":false,"van":"big"},{"ct":"DE","type":"bike","name":"Osnabrücker Fahrradmesse","date":"28/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"Freizeit Touristik & Garten, Nürnberg","date":"10/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"bike","name":"Cyclingworld Europe, Düsseldorf","date":"12/03","month":3,"visitors":27000,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"Boot & Angeln / Camping, Rostock","date":"19/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"IBO Frühjahrsmesse, Friedrichshafen","date":"~Mar","month":3,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"bike","name":"Leezenfrühling, Münster","date":"~Mar","month":3,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"Caravanfrühling, Münster","date":"~Mar","month":3,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"bike","name":"ADFC Rad+Freizeit, Siegburg","date":"04/04","month":4,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"bike","name":"VELOBerlin","date":"10/04","month":4,"visitors":19000,"approx":false,"van":"small"},{"ct":"DE","type":"bike","name":"i-Mobility, Stuttgart","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"bike","name":"DEW21 E-Bike Festival, Dortmund","date":"~Apr","month":4,"visitors":60000,"approx":true,"van":"big"},{"ct":"DE","type":"bike","name":"Expo Eschborn-Frankfurt","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"bike","name":"E-Bike Days München","date":"23/04","month":4,"visitors":65000,"approx":false,"van":"big"},{"ct":"DE","type":"bike","name":"SPEZI, Lauchringen","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"bike","name":"VELOFrankfurt","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"bike","name":"Faszination Fahrrad, Bad Salzuflen","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"Abenteuer & Allrad, Bad Kissingen","date":"27/05","month":5,"visitors":null,"approx":false,"van":"small"},{"ct":"DE","type":"bike","name":"Eurobike, Frankfurt","date":"01/09","month":9,"visitors":34000,"approx":false,"van":"big"},{"ct":"DE","type":"bike","name":"European Bike Show, Köln","date":"06/09","month":9,"visitors":20000,"approx":false,"van":"small"},{"ct":"DE","type":"caravan","name":"Caravan Salon Düsseldorf","date":"28/08","month":8,"visitors":250000,"approx":false,"van":"big"},{"ct":"DE","type":"caravan","name":"Caravan und Co, Rendsburg","date":"~Sep","month":9,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"bike","name":"E4 Testival, Hockenheim","date":"~Oct","month":10,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"caravan live, Freiburg","date":"~Oct","month":10,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"Reisen & Caravan, Erfurt","date":"~Nov","month":11,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"Caravan Bremen","date":"~Nov","month":11,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"Caravan & Camping, Berlin","date":"~Nov","month":11,"visitors":null,"approx":true,"van":"small"},{"ct":"DE","type":"caravan","name":"Touristik & Caravaning, Leipzig","date":"17/11","month":11,"visitors":100000,"approx":false,"van":"big"},{"ct":"AT","type":"caravan","name":"ReiseZeit Graz","date":"09/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"AT","type":"caravan","name":"Ferien-Messe Wien","date":"14/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"AT","type":"caravan","name":"Häuslbauermesse Graz","date":"21/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"AT","type":"bike","name":"Bike Festival Austria, Wels","date":"30/01","month":1,"visitors":8000,"approx":false,"van":"small"},{"ct":"AT","type":"bike","name":"Sportmesse Ried","date":"12/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"AT","type":"caravan","name":"Tiroler Frühjahrsmesse, Innsbruck","date":"11/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"AT","type":"caravan","name":"Freizeit Messe Salzburg","date":"~Mar","month":3,"visitors":null,"approx":true,"van":"small"},{"ct":"AT","type":"caravan","name":"Blühendes Österreich, Wels","date":"~Mar","month":3,"visitors":null,"approx":true,"van":"small"},{"ct":"AT","type":"caravan","name":"Urlaub & Ausflug, Wels","date":"02/04","month":4,"visitors":null,"approx":false,"van":"small"},{"ct":"AT","type":"caravan","name":"Freizeitmesse Klagenfurt","date":"02/04","month":4,"visitors":null,"approx":false,"van":"small"},{"ct":"AT","type":"bike","name":"Bike Festival Wien","date":"10/04","month":4,"visitors":8000,"approx":false,"van":"small"},{"ct":"AT","type":"bike","name":"Wiener Fahrradschau","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"AT","type":"caravan","name":"Peicher Camping Messe","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"AT","type":"caravan","name":"Outdoor Erlebnistage, Wieselburg","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"AT","type":"caravan","name":"Adventure Allrad Austria, Tulln","date":"~Jun","month":6,"visitors":null,"approx":true,"van":"small"},{"ct":"AT","type":"caravan","name":"Caravan Salon Austria, Wels","date":"~Oct","month":10,"visitors":null,"approx":true,"van":"small"},{"ct":"BE","type":"caravan","name":"Vakantiesalon, Brussels","date":"~Jan","month":1,"visitors":null,"approx":true,"van":"small"},{"ct":"BE","type":"bike","name":"Velofollies, Kortrijk","date":"22/01","month":1,"visitors":40000,"approx":false,"van":"big"},{"ct":"BE","type":"bike","name":"E-bike Challenge, Ghent","date":"20/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"BE","type":"bike","name":"Fiets en Wandelbeurs Vlaanderen, Ghent","date":"20/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"BE","type":"caravan","name":"Motorhomesalon Antwerpen","date":"27/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"BE","type":"bike","name":"Bike Brussels","date":"05/03","month":3,"visitors":17000,"approx":false,"van":"small"},{"ct":"BE","type":"caravan","name":"Motorhomesalon Gent","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"BE","type":"bike","name":"Belgium Bike Fest, Hastière","date":"~May","month":5,"visitors":null,"approx":true,"van":"small"},{"ct":"BE","type":"caravan","name":"Mobicar, Brussels","date":"~Oct","month":10,"visitors":null,"approx":true,"van":"small"},{"ct":"BE","type":"caravan","name":"Motorhomesalon Kortrijk","date":"~Oct","month":10,"visitors":null,"approx":true,"van":"small"},{"ct":"NL","type":"caravan","name":"Vakantiebeurs bijzondere reizen, Amsterdam","date":"02/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"NL","type":"caravan","name":"Vakantiebeurs Utrecht","date":"07/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"NL","type":"caravan","name":"Caravana, Leeuwarden","date":"27/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"NL","type":"bike","name":"Fiets en Wandelbeurs, Utrecht","date":"12/02","month":2,"visitors":30000,"approx":false,"van":"big"},{"ct":"NL","type":"caravan","name":"Camperbeurs Den Bosch","date":"19/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"NL","type":"bike","name":"Bike-Adventure Fair, Haarlem","date":"~Mar","month":3,"visitors":null,"approx":true,"van":"small"},{"ct":"NL","type":"caravan","name":"CamperExpo, Houten","date":"12/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"NL","type":"caravan","name":"Camperworld Maastricht","date":"10/09","month":9,"visitors":null,"approx":false,"van":"small"},{"ct":"NL","type":"bike","name":"Dutch Cycling Week, Utrecht","date":"~Sep","month":9,"visitors":null,"approx":true,"van":"small"},{"ct":"NL","type":"caravan","name":"Kampeer & Caravan Jaarbeurs, Utrecht","date":"~Sep","month":9,"visitors":40000,"approx":true,"van":"big"},{"ct":"NL","type":"caravan","name":"Camperbeurs Hardenberg","date":"~Sep","month":9,"visitors":null,"approx":true,"van":"small"},{"ct":"NL","type":"bike","name":"CycleExpo Amsterdam","date":"06/10","month":10,"visitors":null,"approx":false,"van":"small"},{"ct":"NL","type":"bike","name":"Bike Motion, Utrecht","date":"~Nov","month":11,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"January Motorhome & Campervan Sale, Stoneleigh","date":"15/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"caravan","name":"Scottish Caravan & Motorhome Show, Glasgow","date":"04/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"bike","name":"iceBike*, Manchester","date":"~Feb","month":2,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"bike","name":"iceBike*, London","date":"~Feb","month":2,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"Caravan, Camping & Motorhome Show, NEC","date":"16/02","month":2,"visitors":90000,"approx":false,"van":"big"},{"ct":"UK","type":"bike","name":"COREbike, Towcester","date":"21/02","month":2,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"bike","name":"London Bike Show","date":"~Mar","month":3,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"bike","name":"National Cycling Show, Birmingham","date":"~Mar","month":3,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"Yorkshire Motorhome & Camping, Harrogate","date":"19/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"bike","name":"Bespoked, Manchester","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"bike","name":"Spin Cycling Festival, London","date":"~Apr","month":4,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"National Motorhome & Camping, Stoneleigh","date":"16/04","month":4,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"caravan","name":"Campervan Campout, Ardingly","date":"30/04","month":4,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"caravan","name":"Southern Motorhome & Campervan, Newbury","date":"14/05","month":5,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"caravan","name":"ClubFest, Sandringham","date":"28/05","month":5,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"caravan","name":"East Midlands Motorhome & Campervan, Newark","date":"11/06","month":6,"visitors":null,"approx":false,"van":"small"},{"ct":"UK","type":"bike","name":"Cycle Live, Nottingham","date":"~Jun","month":6,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"Norfolk Motorhome & Campervan, Norwich","date":"~Jul","month":7,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"Western Motorhome & Campervan, Malvern","date":"~Aug","month":8,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"bike","name":"The Cycle Show, London","date":"~Sep","month":9,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"bike","name":"Fully Charged Live, Farnborough","date":"~Sep","month":9,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"South West Motorhome & Campervan, Shepton Mallet","date":"~Sep","month":9,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"Season Finale Motorhome Show, Lincoln","date":"~Sep","month":9,"visitors":null,"approx":true,"van":"small"},{"ct":"UK","type":"caravan","name":"Motorhome & Caravan Show, NEC","date":"~Oct","month":10,"visitors":85000,"approx":true,"van":"big"},{"ct":"UK","type":"caravan","name":"Malvern Caravan & Motorhome Show","date":"~Oct","month":10,"visitors":null,"approx":true,"van":"small"},{"ct":"SE","type":"caravan","name":"Trettonhelgens husvagnsmässor","date":"06/01","month":1,"visitors":null,"approx":false,"van":"small"},{"ct":"SE","type":"caravan","name":"Kistamässan Husbil & Husvagn","date":"~Feb","month":2,"visitors":null,"approx":true,"van":"small"},{"ct":"SE","type":"caravan","name":"Stockholm Husvagn Husbil, Älvsjö","date":"04/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"SE","type":"bike","name":"Sweden Bike Expo, Älvsjö","date":"24/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"SE","type":"bike","name":"Stockholm Bike Show","date":"27/03","month":3,"visitors":null,"approx":false,"van":"small"},{"ct":"SE","type":"bike","name":"Nordic Bike Expo, Motala","date":"11/06","month":6,"visitors":6000,"approx":false,"van":"small"},{"ct":"SE","type":"caravan","name":"Elmia Husvagn Husbil, Jönköping","date":"08/09","month":9,"visitors":40000,"approx":false,"van":"big"},
+{"ct":"DE","type":"caravan","name":"Caravan Salon Düsseldorf","date":"28/08","month":8,"visitors":250000,"approx":false,"van":"big","year":2026},
+{"ct":"DE","type":"caravan","name":"Caravan und Co, Rendsburg","date":"24/09","month":9,"visitors":null,"approx":false,"van":"small","year":2026},
+{"ct":"DE","type":"bike","name":"E4 Testival, Hockenheim","date":"16/10","month":10,"visitors":null,"approx":false,"van":"small","year":2026},
+{"ct":"DE","type":"caravan","name":"caravan live, Freiburg","date":"01/10","month":10,"visitors":null,"approx":false,"van":"small","year":2026},
+{"ct":"DE","type":"caravan","name":"Reisen & Caravan, Erfurt","date":"29/10","month":10,"visitors":null,"approx":false,"van":"small","year":2026},
+{"ct":"DE","type":"caravan","name":"Caravan Bremen","date":"06/11","month":11,"visitors":null,"approx":false,"van":"small","year":2026},
+{"ct":"DE","type":"caravan","name":"Caravan & Camping, Berlin","date":"26/11","month":11,"visitors":null,"approx":false,"van":"small","year":2026},
+{"ct":"DE","type":"caravan","name":"Touristik & Caravaning, Leipzig","date":"18/11","month":11,"visitors":100000,"approx":false,"van":"big","year":2026},
+{"ct":"AT","type":"caravan","name":"Caravan Salon Austria, Wels","date":"14/10","month":10,"visitors":null,"approx":false,"van":"small","year":2026},
+{"ct":"BE","type":"caravan","name":"Mobicar, Brussels","date":"08/10","month":10,"visitors":null,"approx":false,"van":"small","year":2026},
+{"ct":"NL","type":"bike","name":"Dutch Cycling Week, Utrecht","date":"~Sep","month":9,"visitors":null,"approx":true,"van":"small","year":2026},
+{"ct":"NL","type":"caravan","name":"Kampeer & Caravan Jaarbeurs, Utrecht","date":"30/09","month":9,"visitors":40000,"approx":false,"van":"big","year":2026},
+{"ct":"NL","type":"caravan","name":"Camperbeurs Hardenberg","date":"18/09","month":9,"visitors":null,"approx":false,"van":"small","year":2026},
+{"ct":"NL","type":"bike","name":"Bike Motion, Utrecht","date":"~Oct","month":10,"visitors":null,"approx":true,"van":"small","year":2026},
+{"ct":"UK","type":"caravan","name":"Western Motorhome & Campervan, Malvern","date":"21/08","month":8,"visitors":null,"approx":false,"van":"small","year":2026},
+{"ct":"UK","type":"caravan","name":"South West Motorhome & Campervan, Shepton Mallet","date":"11/09","month":9,"visitors":null,"approx":false,"van":"small","year":2026},
+{"ct":"UK","type":"caravan","name":"Season Finale Motorhome Show, Lincoln","date":"18/09","month":9,"visitors":null,"approx":false,"van":"small","year":2026},
+{"ct":"UK","type":"caravan","name":"Motorhome & Caravan Show, NEC","date":"13/10","month":10,"visitors":85000,"approx":false,"van":"big","year":2026},
+{"ct":"UK","type":"caravan","name":"Malvern Caravan & Motorhome Show","date":"02/10","month":10,"visitors":null,"approx":false,"van":"small","year":2026},
+{"ct":"SE","type":"caravan","name":"Elmia Husvagn Husbil, Jönköping","date":"09/09","month":9,"visitors":40000,"approx":false,"van":"big","year":2026}];
+FAIRS.forEach(f=>{if(f.year==null)f.year=2027;});
 FAIRS.forEach((f,i)=>f.id='f'+i);
 
 // status fields shown as clickable chips/dots
@@ -370,7 +509,7 @@ const STATUS_ORDER=['no','progress','yes'];
 const STATUS_LABEL={no:'Not done',progress:'In progress',yes:'Done'};
 
 // employee presence toggles (the specific people tracked per fair)
-const EMP_PRESENCE=['Stuart','Daniel','Frank','Peter','Mass','Cara','David','Abdala','Nicola','Julia','Dealer'];
+let EMP_PRESENCE=['Stuart','Daniel','Frank','Peter','Mass','Cara','David','Abdala','Nicola','Julia','Arthur','Mike','Ralf','UK new member','Dealer'];
 
 // full editor schema — types: text | number | date | textarea | url | yn | iob | file
 const TEXT_GROUPS=[
@@ -382,7 +521,7 @@ const TEXT_GROUPS=[
    ['businessDays','Business days','text'],['b2cDays','B2C days','text'],
    ['inOut','Indoor / Outdoor / Both','iob'],['testBike','Test bike available','yn']]],
  ['Booth & commercial',[
-   ['boothType','Type of booth','text'],['standPos','Stand position','text'],
+   ['boothType','Type of booth','text'],['standPos','Stand position','text'],['standSize','Stand size (m²)','number'],
    ['dealerPart','Dealer participation','yn'],['dealerFee','Dealer fee (amount €)','number'],
    ['hrNeeded','HR from Ahooga (employees needed)','number'],
    ['potentialLeads','Potential leads present at the fair','textarea']]],
@@ -400,15 +539,18 @@ const TEXT_GROUPS=[
 
 // ---- Budget model ----
 const BUDGET_CATS=[
- {k:'space',l:'Stand space',c:'#2563eb',scale:false},
- {k:'build',l:'Stand building',c:'#d98a00',scale:false},
- {k:'transport',l:'Transport',c:'#1a9c6b',scale:true},
- {k:'accom',l:'Accommodation',c:'#7c3aed',scale:true},
- {k:'meals',l:'Meals & per diem',c:'#0891b2',scale:false},
- {k:'other',l:'Marketing & other',c:'#be185d',scale:false}
+ {k:'space',l:'Stand rent',c:'#2563eb'},
+ {k:'build',l:'Stand build',c:'#d98a00'},
+ {k:'accom',l:'Accommodation',c:'#7c3aed'},
+ {k:'meals',l:'Meals',c:'#0891b2'},
+ {k:'transport',l:'Transport',c:'#1a9c6b'},
+ {k:'elec',l:'Electricity',c:'#e11d48'},
+ {k:'wifi',l:'WiFi',c:'#0ea5e9'},
+ {k:'other',l:'Marketing & other',c:'#be185d'}
 ];
 const CO_TRANSPORT={BE:0.5,NL:0.8,DE:1.0,UK:1.5,AT:1.6,SE:2.0};
 const BUDGET_DEF_BASE={space:{big:3000,small:1400},build:{big:2500,small:800},transport:{big:900,small:500},accom:{big:1200,small:600},meals:{big:500,small:300},other:{big:400,small:200}};
+const BUDGET_MODEL_BASE={pricePerM2:180,buildPerM2:120,hotelPerNight:110,perDiem:45,transportPerPerson:100,elec:250,wifi:120,otherBig:400,otherSmall:200,m2Big:30,m2Small:12,nightsBig:3,nightsSmall:2,peopleBig:4,peopleSmall:2};
 
 const PLAN=[
  ['Register & secure the space',['Contact the fair','Get info on the fair event','Get contact-person info','Register to the fair','Get space quotation','Confirm space (12 or 18 m²)','Clarify all deadlines (booking, utilities, marketing, build, forms, payments)']],
@@ -429,57 +571,68 @@ const LOADOUT={
 };
 
 // ---------- STATE ----------
-const store={get(k,d){try{const v=localStorage.getItem('ahfd2_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem('ahfd2_'+k,JSON.stringify(v));return true}catch(e){return false}}};
-// ---- multi-year: namespace data by year ----
-let years=store.get('years',[2027]);
-let currentYear=store.get('currentYear',2027);
-if(!years.includes(currentYear)){years.push(currentYear);years.sort();store.set('years',years);}
-function yk(k){return currentYear+'_'+k;}
-function syGet(k,d){return store.get(yk(k),d);}
-function sySet(k,v){return store.set(yk(k),v);}
-// one-time migration of legacy (un-yeared) data into 2027
-(function(){ if(store.get('2027_recs',null)===null){ ['ticked','recs','vanOverride','tasks','planState'].forEach(k=>{const v=store.get(k,null); if(v!==null) store.set('2027_'+k,v);}); } })();
-// custom fairs & roster are global across years
-let customFairs=store.get('customFairs',[]);
-customFairs.forEach(cf=>{ if(!FAIRS.find(x=>x.id===cf.id)) FAIRS.push(cf); });
-let empRoster=store.get('empRoster',EMP_PRESENCE.slice());
-// per-year data (populated by loadYear)
-let ticked,recs,vanOverride,tasks,planState;
-function loadYear(){
-  ticked=syGet('ticked',null); if(!ticked){ticked={};FAIRS.forEach(f=>ticked[f.id]=true);}
-  recs=syGet('recs',{});
-  vanOverride=syGet('vanOverride',{});
-  tasks=syGet('tasks',[]);
-  planState=syGet('planState',{});
-  // migrate single floorPlan -> docs[]
-  Object.values(recs).forEach(r=>{ if(r.floorPlan&&!r.docs){r.docs=[{label:'Floor plan',name:r.floorPlan.name,data:r.floorPlan.data}];delete r.floorPlan;} });
-}
-loadYear();
-// global prefs (shared across years)
+const store={get(k,d){try{const v=localStorage.getItem('ahfd2_'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){let ok=true;try{localStorage.setItem('ahfd2_'+k,JSON.stringify(v))}catch(e){ok=false}kvSet(k,v);return ok}};
+// ── Shared cloud storage (Cloudflare KV via the same worker the Production Planner uses) ──
+const CF_WORKER_URL='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
+const CLOUD_ON=location.protocol.indexOf('http')===0&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1';
+const CLOUD_KEYS=['ticked','recs','tasks','vanOverride','weights','planState','collapsedCo','budgetDef','budgetModel','customFairs','empRoster'];
+const CKEY=k=>'fairdash_'+k; // flat key, no colon (required by the worker /store route)
+function setCloud(txt,cls){const el=document.getElementById('cloudStatus');if(el){el.textContent=txt;el.className='cloud '+(cls||'');}}
+async function kvGet(k){if(!CLOUD_ON)return undefined;try{const r=await fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(CKEY(k))}`);const t=await r.text();return t==='null'?undefined:JSON.parse(t);}catch(e){console.warn('cloud get failed',k,e);return undefined;}}
+const _cloudTimers={};
+function kvSet(k,v){if(!CLOUD_ON||!CLOUD_KEYS.includes(k))return;clearTimeout(_cloudTimers[k]);setCloud('☁ saving…','saving');_cloudTimers[k]=setTimeout(()=>{fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(CKEY(k))}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(v)}).then(r=>setCloud(r.ok?'☁ saved':'⚠ save failed',r.ok?'ok':'err')).catch(e=>{console.warn('cloud set failed',k,e);setCloud('⚠ offline — saved on this device','err');});},600);}
+function _assignCloud(k,v){if(k==='ticked')ticked=v;else if(k==='recs')recs=v;else if(k==='tasks')tasks=v;else if(k==='vanOverride')vanOverride=v;else if(k==='weights')weights=v;else if(k==='planState')planState=v;else if(k==='collapsedCo')collapsedCo=v;else if(k==='budgetDef')budgetDef=v;else if(k==='budgetModel')budgetModel=v;else if(k==='empRoster'){if(Array.isArray(v)&&v.length)EMP_PRESENCE=v;}else if(k==='customFairs'){customFairs=v||[];mergeCustomFairs();}}
+function _curCloud(k){return{ticked,recs,tasks,vanOverride,weights,planState,collapsedCo,budgetDef,budgetModel,customFairs,empRoster:EMP_PRESENCE}[k];}
+async function loadCloud(){if(!CLOUD_ON)return;setCloud('☁ syncing…','saving');try{const vals=await Promise.all(CLOUD_KEYS.map(kvGet));let got=false;CLOUD_KEYS.forEach((k,i)=>{const v=vals[i];if(v!==undefined){try{localStorage.setItem('ahfd2_'+k,JSON.stringify(v))}catch(e){}_assignCloud(k,v);got=true;}else{const cur=_curCloud(k);if(cur!==undefined)fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(CKEY(k))}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cur)}).catch(()=>{});}});if(got){syncW();refreshFairSelects();renderFairs();const at=document.querySelector('nav button.on');if(at)at.click();}setCloud('☁ synced','ok');}catch(e){console.warn(e);setCloud('⚠ sync failed — using this device','err');}}
+let ticked=store.get('ticked',null); if(!ticked){ticked={};FAIRS.forEach(f=>ticked[f.id]=true);}
+let recs=store.get('recs',{});            // per-fair editable record {visitors,days,status:{...},...}
+let vanOverride=store.get('vanOverride',{});
 let weights=store.get('weights',{v:30,c:25,t:25,e:20});
+let planState=store.get('planState',{});
+let tasks=store.get('tasks',[]);
 let budgetDef=store.get('budgetDef',JSON.parse(JSON.stringify(BUDGET_DEF_BASE)));
+let budgetModel=store.get('budgetModel',JSON.parse(JSON.stringify(BUDGET_MODEL_BASE)));
 let collapsedCo=store.get('collapsedCo',{});
 let roadZoom=store.get('roadZoom',3600);
 let expanded={};
+// editable roster + custom fairs (cloud-synced)
+EMP_PRESENCE=store.get('empRoster',EMP_PRESENCE);
+let customFairs=store.get('customFairs',[]);
+function mergeCustomFairs(){customFairs.forEach(cf=>{if(!FAIRS.find(x=>x.id===cf.id))FAIRS.push(cf);if(ticked[cf.id]===undefined)ticked[cf.id]=true;});}
+mergeCustomFairs();
 
 function rec(f){ if(!recs[f.id])recs[f.id]={}; return recs[f.id]; }
 function getVis(f){ const r=rec(f); return r.visitors!=null&&r.visitors!==''?+r.visitors:(f.visitors); }
 function pad(n){return(''+n).padStart(2,'0');}
-function defISO(f){const m=f.date.match(/^(\d{1,2})\/(\d{1,2})/);let mo,dy;if(m){dy=+m[1];mo=+m[2];}else{mo=f.month;dy=15;}return `2027-${pad(mo)}-${pad(dy)}`;}
+function defISO(f){const m=f.date.match(/^(\d{1,2})\/(\d{1,2})/);let mo,dy;if(m){dy=+m[1];mo=+m[2];}else{mo=f.month;dy=15;}return `${f.year||2027}-${pad(mo)}-${pad(dy)}`;}
 function getStart(f){const r=rec(f);return r.startDate||defISO(f);}
+function effMonth(f){const s=getStart(f);return +s.slice(5,7)||f.month;}
 function getEnd(f){return rec(f).endDate||'';}
 function nightsOf(f){const s=getStart(f),e=getEnd(f);if(!s||!e)return null;const n=Math.round((new Date(e)-new Date(s))/86400000)+1;return n>0?n:null;}
 function shortD(iso){if(!iso)return'';const p=iso.split('-');return p[2]+'/'+p[1];}
 function getDays(f){const s=getStart(f),e=getEnd(f);return e?shortD(s)+'–'+shortD(e):shortD(s);}
 function addDays(iso,d){const dt=new Date(iso);dt.setDate(dt.getDate()+d);return dt.toISOString().slice(0,10);}
-function guestsOf(f){const r=rec(f);if(r.presence){const y=Object.values(r.presence).filter(v=>v==='Yes').length;if(y)return y;}if(r.hrNeeded&&+r.hrNeeded>0)return +r.hrNeeded;return 2;}
+function peopleOf(f){const r=rec(f);if(r.presence){const y=EMP_PRESENCE.filter(p=>p!=='Dealer'&&r.presence[p]==='Yes').length;if(y)return y;}if(r.hrNeeded&&+r.hrNeeded>0)return +r.hrNeeded;return vanFor(f)==='big'?(+budgetModel.peopleBig||4):(+budgetModel.peopleSmall||2);}
+function guestsOf(f){return peopleOf(f);}
+function standM2(f){const r=rec(f);if(r.standSize&&+r.standSize>0)return +r.standSize;return vanFor(f)==='big'?(+budgetModel.m2Big||30):(+budgetModel.m2Small||12);}
+function nightsEst(f){const n=nightsOf(f);if(n!=null)return n;return vanFor(f)==='big'?(+budgetModel.nightsBig||3):(+budgetModel.nightsSmall||2);}
+function rateM2(f){const r=rec(f);return r.rateM2!=null&&r.rateM2!==''?+r.rateM2:(+budgetModel.pricePerM2||0);}
+function rateNight(f){const r=rec(f);return r.rateNight!=null&&r.rateNight!==''?+r.rateNight:(+budgetModel.hotelPerNight||0);}
+function rateMeal(f){const r=rec(f);return r.rateMeal!=null&&r.rateMeal!==''?+r.rateMeal:(+budgetModel.perDiem||0);}
+function daysOf(f){const r=rec(f);return r.days!=null&&r.days!==''?+r.days:nightsEst(f)+1;}
+function transportOf(f){return Math.round(peopleOf(f)*2*rateTrans(f));}
+function otherOf(f){const r=rec(f);if(r.other!=null&&r.other!=='')return +r.other;return vanFor(f)==='big'?(+budgetModel.otherBig||0):(+budgetModel.otherSmall||0);}
+function rateBuild(f){const r=rec(f);return r.rateBuild!=null&&r.rateBuild!==''?+r.rateBuild:(+budgetModel.buildPerM2||0);}
+function rateTrans(f){const r=rec(f);return r.rateTrans!=null&&r.rateTrans!==''?+r.rateTrans:(+budgetModel.transportPerPerson||100);}
+function elecOf(f){const r=rec(f);return r.elec!=null&&r.elec!==''?+r.elec:(+budgetModel.elec||0);}
+function wifiOf(f){const r=rec(f);return r.wifi!=null&&r.wifi!==''?+r.wifi:(+budgetModel.wifi||0);}
 function fairCity(f){const r=rec(f);return r.city||f.name.split(',').slice(1).join(',').trim()||f.name.split(',')[0];}
 function bookingURL(f){const s=getStart(f);if(!s)return'#';const e=getEnd(f);const ci=addDays(s,-1),co=e||addDays(s,1);const g=guestsOf(f);
   return `https://www.booking.com/searchresults.html?ss=${encodeURIComponent(fairCity(f))}&checkin=${ci}&checkout=${co}&group_adults=${g}&no_rooms=${g}&group_children=0`;}
 function getStatus(f,k){ const r=rec(f); return (r.status&&r.status[k])||'no'; }
-function setStatus(f,k,v){ const r=rec(f); r.status=r.status||{}; r.status[k]=v; sySet('recs',recs); }
-function saveRecs(){return sySet('recs',recs);}
-function saveTicked(){sySet('ticked',ticked);}
+function setStatus(f,k,v){ const r=rec(f); r.status=r.status||{}; r.status[k]=v; store.set('recs',recs); }
+function saveRecs(){return store.set('recs',recs);}
+function saveTicked(){store.set('ticked',ticked);}
 
 // ---------- SCORING ----------
 function visitorScore(v){ if(v==null||v==='') return 0.30; return Math.min(1, +v/150000 + 0.05); }
@@ -493,10 +646,10 @@ function fmtVis(v){return v==null||v===''?'—':(+v).toLocaleString('en-US');}
 
 // ---------- FAIR TRACKER ----------
 function renderFairs(){
-  const q=$('#q').value.trim().toLowerCase(),ft=$('#fType').value,sort=$('#fSort').value,showHidden=$('#showHidden').checked;
+  const q=$('#q').value.trim().toLowerCase(),ft=$('#fType').value,fy=$('#fYear').value,fcity=$('#fCity').value,ffrom=+$('#fFrom').value||1,fto=+$('#fTo').value||12,sort=$('#fSort').value,showHidden=$('#showHidden').checked;
   const cont=$('#fairContainer');cont.innerHTML='';
-  let list=FAIRS.map(f=>({f,s:score(f)})).filter(o=>(!ft||o.f.type===ft)&&(!q||o.f.name.toLowerCase().includes(q)||(rec(o.f).city||'').toLowerCase().includes(q)));
-  const cmp={priority:(a,b)=>b.s-a.s,date:(a,b)=>a.f.month-b.f.month||a.f.name.localeCompare(b.f.name),visitors:(a,b)=>(getVis(b.f)||0)-(getVis(a.f)||0),name:(a,b)=>a.f.name.localeCompare(b.f.name)}[sort];
+  let list=FAIRS.map(f=>({f,s:score(f)})).filter(o=>(!ft||o.f.type===ft)&&(!fy||(''+o.f.year)===fy)&&(!fcity||fairCity(o.f)===fcity)&&(effMonth(o.f)>=ffrom&&effMonth(o.f)<=fto)&&(!q||o.f.name.toLowerCase().includes(q)||(rec(o.f).city||'').toLowerCase().includes(q)||fairCity(o.f).toLowerCase().includes(q)));
+  const cmp={priority:(a,b)=>b.s-a.s,date:(a,b)=>getStart(a.f).localeCompare(getStart(b.f))||a.f.name.localeCompare(b.f.name),visitors:(a,b)=>(getVis(b.f)||0)-(getVis(a.f)||0),name:(a,b)=>a.f.name.localeCompare(b.f.name)}[sort];
   CO_ORDER.forEach(ct=>{
     let rows=list.filter(o=>o.f.ct===ct); if(!rows.length)return;
     if(!rows.filter(o=>showHidden||ticked[o.f.id]).length)return;
@@ -519,7 +672,7 @@ function renderFairs(){
       tr.innerHTML=`
         <td><input type="checkbox" class="chk" data-id="${f.id}" ${on?'checked':''}></td>
         <td><span class="rank"><span class="score">${s}</span><span class="badge ${b}">${b}</span></span></td>
-        <td class="name">${esc(f.name)}<small>${esc(r.city||f.name.split(',').slice(1).join(',').trim())}</small></td>
+        <td class="name">${esc(f.name)}${f.year!==2027?` <span class="yrtag">${f.year}</span>`:''}<small>${esc(r.city||f.name.split(',').slice(1).join(',').trim())}</small></td>
         <td class="datecell">
           <div class="drow"><span>Start</span><input type="date" class="inp dt" data-start="${f.id}" value="${getStart(f)}"></div>
           <div class="drow"><span>End</span><input type="date" class="inp dt" data-end="${f.id}" value="${esc(getEnd(f))}"></div>
@@ -579,7 +732,7 @@ function editorHTML(f){
   });
   // documents (multiple PDFs)
   h+=`<div class="egroup" style="${secStyle(7)}"><h4>Documents (PDF)</h4>`;
-  const docs=r.docs||[];
+  const docs=r.docs||(r.floorPlan?[{label:'Floor plan',name:r.floorPlan.name,data:r.floorPlan.data}]:[]);
   h+='<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">';
   if(docs.length) docs.forEach((dc,di)=>{ h+=`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><a href="${dc.data}" download="${esc(dc.name)}" target="_blank" class="pill" style="background:var(--blue)">📄 ${esc(dc.label||dc.name)}</a><span class="hint" style="margin:0">${esc(dc.name)}</span><button class="btn" data-docrm="${f.id}|${di}">Remove</button></div>`; });
   else h+='<span class="hint" style="margin:0">No documents yet — e.g. floor plan, parking permit, technical form…</span>';
@@ -588,17 +741,16 @@ function editorHTML(f){
   h+='</div>';
   // employee presence
   h+=`<div class="egroup" style="${secStyle(8)}"><h4>Employee presence at the fair</h4><div class="status-row">`;
-  empRoster.forEach(p=>{const v=(r.presence&&r.presence[p])||'';
-    h+=`<div class="sf"><label>${esc(p)}</label><select class="task-status" data-pres="${f.id}|${esc(p)}"><option value="" ${v===''?'selected':''}>—</option><option ${v==='Yes'?'selected':''}>Yes</option><option ${v==='No'?'selected':''}>No</option></select></div>`;});
+  EMP_PRESENCE.forEach(p=>{const v=(r.presence&&r.presence[p])||'';
+    h+=`<div class="sf"><label>${p}</label><select class="task-status" data-pres="${f.id}|${p}"><option value="" ${v===''?'selected':''}>—</option><option ${v==='Yes'?'selected':''}>Yes</option><option ${v==='No'?'selected':''}>No</option></select></div>`;});
   h+='</div></div>';
-  // delete custom fair
-  if(String(f.id).startsWith('c')) h+=`<div style="padding:6px 2px"><button class="btn" style="border-color:var(--red);color:var(--red)" data-delfair="${f.id}">🗑 Delete this fair (added manually)</button></div>`;
+  if(String(f.id).startsWith('c')||String(f.id).includes('_y')) h+=`<div style="padding:6px 2px"><button class="btn" style="border-color:var(--red);color:var(--red)" data-delfair="${f.id}">🗑 Delete this fair (added manually)</button></div>`;
   h+='</div>';return h;
 }
 
 function wireFairRows(){
   $$('.chk').forEach(c=>c.onchange=e=>{ticked[e.target.dataset.id]=e.target.checked;saveTicked();renderFairs();refreshFairSelects();});
-  $$('[data-van]').forEach(s=>s.onchange=e=>{vanOverride[e.target.dataset.van]=e.target.value;sySet('vanOverride',vanOverride);});
+  $$('[data-van]').forEach(s=>s.onchange=e=>{vanOverride[e.target.dataset.van]=e.target.value;store.set('vanOverride',vanOverride);});
   $$('[data-start]').forEach(i=>i.onchange=e=>{rec2(e.target.dataset.start).startDate=e.target.value;saveRecs();renderFairs();});
   $$('[data-end]').forEach(i=>i.onchange=e=>{rec2(e.target.dataset.end).endDate=e.target.value;saveRecs();renderFairs();});
   $$('[data-vis]').forEach(i=>i.onchange=e=>{rec2(e.target.dataset.vis).visitors=e.target.value;saveRecs();renderFairs();});
@@ -609,14 +761,14 @@ function wireFairRows(){
     if(file.size>3.5*1024*1024){alert('This PDF is '+(file.size/1048576).toFixed(1)+' MB. Browser storage is limited (~5 MB total), so please attach smaller files or paste a link instead.');return;}
     const rd=new FileReader();rd.onload=()=>{rec2(id)[k]={name:file.name,data:rd.result};if(!saveRecs()){alert('Storage full — could not save this PDF. Remove some attachments or use links.');delete rec2(id)[k];}renderFairs();};rd.readAsDataURL(file);});
   $$('[data-rmfile]').forEach(b=>b.onclick=e=>{const[id,k]=e.target.dataset.rmfile.split('|');delete rec2(id)[k];saveRecs();renderFairs();});
-  $$('[data-exp]').forEach(b=>b.onclick=e=>{const id=e.target.dataset.exp;expanded[id]=!expanded[id];renderFairs();});
-  $$('[data-co]').forEach(h=>h.onclick=e=>{const ct=e.currentTarget.dataset.co;collapsedCo[ct]=!collapsedCo[ct];store.set('collapsedCo',collapsedCo);renderFairs();});
   $$('[data-docfile]').forEach(el=>el.onchange=e=>{const id=e.target.dataset.docfile;const file=e.target.files[0];if(!file)return;
     if(file.size>3.5*1024*1024){alert('PDF too large ('+(file.size/1048576).toFixed(1)+' MB). Max ~3.5 MB.');return;}
     const lblEl=document.querySelector('[data-doclabel="'+id+'"]');const label=(lblEl&&lblEl.value.trim())||file.name.replace(/\.pdf$/i,'');
-    const rd=new FileReader();rd.onload=()=>{const r=rec2(id);r.docs=r.docs||[];r.docs.push({label,name:file.name,data:rd.result});if(!saveRecs()){r.docs.pop();alert('Storage full — could not save this PDF.');}renderFairs();};rd.readAsDataURL(file);});
-  $$('[data-docrm]').forEach(b=>b.onclick=e=>{const[id,di]=e.target.dataset.docrm.split('|');const r=rec2(id);if(r.docs){r.docs.splice(+di,1);saveRecs();renderFairs();}});
-  $$('[data-delfair]').forEach(b=>b.onclick=e=>{const id=e.target.dataset.delfair;if(!confirm('Delete this manually-added fair?'))return;const i=FAIRS.findIndex(f=>f.id===id);if(i>=0)FAIRS.splice(i,1);customFairs=customFairs.filter(f=>f.id!==id);store.set('customFairs',customFairs);delete ticked[id];delete recs[id];saveTicked();saveRecs();renderFairs();refreshFairSelects();});
+    const rd=new FileReader();rd.onload=()=>{const r=rec2(id);if(!r.docs){r.docs=r.floorPlan?[{label:'Floor plan',name:r.floorPlan.name,data:r.floorPlan.data}]:[];}r.docs.push({label,name:file.name,data:rd.result});delete r.floorPlan;if(!saveRecs()){r.docs.pop();alert('Storage full — could not save this PDF.');}renderFairs();};rd.readAsDataURL(file);});
+  $$('[data-docrm]').forEach(b=>b.onclick=e=>{const[id,di]=e.target.dataset.docrm.split('|');const r=rec2(id);if(!r.docs&&r.floorPlan)r.docs=[{label:'Floor plan',name:r.floorPlan.name,data:r.floorPlan.data}];delete r.floorPlan;if(r.docs){r.docs.splice(+di,1);saveRecs();renderFairs();}});
+  $$('[data-exp]').forEach(b=>b.onclick=e=>{const id=e.target.dataset.exp;expanded[id]=!expanded[id];renderFairs();});
+  $$('[data-co]').forEach(h=>h.onclick=e=>{const ct=e.currentTarget.dataset.co;collapsedCo[ct]=!collapsedCo[ct];store.set('collapsedCo',collapsedCo);renderFairs();});
+  $$('[data-delfair]').forEach(b=>b.onclick=e=>{const id=e.target.dataset.delfair;if(!confirm('Delete this manually-added fair?'))return;const i=FAIRS.findIndex(f=>f.id===id);if(i>=0)FAIRS.splice(i,1);customFairs=customFairs.filter(f=>f.id!==id);store.set('customFairs',customFairs);delete ticked[id];delete recs[id];saveTicked();saveRecs();rebuildYearOptions();populateCityFilter();renderFairs();refreshFairSelects();});
 }
 function rec2(id){if(!recs[id])recs[id]={};return recs[id];}
 function byId(id){return FAIRS.find(f=>f.id===id);}
@@ -642,15 +794,15 @@ function exportCSV(){
   const cols=['Fair','Country','Dates','Type','Visitors','Van','Priority'];
   STATUS_FIELDS.forEach(([k,l])=>cols.push(l));
   flat.forEach(([k,l])=>cols.push(l));
-  empRoster.forEach(p=>cols.push('Present: '+p));
-  cols.push('Documents');
+  EMP_PRESENCE.forEach(p=>cols.push('Present: '+p));
+  cols.push('Floor plan PDF');
   let out=[cols.join(',')];
   FAIRS.filter(f=>ticked[f.id]).forEach(f=>{const r=rec(f);
     let row=[f.name,f.ct,getDays(f),f.type,getVis(f)||'',vanFor(f),score(f)];
     STATUS_FIELDS.forEach(([k])=>row.push(STATUS_LABEL[getStatus(f,k)]));
     flat.forEach(([k])=>row.push(r[k]||''));
-    empRoster.forEach(p=>row.push((r.presence&&r.presence[p])||''));
-    row.push((r.docs||[]).map(d=>d.label||d.name).join('; '));
+    EMP_PRESENCE.forEach(p=>row.push((r.presence&&r.presence[p])||''));
+    row.push(r.floorPlan?r.floorPlan.name:'');
     out.push(row.map(x=>`"${(''+x).replace(/"/g,'""')}"`).join(','));
   });
   dl(out.join('\n'),'ahooga_fairs_2027.csv');
@@ -672,6 +824,7 @@ function renderVanTab(){
 }
 
 // ---------- PM TAB ----------
+function populateCityFilter(){const sel=$('#fCity');if(!sel)return;const cur=sel.value;const cities=[...new Set(FAIRS.map(f=>fairCity(f)).filter(Boolean))].sort((a,b)=>a.localeCompare(b));sel.innerHTML='<option value="">All cities</option>'+cities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');sel.value=cur;}
 function refreshFairSelects(){
   const opts='<option value="">— General —</option>'+FAIRS.filter(f=>ticked[f.id]).sort((a,b)=>a.month-b.month).map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
   $('#tFair').innerHTML=opts;
@@ -720,7 +873,7 @@ function renderPmStats(){
     <div class="card"><div class="n" style="color:var(--amber)">${prog}</div><div class="l">In progress</div></div>
     <div class="card"><div class="n" style="color:var(--red)">${overdue}</div><div class="l">Overdue</div></div>`;
 }
-function saveTasks(){sySet('tasks',tasks);renderTasks();}
+function saveTasks(){store.set('tasks',tasks);renderTasks();}
 function addTask(){
   const task=$('#tTask').value.trim(); if(!task)return;
   tasks.push({task,fair:$('#tFair').value||'',who:$('#tWho').value||'',date:$('#tDate').value||'',status:$('#tStatus').value});
@@ -742,31 +895,38 @@ function exportTasks(){
 // ---------- ROADMAP ----------
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const CUMDAYS=[0,31,59,90,120,151,181,212,243,273,304,334];
-function dayOfYear(f){const m=f.date.match(/^(\d{1,2})\/(\d{1,2})/);let mon,day;if(m){day=+m[1];mon=+m[2];}else{mon=f.month;day=15;}return CUMDAYS[(mon||1)-1]+day;}
+function dayOfYear(f){const iso=getStart(f);const mon=+iso.slice(5,7)||f.month||1,day=+iso.slice(8,10)||15;return CUMDAYS[mon-1]+day;}
 function weekOf(f){return Math.floor(dayOfYear(f)/7);}
 function renderRoadmap(){
-  const active=FAIRS.filter(f=>ticked[f.id]);
-  // clashes: same week, 2+ fairs
-  const byWeek={};active.forEach(f=>{const w=weekOf(f);(byWeek[w]=byWeek[w]||[]).push(f);});
+  const fy=$('#fYear')?$('#fYear').value:'';
+  const active=FAIRS.filter(f=>ticked[f.id]&&(!fy||(''+f.year)===fy));
+  let YEARS=fy?[+fy]:[...new Set(active.map(f=>f.year))].sort((a,b)=>a-b);
+  if(!YEARS.length)YEARS=[2027];
+  const yi=y=>Math.max(0,YEARS.indexOf(y));
+  const absDay=f=>yi(f.year)*365+dayOfYear(f);
+  const totalDays=YEARS.length*365;
+  const weekAbs=f=>Math.floor(absDay(f)/7);
+  // clashes: same week (within same year), 2+ fairs
+  const byWeek={};active.forEach(f=>{const w=weekAbs(f);(byWeek[w]=byWeek[w]||[]).push(f);});
   const clashIds={};const clashPairs=[];
   Object.values(byWeek).forEach(g=>{if(g.length>1){g.forEach(f=>clashIds[f.id]=1);clashPairs.push(g);}});
   $('#roadStats').innerHTML=`<div class="card"><div class="n">${active.length}</div><div class="l">Fairs on roadmap</div></div>
     <div class="card"><div class="n" style="color:var(--red)">${clashPairs.length}</div><div class="l">Weeks with a clash</div></div>
-    <div class="card"><div class="n">${Object.keys(byWeek).length}</div><div class="l">Active weeks</div></div>`;
+    <div class="card"><div class="n">${YEARS.join(' + ')}</div><div class="l">Season${YEARS.length>1?'s':''} shown</div></div>`;
   const W=roadZoom,LBL=120,span=W;
   let head=`<div class="rm-head" style="width:${W}px">`;
-  for(let m=0;m<12;m++){const x=(CUMDAYS[m]/365)*span;head+=`<div class="rm-tick" style="left:${x}px"></div><div class="rm-mo" style="left:${x+4}px">${MONTHS[m]}</div>`;}
+  YEARS.forEach((yr,ix)=>{for(let m=0;m<12;m++){const x=((ix*365+CUMDAYS[m])/totalDays)*span;head+=`<div class="rm-tick" style="left:${x}px"></div><div class="rm-mo" style="left:${x+4}px">${MONTHS[m]}${m===0?" '"+(''+yr).slice(2):''}</div>`;}});
   head+='</div>';
   let lanes='';
   CO_ORDER.forEach(ct=>{
-    const list=active.filter(f=>f.ct===ct).sort((a,b)=>dayOfYear(a)-dayOfYear(b));
+    const list=active.filter(f=>f.ct===ct).sort((a,b)=>absDay(a)-absDay(b));
     // greedy row stacking to avoid label overlap within lane
     const rowEnd=[];const GAP=8;
-    list.forEach(f=>{const x=(dayOfYear(f)/365)*span;const w=64+f.name.split(',')[0].length*6.4;let r=0;while(rowEnd[r]!=null&&x<rowEnd[r]+GAP)r++;rowEnd[r]=x+w;f._row=r;});
+    list.forEach(f=>{const x=(absDay(f)/totalDays)*span;const w=64+f.name.split(',')[0].length*6.4;let r=0;while(rowEnd[r]!=null&&x<rowEnd[r]+GAP)r++;rowEnd[r]=x+w;f._row=r;});
     const nrows=Math.max(1,rowEnd.length);const h=10+nrows*26;
     let inner='';
-    list.forEach(f=>{const x=(dayOfYear(f)/365)*span;const y=5+f._row*26;const nm=f.name.split(',')[0];
-      inner+=`<div class="rm-pill ${clashIds[f.id]?'clash':''}" style="left:${x}px;top:${y}px;background:var(--${ct})" title="${esc(f.name)} · ${esc(getDays(f))}">${f.type==='bike'?'🚲':'🚐'} ${esc(getDays(f))} · ${esc(nm)}</div>`;});
+    list.forEach(f=>{const x=(absDay(f)/totalDays)*span;const y=5+f._row*26;const nm=f.name.split(',')[0];
+      inner+=`<div class="rm-pill ${clashIds[f.id]?'clash':''}" style="left:${x}px;top:${y}px;background:var(--${ct})" title="${esc(f.name)} · ${esc(getDays(f))} ${f.year}">${f.type==='bike'?'🚲':'🚐'} ${esc(getDays(f))} · ${esc(nm)}</div>`;});
     lanes+=`<div class="rm-lane" style="height:${h}px"><div class="rm-label" style="top:${(h-16)/2}px"><i style="background:var(--${ct})"></i>${CO_NAME[ct]} <span style="color:var(--dim)">${list.length}</span></div><div class="rm-lane-inner" style="width:${W}px">${inner}</div></div>`;
   });
   $('#roadGrid').innerHTML=head+lanes;
@@ -774,18 +934,25 @@ function renderRoadmap(){
   // clash list
   if(clashPairs.length){
     $('#clashList').innerHTML='<h3 style="font-size:14px;margin:6px 0 10px">⚠ Potential clashes (same week)</h3>'+
-      clashPairs.sort((a,b)=>dayOfYear(a[0])-dayOfYear(b[0])).map(g=>`<div class="clash-card"><b>Week of ${esc(g[0].date)}:</b> ${g.map(f=>esc(f.name)+' ('+f.ct+')').join(' &nbsp;⟷&nbsp; ')}</div>`).join('');
+      clashPairs.sort((a,b)=>absDay(a[0])-absDay(b[0])).map(g=>`<div class="clash-card"><b>Week of ${esc(g[0].date)} ${g[0].year}:</b> ${g.map(f=>esc(f.name)+' ('+f.ct+')').join(' &nbsp;⟷&nbsp; ')}</div>`).join('');
   } else $('#clashList').innerHTML='<div class="clash-card" style="background:#e8f6f0;border-color:#a7d8c4;color:#166">✓ No same-week clashes among ticked fairs.</div>';
 }
 
 // ---------- BUDGET ----------
 function catDefault(f,catk){
-  const van=vanFor(f), cat=BUDGET_CATS.find(c=>c.k===catk);
-  let base=(budgetDef[catk]&&budgetDef[catk][van])||0;
-  if(cat.scale) base*=(CO_TRANSPORT[f.ct]||1);
-  return Math.round(base);
+  switch(catk){
+    case 'space':     return Math.round(standM2(f)*rateM2(f));
+    case 'build':     return Math.round(standM2(f)*rateBuild(f));
+    case 'accom':     return Math.round(peopleOf(f)*nightsEst(f)*rateNight(f));
+    case 'meals':     return Math.round(peopleOf(f)*daysOf(f)*rateMeal(f));
+    case 'transport': return transportOf(f);
+    case 'elec':      return elecOf(f);
+    case 'wifi':      return wifiOf(f);
+    case 'other':     return otherOf(f);
+  }
+  return 0;
 }
-function catValue(f,catk){ const r=rec(f); if(r.budget&&r.budget[catk]!=null&&r.budget[catk]!=='') return +r.budget[catk]; return catDefault(f,catk); }
+function catValue(f,catk){ return catDefault(f,catk); }
 function fairCost(f){ return BUDGET_CATS.reduce((a,c)=>a+catValue(f,c.k),0); }
 function fairIncome(f){ const r=rec(f); return r.dealerFee?(+r.dealerFee||0):0; }
 function eur(n){ return '€'+Math.round(n).toLocaleString('en-US'); }
@@ -811,82 +978,207 @@ function renderBudget(){
   $('#countryBreakdown').innerHTML=CO_ORDER.filter(ct=>coTot[ct]).map(ct=>{const v=coTot[ct],pct=gross?(100*v/gross):0;
     return `<div class="bar-row"><div class="bl"><span>${CO_NAME[ct]}</span><b>${eur(v)} · ${pct.toFixed(0)}%</b></div><div class="bar-track"><i style="width:${100*v/maxCo}%;background:var(--${ct})"></i></div></div>`;}).join('')||'<span class="hint">No fairs ticked.</span>';
   // assumptions editor
-  $('#assumBody').innerHTML=BUDGET_CATS.map(c=>`<tr><td>${c.l}</td>
-    <td><input type="number" data-def="${c.k}|big" value="${budgetDef[c.k].big}"></td>
-    <td><input type="number" data-def="${c.k}|small" value="${budgetDef[c.k].small}"></td>
-    <td>${c.scale?'Yes':'—'}</td></tr>`).join('');
-  $$('[data-def]').forEach(i=>i.onchange=e=>{const[k,v]=e.target.dataset.def.split('|');budgetDef[k][v]=+e.target.value||0;store.set('budgetDef',budgetDef);renderBudget();});
+  const MODEL_ROWS=[['pricePerM2','Default stand rent','€ / m²'],['buildPerM2','Default stand build','€ / m²'],['hotelPerNight','Default hotel','€ / person / night'],['perDiem','Default meals','€ / person / day'],['transportPerPerson','Default transport','€ / person (×2 return)'],['elec','Default electricity','€ / fair'],['wifi','Default WiFi','€ / fair'],['otherBig','Marketing & other — big van','€'],['otherSmall','Marketing & other — small van','€'],['m2Big','Default stand size — big van','m²'],['m2Small','Default stand size — small van','m²'],['nightsBig','Default nights — big van','nights'],['nightsSmall','Default nights — small van','nights'],['peopleBig','Default people — big van','people'],['peopleSmall','Default people — small van','people']];
+  $('#assumBody').innerHTML=MODEL_ROWS.map(([k,l,u])=>`<tr><td>${l} <span style="color:var(--dim)">(${u})</span></td><td><input type="number" data-model="${k}" value="${budgetModel[k]}" style="width:120px"></td></tr>`).join('');
+  $$('[data-model]').forEach(i=>i.onchange=e=>{budgetModel[e.target.dataset.model]=+e.target.value||0;store.set('budgetModel',budgetModel);renderBudget();});
   // per-fair table
-  $('#budgetHead').innerHTML=`<tr><th>Fair</th><th>Country</th><th>Van</th>${BUDGET_CATS.map(c=>`<th>${c.l}</th>`).join('')}<th>Dealer fee</th><th>Net</th></tr>`;
+  $('#budgetHead').innerHTML=`<tr><th>Fair</th><th>Country</th><th>m²</th><th>€/m² rent</th><th>Rent €</th><th>€/m² build</th><th>Build €</th><th>People</th><th>Nights</th><th>€/night</th><th>Hotel €</th><th>Days</th><th>€/meal</th><th>Meals €</th><th>€/pers ×2</th><th>Transport €</th><th>Elec €</th><th>WiFi €</th><th>Mktg €</th><th>−Dealer €</th><th>Total €</th></tr>`;
   const body=$('#budgetBody');
-  body.innerHTML=active.slice().sort((a,b)=>a.month-b.month).map(f=>{const r=rec(f);
-    const cells=BUDGET_CATS.map(c=>{const ov=r.budget&&r.budget[c.k]!=null?r.budget[c.k]:'';
-      return `<td><input type="number" data-bud="${f.id}|${c.k}" value="${ov}" placeholder="${catDefault(f,c.k)}"></td>`;}).join('');
-    return `<tr><td class="name">${esc(f.name)}</td><td>${CO_NAME[f.ct]}</td><td><span class="pill ${vanFor(f)}">${vanFor(f)==='big'?'Big':'Small'}</span></td>
-      ${cells}<td><input type="number" data-fee="${f.id}" value="${r.dealerFee!=null?r.dealerFee:''}" placeholder="0"></td>
-      <td class="rowtot">${eur(fairCost(f)-fairIncome(f))}</td></tr>`;}).join('')
-    ||`<tr><td colspan="${BUDGET_CATS.length+5}" style="color:var(--dim);padding:18px">No fairs ticked — select fairs on the tracker to build a budget.</td></tr>`;
-  $$('[data-bud]').forEach(i=>i.onchange=e=>{const[id,k]=e.target.dataset.bud.split('|');const r=rec2(id);r.budget=r.budget||{};r.budget[k]=e.target.value;saveRecs();renderBudget();});
-  $$('[data-fee]').forEach(i=>i.onchange=e=>{rec2(e.target.dataset.fee).dealerFee=e.target.value;saveRecs();renderBudget();});
+  const sy=window.scrollY;
+  body.innerHTML=active.slice().sort((a,b)=>getStart(a).localeCompare(getStart(b))).map(f=>{const r=rec(f);
+    const nl=nightsOf(f)!=null?(''+nightsEst(f)):(nightsEst(f)+'*');
+    const inp=(k,ph,w)=>`<input type="number" data-rate="${f.id}|${k}" value="${r[k]!=null&&r[k]!==''?r[k]:''}" placeholder="${ph}" style="width:${w}px">`;
+    return `<tr><td class="name">${esc(f.name)}</td><td>${CO_NAME[f.ct]}</td>
+      <td>${inp('standSize',standM2(f),48)}</td><td>${inp('rateM2',(+budgetModel.pricePerM2||0),52)}</td><td class="rowtot">${eur(catValue(f,'space'))}</td>
+      <td>${inp('rateBuild',(+budgetModel.buildPerM2||0),52)}</td><td class="rowtot">${eur(catValue(f,'build'))}</td>
+      <td>${peopleOf(f)}</td><td>${nl}</td><td>${inp('rateNight',(+budgetModel.hotelPerNight||0),52)}</td><td class="rowtot">${eur(catValue(f,'accom'))}</td>
+      <td>${inp('days',nightsEst(f)+1,44)}</td><td>${inp('rateMeal',(+budgetModel.perDiem||0),52)}</td><td class="rowtot">${eur(catValue(f,'meals'))}</td>
+      <td>${inp('rateTrans',(+budgetModel.transportPerPerson||100),52)}</td><td class="rowtot">${eur(catValue(f,'transport'))}</td>
+      <td>${inp('elec',(+budgetModel.elec||0),52)}</td><td>${inp('wifi',(+budgetModel.wifi||0),52)}</td><td>${inp('other',otherOf(f),52)}</td>
+      <td>${inp('dealerFee',0,52)}</td><td class="rowtot"><b>${eur(fairCost(f)-fairIncome(f))}</b></td></tr>`;}).join('')
+    ||`<tr><td colspan="21" style="color:var(--dim);padding:18px">No fairs ticked — select fairs on the tracker to build a budget.</td></tr>`;
+  $$('[data-rate]').forEach(i=>i.onchange=e=>{const[id,k]=e.target.dataset.rate.split('|');rec2(id)[k]=e.target.value;saveRecs();renderBudget();window.scrollTo(0,sy);});
 }
 function exportBudget(){
   const active=FAIRS.filter(f=>ticked[f.id]);
-  let out=[['Fair','Country','Van',...BUDGET_CATS.map(c=>c.l),'Gross','Dealer fee','Net'].join(',')];
-  active.forEach(f=>{let row=[f.name,f.ct,vanFor(f),...BUDGET_CATS.map(c=>catValue(f,c.k)),fairCost(f),fairIncome(f),fairCost(f)-fairIncome(f)];
+  let out=[['Fair','Country','m2','EUR/m2rent','Rent','EUR/m2build','Build','People','Nights','EUR/night','Hotel','Days','EUR/meal','Meals','EURpers','Transport','Elec','WiFi','Mktg','DealerFee','Total'].join(',')];
+  active.forEach(f=>{let row=[f.name,f.ct,standM2(f),rateM2(f),catValue(f,'space'),rateBuild(f),catValue(f,'build'),peopleOf(f),nightsEst(f),rateNight(f),catValue(f,'accom'),daysOf(f),rateMeal(f),catValue(f,'meals'),rateTrans(f),catValue(f,'transport'),elecOf(f),wifiOf(f),otherOf(f),fairIncome(f),fairCost(f)-fairIncome(f)];
     out.push(row.map(x=>`"${(''+x).replace(/"/g,'""')}"`).join(','));});
   dl(out.join('\n'),'ahooga_budget_2027.csv');
 }
 
 // ---------- A-Z CHECKLIST ----------
+const EMP_LIST=[...new Set([...EMP_PRESENCE.filter(p=>p!=='Dealer'),...PEOPLE])].sort((a,b)=>a.localeCompare(b));
+function populateEmpPicker(){const sel=$('#empPick');if(!sel)return;const saved=store.get('empPick','');const list=[...new Set([...EMP_PRESENCE.filter(p=>p!=='Dealer'),...PEOPLE])].sort((a,b)=>a.localeCompare(b));sel.innerHTML='<option value="">— select your name —</option>'+list.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');sel.value=saved;}
+function _hav(la1,lo1,la2,lo2){const R=6371,r=Math.PI/180;const dLa=(la2-la1)*r,dLo=(lo2-lo1)*r;const a=Math.sin(dLa/2)**2+Math.cos(la1*r)*Math.cos(la2*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(a));}
+function _dayN(iso){return Math.round(new Date(iso).getTime()/86400000);}
+function vanFairs(van){return FAIRS.filter(f=>ticked[f.id]&&van.cts.includes(f.ct)&&FAIR_CITY[f.name]&&CITY_GEO[FAIR_CITY[f.name]]).sort((a,b)=>getStart(a).localeCompare(getStart(b)));}
+function nearestBase(van,lat,lon){let best=van.bases[0],bd=Infinity;van.bases.forEach(b=>{const g=CITY_GEO[b];const d=_hav(lat,lon,g[0],g[1]);if(d<bd){bd=d;best=b;}});return best;}
+function buildRoute(van){
+  const fs=vanFairs(van);
+  if(!fs.length)return {stops:[],km:0,fairs:0};
+  const baseStop=c=>({city:c,lat:CITY_GEO[c][0],lon:CITY_GEO[c][1],type:'base'});
+  const fairStop=f=>{const c=FAIR_CITY[f.name];return {city:c,lat:CITY_GEO[c][0],lon:CITY_GEO[c][1],type:'fair',label:getDays(f),date:getStart(f),name:f.name};};
+  const stops=[baseStop(van.base)];
+  fs.forEach((f,i)=>{
+    if(i>0){const prev=fs[i-1];const gap=_dayN(getStart(f))-_dayN(getStart(prev));
+      if(gap>van.gapDays){const pc=FAIR_CITY[prev.name];stops.push(baseStop(nearestBase(van,CITY_GEO[pc][0],CITY_GEO[pc][1])));}}
+    stops.push(fairStop(f));
+  });
+  const lc=FAIR_CITY[fs[fs.length-1].name];stops.push(baseStop(nearestBase(van,CITY_GEO[lc][0],CITY_GEO[lc][1])));
+  let km=0;for(let i=1;i<stops.length;i++)km+=_hav(stops[i-1].lat,stops[i-1].lon,stops[i].lat,stops[i].lon);
+  return {stops,km:Math.round(km*1.3),fairs:fs.length};
+}
+function routeSVG(van,stops){
+  const W=360,H=270,pad=32;if(!stops.length)return '';
+  const lats=stops.map(p=>p.lat),lons=stops.map(p=>p.lon);
+  let minLa=Math.min(...lats),maxLa=Math.max(...lats),minLo=Math.min(...lons),maxLo=Math.max(...lons);
+  if(maxLa-minLa<0.3){minLa-=0.3;maxLa+=0.3;}if(maxLo-minLo<0.3){minLo-=0.3;maxLo+=0.3;}
+  const X=lo=>pad+((lo-minLo)/(maxLo-minLo))*(W-2*pad);
+  const Y=la=>pad+((maxLa-la)/(maxLa-minLa))*(H-2*pad);
+  let lines='',arrows='',nodes='',labels='';const lab={};
+  for(let i=1;i<stops.length;i++){const a=stops[i-1],b=stops[i];const x1=X(a.lon),y1=Y(a.lat),x2=X(b.lon),y2=Y(b.lat);
+    if(Math.abs(x1-x2)<0.5&&Math.abs(y1-y2)<0.5)continue;
+    lines+=`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${van.color}" stroke-width="1.6" opacity="0.5"/>`;
+    const mx=x1+(x2-x1)*0.55,my=y1+(y2-y1)*0.55,deg=Math.atan2(y2-y1,x2-x1)*180/Math.PI;
+    arrows+=`<path d="M-5,-3.2 L5,0 L-5,3.2 Z" transform="translate(${mx},${my}) rotate(${deg})" fill="${van.color}" opacity="0.9"/>`;
+  }
+  stops.forEach(p=>{const x=X(p.lon),y=Y(p.lat);
+    if(p.type==='base'){nodes+=`<rect x="${x-5}" y="${y-5}" width="10" height="10" rx="2" fill="#111"/>`;}
+    else{nodes+=`<circle cx="${x}" cy="${y}" r="9" fill="${van.color}"/><text x="${x}" y="${y+3.4}" font-size="9.5" font-weight="700" fill="#fff" text-anchor="middle">${p.num}</text>`;}
+    if(!lab[p.city]){lab[p.city]=1;labels+=`<text x="${x+8}" y="${y+3}" font-size="9" fill="#333">${esc(p.city)}${p.type==='base'?' ⌂':''}</text>`;}});
+  return `<svg viewBox="0 0 ${W} ${H}" class="vmap" xmlns="http://www.w3.org/2000/svg"><rect width="${W}" height="${H}" rx="10" fill="#fbfbfa"/>${lines}${arrows}${nodes}${labels}</svg>`;
+}
+const QSHORT=['Q1 · Jan–Mar','Q2 · Apr–Jun','Q3 · Jul–Sep','Q4 · Oct–Dec'];
+function renderVanMap(){
+  const body=$('#vanmapBody'),stc=$('#vanmapStats');let total=0;let html='';
+  const routes=VANS.map(v=>buildRoute(v));
+  VANS.forEach((van,ix)=>{const r=routes[ix];total+=r.km;
+    let fn=0;
+    r.stops.forEach(s=>{if(s.type==='fair'){fn++;s.num=fn;const y=+s.date.slice(0,4),mo=+s.date.slice(5,7);s.qk=y*4+Math.floor((mo-1)/3);}});
+    r.stops.forEach((s,i)=>{if(s.type==='base'){let q=null;for(let j=i+1;j<r.stops.length;j++){if(r.stops[j].type==='fair'){q=r.stops[j].qk;break;}}if(q===null)for(let j=i-1;j>=0;j--){if(r.stops[j].type==='fair'){q=r.stops[j].qk;break;}}s.qk=(q==null?0:q);}});
+    const qks=[...new Set(r.stops.filter(s=>s.type==='fair').map(s=>s.qk))].sort((a,b)=>a-b);
+    let qhtml='';
+    qks.forEach(qk=>{const qs=r.stops.filter(s=>s.qk===qk);const nf=qs.filter(s=>s.type==='fair').length;if(!nf)return;
+      const yr=Math.floor(qk/4),qi=qk%4;
+      const chips=qs.map(s=>s.type==='fair'?`<span class="vstop"><span class="vnum" style="background:${van.color}">${s.num}</span><b>${esc(s.label)}</b> ${esc(s.city)}</span>`:`<span class="vstop base">⌂ ${esc(s.city)}</span>`).join('');
+      qhtml+=`<div class="vq"><div class="vq-h">${yr} · ${QSHORT[qi]} <span>· ${nf} fair${nf===1?'':'s'}</span></div>${routeSVG(van,qs)}<div class="vitin">${chips}</div></div>`;});
+    html+=`<div class="vroute"><h3 style="color:${van.color};margin:0 0 8px">${esc(van.name)} <span style="color:var(--dim);font-weight:600;font-size:13px">· ${r.fairs} fairs · ~${r.km.toLocaleString('en-US')} km/year</span></h3>${r.fairs?`<div class="vq-grid">${qhtml}</div>`:'<div class="vitin"><span class="hint">No ticked fairs in these countries — nothing to route.</span></div>'}</div>`;});
+  body.innerHTML=html;
+  stc.innerHTML=VANS.map((v,ix)=>`<div class="card"><div class="n" style="color:${v.color}">${routes[ix].km.toLocaleString('en-US')}<span style="font-size:13px"> km</span></div><div class="l">${esc(v.name.split('·').slice(1).join('·').trim()||v.name)}</div></div>`).join('')+`<div class="card"><div class="n">${total.toLocaleString('en-US')}<span style="font-size:13px"> km</span></div><div class="l">All 3 vans · total</div></div>`;
+}
+function renderStaff(){
+  const emps=EMP_PRESENCE.filter(p=>p!=='Dealer');
+  const fairs=FAIRS.filter(f=>ticked[f.id]).sort((a,b)=>getStart(a).localeCompare(getStart(b)));
+  const grid=$('#staffGrid'),warn=$('#staffWarn'),st=$('#staffStats');
+  if(!fairs.length){grid.innerHTML='<p class="hint">No fairs selected yet — tick fairs on the Fair Tracker and they will appear here.</p>';warn.innerHTML='';if(st)st.innerHTML='';return;}
+  const isYes=(f,p)=>rec(f).presence&&rec(f).presence[p]==='Yes';
+  const dayNum=f=>Math.round(new Date(getStart(f)).getTime()/86400000);
+  const empFairs={};emps.forEach(p=>empFairs[p]=fairs.filter(f=>isYes(f,p)).sort((a,b)=>dayNum(a)-dayNum(b)));
+  const tight={};
+  emps.forEach(p=>{const list=empFairs[p];for(let i=0;i<list.length;i++){let best=Infinity;for(let j=0;j<list.length;j++){if(i!==j)best=Math.min(best,Math.abs(dayNum(list[i])-dayNum(list[j])));}if(best<=7)tight[list[i].id+'|'+p]='red';else if(best<=14)tight[list[i].id+'|'+p]='amber';}});
+  const head='<tr><th class="sticky-l">Dates</th><th class="sticky-l2">Fair</th>'+emps.map(p=>`<th class="empcol">${esc(p)}<small>${empFairs[p].length}</small></th>`).join('')+'</tr>';
+  const rows=fairs.map(f=>{
+    const cells=emps.map(p=>{const on=isYes(f,p);const t=tight[f.id+'|'+p]||'';
+      return `<td class="cell ${on?'on':''} ${on?t:''}" data-cell="${f.id}|${p}" title="${esc(p)} — ${esc(f.name)}${on&&t==='red'?' ⚠ within a week of another fair':on&&t==='amber'?' · within 2 weeks of another fair':''}">${on?(t==='red'?'⚠':'●'):''}</td>`;}).join('');
+    const cnt=emps.filter(p=>isYes(f,p)).length;
+    return `<tr><td class="sticky-l dt">${esc(getDays(f))}</td><td class="sticky-l2 name">${esc(f.name)}${f.year!==2027?` <span class="yrtag">${f.year}</span>`:''}<small>${esc(fairCity(f))} · ${cnt} assigned</small></td>${cells}</tr>`;
+  }).join('');
+  grid.innerHTML=`<div class="staff-scroll"><table class="staff"><thead>${head}</thead><tbody>${rows}</tbody></table></div>`;
+  grid.querySelectorAll('[data-cell]').forEach(td=>td.onclick=()=>{const sc=document.querySelector('.staff-scroll');const sx=sc?sc.scrollLeft:0,sy=sc?sc.scrollTop:0;const wy=window.scrollY;const[id,p]=td.dataset.cell.split('|');const r=rec2(id);r.presence=r.presence||{};r.presence[p]=r.presence[p]==='Yes'?'No':'Yes';saveRecs();renderStaff();const s2=document.querySelector('.staff-scroll');if(s2){s2.scrollLeft=sx;s2.scrollTop=sy;}window.scrollTo(0,wy);});
+  const pairs=[];
+  emps.forEach(p=>{const list=empFairs[p];for(let i=1;i<list.length;i++){const gap=dayNum(list[i])-dayNum(list[i-1]);if(gap<=7)pairs.push({p,a:list[i-1],b:list[i],gap});}});
+  const busiest=emps.map(p=>[p,empFairs[p].length]).sort((a,b)=>b[1]-a[1])[0];
+  if(st)st.innerHTML=`<div class="card"><div class="n">${fairs.length}</div><div class="l">Fairs to staff</div></div>
+    <div class="card"><div class="n" style="color:var(--red)">${pairs.length}</div><div class="l">Back-to-back conflicts</div></div>
+    <div class="card"><div class="n">${busiest&&busiest[1]?esc(busiest[0]):'—'}</div><div class="l">Busiest person${busiest&&busiest[1]?' ('+busiest[1]+' fairs)':''}</div></div>`;
+  warn.innerHTML=pairs.length?('<h3 style="font-size:14px;margin:14px 0 8px">⚠ Back-to-back assignments (≤ 1 week apart)</h3>'+pairs.sort((x,y)=>x.p.localeCompare(y.p)||x.gap-y.gap).map(x=>`<div class="clash-card"><b>${esc(x.p)}:</b> ${esc(x.a.name)} (${esc(getDays(x.a))}) → ${esc(x.b.name)} (${esc(getDays(x.b))}) — only <b>${x.gap} day${x.gap===1?'':'s'}</b> apart</div>`).join('')):'<div class="clash-card" style="background:#e8f6f0;border-color:#a7d8c4;color:#166;margin-top:14px">✓ No one is assigned to two fairs within a week of each other.</div>';
+}
+function renderEmp(){const sel=$('#empPick');if(!sel)return;if(sel.options.length<=1)populateEmpPicker();const name=sel.value;
+  const fb=$('#empFairs'),tb=$('#empTasks'),st=$('#empStats');
+  if(!name){st.innerHTML='';fb.innerHTML='<tr><td colspan="6" style="color:var(--dim);padding:16px">Select your name above to see your fairs and tasks.</td></tr>';tb.innerHTML='';return;}
+  const mine=FAIRS.filter(f=>ticked[f.id]&&rec(f).presence&&rec(f).presence[name]==='Yes').sort((a,b)=>getStart(a).localeCompare(getStart(b)));
+  let nights=0;mine.forEach(f=>{const n=nightsOf(f);if(n)nights+=n;});
+  const myTasks=tasks.filter(t=>t.who===name);
+  const openT=myTasks.filter(t=>t.status!=='done').length;
+  st.innerHTML=`<div class="card"><div class="n">${mine.length}</div><div class="l">Fairs assigned</div></div>
+    <div class="card"><div class="n">${nights}</div><div class="l">Hotel nights (where dates set)</div></div>
+    <div class="card"><div class="n">${myTasks.length}</div><div class="l">Tasks assigned</div></div>
+    <div class="card"><div class="n" style="color:var(--red)">${openT}</div><div class="l">Tasks open</div></div>`;
+  fb.innerHTML=mine.map(f=>{const bk=getStatus(f,'spaceBooked');const bl=bk==='yes'?'Booked ✓':bk==='progress'?'In progress':'Not booked';
+    return `<tr><td class="name">${esc(f.name)}${f.year!==2027?` <span class="yrtag">${f.year}</span>`:''}</td><td>${CO_NAME[f.ct]}</td><td>${esc(fairCity(f))}</td><td>${esc(getDays(f))}${nightsOf(f)!=null?` · <b>${nightsOf(f)}</b> n`:''}</td><td><span class="pill ${vanFor(f)}">${vanFor(f)==='big'?'Big':'Small'}</span></td><td><span class="statuschip st-${bk}" style="cursor:default">${bl}</span></td></tr>`;}).join('')
+    ||`<tr><td colspan="6" style="color:var(--dim);padding:16px">No fairs assigned to ${esc(name)} yet — set employee presence to Yes on a fair's record (▾ on the Fair Tracker).</td></tr>`;
+  tb.innerHTML=myTasks.slice().sort((a,b)=>(a.date||'~').localeCompare(b.date||'~')).map(t=>{const overdue=t.date&&t.status!=='done'&&t.date<todayStr();
+    return `<tr><td>${esc(t.task||'')}</td><td>${t.fair?esc(fairName(t.fair)):'<span style=\'color:var(--dim)\'>General</span>'}</td><td>${esc(t.date||'')} ${overdue?'<span class="overdue">⚠ overdue</span>':''}</td><td>${esc(t.status||'')}</td></tr>`;}).join('')
+    ||'<tr><td colspan="4" style="color:var(--dim);padding:16px">No tasks assigned to you. Add some on the To-Do / Project Plan tab.</td></tr>';
+}
 function renderPlan(){
   const key=$('#planFair').value,st=planState[key]||{};const cont=$('#planContainer');cont.innerHTML='';let gi=0;
   PLAN.forEach(([ph,items],pi)=>{const box=document.createElement('div');box.className='plan-phase';
     box.innerHTML=`<h3><span class="num">${pi+1}</span>${ph}</h3><ul class="plan-list"></ul>`;const ul=box.querySelector('ul');
     items.forEach(it=>{const id='t'+gi;gi++;const done=!!st[id];const li=document.createElement('li');li.className=done?'done':'';
       li.innerHTML=`<input type="checkbox" id="${key}_${id}" ${done?'checked':''}><label for="${key}_${id}">${it}</label>`;
-      li.querySelector('input').onchange=e=>{planState[key]=planState[key]||{};planState[key][id]=e.target.checked;sySet('planState',planState);renderPlan();};
+      li.querySelector('input').onchange=e=>{planState[key]=planState[key]||{};planState[key][id]=e.target.checked;store.set('planState',planState);renderPlan();};
       ul.appendChild(li);});cont.appendChild(box);});
   const done=Object.values(st).filter(Boolean).length;
   $('#planProgBar').style.width=(100*done/PLAN_ALL.length)+'%';$('#planProgTxt').textContent=`${done}/${PLAN_ALL.length} done`;
 }
 
-// ---------- TABS ----------
-$$('nav button').forEach(b=>b.onclick=()=>{$$('nav button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
-  $$('.tab').forEach(t=>t.classList.remove('on'));$('#'+b.dataset.tab).classList.add('on');
-  if(b.dataset.tab==='vans')renderVanTab();
-  if(b.dataset.tab==='roadmap')renderRoadmap();
-  if(b.dataset.tab==='budget')renderBudget();
-  if(b.dataset.tab==='results')renderResults();
-  if(b.dataset.tab==='pm'){refreshFairSelects();renderTasks();}
-  if(b.dataset.tab==='plan'){refreshFairSelects();renderPlan();}});
 
-// ---------- WIRE ----------
-['q','fType','fSort','showHidden'].forEach(id=>$('#'+id).oninput=renderFairs);
-$('#collapseAll').onclick=()=>{CO_ORDER.forEach(ct=>collapsedCo[ct]=true);store.set('collapsedCo',collapsedCo);renderFairs();};
-$('#expandAll').onclick=()=>{collapsedCo={};store.set('collapsedCo',collapsedCo);renderFairs();};
-$('#allOn').onclick=()=>{FAIRS.forEach(f=>ticked[f.id]=true);saveTicked();renderFairs();};
-$('#allOff').onclick=()=>{FAIRS.forEach(f=>ticked[f.id]=false);saveTicked();renderFairs();};
-$('#exportBtn').onclick=exportCSV;
-$('#exportBudget').onclick=exportBudget;
-$('#roadZoom').value=roadZoom;
-$('#roadZoom').oninput=e=>{roadZoom=+e.target.value;store.set('roadZoom',roadZoom);renderRoadmap();};
-$('#resetAll').onclick=()=>{if(confirm('Reset selections, records, tasks and weights? This clears everything.')){localStorage.clear();location.reload();}};
-['v','c','t','e'].forEach(k=>{const el=$('#w-'+k);el.oninput=()=>{weights[k]=+el.value;$('#vw-'+k).textContent=el.value;store.set('weights',weights);renderFairs();};});
-function syncW(){['v','c','t','e'].forEach(k=>{$('#w-'+k).value=weights[k];$('#vw-'+k).textContent=weights[k];});}
-$('#tWho').innerHTML='<option value="">—</option>'+PEOPLE.map(p=>`<option>${p}</option>`).join('');
-$('#pmFilterWho').innerHTML='<option value="">All people</option>'+PEOPLE.map(p=>`<option>${p}</option>`).join('');
-$('#addTask').onclick=addTask;
-$('#tTask').addEventListener('keydown',e=>{if(e.key==='Enter')addTask();});
-$('#seedBtn').onclick=seedTasks;
-$('#exportTasks').onclick=exportTasks;
-['pmFilterWho','pmFilterStatus','pmFilterFair'].forEach(id=>$('#'+id).onchange=renderTasks);
-$('#planFair').onchange=renderPlan;
+// ---------- ADD FAIR / ROSTER / CARRY-OVER / YEARS ----------
+function rebuildYearOptions(){
+  const sel=$('#fYear');if(!sel)return;const cur=sel.value;
+  const ys=[...new Set(FAIRS.map(f=>f.year||2027))].sort((a,b)=>a-b);
+  sel.innerHTML='<option value="">All years</option>'+ys.map(y=>`<option value="${y}">${y} season</option>`).join('');
+  sel.value=cur;
+}
+function addFairFromForm(){
+  const name=$('#nfName').value.trim();if(!name){alert('Enter a fair name.');return;}
+  const start=$('#nfStart').value,ct=$('#nfCt').value,type=$('#nfType').value,city=$('#nfCity').value.trim();
+  let month=1,dd='15',mm='01',year=+$('#nfYear').value||2027;
+  if(start){const p=start.split('-');year=+p[0];mm=p[1];dd=p[2];month=+p[1];}
+  const id='c'+Date.now();
+  const f={id,ct,type,name,date:dd+'/'+mm,month,visitors:null,approx:!start,van:'small',year};
+  FAIRS.push(f);customFairs.push(f);store.set('customFairs',customFairs);
+  ticked[id]=true;const r=rec2(id);if(city)r.city=city;if(start)r.startDate=start;
+  saveTicked();saveRecs();
+  $('#nfName').value='';$('#nfCity').value='';$('#nfStart').value='';
+  $('#addFairPanel').style.display='none';
+  rebuildYearOptions();populateCityFilter();renderFairs();refreshFairSelects();
+}
+function carryToNextYear(){
+  const yrs=[...new Set(FAIRS.map(f=>f.year||2027))].sort((a,b)=>a-b);
+  const src=parseInt(prompt('Duplicate which season into the following year? Enter the SOURCE year:',Math.max.apply(null,yrs)),10);
+  if(!src)return;const ny=src+1;
+  const srcFairs=FAIRS.filter(f=>(f.year||2027)===src);
+  if(!srcFairs.length){alert('No fairs found for '+src+'.');return;}
+  if(!confirm('Create a '+ny+' copy of all '+srcFairs.length+' fairs from '+src+'? Stable info (contact, booth, budget rates, docs…) is copied; dates & results are left blank.'))return;
+  const STABLE=['website','contact','email','phone','city','country','boothType','standPos','standSize','dealerPart','dealerFee','hrNeeded','potentialLeads','password','strussPassword','howToGet','shipment','freeEntrLink','mounting','dismantling','inOut','testBike','businessDays','b2cDays','rateM2','rateNight','rateMeal','rateBuild','rateTrans','elec','wifi','other','visitors'];
+  let n=0;
+  srcFairs.forEach(f=>{
+    const nid=f.id+'_y'+ny;
+    if(FAIRS.find(x=>x.id===nid))return;
+    const nf={id:nid,ct:f.ct,type:f.type,name:f.name,date:f.date,month:f.month,visitors:f.visitors,approx:f.approx,van:f.van,year:ny};
+    FAIRS.push(nf);customFairs.push(nf);
+    const src_r=recs[f.id]||{};const nr=rec2(nid);
+    STABLE.forEach(k=>{if(src_r[k]!=null&&src_r[k]!=='')nr[k]=src_r[k];});
+    if(src_r.docs)nr.docs=JSON.parse(JSON.stringify(src_r.docs));
+    ticked[nid]=true;n++;
+  });
+  store.set('customFairs',customFairs);saveTicked();saveRecs();
+  rebuildYearOptions();populateCityFilter();$('#fYear').value=ny;renderFairs();refreshFairSelects();
+  alert('Created '+n+' fairs for '+ny+'. Use the year filter (now set to '+ny+') to view them, then fill in dates.');
+}
+function renderRoster(){
+  $('#rosterList').innerHTML=EMP_PRESENCE.map((p,i)=>`<span class="rosterchip">${esc(p)}<button data-rmemp="${i}" title="Remove">✕</button></span>`).join('')||'<span class="hint" style="margin:0">No people.</span>';
+  $('#rosterList').querySelectorAll('[data-rmemp]').forEach(b=>b.onclick=e=>{EMP_PRESENCE.splice(+e.target.dataset.rmemp,1);store.set('empRoster',EMP_PRESENCE);renderRoster();renderFairs();populateEmpPicker();});
+}
+function addRoster(){const v=$('#rosterNew').value.trim();if(!v)return;if(!EMP_PRESENCE.includes(v))EMP_PRESENCE.push(v);store.set('empRoster',EMP_PRESENCE);$('#rosterNew').value='';renderRoster();renderFairs();populateEmpPicker();}
 
 
 // ---------- RESULTS / KPI ----------
 function renderResults(){
-  const active=FAIRS.filter(f=>ticked[f.id]).sort((a,b)=>a.month-b.month);
-  const prev=store.get((currentYear-1)+'_recs',{})||{};
+  const active=FAIRS.filter(f=>ticked[f.id]).slice().sort((a,b)=>(a.year-b.year)||(effMonth(a)-effMonth(b)));
   let leads=0,rev=0,cost=0,rep=0,withRes=0;
   active.forEach(f=>{const r=rec(f);const b2r=+r.b2rLeads||0,b2c=+r.b2cLeads||0;leads+=b2r+b2c;rev+=+r.revenue||0;const c=fairCost(f)-fairIncome(f);cost+=c;if(r.repeat==='Yes')rep++;if((+r.revenue)||(+r.orders)||b2r||b2c||r.feedback||r.repeat)withRes++;});
   $('#resStats').innerHTML=`
@@ -895,12 +1187,13 @@ function renderResults(){
     <div class="card"><div class="n" style="color:var(--green)">${eur(rev)}</div><div class="l">Total revenue logged</div></div>
     <div class="card"><div class="n">${eur(cost)}</div><div class="l">Total net cost</div></div>
     <div class="card"><div class="n" style="color:${rev-cost>=0?'var(--green)':'var(--red)'}">${eur(rev-cost)}</div><div class="l">Net result</div></div>
-    <div class="card"><div class="n" style="color:var(--blue)">${rep}</div><div class="l">Marked repeat: Yes</div></div>`;
-  $('#resHead').innerHTML=`<tr><th>Fair</th><th>Ctry</th><th>Dates</th><th>B2R</th><th>B2C</th><th>Orders</th><th>Revenue €</th><th>Net cost €</th><th>Result €</th><th>Repeat?</th><th>Rating</th><th>Prev. year</th><th>Notes / feedback</th></tr>`;
+    <div class="card"><div class="n" style="color:var(--big)">${rep}</div><div class="l">Marked repeat: Yes</div></div>`;
+  $('#resHead').innerHTML=`<tr><th>Fair</th><th>Yr</th><th>Ctry</th><th>Dates</th><th>B2R</th><th>B2C</th><th>Orders</th><th>Revenue €</th><th>Net cost €</th><th>Result €</th><th>Repeat?</th><th>Rating</th><th>Prev. yr</th><th>Notes / feedback</th></tr>`;
   const body=$('#resBody');
   body.innerHTML=active.map(f=>{const r=rec(f);const c=fairCost(f)-fairIncome(f);const res=(+r.revenue||0)-c;
-    const p=prev[f.id];const pv=p?`rev ${p.revenue?eur(+p.revenue):'—'} · ${p.repeat||'—'}${p.rating?' · '+p.rating+'★':''}`:'—';
-    return `<tr><td class="name">${esc(f.name)}</td><td>${f.ct}</td><td>${esc(getDays(f))}</td>
+    const pf=FAIRS.find(x=>x.name===f.name&&(x.year||2027)===(f.year||2027)-1);const pr=pf?rec(pf):null;
+    const pv=pr?`rev ${pr.revenue?eur(+pr.revenue):'—'} · ${pr.repeat||'—'}${pr.rating?' · '+pr.rating+'★':''}`:'—';
+    return `<tr><td class="name">${esc(f.name)}</td><td>${f.year||2027}</td><td>${f.ct}</td><td>${esc(getDays(f))}</td>
       <td><input class="res-in" type="number" data-res="${f.id}|b2rLeads" value="${r.b2rLeads!=null?r.b2rLeads:''}"></td>
       <td><input class="res-in" type="number" data-res="${f.id}|b2cLeads" value="${r.b2cLeads!=null?r.b2cLeads:''}"></td>
       <td><input class="res-in" type="number" data-res="${f.id}|orders" value="${r.orders!=null?r.orders:''}"></td>
@@ -911,79 +1204,64 @@ function renderResults(){
       <td><select class="task-status" data-res="${f.id}|rating">${['','1','2','3','4','5'].map(n=>`<option value="${n}" ${((r.rating||'')==n)?'selected':''}>${n?n+'★':'—'}</option>`).join('')}</select></td>
       <td><span class="prevbox">${pv}</span></td>
       <td><input class="inp" style="width:190px" data-res="${f.id}|feedback" value="${esc(r.feedback||'')}"></td></tr>`;}).join('')
-    ||`<tr><td colspan="13" style="color:var(--dim);padding:18px">No fairs ticked.</td></tr>`;
+    ||`<tr><td colspan="14" style="color:var(--dim);padding:18px">No fairs ticked.</td></tr>`;
   body.querySelectorAll('[data-res]').forEach(el=>el.onchange=e=>{const[id,k]=e.target.dataset.res.split('|');rec2(id)[k]=e.target.value;saveRecs();renderResults();});
 }
 function exportResults(){
   const active=FAIRS.filter(f=>ticked[f.id]);
-  let out=[['Fair','Country','Dates','B2R leads','B2C leads','Orders','Revenue','Net cost','Result','Repeat','Rating','Feedback'].join(',')];
+  let out=[['Fair','Year','Country','Dates','B2R leads','B2C leads','Orders','Revenue','Net cost','Result','Repeat','Rating','Feedback'].join(',')];
   active.forEach(f=>{const r=rec(f);const c=fairCost(f)-fairIncome(f);
-    let row=[f.name,f.ct,getDays(f),r.b2rLeads||'',r.b2cLeads||'',r.orders||'',r.revenue||'',c,(+r.revenue||0)-c,r.repeat||'',r.rating||'',r.feedback||''];
+    let row=[f.name,f.year||2027,f.ct,getDays(f),r.b2rLeads||'',r.b2cLeads||'',r.orders||'',r.revenue||'',c,(+r.revenue||0)-c,r.repeat||'',r.rating||'',r.feedback||''];
     out.push(row.map(x=>`"${(''+x).replace(/"/g,'""')}"`).join(','));});
-  dl(out.join('\n'),'ahooga_results_'+currentYear+'.csv');
+  dl(out.join('\n'),'ahooga_results.csv');
 }
 
-// ---------- MULTI-YEAR / ADD-FAIR / ROSTER ----------
-function fillYearSel(){$('#yearSel').innerHTML=years.map(y=>`<option ${y===currentYear?'selected':''}>${y}</option>`).join('');}
-function rerenderCurrent(){const on=document.querySelector('nav button.on');if(!on)return;const t=on.dataset.tab;
-  if(t==='vans')renderVanTab();else if(t==='roadmap')renderRoadmap();else if(t==='budget')renderBudget();
-  else if(t==='results')renderResults();else if(t==='pm'){refreshFairSelects();renderTasks();}else if(t==='plan'){refreshFairSelects();renderPlan();}}
-function switchYear(y){currentYear=+y;store.set('currentYear',currentYear);if(!years.includes(currentYear)){years.push(currentYear);years.sort();store.set('years',years);}loadYear();fillYearSel();renderFairs();refreshFairSelects();rerenderCurrent();}
-function addYearFn(){
-  const def=Math.max.apply(null,years)+1;
-  const raw=prompt('Open a season — enter any year (past or future), e.g. 2026:',def);
-  if(raw===null)return;
-  const ny=parseInt((''+raw).trim(),10);
-  if(!ny||ny<2000||ny>2100){alert('Please enter a valid 4-digit year, e.g. 2026.');return;}
-  const existed=years.includes(ny);
-  if(!existed){years.push(ny);years.sort((a,b)=>a-b);store.set('years',years);}
-  switchYear(ny);
-  if(!existed)alert('Opened season '+ny+'. Tip: on a later year use ⤵ Carry over to bring stable info from the year before.');
-}
-function carryOver(){
-  const py=currentYear-1;const prev=store.get(py+'_recs',null);
-  if(!prev){alert('No saved data found for '+py+'.');return;}
-  if(!confirm('Copy stable info (contact, website, booth, passwords, how-to-get-there, documents…) from '+py+' into '+currentYear+'? Only empty fields are filled.'))return;
-  const STABLE=['website','contact','email','phone','city','country','boothType','standPos','dealerPart','dealerFee','hrNeeded','password','strussPassword','howToGet','shipment','freeEntrLink','mounting','dismantling','inOut','testBike','businessDays','b2cDays'];
-  let n=0;
-  FAIRS.forEach(f=>{const p=prev[f.id];if(!p)return;const r=rec2(f.id);let touched=false;
-    STABLE.forEach(k=>{if((r[k]==null||r[k]==='')&&p[k]!=null&&p[k]!==''){r[k]=p[k];touched=true;}});
-    if(p.docs&&!r.docs){r.docs=JSON.parse(JSON.stringify(p.docs));touched=true;}
-    if(touched)n++;});
-  saveRecs();alert('Carried over info from '+py+' for '+n+' fair(s).');renderFairs();
-}
-function addFairFromForm(){
-  const name=$('#nfName').value.trim();if(!name){alert('Enter a fair name.');return;}
-  const start=$('#nfStart').value,ct=$('#nfCt').value,type=$('#nfType').value,city=$('#nfCity').value.trim();
-  let month=1,dd='15',mm='01';
-  if(start){const p=start.split('-');mm=p[1];dd=p[2];month=+p[1];}
-  const id='c'+Date.now();
-  const f={id,ct,type,name,date:dd+'/'+mm,month,visitors:null,approx:!start,van:'small'};
-  FAIRS.push(f);customFairs.push(f);store.set('customFairs',customFairs);
-  ticked[id]=true;if(city)rec2(id).city=city;if(start)rec2(id).startDate=start;
-  saveTicked();saveRecs();
-  $('#nfName').value='';$('#nfCity').value='';$('#nfStart').value='';
-  $('#addFairPanel').style.display='none';renderFairs();refreshFairSelects();
-}
-function renderRoster(){
-  $('#rosterList').innerHTML=empRoster.map((p,i)=>`<span class="rosterchip">${esc(p)}<button data-rmemp="${i}" title="Remove">✕</button></span>`).join('')||'<span class="hint" style="margin:0">No people yet.</span>';
-  $('#rosterList').querySelectorAll('[data-rmemp]').forEach(b=>b.onclick=e=>{empRoster.splice(+e.target.dataset.rmemp,1);store.set('empRoster',empRoster);renderRoster();renderFairs();});
-}
-function addRoster(){const v=$('#rosterNew').value.trim();if(!v)return;if(!empRoster.includes(v))empRoster.push(v);store.set('empRoster',empRoster);$('#rosterNew').value='';renderRoster();renderFairs();}
+// ---------- TABS ----------
+$$('nav button').forEach(b=>b.onclick=()=>{$$('nav button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+  $$('.tab').forEach(t=>t.classList.remove('on'));$('#'+b.dataset.tab).classList.add('on');
+  if(b.dataset.tab==='vans')renderVanTab();
+  if(b.dataset.tab==='roadmap')renderRoadmap();
+  if(b.dataset.tab==='budget')renderBudget();
+  if(b.dataset.tab==='results')renderResults();
+  if(b.dataset.tab==='pm'){refreshFairSelects();renderTasks();}
+  if(b.dataset.tab==='plan'){refreshFairSelects();renderPlan();}
+  if(b.dataset.tab==='emp')renderEmp();
+  if(b.dataset.tab==='staff')renderStaff();
+  if(b.dataset.tab==='vanmap')renderVanMap();});
+
+// ---------- WIRE ----------
+['q','fYear','fType','fCity','fFrom','fTo','fSort','showHidden'].forEach(id=>$('#'+id).oninput=renderFairs);
+$('#collapseAll').onclick=()=>{CO_ORDER.forEach(ct=>collapsedCo[ct]=true);store.set('collapsedCo',collapsedCo);renderFairs();};
+$('#expandAll').onclick=()=>{collapsedCo={};store.set('collapsedCo',collapsedCo);renderFairs();};
+$('#allOn').onclick=()=>{FAIRS.forEach(f=>ticked[f.id]=true);saveTicked();renderFairs();};
+$('#allOff').onclick=()=>{FAIRS.forEach(f=>ticked[f.id]=false);saveTicked();renderFairs();};
+$('#exportBtn').onclick=exportCSV;
+$('#exportResults').onclick=exportResults;
+$('#exportBudget').onclick=exportBudget;
+$('#roadZoom').value=roadZoom;
+$('#roadZoom').oninput=e=>{roadZoom=+e.target.value;store.set('roadZoom',roadZoom);renderRoadmap();};
+$('#resetAll').onclick=()=>{if(confirm('Reset the SHARED dashboard for EVERYONE — selections, records, tasks and weights? This cannot be undone.')){try{localStorage.clear()}catch(e){}if(CLOUD_ON){Promise.all(CLOUD_KEYS.map(k=>fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(CKEY(k))}`,{method:'POST',headers:{'Content-Type':'application/json'},body:'null'}).catch(()=>{}))).then(()=>location.reload());}else location.reload();}};
+['v','c','t','e'].forEach(k=>{const el=$('#w-'+k);el.oninput=()=>{weights[k]=+el.value;$('#vw-'+k).textContent=el.value;store.set('weights',weights);renderFairs();};});
+function syncW(){['v','c','t','e'].forEach(k=>{$('#w-'+k).value=weights[k];$('#vw-'+k).textContent=weights[k];});}
+$('#tWho').innerHTML='<option value="">—</option>'+PEOPLE.map(p=>`<option>${p}</option>`).join('');
+$('#pmFilterWho').innerHTML='<option value="">All people</option>'+PEOPLE.map(p=>`<option>${p}</option>`).join('');
+$('#empPick').onchange=e=>{store.set('empPick',e.target.value);renderEmp();};
+$('#addTask').onclick=addTask;
+$('#tTask').addEventListener('keydown',e=>{if(e.key==='Enter')addTask();});
+$('#seedBtn').onclick=seedTasks;
+$('#exportTasks').onclick=exportTasks;
+['pmFilterWho','pmFilterStatus','pmFilterFair'].forEach(id=>$('#'+id).onchange=renderTasks);
+$('#planFair').onchange=renderPlan;
 
 // ---------- BOOT ----------
-fillYearSel();
-$('#yearSel').onchange=e=>switchYear(e.target.value);
-$('#addYear').onclick=addYearFn;
-$('#carryOver').onclick=carryOver;
 $('#addFairBtn').onclick=()=>{const p=$('#addFairPanel');p.style.display=(p.style.display==='none'?'flex':'none');};
 $('#nfAdd').onclick=addFairFromForm;
 $('#rosterBtn').onclick=()=>{const p=$('#rosterPanel');const show=p.style.display==='none';p.style.display=show?'flex':'none';if(show)renderRoster();};
 $('#rosterAdd').onclick=addRoster;
 $('#rosterNew').addEventListener('keydown',e=>{if(e.key==='Enter')addRoster();});
-$('#exportResults').onclick=exportResults;
-syncW();refreshFairSelects();renderFairs();
-$('#foot').textContent='Ahooga MAX · Fair Event Dashboard · season '+currentYear+' · '+FAIRS.length+' fairs · all edits saved per-year in this browser. Use the Export buttons to back up or report.';
+$('#carryBtn').onclick=carryToNextYear;
+syncW();rebuildYearOptions();populateCityFilter();populateEmpPicker();refreshFairSelects();renderFairs();loadCloud();
+$('#foot').textContent='Ahooga MAX · Fair Event Dashboard · '+FAIRS.length+' fairs · edits sync live to the shared Ahooga cloud (Cloudflare) for the whole team. Export CSV for a backup.';
 </script>
 </body>
 </html>
