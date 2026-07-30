@@ -167,7 +167,7 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
   <div class="yearbar">
     <label>Season</label>
     <select id="yearSel"></select>
-    <button class="btn" id="addYear" title="Start a new season/year">＋ Year</button>
+    <button class="btn" id="addYear" title="Open any season/year — past or future">＋ / open year</button>
     <button class="btn" id="carryOver" title="Copy stable info from the previous year">⤵ Carry over</button>
   </div>
 </header>
@@ -929,7 +929,17 @@ function rerenderCurrent(){const on=document.querySelector('nav button.on');if(!
   if(t==='vans')renderVanTab();else if(t==='roadmap')renderRoadmap();else if(t==='budget')renderBudget();
   else if(t==='results')renderResults();else if(t==='pm'){refreshFairSelects();renderTasks();}else if(t==='plan'){refreshFairSelects();renderPlan();}}
 function switchYear(y){currentYear=+y;store.set('currentYear',currentYear);if(!years.includes(currentYear)){years.push(currentYear);years.sort();store.set('years',years);}loadYear();fillYearSel();renderFairs();refreshFairSelects();rerenderCurrent();}
-function addYearFn(){const ny=Math.max.apply(null,years)+1;years.push(ny);years.sort();store.set('years',years);switchYear(ny);alert('Created season '+ny+'. Tip: use ⤵ Carry over to bring stable info from '+(ny-1)+'.');}
+function addYearFn(){
+  const def=Math.max.apply(null,years)+1;
+  const raw=prompt('Open a season — enter any year (past or future), e.g. 2026:',def);
+  if(raw===null)return;
+  const ny=parseInt((''+raw).trim(),10);
+  if(!ny||ny<2000||ny>2100){alert('Please enter a valid 4-digit year, e.g. 2026.');return;}
+  const existed=years.includes(ny);
+  if(!existed){years.push(ny);years.sort((a,b)=>a-b);store.set('years',years);}
+  switchYear(ny);
+  if(!existed)alert('Opened season '+ny+'. Tip: on a later year use ⤵ Carry over to bring stable info from the year before.');
+}
 function carryOver(){
   const py=currentYear-1;const prev=store.get(py+'_recs',null);
   if(!prev){alert('No saved data found for '+py+'.');return;}
