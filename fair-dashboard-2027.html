@@ -178,6 +178,8 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
 .vnum{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;color:#fff;font-size:9.5px;font-weight:800;flex:none}
 .res-in{width:80px;text-align:right;padding:4px 6px;border:1px solid var(--line);border-radius:6px;font-size:12.5px;font-family:inherit}
 .prevbox{font-size:11px;color:var(--dim);background:#f4f5f7;border-radius:6px;padding:3px 7px;white-space:nowrap}
+.delemp{border:none;background:#e6e8eb;border-radius:50%;width:16px;height:16px;cursor:pointer;font-size:10px;line-height:1;margin-left:4px;color:#555}
+.delemp:hover{background:var(--red);color:#fff}
 </style>
 </head>
 <body>
@@ -391,6 +393,11 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
 <section class="tab" id="staff">
   <h2>Staffing grid — who goes where</h2>
   <p class="hint">Fairs are rows (with their dates), people are columns. <b>Click a cell to assign / unassign</b> someone — it saves to that fair's employee presence and syncs to the cloud. Cells turn <b style="color:#c0392b">red ⚠</b> when that person is also on another fair within a week, and <b style="color:#d98a00">amber</b> within two weeks, so you can spot overloaded people. Only ticked fairs appear here.</p>
+  <div class="toolbar" style="margin-bottom:12px">
+    <input id="staffNewEmp" placeholder="Add employee name" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px">
+    <button class="btn gold" id="staffAddEmp">➕ Add employee</button>
+    <span class="hint" style="margin:0">Click ✕ on a person's column header to remove them.</span>
+  </div>
   <div class="cards" id="staffStats"></div>
   <div id="staffGrid"></div>
   <div id="staffWarn"></div>
@@ -1077,7 +1084,7 @@ function renderStaff(){
   const empFairs={};emps.forEach(p=>empFairs[p]=fairs.filter(f=>isYes(f,p)).sort((a,b)=>dayNum(a)-dayNum(b)));
   const tight={};
   emps.forEach(p=>{const list=empFairs[p];for(let i=0;i<list.length;i++){let best=Infinity;for(let j=0;j<list.length;j++){if(i!==j)best=Math.min(best,Math.abs(dayNum(list[i])-dayNum(list[j])));}if(best<=7)tight[list[i].id+'|'+p]='red';else if(best<=14)tight[list[i].id+'|'+p]='amber';}});
-  const head='<tr><th class="sticky-l">Dates</th><th class="sticky-l2">Fair</th>'+emps.map(p=>`<th class="empcol">${esc(p)}<small>${empFairs[p].length}</small></th>`).join('')+'</tr>';
+  const head='<tr><th class="sticky-l">Dates</th><th class="sticky-l2">Fair</th>'+emps.map(p=>`<th class="empcol">${esc(p)} <button class="delemp" data-delemp="${esc(p)}" title="Remove ${esc(p)} from roster">✕</button><small>${empFairs[p].length}</small></th>`).join('')+'</tr>';
   const rows=fairs.map(f=>{
     const cells=emps.map(p=>{const on=isYes(f,p);const t=tight[f.id+'|'+p]||'';
       return `<td class="cell ${on?'on':''} ${on?t:''}" data-cell="${f.id}|${p}" title="${esc(p)} — ${esc(f.name)}${on&&t==='red'?' ⚠ within a week of another fair':on&&t==='amber'?' · within 2 weeks of another fair':''}">${on?(t==='red'?'⚠':'●'):''}</td>`;}).join('');
@@ -1086,6 +1093,7 @@ function renderStaff(){
   }).join('');
   grid.innerHTML=`<div class="staff-scroll"><table class="staff"><thead>${head}</thead><tbody>${rows}</tbody></table></div>`;
   grid.querySelectorAll('[data-cell]').forEach(td=>td.onclick=()=>{const sc=document.querySelector('.staff-scroll');const sx=sc?sc.scrollLeft:0,sy=sc?sc.scrollTop:0;const wy=window.scrollY;const[id,p]=td.dataset.cell.split('|');const r=rec2(id);r.presence=r.presence||{};r.presence[p]=r.presence[p]==='Yes'?'No':'Yes';saveRecs();renderStaff();const s2=document.querySelector('.staff-scroll');if(s2){s2.scrollLeft=sx;s2.scrollTop=sy;}window.scrollTo(0,wy);});
+  grid.querySelectorAll('[data-delemp]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();const name=b.dataset.delemp;if(!confirm('Remove '+name+' from the roster? Existing assignments stay in the data; the column is just hidden.'))return;const i=EMP_PRESENCE.indexOf(name);if(i>=0)EMP_PRESENCE.splice(i,1);store.set('empRoster',EMP_PRESENCE);renderStaff();renderFairs();populateEmpPicker();if($('#rosterList'))renderRoster();});
   const pairs=[];
   emps.forEach(p=>{const list=empFairs[p];for(let i=1;i<list.length;i++){const gap=dayNum(list[i])-dayNum(list[i-1]);if(gap<=7)pairs.push({p,a:list[i-1],b:list[i],gap});}});
   const busiest=emps.map(p=>[p,empFairs[p].length]).sort((a,b)=>b[1]-a[1])[0];
@@ -1260,6 +1268,8 @@ $('#rosterBtn').onclick=()=>{const p=$('#rosterPanel');const show=p.style.displa
 $('#rosterAdd').onclick=addRoster;
 $('#rosterNew').addEventListener('keydown',e=>{if(e.key==='Enter')addRoster();});
 $('#carryBtn').onclick=carryToNextYear;
+$('#staffAddEmp').onclick=()=>{const el=$('#staffNewEmp');const v=el.value.trim();if(!v)return;if(!EMP_PRESENCE.includes(v))EMP_PRESENCE.push(v);store.set('empRoster',EMP_PRESENCE);el.value='';renderStaff();renderFairs();populateEmpPicker();if($('#rosterList'))renderRoster();};
+$('#staffNewEmp').addEventListener('keydown',e=>{if(e.key==='Enter')$('#staffAddEmp').click();});
 syncW();rebuildYearOptions();populateCityFilter();populateEmpPicker();refreshFairSelects();renderFairs();loadCloud();
 $('#foot').textContent='Ahooga MAX · Fair Event Dashboard · '+FAIRS.length+' fairs · edits sync live to the shared Ahooga cloud (Cloudflare) for the whole team. Export CSV for a backup.';
 </script>
