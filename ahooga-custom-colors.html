@@ -1927,7 +1927,15 @@ function fmtDate(d){ if(!d) return '—'; return new Date(d).toLocaleDateString(
 function colorDot(c){ const m={yellow:'#f5c842',black:'#2a2a2a',red:'#c0392b',custom:'#7f77dd'}; return `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${m[c]||'#aaa'};vertical-align:middle;margin-right:4px"></span>`; }
 
 // ─── PRODUCT DETECTION ───────────────────────────────────
-function detectColor(n){ const l=n.toLowerCase(); if(l.includes('yellow')||l.includes('bumblebee')) return 'yellow'; if(l.includes('black')||l.includes('cosmic')) return 'black'; if(l.includes('red')||l.includes('ruby')) return 'red'; return 'custom'; }
+function detectColor(n){ const l=(n||'').toLowerCase();
+  // A bike is a CUSTOM-colour job ONLY when the product name/variant explicitly says (custom).
+  // New catalogue colours (2027+) have real colour names and must NOT fall through to 'custom'.
+  if(l.includes('custom')) return 'custom';
+  if(l.includes('yellow')||l.includes('bumblebee')) return 'yellow';
+  if(l.includes('black')||l.includes('cosmic')) return 'black';
+  if(l.includes('red')||l.includes('ruby')) return 'red';
+  return 'standard';   // known catalogue colour, not a custom paint job
+}
 function isCustomColor(o){ return o.color === 'custom'; }
 function detectTransmission(n){ const l=n.toLowerCase(); if(l.includes('alfine')||l.includes('alf')) return 'alfine'; if(l.includes('derailleur')||l.includes('der')) return 'derailleur'; if(l.includes('nexus')||l.includes('nex')) return 'nexus'; return 'unknown'; }
 function detectBikeType(n){ const l=n.toLowerCase(); if(l.includes('e-max')||l.includes('emax')) return 'emax'; if(l.includes('a-max')||l.includes('amax')) return 'amax'; if(l.includes('modular')||l.includes('ahmun')) return 'modular'; if(l.includes('folding')||l.includes('ahfan')||l.includes('analog')) return 'folding'; return 'other'; }
