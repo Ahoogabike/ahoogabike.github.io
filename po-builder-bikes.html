@@ -196,6 +196,11 @@ const CF_WORKER='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
 const LS_CFG='ahooga_pobuilder_cfg';
 const LS_BLOCK='ahooga_pobuilder_blocked';
 const LS_CAPS='ahooga_pobuilder_weekcaps';
+const LS_COMPOV='ahooga_pobuilder_compoverride';   // manual component stock overrides / ignores
+let compOverride={};          // component id -> manually set available stock (overrides published on-hand)
+let compIgnore=new Set();     // component ids to skip entirely in buildability (treated as unlimited)
+let blockingComps={};         // component id -> {name, avail} : components that limited production this run
+let wheelBlockingComps={};    // same, for the MTB wheel-assembly plan
 const IS_ONLINE = location.hostname!=='localhost' && location.hostname!=='127.0.0.1';
 let odooUid=null;
 let blockedWeeks=new Set();   // Monday dates (YYYY-MM-DD, local) blocked for production
@@ -432,6 +437,36 @@ function applyCapRange(){
 function clearCaps(){ weekCaps={}; saveCaps(); recompute(); }
 async function loadCaps(){ const kv=await kvGet('po_week_caps'); if(kv && typeof kv==='object'){ try{ localStorage.setItem(LS_CAPS, JSON.stringify(kv)); }catch(e){} } syncCapsForYear(); }
 
+// ── Manual component-stock override (unblock production when a common part reads wrong) ──
+function loadCompOvLocal(){ try{ const o=JSON.parse(localStorage.getItem(LS_COMPOV)||'{}'); compOverride=o.override||{}; compIgnore=new Set(o.ignore||[]); }catch(e){ compOverride={}; compIgnore=new Set(); } }
+function compOvPayload(){ return {override:compOverride, ignore:[...compIgnore]}; }
+function saveCompOv(){ try{ localStorage.setItem(LS_COMPOV, JSON.stringify(compOvPayload())); }catch(e){} kvSet('po_comp_override', compOvPayload()); }
+async function loadCompOv(){ const kv=await kvGet('po_comp_override'); if(kv && typeof kv==='object'){ compOverride=kv.override||{}; compIgnore=new Set(kv.ignore||[]); try{ localStorage.setItem(LS_COMPOV, JSON.stringify(compOvPayload())); }catch(e){} } else { loadCompOvLocal(); } }
+function setCompOverride(cid,val){ val=String(val).trim(); if(val===''){ delete compOverride[cid]; } else { const n=Number(val); if(isNaN(n)||n<0) return; compOverride[cid]=n; } saveCompOv(); recompute(); }
+function toggleCompIgnore(cid){ if(compIgnore.has(cid)) compIgnore.delete(cid); else compIgnore.add(cid); saveCompOv(); recompute(); }
+function clearCompOverrides(){ compOverride={}; compIgnore=new Set(); saveCompOv(); recompute(); }
+function compOverridePanel(blk, CSin){
+  const CS=CSin||componentSupply||{};
+  blk=blk||blockingComps||{};
+  const ids=new Set([...Object.keys(blk), ...Object.keys(compOverride||{}), ...compIgnore]);
+  if(!ids.size) return '';
+  const rows=[...ids].map(cid=>{
+    const nm=(CS.names&&CS.names[cid])||(blk[cid]&&blk[cid].name)||('#'+cid);
+    const realAvail=(CS.stock&&CS.stock[cid]!=null)?CS.stock[cid]:((blk[cid]&&blk[cid].avail)||0);
+    const ign=compIgnore.has(cid);
+    const ovVal=(cid in compOverride)?compOverride[cid]:'';
+    const tag = ign ? ' <b style="color:#c026d3">· ignored</b>' : (cid in compOverride ? ` <b style="color:#c026d3">· using ${fmt(compOverride[cid])}</b>` : '');
+    const d=(CS.stockDetail&&CS.stockDetail[cid])||null;
+    const detail = d ? ` <span style="color:var(--text3);font-weight:400">(VV ${fmt(d.vv)} · AND ${fmt(d.and)}${d.reserved?` · <b style="color:var(--danger,#e11)">reserved ${fmt(d.reserved)}</b>`:''})</span>` : '';
+    return `<div style="display:flex;gap:8px;align-items:center;margin:5px 0;flex-wrap:wrap">
+      <span style="flex:1;min-width:190px">${esc(nm)} — real available <b>${fmt(realAvail)}</b>${detail}${tag}</span>
+      <label style="font-size:12px;display:inline-flex;align-items:center;gap:4px">set stock <input type="number" min="0" value="${ovVal}" placeholder="${fmt(realAvail)}" style="width:80px;padding:3px 5px;border:1px solid var(--border,#ccc);border-radius:6px" ${ign?'disabled':''} onchange="setCompOverride('${cid}',this.value)"></label>
+      <button class="btn btn-secondary" style="padding:4px 10px" onclick="toggleCompIgnore('${cid}')">${ign?'Un-ignore':'Ignore in plan'}</button>
+    </div>`;
+  }).join('');
+  return `<div class="alert alert-warn" style="margin-top:8px">🩹 <b>Production limited by these components.</b> "Real available" = on-hand − reserved (reserved = already committed to running production). If a part reads low only because it's reserved, type the real available stock to use instead, or click <b>Ignore in plan</b> to skip it entirely. <button class="btn btn-secondary" style="padding:4px 10px;margin-left:6px" onclick="clearCompOverrides()">Reset all</button>${rows}</div>`;
+}
+
 // pick n production weeks spread across the AVAILABLE (non-blocked) weeks, weighted by seasonality
 function pickSpreadWeeks(n){
   const av=availableWeekIdx();
@@ -494,6 +529,7 @@ async function loadData(){
 
     await loadBlocked();
     await loadCaps();
+    await loadCompOv();
     alert_('<span class="spinner"></span> Reading the open order book…','info');
     await loadOrderbook();
 
@@ -698,12 +734,13 @@ function buildYearPlan(){
 // Shared parts are consumed most-demanded-first so the buildable mix tracks the forecast weight.
 function perSkuComponentCap(demandGrid){
   const N=weeks.length;
-  compLimitByWeek={}; unbuildableByFam={};
+  compLimitByWeek={}; unbuildableByFam={}; blockingComps={};
   const grid={}; for(const s of SKUS) grid[s.key]=(demandGrid[s.key]||Array(N).fill(0)).slice();
   const CS=componentSupply;
   if(!CS || !CS.usageBySku || !CS.stock || !Object.keys(CS.usageBySku).length) return grid;  // no per-SKU data → uncapped
   const CODE={'emax|alfine':'EMA','emax|derailleur':'EMD','amax|alfine':'AMA','amax|derailleur':'AMD'};
   const compAvail={}; for(const c in CS.stock) compAvail[c]=CS.stock[c];
+  for(const c in compOverride) compAvail[c]=compOverride[c];   // manual stock override wins over published on-hand
   const wkMon=weeks.map(w=>ymd(w.monday));
   const aw=(d)=>{ if(!d||d<wkMon[0])return 0; for(let x=N-1;x>=0;x--) if(d>=wkMon[x])return x; return 0; };
   const incByWeek={}; if(CS.incoming){ for(const c in CS.incoming){ for(const e of CS.incoming[c]){ const w=aw(e.date); (incByWeek[w]=incByWeek[w]||{}); incByWeek[w][c]=(incByWeek[w][c]||0)+(e.qty||0); } } }
@@ -713,10 +750,11 @@ function perSkuComponentCap(demandGrid){
     for(const s of order){
       const want=grid[s.key][wi]; if(want<=1e-9) continue;
       const u=CS.usageBySku[s.key]; if(!u || !Object.keys(u).length) continue;          // no BoM for this SKU → don't constrain
-      let maxB=Infinity, bind=null; for(const c in u){ const per=u[c]; if(per<=1e-9) continue; const cap=(compAvail[c]||0)/per; if(cap<maxB){ maxB=cap; bind=c; } }
+      let maxB=Infinity, bind=null; for(const c in u){ if(compIgnore.has(c)) continue; const per=u[c]; if(per<=1e-9) continue; const cap=(compAvail[c]||0)/per; if(cap<maxB){ maxB=cap; bind=c; } }
       const build=Math.max(0, Math.min(want, Math.floor(maxB+1e-9)));
       const deferred=want-build; grid[s.key][wi]=build;
       if(deferred>1e-9){
+        if(bind) blockingComps[bind]={name:(CS.names&&CS.names[bind])||('#'+bind), avail:(CS.stock&&CS.stock[bind]!=null?CS.stock[bind]:0)};
         const fk=CODE[s.fam]||s.fam;
         if(wi+1<N) grid[s.key][wi+1]+=deferred; else { unbuildableByFam[fk]=unbuildableByFam[fk]||{qty:0,binding:bind}; unbuildableByFam[fk].qty+=Math.round(deferred); if(bind) unbuildableByFam[fk].binding=bind; }
         (compLimitByWeek[wi]=compLimitByWeek[wi]||{})[fk]=bind;
@@ -828,9 +866,10 @@ function renderWheels(){
     const s0=stk; for(let i=0;i<N;i++){ const cc=Math.min(arr[i],stk); arr[i]-=cc; stk-=cc; } coveredW+=(s0-stk);
   }
   // 2) cap wheel assembly by MTB wheel-component availability (shared component pools); defer component-short wheels
-  let compUnbuildable=0; const wcs=wheelComponentSupply;
+  let compUnbuildable=0; const wcs=wheelComponentSupply; wheelBlockingComps={};
   if(wcs && wcs.usageByWheel){
     const compAvail={}; for(const cc in (wcs.stock||{})) compAvail[cc]=wcs.stock[cc];
+    for(const cc in compOverride) compAvail[cc]=compOverride[cc];   // manual override wins
     const wkMon=weeks.map(w=>ymd(w.monday));
     const aw=(d)=>{ if(!d||d<wkMon[0])return 0; for(let x=N-1;x>=0;x--) if(d>=wkMon[x])return x; return 0; };
     const incByWeek={}; for(const comp in (wcs.incoming||{})){ for(const e of wcs.incoming[comp]){ const w=aw(e.date); (incByWeek[w]=incByWeek[w]||{}); incByWeek[w][comp]=(incByWeek[w][comp]||0)+(e.qty||0); } }
@@ -839,10 +878,10 @@ function renderWheels(){
       for(const c of codes){
         const want=demand[c][awi]; if(want<=1e-9) continue;
         const u=wcs.usageByWheel[c]; if(!u || !Object.keys(u).length) continue;   // no BoM → leave unconstrained
-        let maxB=Infinity; for(const comp in u){ const per=u[comp]; if(per<=1e-9) continue; const capv=(compAvail[comp]||0)/per; if(capv<maxB) maxB=capv; }
+        let maxB=Infinity, bind=null; for(const comp in u){ if(compIgnore.has(comp)) continue; const per=u[comp]; if(per<=1e-9) continue; const capv=(compAvail[comp]||0)/per; if(capv<maxB){ maxB=capv; bind=comp; } }
         const build=Math.max(0, Math.min(want, Math.floor(maxB+1e-9)));
         const deferred=want-build; demand[c][awi]=build;
-        if(deferred>1e-9){ if(awi+1<N) demand[c][awi+1]+=deferred; else compUnbuildable+=deferred; }
+        if(deferred>1e-9){ if(bind) wheelBlockingComps[bind]={name:(wcs.names&&wcs.names[bind])||('#'+bind), avail:(wcs.stock&&wcs.stock[bind]!=null?wcs.stock[bind]:0)}; if(awi+1<N) demand[c][awi+1]+=deferred; else compUnbuildable+=deferred; }
         for(const comp in u) compAvail[comp]=(compAvail[comp]||0)-u[comp]*build;
       }
     }
@@ -863,7 +902,7 @@ function renderWheels(){
   const wheelHas=Array(N).fill(false); for(const c of codes){ for(let wi=0;wi<N;wi++) if(demand[c][wi]>0.5) wheelHas[wi]=true; }
   const issueRow=`<tr><td class="sku" style="font-size:11px;color:var(--text2)">Issue PO →</td>${weeks.map((wk,wi)=>wheelHas[wi]?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue one PO for all wheels due through ${wk.label} (cumulative · net of stock &amp; open POs)" onclick="issueWheelPO(${wi})">⇩ PO</button></td>`:'<td></td>').join('')}<td class="total"></td></tr>`;
   const note = codes.some(c=>!prod[c]) ? `<div class="hint" style="padding:6px 4px;color:var(--warn)">Connect to Odoo (⚙) and reopen this tab to enable the ⇩ PO buttons — wheel products not resolved yet.</div>` : '';
-  grid.innerHTML=`${note}<table class="grid"><thead>${head}</thead><tbody>${body}${poRow}${issueRow}</tbody></table>`;
+  grid.innerHTML=`${note}<table class="grid"><thead>${head}</thead><tbody>${body}${poRow}${issueRow}</tbody></table>${compOverridePanel(wheelBlockingComps, wheelComponentSupply)}`;
   const k=(l,v,sub,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${v}</div>${sub?`<div class="kpi-label" style="margin-top:4px">${sub}</div>`:''}</div>`;
   if(kpis) kpis.innerHTML=
     k('Wheels to assemble', fmt(Math.round(grossW-coveredW)), codes.length+' wheel types · net of stock','var(--teal)')+
@@ -949,7 +988,7 @@ function renderYear(){
   })();
   document.getElementById('year-warn').innerHTML = (overWeeks
     ? `<div class="alert alert-warn">⚠ The set capacities can't fit everything before ${dl} — the overflow is stacked into the last week (<b>${fmt(peak)}</b>, shown in red). Raise capacity in some weeks, push the deadline, or unblock weeks.</div>`
-    : '') + compMsg;
+    : '') + compMsg + compOverridePanel(blockingComps, componentSupply);
 }
 
 // This-week proposal: committed orders in the production window + batch top-up
