@@ -3444,6 +3444,7 @@ function renderStockSummary(el) {
       result.push({sku:s.sku,color:s.color,rack:s.rack,
         bikeType:detectBikeType(s.sku),transmission:detectTransmission(s.sku),
         serial:s.serial,source:'transit',
+        poName:(lotToPOMap&&lotToPOMap[s.serial])||s.poName||'',
         availDate:s.expectedArrival||null});
     }
     // From vvStock: qty minus assigned inprod orders
@@ -3464,6 +3465,7 @@ function renderStockSummary(el) {
         result.push({sku:item.sku,color:item.color,rack:item.rack,
           bikeType:item.bikeType,transmission:item.transmission,
           serial:item.predictedSerials?.[assignedCount+i]||'predicted',source:'vv',
+          poName:item.poName||'',
           availDate:item.expectedArrival||null});
       }
     }
@@ -3504,7 +3506,11 @@ function renderStockSummary(el) {
               ?`<div style="font-size:10px;margin-top:2px"><span style="color:var(--accent)">🚚${tCount}</span> <span style="color:var(--purple)">⚙${vCount}</span></div>`
               :tCount>0?'<div style="font-size:10px;color:var(--accent);margin-top:2px">🚚</div>'
               :'<div style="font-size:10px;color:var(--purple);margin-top:2px">⚙</div>';
-            return `<td style="text-align:center;padding:6px 8px;vertical-align:middle"><div style="font-size:15px;font-weight:700;color:var(--warn)">${n}</div>${detail}</td>`;
+            // Which PO(s) these free bikes come from — shown small + on hover, so each bike is traceable.
+            const pos=[...new Set(matching.map(i=>i.poName).filter(Boolean))];
+            const poLine = pos.length ? `<div style="font-size:9px;color:var(--text3);margin-top:2px;line-height:1.2">${pos.join('<br>')}</div>` : '';
+            const poTitle = pos.length ? ` title="From ${pos.join(', ')}"` : '';
+            return `<td style="text-align:center;padding:6px 8px;vertical-align:middle"${poTitle}><div style="font-size:15px;font-weight:700;color:var(--warn)">${n}</div>${detail}${poLine}</td>`;
           }).join('');
           return `<tr><td style="font-size:12px;color:var(--text2);white-space:nowrap;padding:6px 10px">${rack==='rack'?'With rack':'No rack'}</td>${cells}</tr>`;
         }).join('');
