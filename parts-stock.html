@@ -60,6 +60,10 @@ td{padding:7px 11px;border-bottom:1px solid var(--border);font-size:13px;vertica
 tr:last-child td{border-bottom:none}
 tr:hover td{background:var(--surface2)}
 td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.rz-handle{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize;user-select:none;z-index:12}
+.rz-handle:hover{background:linear-gradient(to right,transparent,rgba(26,79,160,0.35))}
+body.rz-active{cursor:col-resize!important;user-select:none!important}
+#sh-partName{min-width:280px}
 .theo{font-weight:700}
 .neg{color:var(--danger)}
 .match{color:var(--success);font-weight:600}
@@ -364,6 +368,7 @@ try{const a=localStorage.getItem(ADJ_LS);if(a)recvAdj=JSON.parse(a)||{};}catch(e
 function saveAdj(){try{localStorage.setItem(ADJ_LS,JSON.stringify(recvAdj));}catch(e){}}
 let sortKey='partName'; let sortDir=1;
 let usagePerBikeByFam={};   // famKey -> {productId: qty per one bike}
+let usageBySku={};          // skuKey (bt|tr|color|rack) -> {productId: qty per one bike} — colour-aware (per variant)
 let bomByTmpl={}, prodToTmpl={};  // BoM graph — module-level so the wheel/MTB helpers can read it
 let bikeRefs=[];            // the exact bike references the PO Builder builds {id,code,name,tmplId,fam}
 let tmplParts={};           // bike template id -> Set(component productId) — for the per-reference filter
@@ -635,6 +640,7 @@ async function publishComponentSupply(){
     const addDays=(ymd,n)=>{ if(!ymd) return null; const t=new Date(ymd+'T00:00:00Z'); t.setUTCDate(t.getUTCDate()+n); return t.toISOString().slice(0,10); };
     const used=new Set();
     for(const f in usagePerBikeByFam){ for(const pid in (usagePerBikeByFam[f]||{})) used.add(Number(pid)); }
+    for(const k in usageBySku){ for(const pid in (usageBySku[k]||{})) used.add(Number(pid)); }   // per-SKU (colour) parts too
     // parts already committed to bikes in running Okazi POs (consumed up-front)
     const inprodCons={};
     for(const fam in inprodByFam){ const u=usagePerBikeByFam[fam]||{}; const n=inprodByFam[fam]||0; for(const pid in u) inprodCons[pid]=(inprodCons[pid]||0)+u[pid]*n; }
@@ -672,7 +678,7 @@ async function publishComponentSupply(){
     const usageByFam={};
     for(const f in usagePerBikeByFam){ const u=usagePerBikeByFam[f]; if(u && Object.keys(u).length) usageByFam[f]=u; }
     const planEnd=(productionPlan&&productionPlan.weeks&&productionPlan.weeks.length)?productionPlan.weeks[productionPlan.weeks.length-1].monday:null;
-    const payload={ updated:new Date().toISOString(), basis:'vv+and+incoming', transferLeadDays:TRANSFER_LEAD_DAYS, usageByFam, stock, stockDetail, endStock, endDetail, planEnd, incoming, names, cats, partNos };
+    const payload={ updated:new Date().toISOString(), basis:'vv+and+incoming', transferLeadDays:TRANSFER_LEAD_DAYS, usageByFam, usageBySku, stock, stockDetail, endStock, endDetail, planEnd, incoming, names, cats, partNos };
     const ok=await kvSetStore('component_supply', payload);
     console.log('[PartStock] component_supply published:', Object.keys(stock).length, 'components ·', ok);
   }catch(e){ console.warn('[PartStock] publishComponentSupply failed:', e.message); }
@@ -883,13 +889,13 @@ async function collectBomGraph(){
   const EXCLUDE_RE=/\bMY\s?\d{2}\b|\bnexus\b/i;
   const bikeProds=await odoo('product.product','search_read',
     [['|',['default_code','=like','AHFAM%'],['default_code','=like','AHFMC%']]],
-    {fields:['id','default_code','display_name','product_tmpl_id'],limit:500});
+    {fields:['id','default_code','display_name','product_tmpl_id','product_template_attribute_value_ids'],limit:500});
   bikeRefs=[]; const tmplSet=new Set(), tmplName={};
   for(const p of bikeProds){
     const nm=p.display_name||''; if(EXCLUDE_RE.test(nm)) continue;
     const up=nm.toUpperCase(); if(!(up.includes('ALFINE')||up.includes('DERAILLEUR'))) continue;  // PO Builder set only
     const t=arr(p.product_tmpl_id)[0]; if(t==null) continue;
-    bikeRefs.push({id:p.id, code:p.default_code||'', name:nm, tmplId:t, fam:bikeFamilyKey(nm)});
+    bikeRefs.push({id:p.id, code:p.default_code||'', name:nm, tmplId:t, fam:bikeFamilyKey(nm), attr:(p.product_template_attribute_value_ids||[])});
     tmplSet.add(t); if(!tmplName[t]) tmplName[t]=arr(p.product_tmpl_id)[1]||nm;
   }
   const bikeTmplIds=[...tmplSet];
@@ -922,14 +928,14 @@ async function collectBomGraph(){
     const allLineIds=queue.flatMap(q=>q.lineIds);
     const lineById={};
     for(const c of chunk(allLineIds,1000)){
-      const ls=await odoo('mrp.bom.line','read',[c],{fields:['product_id','product_qty']});
+      const ls=await odoo('mrp.bom.line','read',[c],{fields:['product_id','product_qty','bom_product_template_attribute_value_ids']});
       for(const l of ls) lineById[l.id]=l;
     }
     // attach lines to their template; collect component product ids
     const nextProductIds=new Set();
     for(const q of queue){
       const lns=q.lineIds.map(id=>lineById[id]).filter(Boolean)
-        .map(l=>({pid:arr(l.product_id)[0],qty:l.product_qty||0})).filter(x=>x.pid);
+        .map(l=>({pid:arr(l.product_id)[0],qty:l.product_qty||0,attr:(l.bom_product_template_attribute_value_ids||[])})).filter(x=>x.pid);
       bomByTmpl[q.tmplId]={productQty:q.productQty,lines:lns};
       for(const ln of lns){partIds.add(ln.pid);nextProductIds.add(ln.pid);}
     }
@@ -958,6 +964,28 @@ async function collectBomGraph(){
 
 // Per-bike usage of every part for one finished unit of `tmplId` (full explosion,
 // counting sub-assemblies AND their children). Returns { productId: qtyPerBike }.
+// SKU key + colour-aware per-variant explosion (a bike variant only pulls the BoM lines that apply
+// to its attribute values — so colour-specific parts like the Frame pre-assy map to their colour).
+function ps_bt(n){const l=(n||'').toLowerCase();return (l.includes('e-max')||l.includes('emax'))?'emax':((l.includes('a-max')||l.includes('amax'))?'amax':'');}
+function ps_tr(n){const l=(n||'').toLowerCase();return (l.includes('alfine')||l.includes('alf'))?'alfine':((l.includes('derailleur')||l.includes('der'))?'derailleur':'');}
+function ps_co(n){const l=(n||'').toLowerCase();if(l.includes('yellow')||l.includes('bumblebee'))return'yellow';if(l.includes('black')||l.includes('cosmic'))return'black';if(l.includes('red')||l.includes('ruby'))return'red';return'custom';}
+function ps_rk(n){const l=(n||'').toLowerCase();return (l.includes('rack')&&!l.includes('no rack'))?'rack':'no rack';}
+function skuKeyForName(n){const bt=ps_bt(n),tr=ps_tr(n);if(!bt||!tr)return null;return `${bt}|${tr}|${ps_co(n)}|${ps_rk(n)}`;}
+function explodeUsageSku(refAttr, tmplId){
+  const acc={}, attrSet=new Set(refAttr||[]);
+  (function rec(tid,factor,depth,seen,top){
+    const bom=bomByTmpl[tid]; if(!bom||depth>15) return;
+    const base=bom.productQty||1;
+    for(const ln of bom.lines){
+      if(top && ln.attr && ln.attr.length && !ln.attr.every(a=>attrSet.has(a))) continue;  // line only for other variants
+      const perUnit=(ln.qty/base)*factor;
+      acc[ln.pid]=(acc[ln.pid]||0)+perUnit;
+      const ct=prodToTmpl[ln.pid];
+      if(ct&&bomByTmpl[ct]&&!seen.has(ct) && !mtbWheelTmpls.has(ct)) rec(ct,perUnit,depth+1,new Set(seen).add(ct),false);
+    }
+  })(tmplId,1,0,new Set([tmplId]),true);
+  return acc;
+}
 function explodeUsage(tmplId,bomByTmpl,prodToTmpl,fullExplode){
   const acc={};
   (function rec(tid,factor,depth,seen){
@@ -1259,6 +1287,10 @@ async function loadData(){
         usagePerBikeByFam[fam]=per;
       }
     }
+    // colour-aware per-variant usage for the exact bike references (for per-SKU buildability)
+    usageBySku={};
+    for(const ref of bikeRefs){ const k=skuKeyForName(ref.name); if(!k) continue; usageBySku[k]=explodeUsageSku(ref.attr, ref.tmplId); }
+    console.log('[PartStock] per-SKU usage built for', Object.keys(usageBySku).length, 'references');
     productionPlan = await kvGetStore('production_plan');   // published by the PO Builder app
     productionBasis = await kvGetStore('production_basis'); // published by the Max Planner (running Okazi POs etc.)
     // Running Okazi POs: bikes already ordered for assembly but not yet built. Once a bike is built its
@@ -1785,7 +1817,27 @@ try{
   const c=localStorage.getItem('mxp_cfg');
   if(c){const cfg=JSON.parse(c);if(cfg.user)document.getElementById('cfg-user').value=cfg.user;if(cfg.key)document.getElementById('cfg-key').value=cfg.key;}
 }catch(e){}
+// ── Resizable columns (main table). Drag the right edge of any header; widths persist locally. ──
+function initColResize(){
+  const tb=document.getElementById('t-body'); if(!tb) return;
+  const table=tb.closest('table'); if(!table) return;
+  const ths=table.querySelectorAll('thead tr:last-child th');
+  ths.forEach((th,i)=>{
+    if(th.querySelector('.rz-handle')) return;
+    const key='ps-colw-'+i;
+    try{ const saved=localStorage.getItem(key); if(saved) th.style.width=saved+'px'; }catch(e){}
+    const h=document.createElement('div'); h.className='rz-handle'; th.appendChild(h);
+    let sx=0, sw=0;
+    const move=ev=>{ const w=Math.max(48, sw+(ev.pageX-sx)); th.style.width=w+'px'; };
+    const up=()=>{ document.body.classList.remove('rz-active'); document.removeEventListener('mousemove',move); document.removeEventListener('mouseup',up); try{localStorage.setItem(key, th.offsetWidth);}catch(e){} };
+    h.addEventListener('mousedown',ev=>{ ev.preventDefault(); ev.stopPropagation(); sx=ev.pageX; sw=th.offsetWidth; document.body.classList.add('rz-active'); document.addEventListener('mousemove',move); document.addEventListener('mouseup',up); });
+    h.addEventListener('click',ev=>ev.stopPropagation());   // don't trigger column sort
+    h.addEventListener('dblclick',ev=>{ ev.stopPropagation(); th.style.width=''; try{localStorage.removeItem(key);}catch(e){} });  // double-click = reset
+  });
+}
+
 window.addEventListener('load',()=>{
+  initColResize();
   try{
     const c=localStorage.getItem('mxp_cfg');
     if(c){const cfg=JSON.parse(c);
