@@ -116,13 +116,13 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   </div>
 
   <div class="controls">
-    <div class="field"><label>Model year</label><input type="number" id="f-year" style="width:90px" value="2027" readonly title="MY27 cycle: 1st Mon Oct 2026 → end Sept 2027"/></div>
+    <div class="field"><label>Model year</label><input type="number" id="f-year" style="width:90px" value="2027" readonly title="MY27 cycle: 1st Mon Nov 2026 → end Sept 2027"/></div>
     <div class="field"><label>MY27 target (units)</label><input type="number" id="f-target" style="width:120px" min="0" placeholder="from forecast" oninput="recompute()"/><span class="hint">total bikes to build — scales the forecast mix</span></div>
     <div class="field"><label>SKU mix from</label><select id="f-mix" onchange="recompute()" style="padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface)"><option value="invoiced">2026 invoiced sales</option><option value="forecast">Published forecast</option></select><span class="hint">how the target splits across SKUs</span></div>
     <div class="field"><label>Minimum batch (per PO)</label><input type="number" id="f-minbatch" style="width:120px" value="20" oninput="recompute()"/><span class="hint">smallest production run</span></div>
     <div class="field"><label>Production days</label><input type="number" id="f-prod" style="width:90px" value="12" oninput="recompute()"/></div>
     <div class="field"><label>Transit days</label><input type="number" id="f-lead" style="width:90px" value="2" oninput="recompute()"/></div>
-    <div class="field"><label>Produce everything by</label><input type="date" id="f-deadline" style="width:150px" min="2026-10-01" max="2027-09-30" oninput="recompute()"/><span class="hint">last production week (MY27 ends Sep 2027)</span></div>
+    <div class="field"><label>Produce everything by</label><input type="date" id="f-deadline" style="width:150px" min="2026-11-01" max="2027-09-30" oninput="recompute()"/><span class="hint">last production week (MY27 ends Sep 2027)</span></div>
     <div class="field"><label>Default max / week</label><input type="number" id="f-weekly" style="width:140px" min="0" placeholder="auto" oninput="recompute()"/><span class="hint" id="weekly-hint">per-week boxes override this</span></div>
     <div class="field" style="flex:1;min-width:160px"><span class="hint" id="basis-line"></span></div>
   </div>
@@ -131,6 +131,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
     <button class="tab active" id="tab-week" onclick="showTab('week')">⚡ This week</button>
     <button class="tab" id="tab-year" onclick="showTab('year')">📅 Plan to year-end</button>
     <button class="tab" id="tab-wheels" onclick="showTab('wheels')">🛞 Wheels · MTB</button>
+    <button class="tab" id="tab-forward" onclick="showTab('forward')">📦 Forward Stock</button>
   </div>
 
   <!-- THIS WEEK -->
@@ -184,7 +185,29 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
       <div id="wheel-po-list"></div>
     </div>
   </div>
-  <!-- FORWARD STOCK lives in the Parts Stock app (it merges MY26 + MY27 into one continuous view). -->
+  <!-- FORWARD STOCK -->
+  <div class="view" id="view-forward">
+    <div class="kpis" id="fwd-kpis"></div>
+    <div class="section">
+      <div class="section-title">Forward component stock — MY27 burn-down <span class="tag" style="background:var(--purple-bg);color:var(--purple)">stock at start of production, depleted weekly</span></div>
+      <div class="section-note">Each part starts at its <b>projected stock at the start of MY27 production</b> — i.e. the <b>last column of the Parts Stock → Forward stock tab</b> (what's left once the current MY26 plan has consumed its parts) — and is then <b>depleted week by week</b> as the MY27 plan builds bikes. Each cell is the stock remaining after that week's consumption (bikes/week &times; per-bike BoM usage, averaged per family). Click the <b>Start</b> figure to see how it's calculated; click a <code>(+n)</code> arrival to see which PO it comes from. A <strong style="color:#8b1f1f">red / negative</strong> cell means the part runs out — that week is your order-by date. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts are approximate. <span id="fwd-basis"></span></div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+        <input type="text" id="fwd-search" placeholder="Filter by part name…" style="padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;width:200px" oninput="renderForward()"/>
+        <input type="text" id="fwd-ref" placeholder="Part # ref…" title="Filter by Odoo internal reference / part number" style="padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;width:140px" oninput="renderForward()"/>
+        <label style="font-size:12px;display:flex;align-items:center;gap:5px;color:var(--text2)">Group:
+          <select id="fwd-group" onchange="renderForward()" style="padding:6px 8px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface)">
+            <option value="area" selected>Bike area</option>
+            <option value="category">Odoo category</option>
+            <option value="none">No grouping</option>
+          </select>
+        </label>
+        <select id="fwd-cat" onchange="renderForward()" style="padding:6px 8px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface)"><option value="">All categories</option></select>
+        <label style="font-size:12px;display:flex;align-items:center;gap:5px;color:var(--text2)"><input type="checkbox" id="fwd-shortonly" onchange="renderForward()"/> only parts that run short</label>
+      </div>
+      <div id="fwd-empty"></div>
+      <div class="table-wrap"><div id="fwd-grid"></div></div>
+    </div>
+  </div>
   <!-- Issue-PO modal -->
   <div id="po-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:300;align-items:flex-start;justify-content:center;padding:60px 16px;overflow:auto">
     <div id="po-modal-body" style="background:var(--surface);border-radius:10px;padding:20px;max-width:520px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25)"></div>
@@ -352,6 +375,8 @@ async function odoo(model,method,args,kwargs={}){
     odooUid=parseXml(await r.text());
     if(!odooUid||typeof odooUid!=='number') throw new Error('Authentication failed — check email and API key');
   }
+  // COMPANY LOCK: exclude Ahooga Paris (company 2, closed/unreliable). Force company 1 (Belgium).
+  kwargs=Object.assign({},kwargs); kwargs.context=Object.assign({},kwargs.context,{allowed_company_ids:[1],company_id:1});
   const params=[v(ODOO_DB),v(odooUid),v(key),v(model),v(method),v(args),v(kwargs)];
   const b=`<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>${params.map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
   const r=await fetch(proxyUrl('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
@@ -405,8 +430,8 @@ function allocateByMix(weights, total){
 }
 
 // ── BUILD THE WEEK AXIS (now → produce-by deadline, default 31 Oct) ──
-// MY27 model-year production cycle: first Monday of Oct 2026 → end of Sept 2027 (fixed window).
-const MY27_START = (function(){ let d=new Date(2026,9,1); while(((d.getDay()+6)%7)!==0) d.setDate(d.getDate()+1); d.setHours(0,0,0,0); return d; })(); // first Monday on/after 1 Oct 2026
+// MY27 model-year production cycle: first Monday of Nov 2026 → end of Sept 2027 (fixed window).
+const MY27_START = (function(){ let d=new Date(2026,10,1); while(((d.getDay()+6)%7)!==0) d.setDate(d.getDate()+1); d.setHours(0,0,0,0); return d; })(); // first Monday on/after 1 Nov 2026
 const MY27_END   = new Date(2027,8,30,0,0,0,0); // 30 Sep 2027
 
 function getDeadline(){
@@ -510,7 +535,8 @@ async function loadData(){
       document.getElementById('fc-pill').className='pill err';
     }
 
-    componentSupply=await kvGet('component_supply');   // what Parts Stock says is buildable at Velovisie
+    componentSupply=await kvGet('component_supply_my27');   // MY27 (2027 BoM) feed from Parts Stock — the stock left after the 2026 plan
+    if(!componentSupply) console.warn('[MY27] no component_supply_my27 yet — open Parts Stock and refresh so it publishes the MY27 feed');
     wheelStock=await kvGet('wheel_stock');             // wheels already on hand — net the wheel plan against these
     wheelMap=await kvGet('wheel_map');                 // which wheel SKU each bike family uses (per-SKU)
     const pb=await kvGet('production_basis');
@@ -607,6 +633,7 @@ function recompute(){
   renderYear();
   renderWeek();
   renderWheels();
+  renderForward();
   const fcTot=Object.values(forwardBySku).reduce((a,b)=>a+(b||0),0);
   const dl=getDeadline().toLocaleDateString('en-GB');
   const avail=availableWeekIdx().length;
@@ -774,8 +801,12 @@ async function resolveBikeProducts(){
   // Bike variants are coded AHFAM… (A-MAX) / AHFMC… (E-MAX). Match on display_name so the colour
   // attribute (e.g. "Bumblebee" / "Cosmic Black") is included — it isn't always in the plain name.
   const prods=await odoo('product.product','search_read',[['|',['default_code','=like','AHFAM%'],['default_code','=like','AHFMC%']]],{fields:['id','display_name','default_code','name'],limit:5000});
-  for(const p of prods){ const k=skuKeyForName(p.display_name||p.name||''); if(k && !(k in skuToProduct)) skuToProduct[k]=p.id; }
-  console.log('[PObuilder] bike products resolved:', Object.keys(skuToProduct).length, 'of', prods.length, 'variants');
+  // MY27 builder issues POs for the MY27 (2027) products ONLY — require the "MY27" tag so a 2026 twin
+  // with the same SKU key (bt|tr|colour|rack) can't be picked instead.
+  const MY27_RE=/\bMY\s?27\b/i;
+  let skipped=0;
+  for(const p of prods){ const nm=p.display_name||p.name||''; if(!MY27_RE.test(nm)){ skipped++; continue; } const k=skuKeyForName(nm); if(k && !(k in skuToProduct)) skuToProduct[k]=p.id; }
+  console.log('[PObuilder MY27] MY27 products resolved:', Object.keys(skuToProduct).length, '· non-MY27 skipped:', skipped, '· of', prods.length, 'variants');
 }
 async function issueBikePO(wi){
   const m=document.getElementById('po-modal'), body=document.getElementById('po-modal-body');
@@ -1064,10 +1095,13 @@ function showTab(name){
   document.getElementById('tab-week').classList.toggle('active', name==='week');
   document.getElementById('tab-year').classList.toggle('active', name==='year');
   document.getElementById('tab-wheels').classList.toggle('active', name==='wheels');
+  document.getElementById('tab-forward').classList.toggle('active', name==='forward');
   document.getElementById('view-week').classList.toggle('active', name==='week');
   document.getElementById('view-year').classList.toggle('active', name==='year');
   document.getElementById('view-wheels').classList.toggle('active', name==='wheels');
+  document.getElementById('view-forward').classList.toggle('active', name==='forward');
   if(name==='wheels') refreshWheelData();
+  if(name==='forward') refreshForwardData();
 }
 // Pull the latest wheel map + wheel stock from the store each time the wheel tab opens,
 // so per-SKU planning appears as soon as Parts Stock republishes (no full reload needed).
@@ -1121,7 +1155,7 @@ function planByFamCode(){
 }
 // Pull the freshest component_supply each time the tab opens (no full reload needed).
 async function refreshForwardData(){
-  try{ const cs=await kvGet('component_supply'); if(cs) componentSupply=cs; }catch(e){}
+  try{ const cs=await kvGet('component_supply_my27'); if(cs) componentSupply=cs; }catch(e){}
   renderForward();
 }
 function renderForward(){

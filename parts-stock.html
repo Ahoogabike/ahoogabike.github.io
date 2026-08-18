@@ -367,13 +367,19 @@ let adjRemoteState='';       // '', 'saving', 'saved', 'local'
 try{const a=localStorage.getItem(ADJ_LS);if(a)recvAdj=JSON.parse(a)||{};}catch(e){recvAdj={};}
 function saveAdj(){try{localStorage.setItem(ADJ_LS,JSON.stringify(recvAdj));}catch(e){}}
 let sortKey='partName'; let sortDir=1;
-let usagePerBikeByFam={};   // famKey -> {productId: qty per one bike}
-let usageBySku={};          // skuKey (bt|tr|color|rack) -> {productId: qty per one bike} — colour-aware (per variant)
+let usagePerBikeByFam={};   // famKey -> {productId: qty per one bike}  (MODEL YEAR 2026)
+let usageBySku={};          // skuKey (bt|tr|color|rack) -> {productId: qty per one bike} — colour-aware (per variant) (2026)
+let usagePerBikeByFamMy27={};  // same, built from the MY27 (2027) BoMs
+let usageBySkuMy27={};         // per-SKU colour-aware usage from the MY27 (2027) BoMs
 let bomByTmpl={}, prodToTmpl={};  // BoM graph — module-level so the wheel/MTB helpers can read it
-let bikeRefs=[];            // the exact bike references the PO Builder builds {id,code,name,tmplId,fam}
+let bikeRefs=[];            // the exact bike references the PO Builder builds {id,code,name,tmplId,fam}  (2026)
+let bikeRefsMy27=[];        // the MY27 (2027) bike references {id,code,name,tmplId,fam}
+let bikeBomsMy27=[];        // [{tmplId,name,bomId,code}] for the MY27 templates
 let tmplParts={};           // bike template id -> Set(component productId) — for the per-reference filter
 let incomingByPart={};      // productId -> [{date:'YYYY-MM-DD'|null, qty}]
-let productionPlan=null;    // {weeks:[{monday,label,iso}], byFam:{EMA:[],EMD:[],AMA:[],AMD:[]}, ...}
+let productionPlan=null;    // 2026 plan {weeks:[{monday,label,iso}], byFam:{EMA:[],EMD:[],AMA:[],AMD:[]}, ...}
+let productionPlanMy27=null;// MY27 plan (same shape) published by the PO Builder MY27 app
+let mergedWeeks=[];         // union week axis of the 2026 + MY27 plans [{monday,label}]
 let productionBasis=null;   // {inprodBySku, unmatchedBySku, ...} published by Max Planner
 let inprodByFam={};         // famKey -> count of bikes in running Okazi POs (not yet built/consumed)
 let mtbWheelTmpls=new Set();// template ids of wheel assemblies built at MTB (consumed as finished wheels at VV)
@@ -638,9 +644,11 @@ async function publishComponentSupply(){
     if(!rows.length) return;
     const TRANSFER_LEAD_DAYS=3;   // a part received into AND is only at Velovisie ~3 days later
     const addDays=(ymd,n)=>{ if(!ymd) return null; const t=new Date(ymd+'T00:00:00Z'); t.setUTCDate(t.getUTCDate()+n); return t.toISOString().slice(0,10); };
-    const used=new Set();
+    const used=new Set(), usedMy27=new Set();
     for(const f in usagePerBikeByFam){ for(const pid in (usagePerBikeByFam[f]||{})) used.add(Number(pid)); }
     for(const k in usageBySku){ for(const pid in (usageBySku[k]||{})) used.add(Number(pid)); }   // per-SKU (colour) parts too
+    for(const f in usagePerBikeByFamMy27){ for(const pid in (usagePerBikeByFamMy27[f]||{})){ used.add(Number(pid)); usedMy27.add(Number(pid)); } }
+    for(const k in usageBySkuMy27){ for(const pid in (usageBySkuMy27[k]||{})){ used.add(Number(pid)); usedMy27.add(Number(pid)); } }
     // parts already committed to bikes in running Okazi POs (consumed up-front)
     const inprodCons={};
     for(const fam in inprodByFam){ const u=usagePerBikeByFam[fam]||{}; const n=inprodByFam[fam]||0; for(const pid in u) inprodCons[pid]=(inprodCons[pid]||0)+u[pid]*n; }
@@ -681,6 +689,22 @@ async function publishComponentSupply(){
     const payload={ updated:new Date().toISOString(), basis:'vv+and+incoming', transferLeadDays:TRANSFER_LEAD_DAYS, usageByFam, usageBySku, stock, stockDetail, endStock, endDetail, planEnd, incoming, names, cats, partNos };
     const ok=await kvSetStore('component_supply', payload);
     console.log('[PartStock] component_supply published:', Object.keys(stock).length, 'components ·', ok);
+
+    // ── MY27 feed for the PO Builder — MY27 ──────────────────────────────
+    // 2027 BoM usage, netted against the stock LEFT once the 2026 plan has taken its parts (endStock);
+    // if there's no 2026 plan yet, MY27 starts from current available on-hand. Incoming is already
+    // folded into endStock, so it isn't repeated here.
+    const usageByFamMy27={};
+    for(const f in usagePerBikeByFamMy27){ const u=usagePerBikeByFamMy27[f]; if(u && Object.keys(u).length) usageByFamMy27[f]=u; }
+    const my27Stock={}, my27Detail={}, my27Names={};
+    for(const r of rows){
+      const pid=r.id; if(!usedMy27.has(Number(pid))) continue;
+      my27Stock[pid] = (pid in endStock) ? Math.max(0, endStock[pid]) : Math.max(0, stock[pid]||0);
+      my27Detail[pid] = endDetail[pid] || stockDetail[pid] || {vv:0, and:0};
+      my27Names[pid] = names[pid] || `${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
+    }
+    const okM=await kvSetStore('component_supply_my27', { updated:new Date().toISOString(), basis:'leftover-after-2026-plan', usageByFam:usageByFamMy27, usageBySku:usageBySkuMy27, stock:my27Stock, stockDetail:my27Detail, incoming:{}, names:my27Names, planEnd });
+    console.log('[PartStock] component_supply_my27 published:', Object.keys(my27Stock).length, 'components ·', Object.keys(usageBySkuMy27).length, 'MY27 SKUs ·', okM);
   }catch(e){ console.warn('[PartStock] publishComponentSupply failed:', e.message); }
 }
 
@@ -890,35 +914,42 @@ async function collectBomGraph(){
   const bikeProds=await odoo('product.product','search_read',
     [['|',['default_code','=like','AHFAM%'],['default_code','=like','AHFMC%']]],
     {fields:['id','default_code','display_name','product_tmpl_id','product_template_attribute_value_ids'],limit:500});
-  bikeRefs=[]; const tmplSet=new Set(), tmplName={};
+  // Two model-year sets, both coded AHFAM/AHFMC, Alfine or Derailleur (never Nexus):
+  //   MY27 (2027) = name contains "MY27"   ·   2026 (current) = no MYxx tag at all.
+  const NEXUS_RE=/\bnexus\b/i, MY27_RE=/\bMY\s?27\b/i, ANYMY_RE=/\bMY\s?\d{2}\b/i;
+  bikeRefs=[]; bikeRefsMy27=[]; const tmplSet=new Set(), tmplSetMy27=new Set(), tmplName={};
   for(const p of bikeProds){
-    const nm=p.display_name||''; if(EXCLUDE_RE.test(nm)) continue;
+    const nm=p.display_name||''; if(NEXUS_RE.test(nm)) continue;
     const up=nm.toUpperCase(); if(!(up.includes('ALFINE')||up.includes('DERAILLEUR'))) continue;  // PO Builder set only
     const t=arr(p.product_tmpl_id)[0]; if(t==null) continue;
-    bikeRefs.push({id:p.id, code:p.default_code||'', name:nm, tmplId:t, fam:bikeFamilyKey(nm), attr:(p.product_template_attribute_value_ids||[])});
-    tmplSet.add(t); if(!tmplName[t]) tmplName[t]=arr(p.product_tmpl_id)[1]||nm;
+    const ref={id:p.id, code:p.default_code||'', name:nm, tmplId:t, fam:bikeFamilyKey(nm), attr:(p.product_template_attribute_value_ids||[])};
+    if(MY27_RE.test(nm)){ bikeRefsMy27.push(ref); tmplSetMy27.add(t); }
+    else if(!ANYMY_RE.test(nm)){ bikeRefs.push(ref); tmplSet.add(t); }
+    else continue;   // some other model year (MY25/MY28…) → not in either plan
+    if(!tmplName[t]) tmplName[t]=arr(p.product_tmpl_id)[1]||nm;
   }
-  const bikeTmplIds=[...tmplSet];
-  console.log('[PartStock] anchored to', bikeRefs.length, 'bike references ·', bikeTmplIds.length, 'templates');
-  if(!bikeTmplIds.length) return {partIds:new Set(),subIds:new Set(),bomByTmpl:{},prodToTmpl:{},bikeBoms:[],bikeBomCount:0};
+  const bikeTmplIds=[...tmplSet, ...tmplSetMy27];   // explode BOTH years' BoMs
+  console.log('[PartStock] anchored to', bikeRefs.length, '× 2026 +', bikeRefsMy27.length, '× MY27 references ·', bikeTmplIds.length, 'templates');
+  if(!bikeTmplIds.length) return {partIds:new Set(),subIds:new Set(),bomByTmpl:{},prodToTmpl:{},bikeBoms:[],bikeBomsMy27:[],bikeBomCount:0};
   const bikeBomsRaw=await odoo('mrp.bom','search_read',
     [[['product_tmpl_id','in',bikeTmplIds]]],
     {fields:['id','product_tmpl_id','product_id','code','product_qty','bom_line_ids'],limit:2000});
 
   const partIds=new Set();
-  const bikeBoms=[];    // [{tmplId,name,bomId,code}]
+  const bikeBoms=[];        // 2026 templates [{tmplId,name,bomId,code}]
+  bikeBomsMy27=[];          // MY27 templates (module var)
   const seenTmpl=new Set();
-  const refIdSet=new Set(bikeRefs.map(r=>r.id));   // our 2026 finished-bike variant ids
+  const refIdSet=new Set([...bikeRefs, ...bikeRefsMy27].map(r=>r.id));   // all our finished-bike variant ids
+  const my27TmplSet=new Set(bikeRefsMy27.map(r=>r.tmplId));
 
-  // Keep ONLY the 2026 BoMs. A template can carry several BoM alternatives; drop any that belong
-  // to MY27: BoMs coded MYxx, or variant-specific BoMs whose variant is NOT one of our 2026 refs.
+  // Keep BoMs that belong to OUR bikes. Templates are year-pure (MY27 name → its own template), so a
+  // variant-specific BoM whose variant isn't one of our refs is a stray/other variant → drop it.
   const keptBoms=bikeBomsRaw.filter(b=>{
-    if(EXCLUDE_RE.test(b.code||'')) return false;      // MY27-coded alternative
     const pv=arr(b.product_id)[0];
-    if(pv!=null) return refIdSet.has(pv);              // variant-specific → only our 2026 variants
-    return true;                                       // template-level (generic) BoM → applies to 2026 too
+    if(pv!=null) return refIdSet.has(pv);              // variant-specific → only our variants
+    return true;                                       // template-level (generic) BoM
   });
-  // Per template, prefer a variant-specific 2026 BoM over the generic one; else the first kept BoM.
+  // Per template, prefer a variant-specific BoM over the generic one; else the first kept BoM.
   const bomForTmpl={};
   for(const b of keptBoms){ const t=arr(b.product_tmpl_id)[0]; if(t==null) continue;
     const cur=bomForTmpl[t], isVar=arr(b.product_id)[0]!=null;
@@ -927,12 +958,14 @@ async function collectBomGraph(){
   let queue=[];
   for(const t of bikeTmplIds){
     const b=bomForTmpl[t];
-    if(!b){ console.warn('[PartStock] no 2026 BoM found for template', t, tmplName[t]); continue; }
-    bikeBoms.push({tmplId:t, name:tmplName[t]||arr(b.product_tmpl_id)[1]||'', bomId:b.id, code:b.code||''});
+    if(!b){ console.warn('[PartStock] no BoM found for template', t, tmplName[t]); continue; }
+    const entry={tmplId:t, name:tmplName[t]||arr(b.product_tmpl_id)[1]||'', bomId:b.id, code:b.code||''};
+    (my27TmplSet.has(t) ? bikeBomsMy27 : bikeBoms).push(entry);
     queue.push({tmplId:t, productQty:b.product_qty||1, lineIds:b.bom_line_ids||[]});
     seenTmpl.add(t);
   }
-  console.log('[PartStock] 2026 BoMs used (MY27 excluded):\n'+bikeBoms.map(x=>`  • ${x.name}  (BoM #${x.bomId}${x.code?(' ['+x.code+']'):''})`).join('\n'));
+  console.log('[PartStock] 2026 BoMs used:\n'+bikeBoms.map(x=>`  • ${x.name}  (BoM #${x.bomId}${x.code?(' ['+x.code+']'):''})`).join('\n'));
+  console.log('[PartStock] MY27 BoMs used:\n'+bikeBomsMy27.map(x=>`  • ${x.name}  (BoM #${x.bomId}${x.code?(' ['+x.code+']'):''})`).join('\n'));
 
   let level=0;
   while(queue.length && level<15){
@@ -974,7 +1007,7 @@ async function collectBomGraph(){
   }
   const subIds=new Set();
   for(const pid of partIds){const t=prodToTmpl[pid];if(t&&bomByTmpl[t])subIds.add(pid);}
-  return {partIds,subIds,bomByTmpl,prodToTmpl,bikeBoms,bikeBomCount:bikeBoms.length};
+  return {partIds,subIds,bomByTmpl,prodToTmpl,bikeBoms,bikeBomsMy27,bikeBomCount:bikeBoms.length};
 }
 
 // Per-bike usage of every part for one finished unit of `tmplId` (full explosion,
@@ -1018,6 +1051,43 @@ function explodeUsage(tmplId,bomByTmpl,prodToTmpl,fullExplode){
   return acc;
 }
 
+// ── Combined 2026 + MY27 production timeline ─────────────────────────────
+// The 2026 plan (production_plan) and the MY27 plan (production_plan_my27) run on the same calendar
+// (MY27 starts ~WK37 2026). We union their weeks and, per part, sum consumption from BOTH — the 2026
+// plan burns parts through the 2026 BoM, the MY27 plan through the 2027 BoM.
+function buildMergedWeeks(){
+  const map=new Map();
+  const add=(pl)=>{ if(pl&&Array.isArray(pl.weeks)) for(const w of pl.weeks){ if(!map.has(w.monday)) map.set(w.monday,{monday:w.monday,label:w.label}); } };
+  add(productionPlan); add(productionPlanMy27);
+  mergedWeeks=[...map.values()].sort((a,b)=> a.monday<b.monday?-1:(a.monday>b.monday?1:0));
+  return mergedWeeks;
+}
+function planIdxByMonday(pl){ const m={}; if(pl&&Array.isArray(pl.weeks)) pl.weeks.forEach((w,i)=>{ m[w.monday]=i; }); return m; }
+// per-part weekly consumption over mergedWeeks, blending both years' BoM usage; inprod (2026) in week 0.
+function combinedConsArr(pid){
+  const N=mergedWeeks.length, out=new Array(N).fill(0);
+  if(!N) return out;
+  const i26=planIdxByMonday(productionPlan), iM=planIdxByMonday(productionPlanMy27);
+  const bf26=(productionPlan&&productionPlan.byFam)||{}, bfM=(productionPlanMy27&&productionPlanMy27.byFam)||{};
+  for(let wi=0; wi<N; wi++){
+    const mon=mergedWeeks[wi].monday; let c=0;
+    const w26=i26[mon]; if(w26!=null){ for(const fam in bf26){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(bf26[fam][w26]||0); } }
+    const wM =iM[mon];  if(wM!=null){  for(const fam in bfM){  const u=(usagePerBikeByFamMy27[fam]||{})[pid]||0; if(u) c+=u*(bfM[fam][wM]||0); } }
+    out[wi]=c;
+  }
+  let inprodC=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodC+=u*(inprodByFam[fam]||0); }
+  out[0]+=inprodC;
+  return out;
+}
+// 2026-only weekly consumption (for the MY27 starting-stock = what's left after the 2026 plan claims parts).
+function cons2026Arr(pid){
+  const wks=(productionPlan&&productionPlan.weeks)||[]; const out=wks.map(()=>0);
+  const bf=(productionPlan&&productionPlan.byFam)||{};
+  for(let wi=0; wi<wks.length; wi++){ let c=0; for(const fam in bf){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(bf[fam][wi]||0); } out[wi]=c; }
+  if(out.length){ let inprodC=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodC+=u*(inprodByFam[fam]||0); } out[0]+=inprodC; }
+  return out;
+}
+
 // Count bikes produced per product template, from serial lots in Bikes categories.
 async function loadProductionCounts(){
   const cats=await odoo('product.category','search_read',[[['complete_name','ilike','MAX']]],{fields:['id','complete_name'],limit:50});
@@ -1054,7 +1124,7 @@ async function loadData(){
 
     // 1 ── BOM UNIVERSE: components of every MAX bike (incl. sub-assemblies), with quantities
     alert_('<span class="spinner"></span> Step 1/5 — Exploding MAX bike BoMs…','info');
-    const {partIds,subIds,bikeBoms,bikeBomCount}=await collectBomGraph();
+    const {partIds,subIds,bikeBoms,bikeBomsMy27,bikeBomCount}=await collectBomGraph();
 
     // ── Identify MTB wheel assemblies (vendor = MTB Maastricht) ──
     // A sub-assembly whose vendor/subcontractor is MTB is built at MTB; VV then consumes the finished
@@ -1244,6 +1314,13 @@ async function loadData(){
       if(!tmplParts[bb.tmplId]) tmplParts[bb.tmplId]=new Set();
       for(const pid in usage){ famParts[fam].add(Number(pid)); tmplParts[bb.tmplId].add(Number(pid)); }
     }
+    // MY27 template membership (for the reference filter) — parts only, don't touch the 2026 family sets
+    for(const bb of bikeBomsMy27){
+      let usage=usageCache[bb.tmplId];
+      if(!usage){ usage=explodeUsage(bb.tmplId,bomByTmpl,prodToTmpl); usageCache[bb.tmplId]=usage; }
+      if(!tmplParts[bb.tmplId]) tmplParts[bb.tmplId]=new Set();
+      for(const pid in usage) tmplParts[bb.tmplId].add(Number(pid));
+    }
     const ALL_FAM=[...FAM_KEYS,'OTHER'];
     bomMenu=ALL_FAM.filter(k=>famParts[k]&&famParts[k].size).map(k=>({
       key:k,
@@ -1308,7 +1385,26 @@ async function loadData(){
     usageBySku={};
     for(const ref of bikeRefs){ const k=skuKeyForName(ref.name); if(!k) continue; usageBySku[k]=explodeUsageSku(ref.attr, ref.tmplId); }
     console.log('[PartStock] per-SKU usage built for', Object.keys(usageBySku).length, 'references');
-    productionPlan = await kvGetStore('production_plan');   // published by the PO Builder app
+
+    // ── MY27 (2027) per-bike usage — same construction, from the MY27 BoMs ──
+    usagePerBikeByFamMy27={};
+    {
+      const famTmpls={};
+      for(const bb of bikeBomsMy27){ const fam=bikeFamilyKey(bb.name); if(!fam) continue; (famTmpls[fam]=famTmpls[fam]||[]).push(bb.tmplId); }
+      for(const fam in famTmpls){
+        const agg={}; const tmpls=famTmpls[fam];
+        for(const t of tmpls){ let u=usageCache[t]; if(!u){ u=explodeUsage(t,bomByTmpl,prodToTmpl); usageCache[t]=u; } for(const pid in u) agg[pid]=(agg[pid]||0)+u[pid]; }
+        const n=tmpls.length||1; const per={}; for(const pid in agg) per[pid]=agg[pid]/n;
+        usagePerBikeByFamMy27[fam]=per;
+      }
+    }
+    usageBySkuMy27={};
+    for(const ref of bikeRefsMy27){ const k=skuKeyForName(ref.name); if(!k) continue; usageBySkuMy27[k]=explodeUsageSku(ref.attr, ref.tmplId); }
+    console.log('[PartStock] MY27 usage built — families', Object.keys(usagePerBikeByFamMy27).length, '· per-SKU', Object.keys(usageBySkuMy27).length);
+
+    productionPlan = await kvGetStore('production_plan');   // 2026 plan from the PO Builder app
+    productionPlanMy27 = await kvGetStore('production_plan_my27');   // MY27 plan from the PO Builder MY27 app
+    buildMergedWeeks();
     productionBasis = await kvGetStore('production_basis'); // published by the Max Planner (running Okazi POs etc.)
     // Running Okazi POs: bikes already ordered for assembly but not yet built. Once a bike is built its
     // serial appears in Odoo (it leaves 'inprod') and its components show up in `consumed`, so inprodBySku
@@ -1588,11 +1684,11 @@ function renderForecast(){
   if(!grid) return;
   const kpis=document.getElementById('fc-kpis');
   if(!rows.length){ grid.innerHTML='<div style="padding:24px;color:var(--text3)">Connect and load parts first.</div>'; if(kpis)kpis.innerHTML=''; return; }
-  if(!productionPlan || !productionPlan.weeks || !productionPlan.weeks.length){
-    grid.innerHTML='<div style="padding:24px;color:var(--text3)">No production plan published yet. Open the <b>PO Builder — Bikes</b> app and let it compute the year plan (it publishes automatically), then hit ↻ Refresh here.</div>';
+  if(!mergedWeeks.length){
+    grid.innerHTML='<div style="padding:24px;color:var(--text3)">No production plan published yet. Open the <b>PO Builder — Bikes</b> (2026) and/or <b>PO Builder — MY27</b> apps so they publish their plans, then hit ↻ Refresh here.</div>';
     if(kpis)kpis.innerHTML=''; return;
   }
-  const wks=productionPlan.weeks, byFam=productionPlan.byFam||{};
+  const wks=mergedWeeks;   // combined 2026 + MY27 calendar; per-part consumption blends both BoMs
 
   // category filter (populate once)
   const catSel=document.getElementById('fc-cat');
@@ -1600,17 +1696,18 @@ function renderForecast(){
     const cats=[...new Set(rows.map(r=>r.category).filter(c=>c&&c!=='—'))].sort();
     catSel.innerHTML='<option value="">All categories</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
   }
-  // model filter (populate once) — only families that actually have BoM usage
+  // model filter (populate once) — families with BoM usage in either year
   const modelSel=document.getElementById('fc-model');
   if(modelSel && modelSel.options.length<=1){
-    const opts=FAMILIES.filter(f=>usagePerBikeByFam[f.key] && Object.keys(usagePerBikeByFam[f.key]).length)
+    const opts=FAMILIES.filter(f=>(usagePerBikeByFam[f.key]&&Object.keys(usagePerBikeByFam[f.key]).length)||(usagePerBikeByFamMy27[f.key]&&Object.keys(usagePerBikeByFamMy27[f.key]).length))
       .map(f=>`<option value="${f.key}">${esc(f.label)}</option>`).join('');
     modelSel.innerHTML='<option value="">All models</option>'+opts;
   }
-  // reference filter (populate once) — the exact 32 bike references
+  // reference filter (populate once) — the 2026 references + the MY27 references
   const refSel=document.getElementById('fc-ref');
-  if(refSel && refSel.options.length<=1 && bikeRefs.length){
-    refSel.innerHTML='<option value="">All references</option>'+bikeRefs.map(r=>`<option value="${r.tmplId}">${esc(r.code?('['+r.code+'] '):'')}${esc(r.name)}</option>`).join('');
+  if(refSel && refSel.options.length<=1 && (bikeRefs.length||bikeRefsMy27.length)){
+    const opt=r=>`<option value="${r.tmplId}">${esc(r.code?('['+r.code+'] '):'')}${esc(r.name)}</option>`;
+    refSel.innerHTML='<option value="">All references</option>'+bikeRefs.map(opt).join('')+bikeRefsMy27.map(opt).join('');
   }
   const search=(document.getElementById('fc-search').value||'').toLowerCase();
   const cat=document.getElementById('fc-cat').value;
@@ -1618,7 +1715,7 @@ function renderForecast(){
   const ref=(refSel||{}).value||'';
   const onlyNeg=document.getElementById('fc-onlyneg').checked;
   const hideSub=(document.getElementById('fc-hidesub')||{checked:true}).checked;
-  const usedByModel=(pid)=> !model || ((usagePerBikeByFam[model]||{})[pid]||0)>0;
+  const usedByModel=(pid)=> !model || ((usagePerBikeByFam[model]||{})[pid]||0)>0 || ((usagePerBikeByFamMy27[model]||{})[pid]||0)>0;
   const usedByRef=(pid)=> !ref || (tmplParts[ref] && tmplParts[ref].has(Number(pid)));
 
   // incoming PO qty for a part within week wi  (monday wi inclusive → next monday exclusive; last week catches all later)
@@ -1646,8 +1743,9 @@ function renderForecast(){
     const overdue=incBeforeFirst(pid);      // component POs already past their date → arrive (into AND) in week 1
     let inprodCons=0;                       // parts burned by bikes in running Okazi POs (not yet built)
     for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
-    // per-week VV consumption (running Okazi POs folded into week 0) — precomputed for transfer look-ahead
-    const consArr=wks.map((_,wi)=>{ let c=0; for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; return c; });
+    // per-week VV consumption over the merged calendar — 2026 plan (2026 BoM) + MY27 plan (2027 BoM),
+    // with running Okazi POs folded into week 0. Precomputed for the transfer look-ahead.
+    const consArr=combinedConsArr(pid);
     const cells=[]; let firstNeg=-1, minLevel=vv+andP, totCons=0;
     for(let wi=0; wi<wks.length; wi++){
       const cons=consArr[wi]; totCons+=cons;
@@ -1691,7 +1789,7 @@ function renderForecast(){
     k('Earliest shortage', earliest<1e9?esc(wks[earliest].label):'none', earliest<1e9?'var(--danger)':'var(--teal)')+
     k('Okazi in-prod (wk 1)', fmt(Math.round(Object.values(inprodByFam).reduce((a,b)=>a+(b||0),0)))+' bikes', 'var(--warn)')+
     k('Plan weeks', wks.length, 'var(--accent)')+
-    k('Plan updated', productionPlan.updated?new Date(productionPlan.updated).toLocaleDateString():'—', 'var(--purple)');
+    k('Plan updated', (productionPlan&&productionPlan.updated)?new Date(productionPlan.updated).toLocaleDateString():((productionPlanMy27&&productionPlanMy27.updated)?new Date(productionPlanMy27.updated).toLocaleDateString():'—'), 'var(--purple)');
 
   const groupBy=(document.getElementById('fc-group')||{}).value||'area';
   const nWk=wks.length;

@@ -777,8 +777,12 @@ async function resolveBikeProducts(){
   // Bike variants are coded AHFAM… (A-MAX) / AHFMC… (E-MAX). Match on display_name so the colour
   // attribute (e.g. "Bumblebee" / "Cosmic Black") is included — it isn't always in the plain name.
   const prods=await odoo('product.product','search_read',[['|',['default_code','=like','AHFAM%'],['default_code','=like','AHFMC%']]],{fields:['id','display_name','default_code','name'],limit:5000});
-  for(const p of prods){ const k=skuKeyForName(p.display_name||p.name||''); if(k && !(k in skuToProduct)) skuToProduct[k]=p.id; }
-  console.log('[PObuilder] bike products resolved:', Object.keys(skuToProduct).length, 'of', prods.length, 'variants');
+  // Use the 2026 model only: skip MY27 (and Nexus) variants, otherwise an MY27 twin can collide on the
+  // same SKU key (bt|tr|colour|rack) and end up on the issued PO instead of the 2026 product.
+  const EX_MY=/\bMY\s?\d{2}\b|\bnexus\b/i;
+  let skipped=0;
+  for(const p of prods){ const nm=p.display_name||p.name||''; if(EX_MY.test(nm)){ skipped++; continue; } const k=skuKeyForName(nm); if(k && !(k in skuToProduct)) skuToProduct[k]=p.id; }
+  console.log('[PObuilder] bike products resolved (2026):', Object.keys(skuToProduct).length, '· MY27/Nexus skipped:', skipped, '· of', prods.length, 'variants');
 }
 async function issueBikePO(wi){
   const m=document.getElementById('po-modal'), body=document.getElementById('po-modal-body');
