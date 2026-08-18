@@ -310,11 +310,13 @@ function publishPlan(){
     const skusF=SKUS.filter(s=>s.fam===fam.key);
     byFam[code]=weeks.map((_,wi)=>skusF.reduce((a,s)=>a+(yearGrid[s.key][wi]||0),0));
   }
+  const bySku={};   // per-SKU (colour/rack) weekly plan → Parts Stock depletes the exact MY27 variant parts
+  for(const s of SKUS){ const a=weeks.map((_,wi)=>Math.round(yearGrid[s.key][wi]||0)); if(a.some(x=>x>0)) bySku[s.key]=a; }
   kvSet('production_plan_my27', {
     year:selectedYear(), updated:new Date().toISOString(),
     deadline:ymd(getDeadline()), weekly:targetPerWeek(),
     weeks:weeks.map(w=>({monday:ymd(w.monday), label:w.label, iso:w.iso})),
-    byFam
+    byFam, bySku
   });
 }
 let orderbook=[];                                    // [{sku, remaining, due}]
@@ -750,6 +752,9 @@ function buildYearPlan(){
     const earliestDue=(fk)=>{ for(const p of queue[fk]) if(p.qty>1e-9) return p.due; return Infinity; };
     const consume=(fk,n,wi)=>{ let need=n; for(const p of queue[fk]){ if(need<=1e-9)break; if(p.qty<=1e-9)continue; const t=Math.min(need,p.qty); grid[p.sku][wi]+=t; p.qty-=t; need-=t; } };
     const useComp=applyComp && compOn;
+    // Cap ONLY the near-term window (next 3 weeks); beyond it, plan the full forecast demand so the
+    // Parts Stock depletion goes negative and flags the component POs to place.
+    const NEAR_TERM_WEEKS=3; const ciW=Math.max(0, currentWeekIndex()); const capUntil=ciW+NEAR_TERM_WEEKS;
     const compAvail={}; if(useComp){ for(const cid in CS.stock) compAvail[cid]=CS.stock[cid]; }
     const buildCap=(fk)=>{ const u=usageOf(fk); if(!u) return {m:Infinity,bind:null}; let m=Infinity,bind=null; for(const cid in u){ const per=u[cid]; if(per<=1e-9) continue; const cap=(compAvail[cid]||0)/per; if(cap<m){ m=cap; bind=cid; } } return {m,bind}; };
     const drawComp=(fk,n)=>{ const u=usageOf(fk); if(!u) return; for(const cid in u) compAvail[cid]=(compAvail[cid]||0)-u[cid]*n; };
@@ -759,12 +764,13 @@ function buildYearPlan(){
       const wi=av[i];
       if(useComp){ for(let w=lastW+1; w<=wi; w++){ const inc=incByWeek[w]; if(inc){ for(const cid in inc) compAvail[cid]=(compAvail[cid]||0)+inc[cid]; } } }
       lastW=wi;
+      const useCompNow = useComp && (wi < capUntil);   // cap only inside the near-term window
       let budget=capOf(wi); const used=new Set();
       while(budget>1e-9){
         let best=null, bestDue=Infinity;
         for(const fk of fams){
           if(remaining[fk]<=1e-9) continue;
-          if(useComp && buildCap(fk).m<1) continue;
+          if(useCompNow && buildCap(fk).m<1) continue;
           if(!used.has(fk) && used.size>=2) continue;
           const ed=earliestDue(fk);
           if(ed<bestDue || (ed===bestDue && used.has(fk) && !(best&&used.has(best)))){ best=fk; bestDue=ed; }
@@ -772,10 +778,10 @@ function buildYearPlan(){
         if(!best) break;
         used.add(best);
         let take=Math.min(budget, remaining[best]);
-        if(useComp){ const bc=buildCap(best); if(isFinite(bc.m)){ const cap=Math.floor(bc.m+1e-9); if(cap<take){ take=cap; (limitByWeek[wi]=limitByWeek[wi]||{})[best]=bc.bind; } } }
+        if(useCompNow){ const bc=buildCap(best); if(isFinite(bc.m)){ const cap=Math.floor(bc.m+1e-9); if(cap<take){ take=cap; (limitByWeek[wi]=limitByWeek[wi]||{})[best]=bc.bind; } } }
         if(take<=1e-9) break;
         consume(best, take, wi); budget-=take; remaining[best]-=take;
-        if(useComp) drawComp(best, take);
+        if(useCompNow) drawComp(best, take);
       }
     }
     const leftover=fams.reduce((a,fk)=>a+remaining[fk],0);
@@ -783,9 +789,9 @@ function buildYearPlan(){
       const wi=av[av.length-1];
       if(useComp){ for(let w=lastW+1; w<weeks.length; w++){ const inc=incByWeek[w]; if(inc){ for(const cid in inc) compAvail[cid]=(compAvail[cid]||0)+inc[cid]; } } }
       for(const fk of fams){ if(remaining[fk]>1e-9){
-        const cap = useComp ? Math.max(0,Math.floor(buildCap(fk).m+1e-9)) : Infinity;
+        const cap = (useComp && wi<capUntil) ? Math.max(0,Math.floor(buildCap(fk).m+1e-9)) : Infinity;
         const place = Math.min(remaining[fk], cap);
-        if(place>1e-9){ consume(fk, place, wi); if(useComp) drawComp(fk, place); remaining[fk]-=place; }
+        if(place>1e-9){ consume(fk, place, wi); if(useComp && wi<capUntil) drawComp(fk, place); remaining[fk]-=place; }
       } }
     }
     if(useComp){ for(const fk of fams){ if(remaining[fk]>1e-9) unbuild[fk]={qty:Math.round(remaining[fk]), binding:buildCap(fk).bind}; } }

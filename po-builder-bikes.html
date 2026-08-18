@@ -256,11 +256,13 @@ function publishPlan(){
     const skusF=SKUS.filter(s=>s.fam===fam.key);
     byFam[code]=weeks.map((_,wi)=>skusF.reduce((a,s)=>a+(yearGrid[s.key][wi]||0),0));
   }
+  const bySku={};   // per-SKU (colour/rack) weekly plan → lets Parts Stock deplete the exact variant parts
+  for(const s of SKUS){ const a=weeks.map((_,wi)=>Math.round(yearGrid[s.key][wi]||0)); if(a.some(x=>x>0)) bySku[s.key]=a; }
   kvSet('production_plan', {
     year:selectedYear(), updated:new Date().toISOString(),
     deadline:ymd(getDeadline()), weekly:targetPerWeek(),
     weeks:weeks.map(w=>({monday:ymd(w.monday), label:w.label, iso:w.iso})),
-    byFam
+    byFam, bySku
   });
 }
 let orderbook=[];                                    // [{sku, remaining, due}]
@@ -744,7 +746,11 @@ function perSkuComponentCap(demandGrid){
   const wkMon=weeks.map(w=>ymd(w.monday));
   const aw=(d)=>{ if(!d||d<wkMon[0])return 0; for(let x=N-1;x>=0;x--) if(d>=wkMon[x])return x; return 0; };
   const incByWeek={}; if(CS.incoming){ for(const c in CS.incoming){ for(const e of CS.incoming[c]){ const w=aw(e.date); (incByWeek[w]=incByWeek[w]||{}); incByWeek[w][c]=(incByWeek[w][c]||0)+(e.qty||0); } } }
+  // Cap ONLY the near-term window (next 3 weeks): current stock is the real constraint there. Beyond it,
+  // keep the full forecast demand so the Parts Stock depletion goes negative and flags the component POs to place.
+  const NEAR_TERM_WEEKS=3; const ci=Math.max(0, currentWeekIndex()); const capUntil=Math.min(N, ci+NEAR_TERM_WEEKS);
   for(let wi=0; wi<N; wi++){
+    if(wi>=capUntil) break;   // weeks 4+ stay at full demand (component shortfalls surface in Parts Stock, not hidden here)
     const inc=incByWeek[wi]; if(inc) for(const c in inc) compAvail[c]=(compAvail[c]||0)+inc[c];
     const order=SKUS.slice().sort((a,b)=>(grid[b.key][wi]||0)-(grid[a.key][wi]||0));   // forecast-weighted allocation of shared parts
     for(const s of order){
@@ -756,7 +762,7 @@ function perSkuComponentCap(demandGrid){
       if(deferred>1e-9){
         if(bind) blockingComps[bind]={name:(CS.names&&CS.names[bind])||('#'+bind), avail:(CS.stock&&CS.stock[bind]!=null?CS.stock[bind]:0)};
         const fk=CODE[s.fam]||s.fam;
-        if(wi+1<N) grid[s.key][wi+1]+=deferred; else { unbuildableByFam[fk]=unbuildableByFam[fk]||{qty:0,binding:bind}; unbuildableByFam[fk].qty+=Math.round(deferred); if(bind) unbuildableByFam[fk].binding=bind; }
+        if(wi+1<capUntil) grid[s.key][wi+1]+=deferred; else { unbuildableByFam[fk]=unbuildableByFam[fk]||{qty:0,binding:bind}; unbuildableByFam[fk].qty+=Math.round(deferred); if(bind) unbuildableByFam[fk].binding=bind; }
         (compLimitByWeek[wi]=compLimitByWeek[wi]||{})[fk]=bind;
       }
       for(const c in u) compAvail[c]=(compAvail[c]||0)-u[c]*build;
