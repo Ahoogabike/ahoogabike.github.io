@@ -384,8 +384,10 @@ let productionPlanMy27=null;// MY27 plan (same shape) published by the PO Builde
 let mergedWeeks=[];         // union week axis of the 2026 + MY27 plans [{monday,label}]
 let productionBasis=null;   // {inprodBySku, unmatchedBySku, ...} published by Max Planner
 let inprodByFam={};         // famKey -> count of bikes in running Okazi POs (not yet built/consumed)
+let inprodBySkuAll={};      // 2026 SKU key -> in-prod+incoming Okazi bikes (colour/rack-accurate burn)
 let mtbWheelTmpls=new Set();// template ids of wheel assemblies built at MTB (consumed as finished wheels at VV)
 let preAssyTmpls=new Set(); // templates received pre-assembled from a stop-supplier (Kenstone) — BoM not exploded, children not tracked
+let buyStopTmpls=new Set(); // purchased sub-assemblies (bought as a unit) — bike explosion stops here (e.g. chain QL 109 bought finished, not cut from QL 111)
 let wheelComponentIds=new Set();// parts consumed into wheels at MTB → their VV theoretical is 0 (they live at MTB, not VV)
 let fcCollapsed={};         // group name -> true if collapsed in the Forward stock tab
 
@@ -602,16 +604,15 @@ function showTab(t){
 // an AND→VV transfer is needed (→ a move must be done). The Agenda turns these into dated tasks.
 async function publishPartsDeadlines(){
   try{
-    if(!rows.length || !productionPlan || !productionPlan.weeks || !productionPlan.weeks.length) return;
-    const wks=productionPlan.weeks, byFam=productionPlan.byFam||{};
+    if(!rows.length || !mergedWeeks.length) return;
+    const wks=mergedWeeks;   // combined 2026+MY27 calendar
     const incForWeek=(pid,wi)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[wi].monday, end=wks[wi+1]?wks[wi+1].monday:null; let s=0; for(const d of list){ if(!d.date){ if(wi===0) s+=d.qty; continue; } if(d.date>=start && (!end||d.date<end)) s+=d.qty; } return s; };
     const incBeforeFirst=(pid)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[0].monday; let s=0; for(const d of list){ if(d.date && d.date<start) s+=d.qty; } return s; };
     const items=[];
     for(const r of rows){
       if(r.isSub) continue;
       const pid=r.id;
-      let inprodCons=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
-      const consArr=wks.map((_,wi)=>{ let c=0; for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; return c; });
+      const consArr=combinedConsArr(pid);   // colour/rack-accurate, both model years
       let vv=(r.vvReal||0), andP=(r.andQty||0);
       const overdue=incBeforeFirst(pid);
       let shortWi=-1, minLevel=vv+andP, totCons=0; const moves=[];
@@ -674,8 +675,7 @@ async function publishComponentSupply(){
       const incBeforeFirst=(pid)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[0].monday; let z=0; for(const d of list){ if(d.date && d.date<start) z+=d.qty; } return z; };
       for(const r of rows){
         const pid=r.id; if(!used.has(Number(pid))) continue;
-        let inprodC=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodC+=u*(inprodByFam[fam]||0); }
-        const consArr=wks.map((_,wi)=>{ let c=0; for(const fam in byFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodC; return c; });
+        const consArr=cons2026Arr(pid);   // colour/rack-accurate 2026 depletion → leftover = MY27 start
         let vv=(r.vvReal||0), andP=(r.andQty||0); const overdue=incBeforeFirst(pid);
         for(let wi=0; wi<wks.length; wi++){
           const cons=consArr[wi]; let arrv=incForWeek(pid,wi); if(wi===0) arrv+=overdue;
@@ -1022,6 +1022,14 @@ async function collectBomGraph(){
     }
     queue=nextQueue;
   }
+  // Purchased sub-assemblies = procurement stop-nodes. We buy them as a unit, so the bike explosion
+  // must not drill into their BoM (e.g. Chain QL 109 is bought finished — don't pull its 'cut-from QL 111' BoM).
+  buyStopTmpls=new Set();
+  try{
+    const subAsm=Object.keys(bomByTmpl).map(Number).filter(t=>!bikeTmplIds.includes(t));
+    for(const c of chunk(subAsm,300)){ const si=await odoo('product.supplierinfo','search_read',[[['product_tmpl_id','in',c]]],{fields:['product_tmpl_id'],limit:8000}); for(const sInfo of si){ const t=arr(sInfo.product_tmpl_id)[0]; if(t!=null) buyStopTmpls.add(t); } }
+    console.log('[PartStock] purchased sub-assembly stop-nodes:', buyStopTmpls.size);
+  }catch(e){ console.warn('[PartStock] buy-stop detection failed:', e.message); }
   const subIds=new Set();
   for(const pid of partIds){const t=prodToTmpl[pid];if(t&&bomByTmpl[t])subIds.add(pid);}
   return {partIds,subIds,bomByTmpl,prodToTmpl,bikeBoms,bikeBomsMy27,bikeBomCount:bikeBoms.length};
@@ -1059,7 +1067,7 @@ function explodeUsageSku(refAttr, tmplId){
       const perUnit=(ln.qty/base)*factor;
       acc[ln.pid]=(acc[ln.pid]||0)+perUnit;
       const ct=prodToTmpl[ln.pid];
-      if(ct&&bomByTmpl[ct]&&!seen.has(ct) && !mtbWheelTmpls.has(ct)) rec(ct,perUnit,depth+1,new Set(seen).add(ct),false);
+      if(ct&&bomByTmpl[ct]&&!seen.has(ct) && !mtbWheelTmpls.has(ct) && !buyStopTmpls.has(ct)) rec(ct,perUnit,depth+1,new Set(seen).add(ct),false);
     }
   })(tmplId,1,0,new Set([tmplId]),true);
   return acc;
@@ -1075,7 +1083,7 @@ function explodeUsage(tmplId,bomByTmpl,prodToTmpl,fullExplode){
       acc[ln.pid]=(acc[ln.pid]||0)+perUnit;
       const ct=prodToTmpl[ln.pid];
       // Stop at MTB wheel assemblies: at Velovisie the bike consumes the finished wheel, not its parts.
-      if(ct&&bomByTmpl[ct]&&!seen.has(ct) && (fullExplode || !mtbWheelTmpls.has(ct))) rec(ct,perUnit,depth+1,new Set(seen).add(ct));
+      if(ct&&bomByTmpl[ct]&&!seen.has(ct) && (fullExplode || (!mtbWheelTmpls.has(ct) && !buyStopTmpls.has(ct)))) rec(ct,perUnit,depth+1,new Set(seen).add(ct));
     }
   })(tmplId,1,0,new Set([tmplId]));
   return acc;
@@ -1093,28 +1101,40 @@ function buildMergedWeeks(){
   return mergedWeeks;
 }
 function planIdxByMonday(pl){ const m={}; if(pl&&Array.isArray(pl.weeks)) pl.weeks.forEach((w,i)=>{ m[w.monday]=i; }); return m; }
-// per-part weekly consumption over mergedWeeks, blending both years' BoM usage; inprod (2026) in week 0.
+// COLOUR/RACK-ACCURATE consumption: prefer the per-SKU plan (bySku × per-variant usage) so only the parts
+// of the exact colour/rack being built are depleted; fall back to the family average if bySku is absent.
+function cons2026At(pid, wIdx){
+  const bs=productionPlan&&productionPlan.bySku;
+  if(bs){ let c=0; for(const sku in bs){ const u=(usageBySku[sku]||{})[pid]||0; if(u) c+=u*(bs[sku][wIdx]||0); } return c; }
+  const bf=(productionPlan&&productionPlan.byFam)||{}; let c=0; for(const fam in bf){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(bf[fam][wIdx]||0); } return c;
+}
+function consMy27At(pid, wIdx){
+  const bs=productionPlanMy27&&productionPlanMy27.bySku;
+  if(bs){ let c=0; for(const sku in bs){ const u=(usageBySkuMy27[sku]||{})[pid]||0; if(u) c+=u*(bs[sku][wIdx]||0); } return c; }
+  const bf=(productionPlanMy27&&productionPlanMy27.byFam)||{}; let c=0; for(const fam in bf){ const u=(usagePerBikeByFamMy27[fam]||{})[pid]||0; if(u) c+=u*(bf[fam][wIdx]||0); } return c;
+}
+function inprodConsFor(pid){
+  if(inprodBySkuAll && Object.keys(inprodBySkuAll).length){ let c=0; for(const sku in inprodBySkuAll){ const u=(usageBySku[sku]||{})[pid]||0; if(u) c+=u*(inprodBySkuAll[sku]||0); } return c; }
+  let c=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(inprodByFam[fam]||0); } return c;
+}
+// per-part weekly consumption over mergedWeeks, blending both years (colour/rack-accurate); inprod (2026) in week 0.
 function combinedConsArr(pid){
   const N=mergedWeeks.length, out=new Array(N).fill(0);
   if(!N) return out;
   const i26=planIdxByMonday(productionPlan), iM=planIdxByMonday(productionPlanMy27);
-  const bf26=(productionPlan&&productionPlan.byFam)||{}, bfM=(productionPlanMy27&&productionPlanMy27.byFam)||{};
   for(let wi=0; wi<N; wi++){
     const mon=mergedWeeks[wi].monday; let c=0;
-    const w26=i26[mon]; if(w26!=null){ for(const fam in bf26){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(bf26[fam][w26]||0); } }
-    const wM =iM[mon];  if(wM!=null){  for(const fam in bfM){  const u=(usagePerBikeByFamMy27[fam]||{})[pid]||0; if(u) c+=u*(bfM[fam][wM]||0); } }
+    const w26=i26[mon]; if(w26!=null) c+=cons2026At(pid,w26);
+    const wM =iM[mon];  if(wM!=null)  c+=consMy27At(pid,wM);
     out[wi]=c;
   }
-  let inprodC=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodC+=u*(inprodByFam[fam]||0); }
-  out[0]+=inprodC;
+  out[0]+=inprodConsFor(pid);
   return out;
 }
 // 2026-only weekly consumption (for the MY27 starting-stock = what's left after the 2026 plan claims parts).
 function cons2026Arr(pid){
-  const wks=(productionPlan&&productionPlan.weeks)||[]; const out=wks.map(()=>0);
-  const bf=(productionPlan&&productionPlan.byFam)||{};
-  for(let wi=0; wi<wks.length; wi++){ let c=0; for(const fam in bf){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(bf[fam][wi]||0); } out[wi]=c; }
-  if(out.length){ let inprodC=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodC+=u*(inprodByFam[fam]||0); } out[0]+=inprodC; }
+  const wks=(productionPlan&&productionPlan.weeks)||[]; const out=wks.map((_,wi)=>cons2026At(pid,wi));
+  if(out.length) out[0]+=inprodConsFor(pid);
   return out;
 }
 
@@ -1451,7 +1471,8 @@ async function loadData(){
     //   incomingBySku = the remaining (unmatched) bikes still on the open PO
     const ipBySku=(productionBasis&&productionBasis.inprodBySku)||{};
     const incBySku=(productionBasis&&productionBasis.incomingBySku)||{};
-    const addInprod=(sku,n)=>{ const p=sku.split('|'); const fk=SKU_FAM[p[0]+'|'+p[1]]; if(fk && n) inprodByFam[fk]=(inprodByFam[fk]||0)+n; };
+    inprodBySkuAll={};
+    const addInprod=(sku,n)=>{ const p=sku.split('|'); const fk=SKU_FAM[p[0]+'|'+p[1]]; if(fk && n){ inprodByFam[fk]=(inprodByFam[fk]||0)+n; inprodBySkuAll[sku]=(inprodBySkuAll[sku]||0)+n; } };
     for(const sku in ipBySku)  addInprod(sku, ipBySku[sku]||0);
     for(const sku in incBySku) addInprod(sku, incBySku[sku]||0);
 
