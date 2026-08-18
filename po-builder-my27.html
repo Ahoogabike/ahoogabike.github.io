@@ -116,13 +116,13 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   </div>
 
   <div class="controls">
-    <div class="field"><label>Model year</label><input type="number" id="f-year" style="width:90px" value="2027" readonly title="MY27 cycle: 1st Mon Nov 2026 → end Sept 2027"/></div>
+    <div class="field"><label>Model year</label><input type="number" id="f-year" style="width:90px" value="2027" readonly title="MY27 cycle: WK37 2026 (7 Sep 2026) → end Sept 2027"/></div>
     <div class="field"><label>MY27 target (units)</label><input type="number" id="f-target" style="width:120px" min="0" placeholder="from forecast" oninput="recompute()"/><span class="hint">total bikes to build — scales the forecast mix</span></div>
     <div class="field"><label>SKU mix from</label><select id="f-mix" onchange="recompute()" style="padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface)"><option value="invoiced">2026 invoiced sales</option><option value="forecast">Published forecast</option></select><span class="hint">how the target splits across SKUs</span></div>
     <div class="field"><label>Minimum batch (per PO)</label><input type="number" id="f-minbatch" style="width:120px" value="20" oninput="recompute()"/><span class="hint">smallest production run</span></div>
     <div class="field"><label>Production days</label><input type="number" id="f-prod" style="width:90px" value="12" oninput="recompute()"/></div>
     <div class="field"><label>Transit days</label><input type="number" id="f-lead" style="width:90px" value="2" oninput="recompute()"/></div>
-    <div class="field"><label>Produce everything by</label><input type="date" id="f-deadline" style="width:150px" min="2026-11-01" max="2027-09-30" oninput="recompute()"/><span class="hint">last production week (MY27 ends Sep 2027)</span></div>
+    <div class="field"><label>Produce everything by</label><input type="date" id="f-deadline" style="width:150px" min="2026-09-07" max="2027-09-30" oninput="recompute()"/><span class="hint">last production week (MY27 ends Sep 2027)</span></div>
     <div class="field"><label>Default max / week</label><input type="number" id="f-weekly" style="width:140px" min="0" placeholder="auto" oninput="recompute()"/><span class="hint" id="weekly-hint">per-week boxes override this</span></div>
     <div class="field" style="flex:1;min-width:160px"><span class="hint" id="basis-line"></span></div>
   </div>
@@ -242,10 +242,11 @@ const SEASON_FWD=[3,  7, 11, 15, 15, 15, 11,  7, 11,  7,  3,  3];
 
 const BT=[['emax','E-MAX'],['amax','A-MAX']];
 const TR=[['alfine','Alfine'],['derailleur','Derailleur']];
-const CO=[['yellow','Bumblebee'],['black','Cosmic Black'],['red','New Colour'],['custom','Custom']];
-const RK=[['rack','Rack'],['no rack','No rack']];
-const COLOR_HEX={yellow:'#f5c842',black:'#2a2a2a',red:'#c0392b',custom:'#7f77dd'};
-const FILL_COLS=['yellow','black','red'], FILL_RKS=['rack','no rack'];
+// MY27 (2027) colour palette — the 7 real variant colours (data-driven from the MAX color attribute)
+const CO=[['bumblebee','Bumblebee'],['cosmic_black','Cosmic Black'],['bordeaux_red','Bordeaux Red'],['midnight_blue','Midnight Blue'],['emerald_green','Emerald Green'],['atomium','Atomium'],['custom','Custom']];
+const RK=[['rack','With rack'],['no rack','Without rack']];
+const COLOR_HEX={bumblebee:'#f5c842',cosmic_black:'#2a2a2a',bordeaux_red:'#7b1e2b',midnight_blue:'#1b2a52',emerald_green:'#1e7d5a',atomium:'#9aa4ad',custom:'#7f77dd'};
+const FILL_COLS=['bumblebee','cosmic_black','bordeaux_red','midnight_blue','emerald_green','atomium'], FILL_RKS=['rack','no rack'];   // custom = committed-only
 const SKUS=[];
 for(const [bt,btl] of BT) for(const [tr,trl] of TR) for(const [co,col] of CO) for(const [rk,rkl] of RK)
   SKUS.push({key:`${bt}|${tr}|${co}|${rk}`, bt,tr,co,rk, color:co, label:`${btl} ${trl}`, col, rkl, fam:`${bt}|${tr}`});
@@ -394,10 +395,17 @@ async function kvSet(key,value){
 }
 
 // ── DETECTION (same rules as the planner / forecast) ─────────
-function detectColor(n){const l=(n||'').toLowerCase();if(l.includes('yellow')||l.includes('bumblebee'))return'yellow';if(l.includes('black')||l.includes('cosmic'))return'black';if(l.includes('red')||l.includes('ruby')||l.includes('new colour')||l.includes('new color'))return'red';return'custom';}
+function detectColor(n){const l=(n||'').toLowerCase();
+  if(l.includes('bumblebee')||l.includes('yellow'))return'bumblebee';
+  if(l.includes('cosmic')||l.includes('black'))return'cosmic_black';
+  if(l.includes('bordeaux'))return'bordeaux_red';
+  if(l.includes('midnight'))return'midnight_blue';
+  if(l.includes('emerald'))return'emerald_green';
+  if(l.includes('atomium'))return'atomium';
+  return'custom';}
 function detectTransmission(n){const l=(n||'').toLowerCase();if(l.includes('alfine')||l.includes('alf'))return'alfine';if(l.includes('derailleur')||l.includes('der'))return'derailleur';return'unknown';}
 function detectBikeType(n){const l=(n||'').toLowerCase();if(l.includes('e-max')||l.includes('emax'))return'emax';if(l.includes('a-max')||l.includes('amax'))return'amax';return'other';}
-function detectRack(n){const l=(n||'').toLowerCase();return(l.includes('rack')&&!l.includes('no rack'))?'rack':'no rack';}
+function detectRack(n){const l=(n||'').toLowerCase();if(l.includes('without rack')||l.includes('no rack')||l.includes('w/o rack'))return'no rack';if(l.includes('with rack')||l.includes('w/rack')||l.includes('w/ rack')||l.includes('rack'))return'rack';return'no rack';}
 function skuKeyForName(name){
   const bt=detectBikeType(name), tr=detectTransmission(name);
   if(!['emax','amax'].includes(bt)) return null;
@@ -430,8 +438,8 @@ function allocateByMix(weights, total){
 }
 
 // ── BUILD THE WEEK AXIS (now → produce-by deadline, default 31 Oct) ──
-// MY27 model-year production cycle: first Monday of Nov 2026 → end of Sept 2027 (fixed window).
-const MY27_START = (function(){ let d=new Date(2026,10,1); while(((d.getDay()+6)%7)!==0) d.setDate(d.getDate()+1); d.setHours(0,0,0,0); return d; })(); // first Monday on/after 1 Nov 2026
+// MY27 model-year production cycle: WK37 2026 (Mon 7 Sep 2026) → end of Sept 2027 (fixed window).
+const MY27_START = new Date(2026,8,7,0,0,0,0);   // WK37 2026 — Monday 7 September 2026
 const MY27_END   = new Date(2027,8,30,0,0,0,0); // 30 Sep 2027
 
 function getDeadline(){

@@ -375,6 +375,8 @@ let bomByTmpl={}, prodToTmpl={};  // BoM graph — module-level so the wheel/MTB
 let bikeRefs=[];            // the exact bike references the PO Builder builds {id,code,name,tmplId,fam}  (2026)
 let bikeRefsMy27=[];        // the MY27 (2027) bike references {id,code,name,tmplId,fam}
 let bikeBomsMy27=[];        // [{tmplId,name,bomId,code}] for the MY27 templates
+let attrValName={};         // product.template.attribute.value id -> name (for reliable colour/rack of MY27)
+let my27Skus={};            // MY27 SKU catalog key -> {key,bt,tr,colour,rack,refCode,name} for the builder grid
 let tmplParts={};           // bike template id -> Set(component productId) — for the per-reference filter
 let incomingByPart={};      // productId -> [{date:'YYYY-MM-DD'|null, qty}]
 let productionPlan=null;    // 2026 plan {weeks:[{monday,label,iso}], byFam:{EMA:[],EMD:[],AMA:[],AMD:[]}, ...}
@@ -703,7 +705,7 @@ async function publishComponentSupply(){
       my27Detail[pid] = endDetail[pid] || stockDetail[pid] || {vv:0, and:0};
       my27Names[pid] = names[pid] || `${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
     }
-    const okM=await kvSetStore('component_supply_my27', { updated:new Date().toISOString(), basis:'leftover-after-2026-plan', usageByFam:usageByFamMy27, usageBySku:usageBySkuMy27, stock:my27Stock, stockDetail:my27Detail, incoming:{}, names:my27Names, planEnd });
+    const okM=await kvSetStore('component_supply_my27', { updated:new Date().toISOString(), basis:'leftover-after-2026-plan', usageByFam:usageByFamMy27, usageBySku:usageBySkuMy27, skus:my27Skus, stock:my27Stock, stockDetail:my27Detail, incoming:{}, names:my27Names, planEnd });
     console.log('[PartStock] component_supply_my27 published:', Object.keys(my27Stock).length, 'components ·', Object.keys(usageBySkuMy27).length, 'MY27 SKUs ·', okM);
   }catch(e){ console.warn('[PartStock] publishComponentSupply failed:', e.message); }
 }
@@ -930,6 +932,14 @@ async function collectBomGraph(){
   }
   const bikeTmplIds=[...tmplSet, ...tmplSetMy27];   // explode BOTH years' BoMs
   console.log('[PartStock] anchored to', bikeRefs.length, '× 2026 +', bikeRefsMy27.length, '× MY27 references ·', bikeTmplIds.length, 'templates');
+  // Resolve variant attribute value names (MAX color / MAX rack) so MY27 colour & rack come from the
+  // ATTRIBUTE, not the free-text name — reliable for the 7 MY27 colours.
+  attrValName={};
+  try{
+    const allAttrIds=[...new Set([...bikeRefs,...bikeRefsMy27].flatMap(r=>r.attr||[]))];
+    for(const c of chunk(allAttrIds,300)){ const vs=await odoo('product.template.attribute.value','read',[c],{fields:['name']}); for(const v of vs) attrValName[v.id]=v.name; }
+    console.log('[PartStock] resolved', Object.keys(attrValName).length, 'variant attribute values');
+  }catch(e){ console.warn('[PartStock] attribute value resolve failed:', e.message); }
   if(!bikeTmplIds.length) return {partIds:new Set(),subIds:new Set(),bomByTmpl:{},prodToTmpl:{},bikeBoms:[],bikeBomsMy27:[],bikeBomCount:0};
   const bikeBomsRaw=await odoo('mrp.bom','search_read',
     [[['product_tmpl_id','in',bikeTmplIds]]],
@@ -944,7 +954,13 @@ async function collectBomGraph(){
 
   // Keep BoMs that belong to OUR bikes. Templates are year-pure (MY27 name → its own template), so a
   // variant-specific BoM whose variant isn't one of our refs is a stray/other variant → drop it.
+  // Also drop stale ALTERNATIVE BoMs by their code: never a Nexus BoM, and on a 2026 template never an
+  // MYxx-coded one (that's how the old Nexus chain HG40 QL 111 was leaking back in).
   const keptBoms=bikeBomsRaw.filter(b=>{
+    const t=arr(b.product_tmpl_id)[0];
+    const code=b.code||'';
+    if(NEXUS_RE.test(code)) return false;                              // never a Nexus BoM
+    if(!my27TmplSet.has(t) && ANYMY_RE.test(code)) return false;       // 2026 template → drop MY-coded alt
     const pv=arr(b.product_id)[0];
     if(pv!=null) return refIdSet.has(pv);              // variant-specific → only our variants
     return true;                                       // template-level (generic) BoM
@@ -995,10 +1011,11 @@ async function collectBomGraph(){
     // find sub-assembly BoMs for new templates
     const tmplIds=[...new Set(prods.map(p=>arr(p.product_tmpl_id)[0]).filter(Boolean))].filter(t=>!seenTmpl.has(t));
     const subBoms=[];
-    for(const c of chunk(tmplIds,200)) subBoms.push(...await odoo('mrp.bom','search_read',[[['product_tmpl_id','in',c]]],{fields:['id','product_tmpl_id','product_qty','bom_line_ids'],limit:5000}));
+    for(const c of chunk(tmplIds,200)) subBoms.push(...await odoo('mrp.bom','search_read',[[['product_tmpl_id','in',c]]],{fields:['id','product_tmpl_id','code','product_qty','bom_line_ids'],limit:5000}));
     const nextQueue=[];
     for(const sb of subBoms){
       const t=arr(sb.product_tmpl_id)[0];
+      if(NEXUS_RE.test(sb.code||'')) continue;   // skip stale Nexus sub-assembly BoM alternatives
       if(t&&!seenTmpl.has(t)){ seenTmpl.add(t);
         if(preAssyTmpls.has(t)) continue;   // received pre-assembled (Kenstone) → do not explode its children
         nextQueue.push({tmplId:t,productQty:sb.product_qty||1,lineIds:sb.bom_line_ids||[]}); }
@@ -1019,6 +1036,19 @@ function ps_tr(n){const l=(n||'').toLowerCase();return (l.includes('alfine')||l.
 function ps_co(n){const l=(n||'').toLowerCase();if(l.includes('yellow')||l.includes('bumblebee'))return'yellow';if(l.includes('black')||l.includes('cosmic'))return'black';if(l.includes('red')||l.includes('ruby'))return'red';return'custom';}
 function ps_rk(n){const l=(n||'').toLowerCase();return (l.includes('rack')&&!l.includes('no rack'))?'rack':'no rack';}
 function skuKeyForName(n){const bt=ps_bt(n),tr=ps_tr(n);if(!bt||!tr)return null;return `${bt}|${tr}|${ps_co(n)}|${ps_rk(n)}`;}
+// MY27 (2027) colour normalization — 7 real colours (must match the PO Builder MY27 tokens)
+function ps_co_my27(str){const l=(str||'').toLowerCase();
+  if(l.includes('bumblebee')||l.includes('yellow'))return'bumblebee';
+  if(l.includes('cosmic')||l.includes('black'))return'cosmic_black';
+  if(l.includes('bordeaux'))return'bordeaux_red';
+  if(l.includes('midnight'))return'midnight_blue';
+  if(l.includes('emerald'))return'emerald_green';
+  if(l.includes('atomium'))return'atomium';
+  return'custom';}
+function ps_rk2(str){const l=(str||'').toLowerCase();if(l.includes('without rack')||l.includes('no rack')||l.includes('w/o rack'))return'no rack';if(l.includes('with rack')||l.includes('w/rack')||l.includes('w/ rack')||l.includes('rack'))return'rack';return'no rack';}
+function attrStrOf(ref){ return (ref.attr||[]).map(id=>attrValName[id]||'').join(' '); }
+// MY27 SKU key: family from the name, colour+rack from the variant ATTRIBUTE (falls back to name)
+function skuKeyForNameMy27(ref){ const bt=ps_bt(ref.name),tr=ps_tr(ref.name); if(!bt||!tr) return null; const a=attrStrOf(ref); return `${bt}|${tr}|${ps_co_my27(a||ref.name)}|${ps_rk2(a||ref.name)}`; }
 function explodeUsageSku(refAttr, tmplId){
   const acc={}, attrSet=new Set(refAttr||[]);
   (function rec(tid,factor,depth,seen,top){
@@ -1398,9 +1428,13 @@ async function loadData(){
         usagePerBikeByFamMy27[fam]=per;
       }
     }
-    usageBySkuMy27={};
-    for(const ref of bikeRefsMy27){ const k=skuKeyForName(ref.name); if(!k) continue; usageBySkuMy27[k]=explodeUsageSku(ref.attr, ref.tmplId); }
-    console.log('[PartStock] MY27 usage built — families', Object.keys(usagePerBikeByFamMy27).length, '· per-SKU', Object.keys(usageBySkuMy27).length);
+    usageBySkuMy27={}; my27Skus={};
+    for(const ref of bikeRefsMy27){ const k=skuKeyForNameMy27(ref); if(!k) continue;
+      usageBySkuMy27[k]=explodeUsageSku(ref.attr, ref.tmplId);
+      if(!my27Skus[k]){ const a=attrStrOf(ref); const [bt,tr,co,rk]=k.split('|');
+        my27Skus[k]={key:k, bt, tr, colour:co, rack:rk, refCode:ref.code, name:ref.name}; }
+    }
+    console.log('[PartStock] MY27 usage built — families', Object.keys(usagePerBikeByFamMy27).length, '· per-SKU', Object.keys(usageBySkuMy27).length, '(', Object.keys(my27Skus).join(', '), ')');
 
     productionPlan = await kvGetStore('production_plan');   // 2026 plan from the PO Builder app
     productionPlanMy27 = await kvGetStore('production_plan_my27');   // MY27 plan from the PO Builder MY27 app
