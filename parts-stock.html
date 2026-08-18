@@ -647,9 +647,9 @@ async function publishComponentSupply(){
     const stock={}, stockDetail={}, incoming={}, names={}, cats={}, partNos={};
     for(const r of rows){
       const pid=r.id; if(!used.has(Number(pid))) continue;
-      const vv=(r.vvReal||0), and=(r.andQty||0), inprod=(inprodCons[pid]||0);
-      stock[pid]=vv+and-inprod;
-      stockDetail[pid]={vv, and, inprod};                       // breakdown so consumers can explain the start figure
+      const vvFree=Math.max(0,(r.vvReal||0)-(r.vvResv||0)), andFree=Math.max(0,(r.andQty||0)-(r.andResv||0));
+      stock[pid]=vvFree+andFree;                                // AVAILABLE = on-hand − reserved (reserved = committed to ongoing production)
+      stockDetail[pid]={vv:vvFree, and:andFree, reserved:((r.vvResv||0)+(r.andResv||0))};
       names[pid]=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
       cats[pid]=r.category||'—'; partNos[pid]=r.partNo||'';      // for grouping (Odoo category) & part-number filtering downstream
       const inc=incomingByPart[pid];
@@ -742,7 +742,7 @@ async function publishWheelComponentSupply(){
   try{
     const usageByWheel={}, stock={}, incoming={}, names={};
     for(const r of rows){ if(!r.isWheel) continue; const t=prodToTmpl[r.id]; if(t==null) continue; const code=r.partNo||('#'+r.id); usageByWheel[code]=explodeUsage(t,bomByTmpl,prodToTmpl,true); }
-    for(const r of rows){ if(!wheelComponentIds.has(r.id)) continue; stock[r.id]=(r.mtbQty||0)+(r.andQty||0); names[r.id]=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`; const inc=incomingByPart[r.id]; if(inc&&inc.length) incoming[r.id]=inc.map(d=>({date:d.date||null, qty:d.qty})); }
+    for(const r of rows){ if(!wheelComponentIds.has(r.id)) continue; stock[r.id]=Math.max(0,(r.mtbQty||0)-(r.mtbResv||0))+Math.max(0,(r.andQty||0)-(r.andResv||0)); names[r.id]=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`; const inc=incomingByPart[r.id]; if(inc&&inc.length) incoming[r.id]=inc.map(d=>({date:d.date||null, qty:d.qty})); }
     await kvSetStore('wheel_component_supply', {updated:new Date().toISOString(), usageByWheel, stock, incoming, names});
     console.log('[PartStock] wheel_component_supply published — wheels', Object.keys(usageByWheel).length, '· components', Object.keys(stock).length);
   }catch(e){ console.warn('[PartStock] publishWheelComponentSupply failed:', e.message); }
@@ -903,21 +903,36 @@ async function collectBomGraph(){
   if(!bikeTmplIds.length) return {partIds:new Set(),subIds:new Set(),bomByTmpl:{},prodToTmpl:{},bikeBoms:[],bikeBomCount:0};
   const bikeBomsRaw=await odoo('mrp.bom','search_read',
     [[['product_tmpl_id','in',bikeTmplIds]]],
-    {fields:['id','product_tmpl_id','product_qty','bom_line_ids'],limit:2000});
+    {fields:['id','product_tmpl_id','product_id','code','product_qty','bom_line_ids'],limit:2000});
 
   const partIds=new Set();
-  const bikeBoms=[];    // [{tmplId,name}]
+  const bikeBoms=[];    // [{tmplId,name,bomId,code}]
   const seenTmpl=new Set();
+  const refIdSet=new Set(bikeRefs.map(r=>r.id));   // our 2026 finished-bike variant ids
+
+  // Keep ONLY the 2026 BoMs. A template can carry several BoM alternatives; drop any that belong
+  // to MY27: BoMs coded MYxx, or variant-specific BoMs whose variant is NOT one of our 2026 refs.
+  const keptBoms=bikeBomsRaw.filter(b=>{
+    if(EXCLUDE_RE.test(b.code||'')) return false;      // MY27-coded alternative
+    const pv=arr(b.product_id)[0];
+    if(pv!=null) return refIdSet.has(pv);              // variant-specific → only our 2026 variants
+    return true;                                       // template-level (generic) BoM → applies to 2026 too
+  });
+  // Per template, prefer a variant-specific 2026 BoM over the generic one; else the first kept BoM.
+  const bomForTmpl={};
+  for(const b of keptBoms){ const t=arr(b.product_tmpl_id)[0]; if(t==null) continue;
+    const cur=bomForTmpl[t], isVar=arr(b.product_id)[0]!=null;
+    if(!cur || (isVar && arr(cur.product_id)[0]==null)) bomForTmpl[t]=b; }
 
   let queue=[];
-  for(const b of bikeBomsRaw){
-    const t=arr(b.product_tmpl_id);
-    if(!seenTmpl.has(t[0])){
-      bikeBoms.push({tmplId:t[0],name:t[1]||tmplName[t[0]]||''});
-      queue.push({tmplId:t[0],productQty:b.product_qty||1,lineIds:b.bom_line_ids||[]});
-      seenTmpl.add(t[0]);
-    }
+  for(const t of bikeTmplIds){
+    const b=bomForTmpl[t];
+    if(!b){ console.warn('[PartStock] no 2026 BoM found for template', t, tmplName[t]); continue; }
+    bikeBoms.push({tmplId:t, name:tmplName[t]||arr(b.product_tmpl_id)[1]||'', bomId:b.id, code:b.code||''});
+    queue.push({tmplId:t, productQty:b.product_qty||1, lineIds:b.bom_line_ids||[]});
+    seenTmpl.add(t);
   }
+  console.log('[PartStock] 2026 BoMs used (MY27 excluded):\n'+bikeBoms.map(x=>`  • ${x.name}  (BoM #${x.bomId}${x.code?(' ['+x.code+']'):''})`).join('\n'));
 
   let level=0;
   while(queue.length && level<15){
@@ -1149,12 +1164,13 @@ async function loadData(){
     console.log('[PartStock] MTB locations:',mtbLocNames);
 
     const andMap={}, louiMap={}, vvRealMap={}, mtbMap={};
-    async function fillLoc(locIds,target){
+    const andResvMap={}, vvResvMap={}, mtbResvMap={};   // Odoo reserved_quantity (committed to ongoing production)
+    async function fillLoc(locIds,target,resvTarget){
       if(!locIds.length) return;
       for(const c of idChunks){
         const g=await odoo('stock.quant','read_group',
-          [[['product_id','in',c],['location_id','in',locIds]],['quantity'],['product_id']],{lazy:false});
-        for(const row of g){const p=arr(row.product_id);if(!p[0])continue;target[p[0]]=(target[p[0]]||0)+gNum(row,'quantity');}
+          [[['product_id','in',c],['location_id','in',locIds]],['quantity','reserved_quantity'],['product_id']],{lazy:false});
+        for(const row of g){const p=arr(row.product_id);if(!p[0])continue;target[p[0]]=(target[p[0]]||0)+gNum(row,'quantity');if(resvTarget)resvTarget[p[0]]=(resvTarget[p[0]]||0)+gNum(row,'reserved_quantity');}
       }
     }
 
@@ -1168,10 +1184,10 @@ async function loadData(){
       for(const p of prods) info[p.id]=p;
     }
     alert_(`<span class="spinner"></span> Step 5/5 — On-hand by location: AND (${andLocIds.length}) + LOUI (${louiLocIds.length}) + Velovisie (${vvLocIds.length})…`,'info');
-    await fillLoc(andLocIds,andMap);
+    await fillLoc(andLocIds,andMap,andResvMap);
     await fillLoc(louiLocIds,louiMap);
-    await fillLoc(vvLocIds,vvRealMap);
-    await fillLoc(mtbLocIds,mtbMap);
+    await fillLoc(vvLocIds,vvRealMap,vvResvMap);
+    await fillLoc(mtbLocIds,mtbMap,mtbResvMap);
 
     // 6 ── INCOMING from open PURCHASE ORDER LINES (ordered − received).
     //      Sourced from purchase.order.line, NOT stock.move, so a receipt that Odoo split into
@@ -1253,10 +1269,11 @@ async function loadData(){
       const vv=wheelComponentIds.has(id)?0:(theo-odoo);   // wheel sub-parts are consumed into wheels at MTB → 0 at VV
       const vvReal=vvRealMap[id]||0;
       const mtbQty=mtbMap[id]||0;
+      const andResv=andResvMap[id]||0, vvResv=vvResvMap[id]||0, mtbResv=mtbResvMap[id]||0;   // reserved to ongoing production
       const row={
         id,partNo,partName,
         category:arr(pi.categ_id)[1]||'—',
-        receivedPO,recvAdj:adj,received,consumed,sav,theo,andQty,louiQty,odoo,vv,vvReal,mtbQty,
+        receivedPO,recvAdj:adj,received,consumed,sav,theo,andQty,louiQty,odoo,vv,vvReal,mtbQty,andResv,vvResv,mtbResv,
         isSub:subIds.has(id),
         isWheel:mtbWheelTmpls.has(prodToTmpl[id]),
         bomFams:ALL_FAM.filter(k=>famParts[k]&&famParts[k].has(id))
