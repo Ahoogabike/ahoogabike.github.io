@@ -102,7 +102,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 </head>
 <body>
 <header>
-  <div class="logo">DPD <span class="b">Ship</span> <span class="tag">Odoo → DPD</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑07‑02e (+ customer returns)</span></div>
+  <div class="logo">DPD <span class="b">Ship</span> <span class="tag">Odoo → DPD</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑07‑02f (returns = incoming from customer)</span></div>
   <div class="pills">
     <span id="dpd-pill" class="pill">DPD: ?</span>
     <span id="conn-pill" class="pill">Not connected</span>
@@ -257,18 +257,19 @@ async function connectAndLoad(){
   }catch(e){ alert_('Could not connect: '+esc(e.message),'err'); setPill('err'); }
 }
 
-const RETURN_TYPES=[56,57];   // Odoo picking types: 56 = Anderlecht Returns, 57 = Louise Returns
 const AND_WH={ name:'AHOOGA', street:'rue Henri-Joseph Genesse 34 A7', zip:'1070', city:'Anderlecht', countryCode:'BE' };
 const LOUISE_WH={ name:'AHOOGA Louise', street:'Avenue Louise 259', zip:'1050', city:'Brussels', countryCode:'BE' };
-function isReturnP(d){ const t=Array.isArray(d.picking_type_id)?d.picking_type_id[0]:0; return RETURN_TYPES.indexOf(t)>=0; }
-function returnDest(d){ return (Array.isArray(d.picking_type_id)&&d.picking_type_id[0]===57)?'Louise':'Anderlecht'; }
-function returnWarehouse(d){ return (Array.isArray(d.picking_type_id)&&d.picking_type_id[0]===57)?LOUISE_WH:AND_WH; }
+// A customer return = an INCOMING transfer whose goods come FROM a customer location
+// (Odoo return wizard, e.g. AND/ANDIN/... with origin "Return of ...").
+function isReturnP(d){ return d.picking_type_code==='incoming' && /customer/i.test((Array.isArray(d.location_id)?d.location_id[1]:'')||''); }
+function returnDest(d){ const nm=(Array.isArray(d.picking_type_id)?d.picking_type_id[1]:'')||''; return /louise/i.test(nm)?'Louise':'Anderlecht'; }
+function returnWarehouse(d){ return returnDest(d)==='Louise'?LOUISE_WH:AND_WH; }
 function typeDomain(){
   const t=$('ptype').value;
-  if(t==='returns') return ['picking_type_id','in',RETURN_TYPES];
-  if(t==='outgoing') return ['picking_type_code','=','outgoing'];
-  if(t==='internal') return ['picking_type_code','=','internal'];
-  return ['picking_type_code','in',['outgoing','internal']];
+  if(t==='returns') return [['picking_type_code','=','incoming'],['location_id.usage','=','customer']];
+  if(t==='outgoing') return [['picking_type_code','=','outgoing']];
+  if(t==='internal') return [['picking_type_code','=','internal']];
+  return [['picking_type_code','in',['outgoing','internal']]];
 }
 
 function loadDeliveries(){ PAGE=0; return fetchPage(); }
@@ -279,8 +280,8 @@ async function fetchPage(){
   const states = $('pstate').value==='all' ? ['assigned','confirmed','done'] : ['assigned','confirmed'];
   const perPage = parseInt($('plimit').value)||200;
   const offset = PAGE*perPage;
-  const baseFields=['name','state','origin','scheduled_date','date_done','partner_id','carrier_id','carrier_tracking_ref','weight','picking_type_code','picking_type_id'];
-  const domain=[typeDomain(),['state','in',states]];
+  const baseFields=['name','state','origin','scheduled_date','date_done','partner_id','carrier_id','carrier_tracking_ref','weight','picking_type_code','picking_type_id','location_id'];
+  const domain=typeDomain().concat([['state','in',states]]);
   try{
     try{ PAGE_TOTAL=await odoo('stock.picking','search_count',[domain]); }catch(e){ PAGE_TOTAL=0; }
     let pickings;
@@ -325,11 +326,12 @@ function onFilterInput(){
 async function serverSearch(q){
   const {user,key}=creds(); if(!user||!key) return;
   const states = $('pstate').value==='all' ? ['assigned','confirmed','done'] : ['assigned','confirmed'];
-  const baseFields=['name','state','origin','scheduled_date','date_done','partner_id','carrier_id','carrier_tracking_ref','weight','picking_type_code','picking_type_id'];
+  const baseFields=['name','state','origin','scheduled_date','date_done','partner_id','carrier_id','carrier_tracking_ref','weight','picking_type_code','picking_type_id','location_id'];
   const or=[['name','ilike',q],['origin','ilike',q],['partner_id.name','ilike',q]];
   if(_hasSaleId) or.push(['sale_id.name','ilike',q]);
   const orPrefix=[]; for(let i=0;i<or.length-1;i++) orPrefix.push('|');
-  const domain=['&','&',typeDomain(),['state','in',states]].concat(orPrefix).concat(or);
+  const td=typeDomain(); const andP=[]; for(let i=0;i<td.length+1;i++) andP.push('&');
+  const domain=andP.concat(td).concat([['state','in',states]]).concat(orPrefix).concat(or);
   const cnt=$('del-count'); const q0=q;
   try{
     if(cnt) cnt.textContent='Searching Odoo…';
