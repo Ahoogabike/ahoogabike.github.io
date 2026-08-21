@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Invoice a leasing company and split budgets</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Invoice a leasing company and split budgets</h1>
+  <div class="subtitle">The correct invoicing route, and what to do when part of a maintenance job is covered by the lease and part is not.</div>
+
+  <div class="danger"><span class="callout-tag">Never the POS</span>Do not settle a leasing order in the POS. The POS registers the payment as received; the leasing company pays in 30 days. Using the POS creates a false payment in the accounts.</div>
+
+<h2>1. The correct invoicing flow</h2>
+<div class="step"><div class="step-num">1</div><div class="step-body">On the sales order (customer = leasing company, 30-day terms), click <strong>Create Invoice → Regular invoice</strong>.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body"><strong>Add the labour / service line manually.</strong> Services cannot be invoiced automatically from the back office — you cannot ship a service — so the maintenance/labour line will be missing. Add it.</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-body"><strong>Confirm</strong> the invoice.</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-body"><strong>Send it by Peppol</strong> (and/or e-mail) to the leasing company.</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-body">Make sure the <strong>delivery transfer</strong> for the goods is separately <strong>validated</strong>, so the goods really left your stock.</div></div>
+
+<h2>2. Split budgets: part leasing, part customer</h2>
+<p class="lead">Leasing contracts have maintenance budgets and exclusions. Examples given in training: one partner with a maintenance budget of €150 per year; another that does not include spokes in its maintenance package. So a €160 maintenance job may be €150 to the leasing company and €10 to the rider.</p>
+<div class="rule"><span class="callout-tag">Rule</span>When the cost is split, create <strong>two sales orders</strong>: one to the leasing company for the covered part, one to the rider for the rest. Do not try to split one order between two payers.</div>
+<div class="step"><div class="step-num">6</div><div class="step-body">The leasing-company order → invoice from the back office, 30-day terms, Peppol.</div></div>
+<div class="step"><div class="step-num">7</div><div class="step-body">The rider's order → settled at the till like any walk-in repair.</div></div>
+<div class="confirm"><span class="callout-tag">Open question</span>How to see a rider's remaining maintenance budget is <strong>not</strong> visible in Odoo — it lives in the leasing company's portal. Confirm per partner how to check a budget before you start work, because the answer determines who gets the bill.</div>
+
+<h2>3. Checklist before you close a leasing job</h2>
+<ul class="checks">
+  <li>The invoice went to the leasing company, not to the rider.</li>
+  <li>The labour line is on the invoice.</li>
+  <li>The delivery transfer is validated in the back office.</li>
+  <li>Nothing was settled in the POS on the leasing company's behalf.</li>
+  <li>If the cost was split, there are two separate orders.</li>
+</ul>
+
+<div class="related">Related: <a href="guide_31.html">Write a leasing / B2B order</a> · <a href="guide_22.html">Invoice from the back office</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

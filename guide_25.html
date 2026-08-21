@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>POS vs back office: keep stock right and investigate a red picking</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>POS vs back office: keep stock right and investigate a red picking</h1>
+  <div class="subtitle">The single mechanism you must understand to keep shop stock correct — and how to clean up when it goes wrong.</div>
+
+<h2>1. What happens to stock when you validate a POS order</h2>
+<div class="step"><div class="step-num">1</div><div class="step-body">When you <strong>confirm a sales order</strong> in the back office, Odoo creates a <strong>delivery transfer</strong> (e.g. <code>Louise Stock → Customer</code>), waiting to be validated.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body">If the customer <strong>collects in the shop</strong> and you settle the order in the <strong>POS</strong>, the POS creates <strong>its own picking</strong> (<code>Louise/POS</code>) and the back-office delivery is <strong>automatically cancelled</strong>. The two documents contain the same goods; only the reference differs.</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-body">The POS picking is what depletes your shop stock.</div></div>
+
+<div class="rule"><span class="callout-tag">The golden rule of the shop</span>Customer collects in the shop → deliver through the <strong>POS</strong>.<br>Goods are shipped → validate the delivery in the <strong>back office</strong>.<br><strong>Never both.</strong></div>
+
+<div class="danger"><span class="callout-tag">What goes wrong</span>If you validate the back-office delivery <em>and</em> settle the order in the POS, the POS still creates its picking, but it stays unvalidated (shown <strong>red</strong>) because the goods have already left stock. The fix is to <strong>cancel</strong> that leftover POS picking. The cause is almost always an unavailable line on the order — see <a class="ext" href="guide_24.html">Settle an order and hand over at the till</a>, section 5.</div>
+
+<h2>2. Investigate a red picking</h2>
+<p class="lead">A red picking inside a POS session means: <em>the customer paid and took the goods, but the stock transfer out of Louise Stock was never validated.</em> The money is in, the goods are gone, and Odoo still believes the items are on your shelf.</p>
+<div class="step"><div class="step-num">4</div><div class="step-body">Open the session → find the red picking → note the products and serial numbers.</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-body">Check the corresponding order in <strong>Orders</strong>: is it <em>invoiced and paid</em>? (Usually yes.)</div></div>
+<div class="step"><div class="step-num">6</div><div class="step-body">Establish why the transfer failed. Typical causes:</div></div>
+<ul class="plain">
+  <li>One line was not in stock in the system, and the shipping policy was <em>When all products are ready</em>, so <strong>one missing item blocked the whole delivery</strong>.</li>
+  <li>The bike was physically taken from the warehouse and given to the customer without ever being registered into Louise Stock, so the system did not know it was there.</li>
+  <li>Someone validated the delivery in the back office instead, leaving the POS picking orphaned — in that case simply <strong>cancel</strong> the picking.</li>
+</ul>
+<div class="step"><div class="step-num">7</div><div class="step-body">Correct it, and <strong>log a note</strong> explaining what you did.</div></div>
+
+<h2>3. Where to find them</h2>
+<div class="path">Point of Sale → Sessions → open a session → look at the pickings</div>
+<div class="rule"><span class="callout-tag">Routine</span>Review red pickings across the week's POS sessions <strong>every week</strong>. It is a short list if you do it weekly and an archaeology project if you do not.</div>
+
+<div class="related">Related: <a href="guide_24.html">Settle an order and hand over at the till</a> · <a href="guide_37.html">Stock discipline and stale transfers</a> · <a href="guide_40.html">Troubleshooting</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

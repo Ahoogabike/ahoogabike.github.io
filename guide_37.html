@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Stock discipline and stale transfers</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Stock discipline and stale transfers</h1>
+  <div class="subtitle">Ten rules to put on the wall, and the monthly clean-up that keeps the shop's stock honest.</div>
+
+  <div class="note">Stock accuracy is the single biggest structural problem in the shop, and the cost is mainly <strong>time</strong>: looking for parts that are not there, and re-committing to customers on the basis of wrong figures.</div>
+
+<h2>1. The stock-discipline checklist</h2>
+<p class="lead">Print this and put it on the wall.</p>
+<div class="step"><div class="step-num">1</div><div class="step-body">Nothing enters the shop without a <strong>validated receipt</strong>.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body">Nothing leaves the shop without a <strong>validated transfer</strong> — including warranty and loan bikes.</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-body">Customer collects in the shop → <strong>POS</strong>. Goods are shipped → <strong>back office</strong>. Never both.</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-body">If an item on an order is unavailable, <strong>remove the line in the POS</strong>; do not validate in the back office instead.</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-body">Never sell an accessory you do not physically have.</div></div>
+<div class="step"><div class="step-num">6</div><div class="step-body">Always select an <strong>existing product</strong>; never create one by pressing Enter on free text.</div></div>
+<div class="step"><div class="step-num">7</div><div class="step-body">Set <strong>Warehouse = Louise</strong> and <strong>Sales Team = Point of Sale Louise</strong> on every shop order.</div></div>
+<div class="step"><div class="step-num">8</div><div class="step-body">Review the <strong>red pickings</strong> in the POS sessions weekly.</div></div>
+<div class="step"><div class="step-num">9</div><div class="step-body">Review <strong>Waiting / Ready transfers with source = Louise Stock</strong> monthly, and close or cancel the stale ones.</div></div>
+<div class="step"><div class="step-num">10</div><div class="step-body">Count every three months, <strong>including parts fitted to bikes awaiting collection</strong>.</div></div>
+
+<h2>2. Hunting stale transfers</h2>
+<div class="path">Inventory → Transfers / Deliveries → filter status Waiting + Ready → filter Source location = Louise Stock</div>
+<p class="lead">You will find transfers years old. For each one, open the sales order and decide:</p>
+<table class="field-table">
+  <tr><td>The customer <strong>did take</strong> the goods</td><td><strong>Validate</strong> the transfer — the goods really left.</td></tr>
+  <tr><td>The customer <strong>never took</strong> the goods</td><td>Set the sales-order line quantity to <strong>0</strong>, which cancels the transfer.</td></tr>
+  <tr><td>It is a <strong>duplicate</strong> of a POS picking</td><td><strong>Cancel</strong> it.</td></tr>
+</table>
+<div class="step"><div class="step-num">11</div><div class="step-body">Then <strong>log a note</strong> saying what you decided. This list is your stock clean-up backlog.</div></div>
+<div class="rule"><span class="callout-tag">Make it a saved search</span>Save this filter (<code>Favourites → Save current search</code>, tick <strong>Shared</strong>) so the list is one click away every month.</div>
+
+<h2>3. Where the errors come from</h2>
+<p class="lead">If the same problem keeps coming back, the cause is usually one of the five structural ones listed in <a class="ext" href="guide_36.html">Do a physical inventory count</a>: repairs depleting only at collection, unvalidated warranty deliveries, mishandled leasing orders, bad inbound, and the Modular's assembly structure.</p>
+<div class="why"><span class="callout-tag">Not only a shop problem</span>Warehouse stock has its own accuracy problems, and fixing warehouse management is the stated reason for moving to an external warehouse. Do not assume a figure is right because it comes from the warehouse.</div>
+
+<div class="related">Related: <a href="guide_25.html">POS vs back office</a> · <a href="guide_36.html">Do a physical inventory count</a> · <a href="guide_41.html">Shop routines</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

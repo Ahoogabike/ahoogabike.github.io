@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Glossary and click-path quick reference</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Glossary and click-path quick reference</h1>
+  <div class="subtitle">Two lookup tables: what the words mean, and where to click. Keep this one open.</div>
+
+<h2>Click-path quick reference</h2>
+<table class="field-table">
+  <tr><th>Task</th><th>Click-path</th></tr>
+  <tr><td>Create a contact</td><td>Contacts → New</td></tr>
+  <tr><td>Create a quotation</td><td>Sales → New</td></tr>
+  <tr><td>Find a customer's repair history</td><td>Contacts → customer → Tasks</td></tr>
+  <tr><td>Send a quotation</td><td>Quotation → Send by e-mail</td></tr>
+  <tr><td>Duplicate a quotation</td><td>Quotation → cog menu → Duplicate</td></tr>
+  <tr><td>Create a down payment invoice</td><td>Sales order → Create Invoice → Down payment (fixed amount)</td></tr>
+  <tr><td>Open the till</td><td>Point of Sale → Open register</td></tr>
+  <tr><td>Settle an order at the till</td><td>POS → Actions → Quotation/Order → search number → Settle the order</td></tr>
+  <tr><td>Take a down payment at the till</td><td>POS → Actions → Quotation/Order → Apply a down payment</td></tr>
+  <tr><td>Give a discount</td><td>POS → add product <strong>Commercial discount</strong>, negative amount</td></tr>
+  <tr><td>Close the till</td><td>Point of Sale → Close register</td></tr>
+  <tr><td>See POS sessions and pickings</td><td>Point of Sale → Sessions (or Orders)</td></tr>
+  <tr><td>Open the repair board</td><td>Project → Repair Louise</td></tr>
+  <tr><td>Add parts / labour to a repair</td><td>Open the task → products section → add lines</td></tr>
+  <tr><td>See helpdesk tickets assigned to me</td><td>Helpdesk → My Tickets</td></tr>
+  <tr><td>Check bike stock (live, accurate)</td><td>Internal tool → Production Planner → Stock</td></tr>
+  <tr><td>Check part stock</td><td>Inventory → Products → Products → product → On Hand</td></tr>
+  <tr><td>Find a bike by serial number</td><td>Inventory → Products → Lots / Serial Numbers</td></tr>
+  <tr><td>Request stock from the warehouse</td><td>Inventory → Overview → Group by Warehouse → Request Anderlecht → Louise → New</td></tr>
+  <tr><td>Receive goods from a vendor / a return</td><td>Inventory → Overview → Louise column → Receipts → New → Mark as To Do → Validate</td></tr>
+  <tr><td>Print a picking for barcode scanning</td><td>Open the receipt → Print → Picking</td></tr>
+  <tr><td>Do a physical inventory</td><td>Inventory → Operations → Physical Inventory → filter Location = Louise Stock</td></tr>
+  <tr><td>Find stale transfers</td><td>Inventory → Transfers → status Waiting/Ready → Source location = Louise Stock</td></tr>
+  <tr><td>See my team's sales</td><td>Sales → Orders → filter Sales Team = Point of Sale Louise</td></tr>
+  <tr><td>Save a search</td><td>Favourites → Save current search → tick Shared</td></tr>
+</table>
+
+<h2>Glossary</h2>
+<table class="field-table">
+  <tr><th>Term</th><th>Meaning</th></tr>
+  <tr><td>Activity</td><td>A dated to-do on a record (call, e-mail, meeting). Turns red when overdue.</td></tr>
+  <tr><td>Anderlecht</td><td>Ahooga's HQ and warehouse. Referred to in Odoo as the warehouse.</td></tr>
+  <tr><td>BOM (Bill of Materials)</td><td>The list of components that make up an assembled product.</td></tr>
+  <tr><td>Breadcrumb</td><td>The clickable navigation path at the top-left of an Odoo screen.</td></tr>
+  <tr><td>Delivery / Transfer / Picking</td><td>The stock document that moves goods between locations. Must be <strong>validated</strong> for stock to change.</td></tr>
+  <tr><td>Down payment</td><td>Partial advance payment on an order. Minimum guideline around 20%.</td></tr>
+  <tr><td>Fiscal position</td><td>The tax regime applied to a customer; determines VAT.</td></tr>
+  <tr><td>Followers</td><td>People notified of changes to a record.</td></tr>
+  <tr><td>Kanban</td><td>Card-and-column view; used for repair stages.</td></tr>
+  <tr><td>Lot / Serial number</td><td>Unique identifier of an individual item; every bike has one from manufacturing.</td></tr>
+  <tr><td>Log note</td><td>Internal comment on a record. <strong>Not</strong> sent to the customer.</td></tr>
+  <tr><td>Louise</td><td>The current flagship store. <strong>Louise Stock</strong> is the shop's stock location.</td></tr>
+  <tr><td>Marolles / Marol</td><td>The new store location.</td></tr>
+  <tr><td>Operation type</td><td>The kind of stock document: receipt, delivery, internal transfer, request, POS picking.</td></tr>
+  <tr><td>Peppol</td><td>European e-invoicing network; used for B2B invoices.</td></tr>
+  <tr><td>Pivot</td><td>Cross-tab reporting view.</td></tr>
+  <tr><td>POS / Point of Sale</td><td>The till application.</td></tr>
+  <tr><td>Price list</td><td>A set of prices/margins per customer type. B2C uses the <strong>Public Pricelist</strong>.</td></tr>
+  <tr><td>Repair Louise</td><td>The Odoo project containing all shop repairs.</td></tr>
+  <tr><td>Reordering rule</td><td>Automatic restocking when a product falls below a minimum.</td></tr>
+  <tr><td>Reserved</td><td>Stock physically present but already promised to an order.</td></tr>
+  <tr><td>Route / Routing</td><td>The rule set that decides how goods move (1-step, 2-step…). Set per product category.</td></tr>
+  <tr><td>Sales team</td><td>Revenue attribution group. The shop is <strong>Point of Sale Louise</strong>.</td></tr>
+  <tr><td>Session (POS)</td><td>One opening-to-closing cycle of the till.</td></tr>
+  <tr><td>Smart button</td><td>The counters at the top of a record that jump to related records.</td></tr>
+  <tr><td>Variant</td><td>A specific version of a product (colour, size, with/without rack). <strong>Stock lives on the variant.</strong></td></tr>
+</table>
+
+<div class="related">Related: <a href="guide_16.html">Odoo essentials for the shop team</a> · <a href="guide_40.html">Troubleshooting</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

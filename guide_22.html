@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Invoice from the back office</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Invoice from the back office</h1>
+  <div class="subtitle">For shipped orders, B2B and leasing you invoice from the sales order rather than the till — and there is one line the system will not add for you.</div>
+
+<h2>When to invoice from the back office</h2>
+<table class="field-table">
+  <tr><td>Customer collects in the shop</td><td>Invoice through the <strong>POS</strong> — see <a class="ext" href="guide_24.html">Settle an order and hand over at the till</a>.</td></tr>
+  <tr><td>Goods are shipped</td><td>Invoice from the <strong>back office</strong> (this guide) and validate the delivery in the back office.</td></tr>
+  <tr><td>B2B / dealer</td><td>Back office, and send by Peppol.</td></tr>
+  <tr><td>Leasing company</td><td>Back office — <strong>never</strong> the POS. See <a class="ext" href="guide_32.html">Invoice a leasing company</a>.</td></tr>
+</table>
+
+<h2>The procedure</h2>
+<div class="step"><div class="step-num">1</div><div class="step-body">On the sales order: <strong>Create Invoice → Regular invoice</strong>.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body"><strong>Add the labour / service line manually</strong> if the order contains any (see the warning below).</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-body">Check invoice address, invoice date, due date and payment terms.</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-body"><strong>Confirm</strong> the invoice.</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-body"><strong>Send</strong> it — e-mail for B2C, Peppol (and/or e-mail) for B2B and leasing.</div></div>
+<div class="step"><div class="step-num">6</div><div class="step-body">Make sure the <strong>delivery transfer</strong> for the goods is separately <strong>validated</strong>, so the goods really leave your stock.</div></div>
+
+<div class="danger"><span class="callout-tag">Warning — services do not appear on a back-office invoice</span>Odoo invoices from the back office only what can be <strong>delivered / shipped</strong>. Labour and maintenance are <strong>services</strong>, so they are <strong>not</strong> picked up automatically. You must <strong>add the labour line manually</strong> to the invoice before confirming it. This is a very easy line to forget, and forgetting it means giving the work away.</div>
+
+<div class="rule"><span class="callout-tag">Habit</span>Before you confirm any back-office invoice, compare it line by line with the sales order. Missing lines are almost always services.</div>
+
+<div class="related">Related: <a href="guide_21.html">Take a down payment</a> · <a href="guide_32.html">Invoice a leasing company</a> · <a href="guide_25.html">POS vs back office</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

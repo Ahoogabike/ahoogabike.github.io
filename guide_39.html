@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>The tools around Odoo</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>The tools around Odoo</h1>
+  <div class="subtitle">Odoo is not the only system the shop runs on. These are the others, what each is for, and who gives you access.</div>
+
+<h2>1. The internal production &amp; stock tool</h2>
+<p class="lead">An in-house web tool. <strong>Log in with your Odoo credentials.</strong></p>
+<div class="path">Production Planner → Stock</div>
+<ul class="plain">
+  <li>Which finished bikes are <strong>in stock and free to use</strong> — reserved bikes are already excluded</li>
+  <li>Which bikes are <strong>arriving in the next two weeks</strong></li>
+</ul>
+<div class="rule"><span class="callout-tag">Use this, not Odoo, for bikes</span>For finished bikes this view is more accurate than reading Odoo stock, and it is live. For <strong>parts and accessories</strong> the tool has no view — use Odoo (see <a class="ext" href="guide_19.html">Check stock before you promise anything</a>).</div>
+
+<h2>2. The AI assistant with the Ahooga Odoo connector</h2>
+<p class="lead">Ahooga has an AI assistant with a custom connector wired into the Odoo database, with <strong>read and write</strong> access. Ask the Head of Sales for an account.</p>
+<p class="lead">What it is good for:</p>
+<ul class="plain">
+  <li><strong>Factual questions</strong> across the database: "how many helmets have we sold this year?"</li>
+  <li><strong>Serial-number investigations</strong>: "I have bike MAX 000712 in front of me. Is it normal that it shows in Louise Stock?" — it will answer, and it can correct the record.</li>
+  <li><strong>Root-cause investigations</strong>: for example "why was this bike returned from this dealer?" — the answer being that the dealer had been shipped that bike, wanted one with a rack, so it was swapped and a different bike shipped.</li>
+  <li><strong>Configuration help</strong>: routes, operation types, why a transfer behaves as it does.</li>
+  <li><strong>Scheduled reports</strong>: a daily list of the bikes you have to deliver today given current stock; mechanics' timesheets; anything recurring.</li>
+</ul>
+<div class="rule"><span class="callout-tag">Rule</span>Before you spend twenty minutes clicking through transfers to work out what happened to a bike, ask. That is what it is for. <strong>Verify anything it proposes to change before you approve it.</strong></div>
+
+<h2>3. The SharePoint knowledge library</h2>
+<p class="lead">Reachable from the Ahooga website / internal links. Contains:</p>
+<ul class="plain">
+  <li>The <strong>warranty process for dealers</strong></li>
+  <li><strong>Terms and conditions</strong></li>
+  <li>Documentation per bike family: <strong>Modular</strong>, <strong>MAX</strong>, <strong>Folding</strong></li>
+  <li><strong>Ahooga battery care</strong></li>
+  <li>Repair and maintenance documents</li>
+</ul>
+<div class="note">This is where a new mechanic learns the bikes. The current team knows them by heart; a new hire will not. Ask the Head of Sales or Marketing / office for access.</div>
+
+<h2>4. The appointment booking application</h2>
+<p class="lead">The maintenance mailbox receives website maintenance bookings and feeds the repair tasks. Access via IT — it already exists on the main shop computer; ask for it on your own machine.</p>
+
+<h2>5. Typeform</h2>
+<p class="lead">Leasing enquiries from the website (employee and employer forms). Access through the Ahooga Google account — see <a class="ext" href="guide_33.html">Work the leasing leads</a>.</p>
+
+<h2>6. Access checklist for a new starter</h2>
+<table class="field-table">
+  <tr><th>System</th><th>What it is for</th><th>Who gives you access</th></tr>
+  <tr><td>Odoo production + test</td><td>Everything in these guides</td><td>Head of Sales</td></tr>
+  <tr><td>Appointment booking app</td><td>Where website maintenance bookings arrive</td><td>IT</td></tr>
+  <tr><td>Ahooga Google account</td><td>Typeform leasing leads and other marketing tools</td><td>Marketing / office</td></tr>
+  <tr><td>SharePoint knowledge library</td><td>Warranty process, T&amp;Cs, battery care, repair docs per bike family</td><td>Head of Sales / Marketing</td></tr>
+  <tr><td>Internal production &amp; stock tool</td><td>Live view of finished bikes in stock and arriving</td><td>Log in with your Odoo credentials</td></tr>
+  <tr><td>AI assistant + Odoo connector</td><td>Questions, investigations and scheduled reports on the database</td><td>Head of Sales</td></tr>
+</table>
+<div class="confirm"><span class="callout-tag">To confirm</span>Get the exact URLs of the internal production/stock tool and of both Odoo environments in writing, and bookmark them clearly labelled.</div>
+
+<div class="related">Related: <a href="guide_16.html">Odoo essentials for the shop team</a> · <a href="guide_19.html">Check stock before you promise anything</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

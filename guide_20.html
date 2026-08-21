@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Confirm the order and prepare the bike</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Confirm the order and prepare the bike</h1>
+  <div class="subtitle">What happens in Odoo when a quotation becomes a sales order, and what has to happen physically before the customer arrives.</div>
+
+<h2>1. From quotation to sales order</h2>
+<p class="lead">A quotation becomes a <strong>sales order</strong> when the customer accepts it in the portal, or when you press <strong>Confirm</strong>.</p>
+<div class="step"><div class="step-num">1</div><div class="step-body">The customer has an <strong>Accept</strong> button in the portal. When they use it, the quotation becomes a sales order automatically. Otherwise you confirm it yourself.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body">Confirming creates the <strong>delivery (transfer) documents</strong> behind the scenes, according to the warehouse and routing settings on the order.</div></div>
+<div class="note"><span class="callout-tag">Repairs are sales orders too</span>When you add parts and labour to a repair task, Odoo creates a confirmed sales order automatically. So in the Sales app you will see both real sales and repairs. Filter accordingly when you analyse numbers.</div>
+
+<h2>2. Assign the physical bike to the order</h2>
+<div class="rule"><span class="callout-tag">Rule — do this before the customer arrives</span>Assign the physical bike (its serial number) to the order, and put a paper on the bike with the customer name and order number. Then the step at the till takes seconds instead of minutes.</div>
+<div class="step"><div class="step-num">3</div><div class="step-body">Open the delivery/transfer linked to the sales order.</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-body">Assign the <strong>serial number</strong> of the bike you are actually going to hand over.</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-body">Check the line colour. <strong>Red</strong> means no bike is matched to the order: either the serial number has not been assigned, or you do not have that bike in stock. Fix that before taking the money.</div></div>
+<div class="step"><div class="step-num">6</div><div class="step-body">Label the bike physically with the customer name and order number.</div></div>
+
+<h2>3. Bike preparation before delivery</h2>
+<ul class="plain">
+  <li><strong>MAX bikes arrive ready to sell.</strong> They are quality-checked before shipment; in principle you unbox, remove the plastic wrap, and the bike is ready.</li>
+  <li>Anything sold as a <strong>separate line</strong> is <strong>not</strong> assembled: kickstand, racks (unless the "with rack" variant was ordered), ponchos, bags, accessories. You assemble what the customer bought.</li>
+  <li>Accessories that are part of the order should be fitted or bagged and kept with the bike, so the handover is one movement.</li>
+</ul>
+<div class="confirm"><span class="callout-tag">Open point</span>Dealers report taking the MAX out of the box and selling it directly; the shop currently spends about 25–30 minutes per bike before delivery. What is actually necessary should be verified and agreed, because it is up to 30 minutes of labour per bike.</div>
+
+<h2>4. Before you call the customer to collect</h2>
+<ul class="checks">
+  <li>The bike is physically present, prepared and labelled with the customer name and order number.</li>
+  <li>The serial number is assigned on the delivery, and the line is not red.</li>
+  <li>Every accessory on the order is either present or removed from the order with a decision written in a log note.</li>
+  <li>Warehouse on the order is <strong>Louise</strong> and Sales Team is <strong>Point of Sale Louise</strong>.</li>
+  <li>Any down payment is recorded (see <a class="ext" href="guide_21.html">Take a down payment</a>).</li>
+</ul>
+
+<div class="related">Next: <a href="guide_24.html">Settle an order and hand over at the till</a> · Related: <a href="guide_19.html">Check stock before you promise anything</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

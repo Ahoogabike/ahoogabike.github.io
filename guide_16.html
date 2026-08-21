@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Odoo essentials for the shop team</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Odoo essentials for the shop team</h1>
+  <div class="subtitle">The handful of basics that every other shop procedure depends on: the two databases, the apps you use, how to navigate, and the chatter.</div>
+
+  <div class="note"><span class="callout-tag">Read this first</span>Almost every mistake made in Odoo comes from not knowing the four or five things on this page. Learn them once and the rest of the system becomes predictable.</div>
+
+  <div class="toc">
+    <div class="toc-title">On this page</div>
+    <a href="#env">1. The two Odoo environments</a>
+    <a href="#apps">2. The applications you will use</a>
+    <a href="#nav">3. Navigating: everything is connected</a>
+    <a href="#search">4. Search, filters and saved searches</a>
+    <a href="#views">5. Views and pagination</a>
+    <a href="#chatter">6. The chatter: message, log note, activity</a>
+    <a href="#colours">7. Colour codes you must be able to read</a>
+  </div>
+
+<h2 id="env">1. The two Odoo environments</h2>
+<p class="lead">Ahooga runs two Odoo databases. Always know which one you are in.</p>
+<table class="field-table">
+  <tr><th>Environment</th><th>What it is</th><th>Use it for</th></tr>
+  <tr><td>Production</td><td>The live company database. Real stock movements, real invoices, real e-mails to real customers.</td><td>All actual work.</td></tr>
+  <tr><td>Test</td><td>A copy of production, refreshed periodically. Same data, same layout, no consequences.</td><td>Learning, practising, testing a process before you use it live.</td></tr>
+</table>
+<div class="danger"><span class="callout-tag">Check the URL before you click anything</span>The two environments look identical. Bookmark both links separately and label the bookmarks clearly. When in doubt, look at the browser address bar first.</div>
+<div class="rule"><span class="callout-tag">Rule</span>Anything you have never done before, you do in <strong>test</strong> first — creating a quotation, settling an order at the till, running a physical inventory. Do it once in test, then do it for real.</div>
+<div class="note"><span class="callout-tag">Access rights</span>Rights are granted <strong>per environment</strong>. Having access in production does not give you access in test, and the other way round. If an application is missing from your Odoo home screen, that is an access-rights question for the Head of Sales — not a bug.</div>
+
+<h2 id="apps">2. The applications you will use</h2>
+<table class="field-table">
+  <tr><th>Application</th><th>What you do in it</th></tr>
+  <tr><td>Contacts</td><td>Create and maintain customer records — the foundation of everything else.</td></tr>
+  <tr><td>Sales</td><td>Quotations, sales orders, customer follow-up, reporting.</td></tr>
+  <tr><td>Point of Sale</td><td>The till: opening and closing, settling orders, taking payments, delivering to walk-in customers.</td></tr>
+  <tr><td>Project</td><td>Repairs. The project is called <strong>Repair Louise</strong> and every repair is a task in it.</td></tr>
+  <tr><td>Inventory</td><td>Stock levels, transfers from the warehouse, receipts, serial numbers, physical inventory.</td></tr>
+  <tr><td>Helpdesk</td><td>Customer-service tickets. You do not open them; you get assigned or tagged on them.</td></tr>
+  <tr><td>Field Service</td><td>Used occasionally, for on-site interventions.</td></tr>
+  <tr><td>Website</td><td>The public site, booking pages, leasing forms.</td></tr>
+  <tr><td>Accounting</td><td>Occasionally, to look at an invoice.</td></tr>
+  <tr><td>Barcode</td><td>Companion app for scanning goods in and out. Works on a phone.</td></tr>
+</table>
+
+<h2 id="nav">3. Navigating: everything is connected</h2>
+<p class="lead">Every Odoo application is linked to the others, and you can move between them from inside a record.</p>
+<div class="path">Contacts → open the customer → click the "Sales" smart button → you are in Sales, filtered to that customer's orders</div>
+<p class="lead">On a contact record, <strong>smart buttons</strong> summarise that customer's whole history:</p>
+<ul class="plain">
+  <li><strong>Sales</strong> — how many sales orders they have</li>
+  <li><strong>Point of Sale orders</strong> — how many times they have paid at the till</li>
+  <li><strong>Invoiced</strong> — total invoiced value</li>
+  <li><strong>Tasks</strong> — how many repairs they have had</li>
+</ul>
+<div class="why"><span class="callout-tag">Why this matters</span>You almost never need to search twice. If you have the customer, you have their repairs, their orders and their invoices one click away — exactly what you need when someone walks in and says "I was here in March".</div>
+<h3>The breadcrumb trail</h3>
+<p class="lead">Top-left of every screen, Odoo shows the path you took (for example <code>Contacts / Customer name / Sales / S026163</code>). Each element is clickable, so you step back one level at a time instead of restarting your search. Use it constantly.</p>
+
+<h2 id="search">4. Search, filters and saved searches</h2>
+<p class="lead">Click the dropdown arrow in the search bar of any list and you always get the same three columns:</p>
+<div class="step"><div class="step-num">1</div><div class="step-body"><strong>Filters</strong> — narrow the records (status, date, team, country…).</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body"><strong>Group By</strong> — cluster the records (by salesperson, by product category, by warehouse…).</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-body"><strong>Favourites</strong> — saved searches.</div></div>
+<p class="lead">Combine filters and group-bys freely, then save the result: <code>Favourites → Save current search</code>, give it a name, tick <strong>Shared</strong> if colleagues should see it too. From then on it is one click away.</p>
+<h3>Saved searches worth building on day one</h3>
+<ul class="plain">
+  <li>Sales orders where <strong>Sales Team = Point of Sale Louise</strong>, created this year</li>
+  <li>Leasing orders: <strong>Customer is in</strong> (your leasing partners)</li>
+  <li>Deliveries <strong>Waiting / Ready</strong> with <strong>Source location = Louise Stock</strong> — your stock-error hunting list</li>
+</ul>
+<h3>"My" filters</h3>
+<p class="lead">When you log in with your own user, most lists open pre-filtered to <strong>your</strong> records (for example <em>My Quotations</em> in Sales). To see more, remove the filter; to see the shop, add <strong>Sales Team = Point of Sale Louise</strong>.</p>
+
+<h2 id="views">5. Views and pagination</h2>
+<table class="field-table">
+  <tr><td>List</td><td>The workhorse. Click the small gear/columns icon at the right of the header row to add columns: delivery date, expected date, taxes, tags, invoice status, warehouse.</td></tr>
+  <tr><td>Kanban</td><td>Cards in columns. This is how repairs and quotation stages are managed.</td></tr>
+  <tr><td>Calendar</td><td>Scheduled activities and expected delivery dates. Filter first (e.g. Sales Team = Point of Sale Louise), otherwise you see the whole company.</td></tr>
+  <tr><td>Pivot</td><td>Cross-tabulate: sales orders per month, per product category.</td></tr>
+  <tr><td>Graph</td><td>The same data as a chart.</td></tr>
+</table>
+<div class="note"><span class="callout-tag">Pagination trick</span>Odoo shows a page of records at a time (e.g. <code>1-80 / 273</code>). Click the counter and type a bigger range (<code>1-273</code>) to see everything on one page. Essential when hunting for a serial number or a stray transfer.</div>
+
+<h2 id="chatter">6. The chatter: message, log note, activity</h2>
+<p class="lead">At the bottom of nearly every record there are three buttons. The difference between the first two is the single most dangerous confusion in Odoo.</p>
+<table class="field-table cols3">
+  <tr><th>Button</th><th>Who sees it</th><th>Use it for</th></tr>
+  <tr><td>Send message</td><td><strong>The customer</strong> (and followers)</td><td>Anything you want the customer to read.</td></tr>
+  <tr><td>Log note</td><td><strong>Internal only</strong> (and followers)</td><td>Internal remarks, questions to colleagues, explanations of what you did and why.</td></tr>
+  <tr><td>Schedule activity</td><td>You / the assignee</td><td>A to-do with a date: "call this customer tomorrow".</td></tr>
+</table>
+<div class="danger"><span class="callout-tag">Warning</span><em>Send message</em> e-mails the customer. If you meant to write an internal remark and you click <em>Send message</em>, the customer receives it. Always check which tab is active before you type.</div>
+<h3>Tagging colleagues</h3>
+<p class="lead">In a log note, type <strong>@</strong> and the person's name to notify them. Typical uses: the finance colleague for "please tell me when this sales order is paid"; the supply colleague for lead times and part availability; the Head of Sales for system, process and routing questions.</p>
+<div class="why"><span class="callout-tag">Why notifications get ignored</span>Anyone you tag becomes a <strong>follower</strong> of that record and then receives an e-mail for every later change. Long follower lists produce notifications that are not for the reader, and those notifications stop being read. Keep follower lists short and be deliberate about who you tag — you can remove followers from the followers list.</div>
+<h3>Activities</h3>
+<p class="lead">A scheduled activity appears as a coloured button on the record and in the Calendar view. If it turns <strong>red</strong>, it is overdue. Activities are currently little used in the shop — using them is a cheap way to stop losing quotations.</p>
+
+<h2 id="colours">7. Colour codes you must be able to read</h2>
+<h3>Product availability on a line</h3>
+<ul class="plain">
+  <li><strong>Blue / green</strong> — available, and reserved for this order.</li>
+  <li><strong>Red</strong> — <strong>not</strong> available: either you have none, or what you have is already reserved for another order, or no serial number has been assigned yet.</li>
+</ul>
+<div class="rule"><span class="callout-tag">Rule</span>Never validate a delivery or promise a date on a red line without checking why it is red.</div>
+<h3>The e-mail status icon</h3>
+<ul class="plain">
+  <li><strong>Normal / grey</strong> — the e-mail was sent.</li>
+  <li><strong>Red</strong> — the e-mail did <strong>not</strong> reach the recipient. Almost always because the e-mail address on the contact is wrong. Fix the contact, then resend.</li>
+</ul>
+
+<div class="related">Next: <a href="guide_17.html">Create and maintain a customer contact</a> · <a href="guide_42.html">Glossary and click-path quick reference</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

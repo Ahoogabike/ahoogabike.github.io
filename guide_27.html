@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Move a repair through the board</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Move a repair through the board</h1>
+  <div class="subtitle">Moving a task between kanban columns is what communicates with the customer. Know what each move sends before you drag the card.</div>
+
+<h2>1. The kanban stages and the automatic e-mails</h2>
+<table class="field-table cols3">
+  <tr><th>Stage</th><th>What it means</th><th>Automatic e-mail</th></tr>
+  <tr><td>Bike in / To do</td><td>Bike received, work not started</td><td>Customer receives: <em>"We received your bike for repair/maintenance. Our shop will inform you by e-mail once the repair/maintenance has been finished."</em></td></tr>
+  <tr><td>Missing component</td><td>Blocked waiting for a part</td><td>The supply team is notified — but the e-mail only says the task is blocked; <strong>it does not say which part is missing</strong>. Add the part in a log note.</td></tr>
+  <tr><td>Task blocked</td><td>Blocked for another reason (child not present for a kid's bike, customer forgot to leave the key, wheel not available…)</td><td>—</td></tr>
+  <tr><td>Warranty assessment</td><td>Being assessed as a warranty case</td><td>—</td></tr>
+  <tr><td>Test ride before delivery</td><td>Ready, to be road-tested</td><td>—</td></tr>
+  <tr><td>Waiting for customer to pick up</td><td>Finished</td><td>Customer receives: repair done, come and collect it (with opening hours), plus the <strong>7-day pick-up policy</strong></td></tr>
+  <tr><td>Finished tickets</td><td>Delivered and paid</td><td>—</td></tr>
+  <tr><td>Loan bike to do</td><td>An Ahooga-owned loan bike needing maintenance</td><td>—</td></tr>
+</table>
+
+<div class="rule"><span class="callout-tag">Rule</span>After a repair, the bike should be <strong>ridden and tested</strong> before it is handed back. In practice the <em>Test ride before delivery</em> column is often skipped and the card goes straight to <em>Waiting for customer to pick up</em>. Do the test ride even if you skip the column.</div>
+
+<div class="warning"><span class="callout-tag">Missing component</span>When you move a card to <em>Missing component</em>, always add a log note naming the exact part, and tag the supply colleague. Otherwise nobody knows what to order and the bike waits.</div>
+
+<h2>2. The 7-day pick-up policy</h2>
+<p class="lead">The "ready" e-mail states that, due to lack of space, Ahooga cannot keep a bike in the store for more than <strong>7 days</strong>, and asks the customer to inform the shop by e-mail if they cannot collect in time.</p>
+<div class="note"><span class="callout-tag">Why this needs attention</span>The new store is smaller and the space problem gets worse. Review bikes in <em>Waiting for customer to pick up</em> older than 7 days every week and chase them. How the deadline is enforced is a policy for the shop manager to define and communicate.</div>
+
+<h2>3. Recording what you did (and telling the customer)</h2>
+<div class="step"><div class="step-num">1</div><div class="step-body">Write what was actually done in the task description — e.g. <em>"Basic maintenance. Found an issue on the derailleur: damaged, replaced. Punctured tyre: replaced tyre and inner tube."</em></div></div>
+<div class="why"><span class="callout-tag">Why</span>Customers ask "what did you do to my bike?" — often at the till, often weeks later. Having it written down answers the question instantly and defends the invoice.</div>
+<div class="step"><div class="step-num">2</div><div class="step-body">Note that <strong>the customer does not see the task description.</strong> They only see what you send them via <strong>Send message</strong> and the automatic stage e-mails.</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-body">Sending the customer a short summary of the work done is an agreed improvement worth making — it also saves repeating it at the counter.</div></div>
+
+<h2>4. Weekly board hygiene</h2>
+<ul class="checks">
+  <li>Every card in <em>Missing component</em> has a log note naming the part, and something is actually on order.</li>
+  <li>Every card in <em>Task blocked</em> has a reason and a next action.</li>
+  <li>Nothing sits in <em>Waiting for customer to pick up</em> longer than 7 days without a chase.</li>
+  <li>Finished and paid repairs are moved to <em>Finished tickets</em>, so the board shows reality.</li>
+</ul>
+
+<div class="related">Related: <a href="guide_26.html">Take in a repair</a> · <a href="guide_28.html">Add parts and labour, hand back the bike, take the money</a> · <a href="guide_30.html">Handle a warranty job</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

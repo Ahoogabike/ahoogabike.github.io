@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Settle an order and hand over at the till</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Settle an order and hand over at the till</h1>
+  <div class="subtitle">The customer is in front of you to collect a bike or a repair. This is the sequence, including discounts, split payments and what to do when something on the order is missing.</div>
+
+<h2>1. Find and settle the order</h2>
+<div class="step"><div class="step-num">1</div><div class="step-body"><code>Point of Sale → Continue selling</code> (or open the session).</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body"><strong>Actions → Quotation/Order.</strong></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-body">Find the order — scroll the list, or type the <strong>order number</strong> in the search bar.</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-body"><strong>Settle the order.</strong> The order lines are loaded into the till.</div></div>
+
+<h2>2. Serial numbers</h2>
+<p class="lead">If you assigned a serial number to the bike on the delivery in the back office, the POS asks whether you want to <strong>load the serial numbers linked to the sales order</strong>. Say <strong>yes</strong>. The line then shows the serial number and turns <strong>green</strong>.</p>
+<div class="danger"><span class="callout-tag">Red line</span>If the line is red, no bike is matched to the order: the serial number has not been assigned, or you do not have that bike in stock. Fix that <strong>before</strong> taking the money.</div>
+<div class="rule"><span class="callout-tag">Rule</span>Before the customer arrives, assign the physical bike to the order and put a paper on the bike with the customer name and order number. Then this step takes seconds.</div>
+
+<h2>3. Changing the order at the till</h2>
+<p class="lead">You can modify everything in the POS before payment:</p>
+<ul class="plain">
+  <li><strong>Add</strong> a product the customer decides they want (a cushion, a helmet…). Ask — this is where accessory sales are won.</li>
+  <li><strong>Remove</strong> a line, or set its quantity to 0, if they changed their mind — or if you do not have the item (section 5).</li>
+  <li><strong>Change quantity</strong>: click <strong>Quantity</strong> and type the new number.</li>
+</ul>
+
+<h2>4. Discounts — do it the traceable way</h2>
+<div class="rule"><span class="callout-tag">Rule</span>Give a discount by adding the <strong>"Commercial discount"</strong> product as a line with a <strong>negative amount</strong> (quantity 1, price −25 for a €25 discount). Do <strong>not</strong> use the global percentage-discount action in the POS Actions menu.</div>
+<div class="why"><span class="callout-tag">Why</span>Because the discount is a <em>product</em>, every discount is recorded, reportable and reviewable: you can see who discounted how much, on what. The global <code>Actions → Discount → 100%</code> route applies a blanket percentage to the whole order and leaves nothing analysable behind.</div>
+
+<h2>5. When an item on the order is not available</h2>
+<p class="lead">This is the exact situation that produces most of the shop's stock errors: a customer collects a bike, but one or two accessories on the order are not in stock, so the whole delivery cannot be validated through the POS.</p>
+<div class="rule"><span class="callout-tag">Correct handling</span>In the POS, after <strong>Settle the order</strong>, <strong>remove the unavailable line(s)</strong> — or set the quantity to what you are actually handing over. The POS then delivers exactly what left the shop, the customer pays exactly for what they received, and the remaining quantity stays open on the sales order.</div>
+<div class="step"><div class="step-num">5</div><div class="step-body">Then decide, with a <strong>log note</strong> on the order, what happens to the rest: the customer will come back for it, or the line should be set to 0 and the order closed.</div></div>
+<div class="warning"><span class="callout-tag">Write the decision down</span>An order left ambiguous becomes a phantom transfer that someone will be investigating in a year's time.</div>
+
+<h2>6. Taking the payment</h2>
+<div class="step"><div class="step-num">6</div><div class="step-body">Click <strong>Payment</strong>.</div></div>
+<div class="step"><div class="step-num">7</div><div class="step-body">Click <strong>"Invoice"</strong>. <strong>If you forget this, no invoice is generated for the customer.</strong></div></div>
+<div class="step"><div class="step-num">8</div><div class="step-body">Choose the payment method. <strong>Bank</strong> covers card payments; <strong>Cash</strong> for cash. If the customer already paid by bank transfer in advance, choose <strong>Bank transfer</strong>.</div></div>
+<div class="step"><div class="step-num">9</div><div class="step-body"><strong>Split payments are allowed</strong>: click <strong>Cash</strong>, type <code>1000</code>, then click <strong>Bank</strong> — Bank takes the remainder automatically.</div></div>
+<div class="step"><div class="step-num">10</div><div class="step-body"><strong>Validate.</strong> The receipt screen appears — this is what shows on the customer-facing screen in the shop.</div></div>
+<div class="note"><span class="callout-tag">Down payments</span>A down payment already taken appears as a negative line, so the till only asks for the balance.</div>
+
+<h2>7. Before you walk away</h2>
+<ul class="checks">
+  <li>The invoice was requested at payment.</li>
+  <li>Every line handed over is on the ticket; every line not handed over was removed or set to 0.</li>
+  <li>A log note records what happens to anything left open.</li>
+  <li>You did <strong>not</strong> also validate the delivery in the back office (see <a class="ext" href="guide_25.html">POS vs back office</a>).</li>
+</ul>
+
+<div class="related">Related: <a href="guide_23.html">Open and close the till</a> · <a href="guide_25.html">POS vs back office</a> · <a href="guide_28.html">Add parts and labour, hand back the bike, take the money</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

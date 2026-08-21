@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Open and close the till</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Open and close the till</h1>
+  <div class="subtitle">The first and last Odoo actions of every shop day, plus how to read the POS back office afterwards.</div>
+
+<h2>Every morning: open the register</h2>
+<div class="path">Point of Sale → your register → Open register</div>
+<div class="step"><div class="step-num">1</div><div class="step-body">Count the cash in the drawer.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body">Enter the amount as the <strong>opening balance</strong>.</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-body">Add a note if something needs explaining.</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-body"><strong>Open register.</strong> The till is now open and the shop can sell.</div></div>
+
+<h2>Every evening: close the register</h2>
+<div class="path">Point of Sale → Close register</div>
+<div class="step"><div class="step-num">5</div><div class="step-body">You see the <strong>cash opening</strong> amount, the cash movements of the day, the <strong>bank</strong> total, and the expected <strong>cash count</strong>.</div></div>
+<div class="step"><div class="step-num">6</div><div class="step-body">Verify the physical cash against the expected figure.</div></div>
+<div class="step"><div class="step-num">7</div><div class="step-body">Close the session.</div></div>
+<div class="rule"><span class="callout-tag">Before you close</span>Make sure every collection today went through the <strong>POS</strong> and every shipment through the <strong>back office</strong> — and that nothing went through both. See <a class="ext" href="guide_25.html">POS vs back office</a>.</div>
+
+<h2>The POS back office</h2>
+<div class="path">Point of Sale → Orders / Sessions / Reporting</div>
+<table class="field-table">
+  <tr><td>Sessions</td><td>One line per day, with the opening and closing balance and the status (<strong>Closed &amp; Posted</strong> = all good). Open a session to see: number of <strong>pickings</strong>, number of <strong>orders</strong>, total <strong>payments</strong>.</td></tr>
+  <tr><td>Orders</td><td>Every ticket, with its invoiced / posted / cancelled status. From an order you can reach its <strong>picking</strong> and its <strong>invoice</strong>.</td></tr>
+  <tr><td>Reporting</td><td>Sales analysis for the till.</td></tr>
+</table>
+<div class="warning"><span class="callout-tag">Red pickings are your error list</span>A red picking inside a session means the customer paid and took the goods, but the stock transfer was never validated. Review them weekly — the method is in <a class="ext" href="guide_25.html">POS vs back office: keep stock right and investigate a red picking</a>.</div>
+
+<div class="confirm"><span class="callout-tag">To confirm</span>Receipt printing: the shop has no receipt printer set up. This is a hardware/setup item for IT.</div>
+
+<div class="related">Next: <a href="guide_24.html">Settle an order and hand over at the till</a> · <a href="guide_41.html">Shop routines</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

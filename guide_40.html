@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Troubleshooting: symptoms, causes, fixes</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Troubleshooting: symptoms, causes, fixes</h1>
+  <div class="subtitle">Find your symptom in the left column. Most shop problems in Odoo are one of these.</div>
+
+<h2>Odoo and access</h2>
+<table class="field-table cols3">
+  <tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr>
+  <tr><td>An application is missing from my Odoo home screen</td><td>Access rights, or you are in the other environment</td><td>Check the URL first, then ask the Head of Sales — rights are granted per environment. See <a class="ext" href="guide_16.html">Odoo essentials</a>.</td></tr>
+  <tr><td>The customer received an internal remark</td><td>You used <strong>Send message</strong> instead of <strong>Log note</strong></td><td>Nothing to undo — apologise if needed. Check the active tab before typing next time.</td></tr>
+  <tr><td>Customer says "I never got the e-mail"</td><td>Wrong e-mail on the contact, or the booking e-mail differs from the contact e-mail</td><td>Check the red envelope icon in the chatter; look for the mismatch notification on the task; fix the contact and resend.</td></tr>
+  <tr><td>An automatic e-mail went out in the wrong language</td><td>Language not set on the contact</td><td>Set the Language field on the contact. See <a class="ext" href="guide_17.html">Create and maintain a customer contact</a>.</td></tr>
+  <tr><td>VAT on an order is wrong</td><td>Country or fiscal position missing on the contact</td><td>Set the country, then the fiscal position.</td></tr>
+</table>
+
+<h2>Orders, till and invoices</h2>
+<table class="field-table cols3">
+  <tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr>
+  <tr><td>I cannot find an order in the POS</td><td>Its total is €0 — typically a warranty</td><td>Use the warranty route: keep the order positive, settle it, then add the negative warranty lines at the till. See <a class="ext" href="guide_30.html">Handle a warranty job</a>.</td></tr>
+  <tr><td>No invoice was created for a POS sale</td><td>The <strong>Invoice</strong> button was not clicked at payment</td><td>Always click Invoice before choosing the payment method. See <a class="ext" href="guide_24.html">Settle an order and hand over at the till</a>.</td></tr>
+  <tr><td>An invoice is missing the labour</td><td>Services are not invoiced automatically from the back office</td><td>Add the labour line manually before confirming. See <a class="ext" href="guide_22.html">Invoice from the back office</a>.</td></tr>
+  <tr><td>Revenue is not showing in the shop's numbers</td><td><strong>Sales Team</strong> on the order is not <em>Point of Sale Louise</em></td><td>Fix the field, and audit older orders. See <a class="ext" href="guide_38.html">Sales reporting and saved filters</a>.</td></tr>
+  <tr><td>A duplicate product appeared in the catalogue</td><td>Someone pressed Enter on free text in an order line</td><td>Archive it and tell the Head of Sales. Always select an existing product.</td></tr>
+  <tr><td>A duplicate contact exists for one customer</td><td>Created without checking the proposals first</td><td>Do not merge blindly — flag it, because a customer's history is split across both records.</td></tr>
+</table>
+
+<h2>Stock and transfers</h2>
+<table class="field-table cols3">
+  <tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr>
+  <tr><td>A product line is <strong>red</strong> in a quotation or the POS</td><td>Not in stock, already reserved, or no serial number assigned</td><td>Check <code>Inventory → Products → On Hand</code>; assign the serial number on the delivery. See <a class="ext" href="guide_20.html">Confirm the order and prepare the bike</a>.</td></tr>
+  <tr><td>A <strong>picking is red</strong> in a POS session</td><td>Paid and handed over, but the stock transfer was never validated</td><td>Investigate per <a class="ext" href="guide_25.html">POS vs back office</a> — usually a blocked line or double handling.</td></tr>
+  <tr><td>Stock says we have a part, the shelf is empty</td><td>Fitted to a repaired bike awaiting collection, or given out without a transfer</td><td>See <a class="ext" href="guide_28.html">Add parts and labour</a> and <a class="ext" href="guide_36.html">Do a physical inventory count</a>.</td></tr>
+  <tr><td>Stock shows a <strong>negative</strong> quantity</td><td>Something was sold that the system did not have</td><td>Correct in the physical inventory and find the missing receipt.</td></tr>
+  <tr><td>A bike is physically here but Odoo says it is elsewhere</td><td>An untracked move</td><td>Look up the serial number's traceability <em>before</em> adjusting anything. See <a class="ext" href="guide_35.html">Find a bike by serial number</a>.</td></tr>
+  <tr><td>Old <strong>Waiting</strong> transfers from Louise Stock</td><td>Orders never closed, accessories never collected, duplicates</td><td>Work the list monthly. See <a class="ext" href="guide_37.html">Stock discipline and stale transfers</a>.</td></tr>
+  <tr><td>I need a bike today and it is not in the shop</td><td>Not possible — 3–4 days from the warehouse (up to a week today)</td><td>Tell the customer the real date; keep the right stock in the shop. See <a class="ext" href="guide_19.html">Check stock before you promise anything</a>.</td></tr>
+</table>
+
+<div class="related">Related: <a href="guide_42.html">Glossary and click-path quick reference</a> · <a href="guide_41.html">Shop routines</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

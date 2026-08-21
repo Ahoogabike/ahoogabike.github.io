@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Create and maintain a customer contact</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Create and maintain a customer contact</h1>
+  <div class="subtitle">A contact is not an address book entry. In Odoo the contact record drives automatic behaviour — VAT, e-mail language, and whether the customer hears from you at all.</div>
+
+<h2>1. Why contact data quality decides everything downstream</h2>
+<table class="field-table">
+  <tr><td>Country</td><td>Determines the <strong>fiscal position</strong>, which determines the <strong>VAT rate</strong> applied to every order for that customer. Belgium → 21%. France → 20%. <strong>No country → Odoo does not know what to do.</strong></td></tr>
+  <tr><td>Language</td><td>Determines the language of every automatic e-mail Odoo sends that customer (quotation, repair received, repair ready, invoice). No language set → the customer gets the wrong language.</td></tr>
+  <tr><td>E-mail address</td><td>Determines whether the customer receives anything at all. A wrong e-mail is the single most common cause of "I never heard from you" complaints.</td></tr>
+</table>
+<div class="rule"><span class="callout-tag">Rule</span>Fill in as much as you can, always: name, street, zip, city, <strong>country</strong>, phone, mobile, <strong>e-mail</strong>, <strong>language</strong>. Two minutes here saves an hour later.</div>
+
+<h2>2. Creating a contact — two ways</h2>
+<h3>A. From the Contacts app</h3>
+<div class="path">Contacts → New</div>
+<div class="step"><div class="step-num">1</div><div class="step-body">Choose <strong>Individual</strong> or <strong>Company</strong>.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body">Fill in the fields below and save.</div></div>
+<h3>B. On the fly from a quotation — what you will do 90% of the time</h3>
+<div class="step"><div class="step-num">3</div><div class="step-body">In a new quotation, start typing the customer name in the <strong>Customer</strong> field.</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-body">If the contact exists, Odoo proposes it — <strong>select it</strong>.</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-body">If not, Odoo offers <em>Create "name"</em> and <em>Create and edit…</em>. Choose <strong>Create and edit…</strong>; the contact form opens in a pop-up, you fill it in, <strong>Save &amp; Close</strong>, and you are back in the quotation with the customer set.</div></div>
+<div class="danger"><span class="callout-tag">Warning — duplicates</span>Always type a few letters and look at the proposals <em>before</em> creating. Duplicate contacts split a customer's history in two, so you no longer see their real purchase and repair record. Duplicates are already a known problem in the database — do not add to it.</div>
+
+<h2>3. The fields on a contact</h2>
+<h3>Header / main block</h3>
+<ul class="plain">
+  <li>Individual or Company</li>
+  <li>Name, and for an individual the <strong>company</strong> they belong to, if relevant</li>
+  <li>Address: street, zip, city, <strong>country</strong></li>
+  <li><strong>Phone</strong> and <strong>Mobile</strong> — once the country is Belgium, a locally typed number is understood and normalised to +32</li>
+  <li>WhatsApp — mainly used for B2B and dealers, rarely for shop customers</li>
+  <li><strong>E-mail</strong></li>
+  <li><strong>Language</strong></li>
+  <li>Tags</li>
+</ul>
+<h3>Tab: Contact &amp; Addresses</h3>
+<p class="lead">Child contacts. This is how B2B customers are structured: one parent company with many child records for <strong>delivery addresses</strong> and <strong>contact people</strong>.</p>
+<div class="note"><span class="callout-tag">Example</span>A dealer with several shops is one company record containing a child address for each shop. When you create a sales order you select the company as the customer and then pick the correct <strong>Delivery address</strong> child record — otherwise the goods go to the wrong shop.</div>
+<h3>Tab: Sales &amp; Purchase</h3>
+<ul class="plain">
+  <li><strong>Salesperson</strong> responsible for this customer</li>
+  <li><strong>Payment terms</strong> (immediate payment, 30 days…)</li>
+  <li>Payment method (optional)</li>
+  <li><strong>Price list</strong> — each price list is a different margin level. B2C shop customers use the <strong>Public Pricelist</strong>.</li>
+  <li><strong>Delivery method</strong></li>
+  <li>A separate block of <strong>vendor</strong> fields, used when the contact is a supplier rather than a customer</li>
+</ul>
+<h3>Other tabs</h3>
+<ul class="plain">
+  <li><strong>Accounting</strong> — bank accounts and accounting defaults.</li>
+  <li><strong>Internal Notes</strong> — free text, internal only.</li>
+  <li><strong>Partner Assignment</strong> — mainly B2B / dealer network use.</li>
+</ul>
+<p class="lead"><strong>Fiscal position</strong> sits on the Sales &amp; Purchase / Accounting side. If you want <em>all</em> orders for this customer to use one fiscal regime, set it here.</p>
+
+<h2>4. Fiscal positions in practice</h2>
+<table class="field-table cols3">
+  <tr><th>Situation</th><th>Fiscal position</th><th>VAT</th></tr>
+  <tr><td>Sale in Belgium, B2C or B2B</td><td><strong>Régime national</strong> / Regime EU privé</td><td>21%</td></tr>
+  <tr><td>B2C customer in another EU country</td><td><strong>OSS B2C</strong></td><td>Local VAT rate of the customer's country (Ahooga pays it in that country)</td></tr>
+  <tr><td>B2B company outside Belgium with a valid VAT number</td><td>Intra-community / export regime</td><td>0%</td></tr>
+</table>
+<div class="why"><span class="callout-tag">Why</span>The fiscal position is what makes VAT correct automatically. If you leave it empty on a foreign contact you will either overcharge the customer or create an accounting correction for the finance colleague later.</div>
+
+<h2>5. What a contact tells you at a glance</h2>
+<p class="lead">Open any customer and read the smart buttons: how many sales, how many POS tickets, total invoiced, how many repair tasks. Before you answer any customer question, look at this. It answers most of them.</p>
+
+<div class="related">Next: <a href="guide_18.html">Create a quotation</a> · Related: <a href="guide_16.html">Odoo essentials for the shop team</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

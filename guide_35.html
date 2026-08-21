@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Find a bike by serial number</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Find a bike by serial number</h1>
+  <div class="subtitle">Every bike gets a serial number at manufacturing. It is the most reliable thing in the database — use it before you adjust anything.</div>
+
+<h2>1. Where to look</h2>
+<div class="path">Inventory → Products → Lots / Serial Numbers</div>
+<p class="lead">From a serial number you can see:</p>
+<ul class="plain">
+  <li>the <strong>last delivery partner</strong> — who has it</li>
+  <li>every <strong>transfer</strong> it went through: warehouse → partner, returns, internal moves</li>
+  <li>the <strong>sales order</strong> it belongs to</li>
+  <li>full <strong>traceability</strong> of movements</li>
+</ul>
+<div class="note"><span class="callout-tag">Pagination trick</span>The list is long. Click the record counter (e.g. <code>1-80 / 273</code>) and type a bigger range to see everything on one page.</div>
+
+<h2>2. Uses in daily work</h2>
+<div class="step"><div class="step-num">1</div><div class="step-body">A bike is in front of you but your stock says zero → look up the serial number and see where Odoo thinks it is.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body">Before you adjust anything, you need to know what Odoo <em>believes</em> about that bike.</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-body">Filter the list by location to see, for example, all bikes currently in <strong>Louise Stock</strong>. Compare that list with the shop floor.</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-body">A customer arriving for a repair or a warranty claim: the serial number gives you the bike's history, including which order it came from.</div></div>
+
+<div class="rule"><span class="callout-tag">Rule</span>Never "correct" a bike's location by guessing. Read the traceability first — it usually tells you exactly what happened.</div>
+
+<h2>3. Assigning a serial number before handover</h2>
+<p class="lead">A serial number also has to be <strong>assigned to the order</strong> before the customer collects, or the POS line stays red and the till step fails. See <a class="ext" href="guide_20.html">Confirm the order and prepare the bike</a>.</p>
+
+<h2>4. What the numbers do and do not tell you</h2>
+<div class="warning"><span class="callout-tag">Treat totals with suspicion</span>Location figures for bikes were described in training as indicative rather than reliable — for example about 47 in Louise and 80+ in the warehouse, with the honest comment that the figures were probably not exact. The serial-number traceability of an individual bike is far more trustworthy than any location total.</div>
+<p class="lead">For a live and accurate view of finished bikes, use the internal Production Planner (see <a class="ext" href="guide_39.html">The tools around Odoo</a>).</p>
+
+<div class="related">Related: <a href="guide_19.html">Check stock before you promise anything</a> · <a href="guide_36.html">Do a physical inventory count</a> · <a href="guide_40.html">Troubleshooting</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

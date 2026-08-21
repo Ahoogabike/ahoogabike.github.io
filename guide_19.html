@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Check stock before you promise anything</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Check stock before you promise anything</h1>
+  <div class="subtitle">Where to look for bikes, parts and accessories, how to read the numbers, and what you can honestly promise a customer.</div>
+
+  <div class="rule"><span class="callout-tag">The most repeated commercial rule</span>For accessories, <strong>sell only what is physically in the shop</strong>. If you have 4 locks, you can write 4 orders with a lock. Not 5.</div>
+
+<h2>1. Why this rule exists</h2>
+<div class="why"><span class="callout-tag">A real case</span>The shop had one lock left, on display. A customer wanted it; the salesperson said "that one is our display, but I'll order one and give it to you with your bike." The lock turned out to be out of stock at the supplier. The order and the invoice were already made. The customer had to be called back and asked to choose something else, and the whole order was blocked. Supplier lead times are not reliable enough to promise anything you cannot see.<br><br>There is a direct financial cost too: once Ahooga has committed to a part it does not have, and the supplier is out of stock, it gets bought on the secondary market — sometimes above the price Ahooga is selling it for.<br><br>A second version of the same problem: the accessory is ordered, the bike is ready, the customer collects the bike and never returns for the accessory. The order stays open forever, the transfer is never validated, and your stock drifts. Meanwhile the customer bought their helmet elsewhere, because they needed it that day.</div>
+<p class="lead">A consequence worth acting on: <strong>the fewer accessory references you carry, the easier this is.</strong> With around 20 well-chosen accessories always in stock, this problem disappears.</p>
+
+<h2>2. Where to look</h2>
+<table class="field-table">
+  <tr><th>What you need</th><th>Where to look</th></tr>
+  <tr><td>Finished bikes: what is free to use, and what is arriving in the next 2 weeks</td><td>Internal tool → <strong>Production Planner → Stock</strong>. This is the most accurate source for bikes.</td></tr>
+  <tr><td>Parts and accessories: how many, where</td><td><code>Inventory → Products → Products</code> → open the product → <strong>On Hand</strong> smart button → shows quantity per internal location, and how much is <strong>reserved</strong>.</td></tr>
+  <tr><td>Future availability of a part</td><td>On the product, the <strong>Forecasted</strong> figure; and via the <strong>Purchase</strong> smart button, the purchase order and its expected delivery date.</td></tr>
+  <tr><td>A specific bike by serial number</td><td><code>Inventory → Products → Lots / Serial Numbers</code> — see <a class="ext" href="guide_35.html">Find a bike by serial number</a>.</td></tr>
+</table>
+<div class="rule"><span class="callout-tag">For bikes, use the internal tool</span>For finished bikes the Production Planner view is more accurate than reading Odoo stock, and it is live — reserved bikes are already excluded. For parts and accessories the tool has no view; use Odoo.</div>
+
+<h2>3. Reading the numbers</h2>
+<div class="step"><div class="step-num">1</div><div class="step-body"><strong>On Hand 7 / Forecasted 5</strong> means 7 physically present, 2 already reserved for open orders.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body">Group <strong>On Hand</strong> by location to see how much is in <strong>Louise Stock</strong> versus the Anderlecht warehouse.</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-body">Remember that stock also sits in places you cannot sell from — for example a "bicycle show" location holding bikes that are away at an event.</div></div>
+<div class="danger"><span class="callout-tag">Group by location before you believe a total</span>A product total of 17 on hand can be 15 in the warehouse, 0 at Louise and the rest at an event. A total tells you nothing about what you can hand over today.</div>
+<div class="warning"><span class="callout-tag">Stock accuracy today</span>Odoo stock is not fully reliable — there are known structural causes, listed in <a class="ext" href="guide_36.html">Do a physical inventory count</a> and <a class="ext" href="guide_37.html">Stock discipline and stale transfers</a>. Treat a figure as a starting point, and for anything you are about to promise, confirm it physically.</div>
+
+<h2>4. What you can promise: lead times</h2>
+<ul class="plain">
+  <li><strong>Today</strong>, supply from the Anderlecht warehouse to the shop runs roughly <strong>once a week</strong>. A bike that is not in the shop can realistically take <strong>up to a week</strong> — that is what you should tell a customer until the new warehouse is live.</li>
+  <li><strong>With the new external warehouse</strong> the contract is 24-hour shipment; add 1–2 days for the carrier, so about <strong>3–4 days</strong> to the shop.</li>
+  <li><strong>Same-day or afternoon delivery from the warehouse is not possible.</strong> If you do not have it in the shop, you cannot hand it over today.</li>
+  <li>The real constraint is usually not shipping speed but <strong>whether the warehouse has the item at all</strong>.</li>
+</ul>
+<div class="warning"><span class="callout-tag">Do not quote the lead-time field</span>Products carry a customer lead time per variant (<code>Inventory → Products → Variants</code>), but these figures are not maintained. Do not quote them to a customer without checking.</div>
+
+<h2>5. If the item is not in the shop</h2>
+<div class="step"><div class="step-num">4</div><div class="step-body">Check whether the warehouse has it (see above), not just whether Odoo shows a company total.</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-body">If it is in the warehouse, request it — see <a class="ext" href="guide_34.html">Request stock from the warehouse and receive goods</a>.</div></div>
+<div class="step"><div class="step-num">6</div><div class="step-body">Tell the customer the realistic date, not the hoped-for one.</div></div>
+<div class="step"><div class="step-num">7</div><div class="step-body">On the order, set the shipping policy to <strong>As soon as possible</strong> if the bike can go now and the accessory can follow — otherwise one missing accessory blocks the bike.</div></div>
+
+<div class="related">Related: <a href="guide_18.html">Create a quotation</a> · <a href="guide_34.html">Request stock from the warehouse and receive goods</a> · <a href="guide_39.html">The tools around Odoo</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

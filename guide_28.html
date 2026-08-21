@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Add parts and labour, hand back the bike, take the money</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Add parts and labour, hand back the bike, take the money</h1>
+  <div class="subtitle">The billing half of a repair — and the one stock behaviour that catches everybody out.</div>
+
+<h2>1. Add the parts and the labour</h2>
+<p class="lead">At the top of the repair task, open the products / order section and add:</p>
+<div class="step"><div class="step-num">1</div><div class="step-body"><strong>Every part used</strong> — pick the exact product. Note that families share components: the Modular and Urban share the same frame and almost all components, so parts are often listed once for both.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body"><strong>Labour</strong> — add the labour/maintenance service line for the time spent.</div></div>
+<p class="lead">As soon as you add products, Odoo creates a <strong>confirmed sales order</strong> on the task, and a smart button appears with the order number. That number is what you use at the till.</p>
+<div class="rule"><span class="callout-tag">Never skip the labour line</span>Parts without labour means giving the work away. If the job took time, the time is a line.</div>
+
+<h2>2. The repair stock trap</h2>
+<div class="danger"><span class="callout-tag">Warning</span>The components you fit to the bike are <strong>not</strong> deducted from stock when you fit them. They are deducted when the <strong>delivery is done</strong> — that is, when the customer collects the bike and you settle the order.<br><br>So a bike sitting in <em>Waiting for customer to pick up</em> has a new derailleur fitted to it while Odoo still counts that derailleur on your shelf.</div>
+<div class="rule"><span class="callout-tag">Consequence for inventory counts</span>When you do an inventory count, you must <strong>also count the parts already fitted to repaired bikes that have not yet been collected</strong> — otherwise you will "find" a shortage that is not real, correct it, and make the stock worse.</div>
+<div class="confirm"><span class="callout-tag">Open point</span>Whether the repair app can deplete components on validation of the repair (operation type <em>Louise repairs</em>) instead of on collection was raised but not confirmed. Confirm this before relying on either behaviour.</div>
+
+<h2>3. Hand the bike back and take the money</h2>
+<div class="path">Point of Sale → Open register → Actions → Quotation/Order → enter the repair's sales order number → Settle the order → Payment → Invoice → Bank → Validate</div>
+<p class="lead">Exactly the same as a bike delivery. The repair's sales order behaves like any other sales order — including the rule that a collection goes through the POS and never also through the back office. See <a class="ext" href="guide_24.html">Settle an order and hand over at the till</a>.</p>
+<div class="step"><div class="step-num">3</div><div class="step-body">Before handing over, do the test ride if it has not been done.</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-body">Tell the customer what was done — the task description is your script.</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-body">Move the task to <strong>Finished tickets</strong>.</div></div>
+
+<h2>4. Prepayments and phone quotes</h2>
+<ul class="plain">
+  <li><strong>A customer asks for a repair quote by phone.</strong> Customer service gives a price (parts + inner tube + 30 minutes labour). Make sure that price ends up written on the task, so the shop and the office quote the same number.</li>
+  <li><strong>A customer pays in advance by bank transfer</strong> for a repair. The bike is not repaired yet, but the money has arrived. Treat it as a normal POS case at collection: settle the order and click <strong>Bank transfer</strong> as the payment method, since the transfer has already been made. Do not invent a new procedure for it.</li>
+</ul>
+
+<h2>5. Loan bikes</h2>
+<ul class="plain">
+  <li>Ahooga has roughly 8–10 loan bikes.</li>
+  <li>They are currently given <strong>free of charge</strong>, typically when a repair cannot be done quickly (for example a motor to replace with a part missing for a week) and the customer cannot be without a bike.</li>
+  <li>Loan bikes need maintenance themselves, and that work goes through the <strong>Loan bike to do</strong> stage in the same project.</li>
+</ul>
+<div class="confirm"><span class="callout-tag">To confirm</span>There is no written rule yet on who gets a loan bike, for how long, or whether a maintenance-only customer can have one. Until there is, check with the shop manager before promising one. See <a class="ext" href="guide_43.html">Open points and decisions</a>.</div>
+
+<div class="related">Related: <a href="guide_27.html">Move a repair through the board</a> · <a href="guide_30.html">Handle a warranty job</a> · <a href="guide_36.html">Do a physical inventory count</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

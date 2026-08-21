@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Handle a warranty job</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Handle a warranty job</h1>
+  <div class="subtitle">The customer pays nothing — but the goods still have to move in Odoo. This is where the shop loses the most stock accuracy.</div>
+
+  <div class="note"><span class="callout-tag">Warranty cover, for reference</span>5 years frame and fork; 2 years on other components including battery and motor. Wear parts, misuse, improper assembly, accident and modification are excluded. The detailed warranty process and the dealer warranty documentation live in the SharePoint knowledge library.</div>
+  <div class="confirm"><span class="callout-tag">Still to be trained</span>How to <em>assess</em> whether a case is warranty or not, and what information to collect, is covered in a separate session. Ask the Head of Sales for it, and for the written description of the agreed warranty treatment.</div>
+
+<h2>1. Book the repair as normal</h2>
+<div class="step"><div class="step-num">1</div><div class="step-body">Exactly like any repair (see <a class="ext" href="guide_26.html">Take in a repair</a>): the customer books, the task is created, you record the job — e.g. <em>"MAX controller broken"</em>.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body">Add the <strong>parts</strong> and the <strong>labour</strong>. Odoo creates the sales order — for example €169,85 of parts + €59,95 of labour.</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-body">Move the task to <strong>Warranty assessment</strong> while it is being judged.</div></div>
+
+<h2>2. Zero the order — always in two lines</h2>
+<p class="lead">The customer must pay nothing, so you add <strong>negative</strong> lines:</p>
+<table class="field-table cols3">
+  <tr><th>Product</th><th>Quantity</th><th>Price</th></tr>
+  <tr><td>Warranty for labour</td><td>1</td><td>− the labour amount (e.g. −59,95)</td></tr>
+  <tr><td>Warranty for parts</td><td>1</td><td>− the parts amount (e.g. −169,85)</td></tr>
+</table>
+<div class="rule"><span class="callout-tag">Rule — never net it out in one line</span>Labour and parts are <strong>different</strong> in the accounts: a service versus goods, different accounts, different cost analysis. Always use the two separate warranty products so warranty cost can be split into labour and material.</div>
+
+<h2>3. The €0 problem, and the two ways round it</h2>
+<p class="lead"><strong>The problem:</strong> an order whose total is €0 cannot be found or settled in the POS. The POS registers payments; there is nothing to pay. So the "normal" route is closed.</p>
+
+<h3>Route B — through the POS (preferred)</h3>
+<p class="lead">The idea: keep the order non-zero when you settle it, then apply the warranty credits at the till so the total lands on 0.</p>
+<div class="step"><div class="step-num">4</div><div class="step-body">On the sales order, keep the parts and labour lines (the order has a positive value). Add a note/reference such as "warranty" and <strong>Confirm</strong>.</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-body"><code>Point of Sale → Actions → Quotation/Order</code> → enter the order number → <strong>Settle the order</strong>. Because the order is not €0, it is found normally.</div></div>
+<div class="step"><div class="step-num">6</div><div class="step-body">In the POS, add the <strong>Warranty for labour</strong> and <strong>Warranty for parts</strong> products as <strong>negative</strong> lines (quantity 1, price −59,95 and −169,85). The ticket total becomes <strong>0</strong>.</div></div>
+<div class="step"><div class="step-num">7</div><div class="step-body"><strong>Payment → Bank → Validate.</strong></div></div>
+<p class="lead">The result is a €0 ticket that nevertheless <strong>moves the goods out of stock</strong> and <strong>records the labour</strong> — which is exactly what was missing before.</p>
+<div class="note"><span class="callout-tag">Set-up note</span>For this to work, the two warranty products must be <strong>available in the Point of Sale</strong> (the <em>Point of Sale</em> checkbox on the product form). If a warranty product does not appear at the till, that is the cause.</div>
+
+<h3>Route A — back office (necessary when the goods are shipped)</h3>
+<div class="step"><div class="step-num">8</div><div class="step-body">Handle the delivery entirely in the back office and make sure that <strong>every</strong> transfer line on that sales order is set to <strong>Done</strong>.</div></div>
+<div class="danger"><span class="callout-tag">Warning</span>If a transfer is not <strong>Done</strong>, <strong>no stock depletion happens</strong> — the part is fitted to the customer's bike and still counted in your stock. This is the single biggest source of wrong stock in the shop: at one point there were more than 170 open transfers from Louise with the goods already delivered. Note also that some products are configured as <strong>two-step</strong> deliveries, so a single warranty order can generate more than one transfer — <strong>all</strong> of them must be Done.</div>
+<div class="rule"><span class="callout-tag">Which route</span>Route B is the agreed way forward for warranty on a walk-in customer. Route A remains necessary whenever the goods are <strong>shipped</strong> rather than collected.</div>
+
+<h2>4. The mistake to watch for</h2>
+<div class="danger"><span class="callout-tag">The classic warranty error</span><em>"It's a warranty, the bike is free, hand it over and start the next one."</em> The parts are never delivered in the system. Your stock is wrong from that moment on, and it stays wrong until someone spends a day investigating.</div>
+<div class="rule"><span class="callout-tag">Make it a habit</span>A warranty job is not finished until the goods have moved in Odoo.</div>
+
+<div class="related">Related: <a href="guide_28.html">Add parts and labour, hand back the bike, take the money</a> · <a href="guide_37.html">Stock discipline and stale transfers</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

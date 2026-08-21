@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Create a quotation</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Create a quotation</h1>
+  <div class="subtitle">From the sales conversation to a clean quotation in Odoo — including the two product traps and the tab that decides whether your shop gets credited for the sale.</div>
+
+<h2>1. The sales conversation, before Odoo</h2>
+<div class="rule"><span class="callout-tag">Rule</span>At the end of a test ride, ask <strong>"Are you ready to purchase?"</strong> — not "Would you like a quotation?".<br><br>"Would you like a quotation?" gives the customer a binary choice between nothing and a piece of paper. "Are you ready to purchase?" lets them simply say yes, and many do. If they say no, you can still offer the quotation. When this change was introduced in the shop, sales rose by roughly 20–30%.</div>
+<p class="lead">The same logic applies to accessories: ask. A customer leaving without a helmet is not only lost margin, it is a customer who has to come back for something they should have left with.</p>
+
+<h2>2. Creating the quotation</h2>
+<div class="path">Sales → New</div>
+<div class="step"><div class="step-num">1</div><div class="step-body"><strong>Customer</strong> — select the existing contact or create it (see <a class="ext" href="guide_17.html">Create and maintain a customer contact</a>).</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body"><strong>Invoice address</strong> and <strong>Delivery address</strong> — for a shop customer picking up in store, leave the defaults. For B2B and leasing, set them deliberately.</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-body"><strong>Quotation template</strong> (optional). Templates exist but are currently B2B-oriented. You can create your own under <code>Sales → Configuration → Quotation Templates</code>.</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-body"><strong>Expiration</strong> — how long the offer is valid (e.g. 30 days).</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-body"><strong>Price list</strong> — <strong>Public Pricelist</strong> for B2C.</div></div>
+<div class="step"><div class="step-num">6</div><div class="step-body"><strong>Payment terms</strong> — B2C normally pay in full on collection.</div></div>
+<div class="step"><div class="step-num">7</div><div class="step-body"><strong>Order lines</strong> — add products (section 3 below). You can also <strong>Add a section</strong> (a heading inside the order) and <strong>Add a note</strong> (a line of text on the document).</div></div>
+<div class="step"><div class="step-num">8</div><div class="step-body"><strong>Other Info tab</strong> — do not skip this. See section 4.</div></div>
+
+<h2>3. Adding products — the two big traps</h2>
+<h3>Trap 1: creating a product by accident</h3>
+<p class="lead">When you type in a product line, Odoo offers matching products. If you type a product name and press <strong>Enter</strong> without selecting a real product from the list, <strong>Odoo creates a brand-new product</strong> with that name.</p>
+<div class="danger"><span class="callout-tag">Warning</span>A phantom product has no stock, no cost, no category, no routing and no accounting account — and it silently pollutes the catalogue and every stock and margin report. <strong>Always select an existing product from the dropdown.</strong> If you cannot find it, use <strong>Search more…</strong>, and if it truly does not exist, ask before creating anything.</div>
+<p class="lead">Practical tips while searching:</p>
+<ul class="plain">
+  <li>Use <strong>Search more…</strong> to see the full list — the dropdown only shows the first few matches.</li>
+  <li>Drag the column border in the <em>Search more</em> dialog to widen the product-name column; variant names are long and otherwise unreadable.</li>
+  <li>Products have <strong>internal reference</strong> codes. Ahooga does not maintain EAN codes on products, so search by name or internal reference.</li>
+</ul>
+<h3>Trap 2: variants</h3>
+<p class="lead">Most Ahooga products exist as <strong>variants</strong>, and the variant is what carries the stock. For an E-MAX Alfine you must choose the right combination of, for example:</p>
+<ul class="plain">
+  <li>Colour: the standard colour, a custom colour, or a non-standard colour</li>
+  <li><strong>With rack</strong> or <strong>without rack</strong></li>
+</ul>
+<p class="lead">Choosing "E-MAX Alfine" generically is not enough; pick the exact variant, then confirm the specific attribute values (colour, size) in the configurator pop-up.</p>
+<div class="note"><span class="callout-tag">Note on product structure</span>In 2026 the range is configured with standard / non-standard / custom colour variants. From next year the plan is <strong>one product line per colour</strong>, which will make selection simpler.</div>
+
+<h2>4. The "Other Info" tab — the most important tab in the quotation</h2>
+<p class="lead">Everything here is invisible on the printed quotation and yet it determines revenue reporting and stock movements. Fill it in every time.</p>
+<table class="field-table cols3">
+  <tr><th>Field</th><th>What to set</th><th>Why it matters</th></tr>
+  <tr><td>Salesperson</td><td><strong>You</strong></td><td>Individual sales reporting.</td></tr>
+  <tr><td>Sales Team</td><td><strong>Point of Sale Louise</strong></td><td>If this is wrong, the revenue is credited to another team and your shop's numbers are wrong. This error is already present in historical data.</td></tr>
+  <tr><td>Customer reference</td><td>e.g. the rider's name on a leasing order</td><td>Lets you find a leasing order by the person's name.</td></tr>
+  <tr><td>Tags</td><td><strong>Test ride</strong> (customer booked a test ride online) or <strong>Walk-in test ride</strong> (came in without an appointment)</td><td>The two tags the shop should use. They let you measure conversion: how many booked test rides became sales, and how many walk-ins became sales. Tagging the bike model is no longer necessary.</td></tr>
+  <tr><td>Fiscal position</td><td>Régime national for Belgium</td><td>Correct VAT.</td></tr>
+  <tr><td>Project</td><td>Optional</td><td>Only if the order belongs to a specific project.</td></tr>
+  <tr><td>Warehouse</td><td><strong>Louise</strong> when you sell from the shop</td><td>This is where the stock will be taken from. If you leave the Anderlecht warehouse here, the system will ship from Anderlecht instead of depleting your shop stock.</td></tr>
+  <tr><td>Shipping policy</td><td><strong>When all products are ready</strong> or <strong>As soon as possible</strong></td><td><em>As soon as possible</em> lets Odoo propose a partial delivery as soon as any line is available (deliver the bike now, the accessory later). <em>When all products are ready</em> waits for everything — which is exactly how a single missing accessory ends up blocking the delivery of a whole bike.</td></tr>
+  <tr><td>Delivery date</td><td>The date agreed with the customer</td><td>If you set a date earlier than Odoo's own expected date, Odoo warns you that you may not be able to honour it.</td></tr>
+</table>
+
+<h2>5. Sending the quotation and following it up</h2>
+<div class="step"><div class="step-num">9</div><div class="step-body">Click <strong>Send by e-mail</strong>. A standard quotation e-mail template opens — you can personalise the text. The PDF is attached; click it to check how it looks before sending.</div></div>
+<div class="step"><div class="step-num">10</div><div class="step-body">Watch the chatter: <strong>Quotation viewed</strong> appears when the customer opens it, and again each time. Frequent re-opening is a buying signal — use it to time your follow-up.</div></div>
+<div class="step"><div class="step-num">11</div><div class="step-body">If the customer replies through the portal, their message appears in the chatter.</div></div>
+<div class="step"><div class="step-num">12</div><div class="step-body">Check the envelope icon to confirm the e-mail was actually delivered.</div></div>
+<div class="step"><div class="step-num">13</div><div class="step-body">Follow up: send a second e-mail after about 3 days, and/or <strong>Schedule activity → Call</strong> with a date.</div></div>
+<div class="rule"><span class="callout-tag">Free revenue</span>Systematic follow-up on viewed-but-unanswered quotations is the cheapest sales work available. Nothing in the shop currently does this systematically.</div>
+<p class="lead"><strong>Duplicating a quotation:</strong> the cog/gear menu at the top of the record → <strong>Duplicate</strong>. Useful for variants of the same offer, and for the warranty and leasing routes.</p>
+
+<div class="related">Next: <a href="guide_19.html">Check stock before you promise anything</a> · <a href="guide_20.html">Confirm the order and prepare the bike</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

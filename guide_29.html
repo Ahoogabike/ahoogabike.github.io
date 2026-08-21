@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Handle helpdesk tickets and customer questions</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Handle helpdesk tickets and customer questions</h1>
+  <div class="subtitle">You do not open tickets — you get pulled into them. Here is how they work and what is expected of you.</div>
+
+<h2>1. How tickets reach you</h2>
+<div class="path">Helpdesk → My Tickets</div>
+<ul class="plain">
+  <li>You are <strong>not</strong> responsible for opening tickets. Customer service does that.</li>
+  <li>You get involved when someone <strong>assigns a ticket to you or tags you</strong> — typically for questions like "when will my bike be delivered / be ready?", "can I book an appointment?", "can you repair my bike in the shop?".</li>
+  <li>You are notified inside Odoo. Use <strong>My Tickets</strong> to see yours; you can also look at a colleague's tickets to balance the load.</li>
+</ul>
+
+<h2>2. Working a ticket</h2>
+<p class="lead">A ticket works exactly like a project task: <strong>messages</strong>, <strong>log notes</strong>, <strong>activities</strong>.</p>
+<div class="step"><div class="step-num">1</div><div class="step-body">Read the whole thread before replying — the customer has often already been answered once.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body">Open the customer's contact and read the smart buttons: sales, POS tickets, invoiced total, repair tasks. Most delivery and repair questions are answered there.</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-body">Answer the customer with <strong>Send message</strong>. Use <strong>Log note</strong> for anything internal.</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-body">If you cannot answer today, <strong>Schedule activity</strong> with a date rather than leaving it open.</div></div>
+<div class="danger"><span class="callout-tag">Warning</span><em>Send message</em> e-mails the customer; <em>Log note</em> does not. Check which tab is active before you type.</div>
+
+<h2>3. Questions you can answer yourself</h2>
+<table class="field-table">
+  <tr><td>"When will my bike be ready?"</td><td>Open <code>Project → Repair Louise</code>, find the task, read the stage. Do not promise a time if the card is in <em>Missing component</em>.</td></tr>
+  <tr><td>"When will my order be delivered?"</td><td>Open the sales order → the delivery → check whether lines are red, and check the realistic warehouse lead time (see <a class="ext" href="guide_19.html">Check stock before you promise anything</a>).</td></tr>
+  <tr><td>"I never received your e-mail"</td><td>Check the envelope icon in the chatter and the e-mail address on the contact. A red envelope means it never arrived — fix the contact and resend.</td></tr>
+  <tr><td>"What did you do to my bike?"</td><td>Read the task description. This is why it must be written up.</td></tr>
+  <tr><td>"Can I book an appointment?"</td><td>Point the customer to the online booking page, or book it in the appointment application.</td></tr>
+</table>
+
+<h2>4. Keep the follower list sane</h2>
+<div class="why"><span class="callout-tag">Why notifications get ignored</span>Anyone tagged on a record becomes a follower and receives an e-mail for every later change. Long follower lists generate notifications that are not for the reader, and those stop being read. Tag deliberately, and remove followers who do not need to be there.</div>
+
+<div class="related">Related: <a href="guide_16.html">Odoo essentials for the shop team</a> · <a href="guide_26.html">Take in a repair</a> · <a href="guide_40.html">Troubleshooting</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

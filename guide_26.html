@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Take in a repair</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Take in a repair</h1>
+  <div class="subtitle">How a repair reaches the shop, what to say at drop-off, and how to open the task correctly so the rest of the job runs itself.</div>
+
+  <div class="note">Repairs run through the Odoo <strong>Project</strong> app, in the project <strong>Repair Louise</strong>. Every repair is a task that moves through kanban stages, and those stages trigger automatic e-mails to the customer.</div>
+
+<h2>1. How a repair arrives</h2>
+<h3>A. The customer books online</h3>
+<div class="path">ahooga.bike → Services → Maintenance → the customer picks a drop-off slot</div>
+<div class="why"><span class="callout-tag">Why the word "drop-off" matters</span>The booking slots are 30 minutes long, so customers used to assume their repair would take 30 minutes and that they could wait for it. The word "drop-off" is there to break that assumption. Reinforce it verbally: <em>"Thank you for dropping off the bike. We need to look at it to see how long it will take, and we will let you know by e-mail when it is ready."</em> A motor problem can take four hours; the customer must not be waiting on a chair for it.</div>
+<div class="step"><div class="step-num">1</div><div class="step-body">The booking lands in the appointment application (the maintenance mailbox). Access is on the main shop computer; ask IT to add it to your own machine.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body">A task is created in <code>Project → Repair Louise</code>, carrying the customer and the appointment date.</div></div>
+<h3>B. The repair arrives by phone</h3>
+<div class="step"><div class="step-num">3</div><div class="step-body">Customer service answers the phone and books appointments from the office.</div></div>
+<div class="warning"><span class="callout-tag">Known weak point</span>The person on the phone and the person receiving the bike do not always have the same information. When a phone booking arrives, <strong>read the notes and re-confirm the job with the customer at drop-off.</strong></div>
+
+<h2>2. The daily repair routine</h2>
+<div class="step"><div class="step-num">4</div><div class="step-body">In the morning, open <code>Project → Repair Louise</code> and look at <strong>today's date</strong>: who is coming today, who has already arrived, and who is still expected. Filter or sort the board by date.</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-body">When the customer arrives, <strong>open their task</strong>.</div></div>
+<div class="step"><div class="step-num">6</div><div class="step-body">Note that the task title is currently maintained <strong>by hand</strong> — appointment date, bike type and customer name are typed in, because the appointment time is not synced onto the task. Keep doing it until it is automated.</div></div>
+<div class="step"><div class="step-num">7</div><div class="step-body">Take the bike and write in the task <strong>what has to be done</strong>, as an explicit list. For example: <em>"Basic maintenance; front wheel axle loose; brake pads touching; display buttons stuck; install new lock set; comfort zone; send pro-forma invoice if she wants to pay online."</em></div></div>
+<div class="step"><div class="step-num">8</div><div class="step-body">Add any further <strong>notes</strong> in the description.</div></div>
+<div class="step"><div class="step-num">9</div><div class="step-body"><strong>Tag the bike physically.</strong> Under the cashier there are numbered coloured plastic tags. Put one on the bike and write the same identifier in the task — e.g. <em>"24 white"</em>. This is how you know which bike is which.</div></div>
+<div class="step"><div class="step-num">10</div><div class="step-body">Put the bike in the <strong>repair area</strong>.</div></div>
+<div class="step"><div class="step-num">11</div><div class="step-body">Optionally <strong>assign</strong> the task to a mechanic (there is an <em>Assignees</em> field). The shop does not currently do this, but it means each mechanic can see their own list.</div></div>
+
+<h2>3. Check the customer's e-mail address at drop-off</h2>
+<div class="danger"><span class="callout-tag">No e-mail address, no communication</span>If the contact has no e-mail address, <strong>no automatic e-mail can be sent</strong> — the customer will never hear that their bike is ready, and will call to complain.</div>
+<p class="lead">A frequent variant: the e-mail the customer used to <strong>book</strong> differs from the e-mail on their <strong>Odoo contact</strong> (they bought the bike years ago with an old address). An automation posts a notification on the task when the booking e-mail and the contact e-mail do not match, so you can confirm with the customer which address to keep. Watch for that notification.</p>
+
+<h2>4. What good intake looks like</h2>
+<ul class="checks">
+  <li>The task exists in Repair Louise with today's date and the customer's name in the title.</li>
+  <li>The work to be done is written as an explicit list, in the task.</li>
+  <li>The bike carries a numbered tag, and the same identifier is in the task.</li>
+  <li>The customer's e-mail address on the contact is correct and confirmed.</li>
+  <li>The customer has been told they will be informed by e-mail, not that they can wait.</li>
+</ul>
+
+<div class="related">Next: <a href="guide_27.html">Move a repair through the board</a> · <a href="guide_28.html">Add parts and labour, hand back the bike, take the money</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

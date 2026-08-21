@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0, viewport-fit=cover">
+<title>Request stock from the warehouse and receive goods</title>
+<link rel="stylesheet" href="kb-guide.css">
+<script src="mxp-auth.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>/ Knowledge Library</span></div>
+  <a href="knowledge-library.html" class="back">← Back to library</a>
+</header>
+<div class="page">
+  <div class="dept-badge">🏬 Shop</div>
+  <h1>Request stock from the warehouse and receive goods</h1>
+  <div class="subtitle">Getting goods into the shop correctly — internal requests, vendor receipts, customer returns and the barcode method.</div>
+
+  <div class="rule"><span class="callout-tag">Two rules that prevent most stock errors</span>Nothing enters the shop without a <strong>validated receipt</strong>. Nothing leaves the shop without a <strong>validated transfer</strong>.</div>
+
+<h2>1. How goods move: routes and routings</h2>
+<p class="lead">Odoo moves goods according to <strong>routes</strong> defined per <strong>product category</strong>:</p>
+<ul class="plain">
+  <li><strong>Deliver in 1 step</strong> — from Louise Stock straight to the customer. This is what you want for a bike you already have in the shop.</li>
+  <li><strong>Deliver in 2 steps</strong> — the sales order also generates an <strong>internal transfer</strong> from the Anderlecht warehouse to Louise Stock, i.e. automatic replenishment when you do not have the bike.</li>
+</ul>
+<div class="confirm"><span class="callout-tag">To confirm</span>At the time of the training, MAX bikes sold from the shop were configured 1-step, so confirming a sales order created only <code>Louise → Customer</code>; if the bike was not in Louise Stock, someone had to request it from the warehouse manually. A 2-step route was being rebuilt so the request happens automatically. Check with Supply whether it is live before relying on it.</div>
+<p class="lead">Two related notions: <strong>reordering rules</strong> automatically restock a product when it drops below a minimum, without waiting for a customer order (not set up today, but possible); and the <strong>product category</strong> drives both the routing and the accounting, which is why you should never create products yourself.</p>
+
+<h2>2. Request stock from the warehouse</h2>
+<div class="path">Inventory → Overview → Group by Warehouse → find the operation type "Request Anderlecht → Louise" → New</div>
+<div class="step"><div class="step-num">1</div><div class="step-body">Set the contact / destination: <strong>Louise shop</strong>.</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-body">Add the products and quantities.</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-body">Save, then <strong>Mark as To Do</strong>.</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-body">The warehouse sees the request, prepares and validates the transfer. You validate on receipt (or they validate on dispatch — agree which).</div></div>
+<div class="rule"><span class="callout-tag">Rule</span><em>Request Anderlecht → Louise</em> is the <strong>only</strong> transfer type you normally need for getting Ahooga stock into the shop.</div>
+<div class="note"><span class="callout-tag">Reading the Inventory Overview</span>It is a grid of operation types per warehouse. The <strong>column</strong> is the warehouse, and each card is an operation type — receipts, deliveries, internal transfers, requests. The <strong>source</strong> location is the "from", and the operation determines the "to".</div>
+
+<h2>3. Receive goods from an external vendor, or a customer return</h2>
+<p class="lead">Ahooga already has an account with at least one outside parts wholesaler, and the shop is free to open as many supplier contracts as it wants for its own replenishment. Two limits: <strong>Ahooga-specific components</strong> must be ordered from their own specific supplier, where Supply may have to help; and everything you buy has to be received properly.</p>
+<div class="path">Inventory → Overview → Group by Warehouse → the Louise column → Receipts → New</div>
+<div class="step"><div class="step-num">5</div><div class="step-body">Set the partner — the vendor, or the customer for a return.</div></div>
+<div class="step"><div class="step-num">6</div><div class="step-body">Add the product(s) and the quantity — <strong>including free items</strong> (quantity, price 0) so they still exist in stock.</div></div>
+<div class="step"><div class="step-num">7</div><div class="step-body"><strong>Save → Mark as To Do.</strong></div></div>
+<div class="step"><div class="step-num">8</div><div class="step-body">When the goods physically arrive: <strong>Validate</strong>.</div></div>
+<div class="note"><span class="callout-tag">Note on naming</span>"Louise" will be renamed when the shop moves to the new location — expect the operation types to become e.g. <em>Marol receipt</em>. Same logic, new label.</div>
+
+<h2>4. The barcode / printed-picking method</h2>
+<p class="lead">Instead of hunting for the right receipt when a box arrives:</p>
+<div class="step"><div class="step-num">9</div><div class="step-body">Create the receipt in advance (as in section 3), when you place the order.</div></div>
+<div class="step"><div class="step-num">10</div><div class="step-body">Instead of validating, click <strong>Print → Picking</strong>.</div></div>
+<div class="step"><div class="step-num">11</div><div class="step-body">Put the printed sheet in the goods-in area of the shop.</div></div>
+<div class="step"><div class="step-num">12</div><div class="step-body">When the delivery arrives, <strong>scan the barcode on the sheet</strong> with the Odoo Barcode app on your phone, then <strong>scan each product barcode</strong>, enter the quantities, and <strong>validate</strong>.</div></div>
+<p class="lead">This is exactly what the warehouse does: printed pickings filed by product or vendor, scanned on arrival. It removes the "which receipt was this?" problem entirely.</p>
+<div class="note"><span class="callout-tag">Physical suggestion</span>Create a <strong>goods-in waiting area</strong> in the shop where deliveries stay until they have been correctly received in Odoo. Nothing leaves that area until the receipt is validated. Bad inbound handling is one of the biggest causes of wrong stock.</div>
+
+<h2>5. Where parts will live after the move</h2>
+<ul class="plain">
+  <li>Modular and folding parts + accessories → stocked in the <strong>basement of the shop</strong> (~50 m²).</li>
+  <li>MAX parts → stay in the <strong>warehouse</strong> (they are also shipped to dealers). The shop keeps a small working stock.</li>
+  <li>High-volume accessories (helmets etc.) → shipped <strong>directly to the shop</strong>.</li>
+  <li>Practical suggestion: keep <strong>two of each part on the shop floor</strong> and everything else in the basement.</li>
+</ul>
+<div class="why"><span class="callout-tag">Why the external warehouse changes behaviour</span>With an external warehouse, <strong>nothing moves without a registered transfer</strong>. Today it is possible to walk into the warehouse, take four locks for the shop and register nothing: the warehouse then shows 4 units that do not exist, and the shop has 4 units it does not know about. With an external provider that is no longer possible — no request, no goods.</div>
+
+<div class="related">Related: <a href="guide_19.html">Check stock before you promise anything</a> · <a href="guide_37.html">Stock discipline and stale transfers</a></div>
+</div>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>
