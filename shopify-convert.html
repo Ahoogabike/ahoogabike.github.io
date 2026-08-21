@@ -420,6 +420,19 @@ async function emailDealer(name){
   }catch(e){ alert_('Could not draft the dealer email: '+e.message,'err'); }
 }
 
+/* ── payment date for the "Paid via Shopify on …" note ── */
+function fmtDMY(v){
+  if(!v) return '';
+  const d=new Date(v);
+  if(!isNaN(d)){ const p=n=>String(n).padStart(2,'0'); return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear(); }
+  return String(v);   // already human-formatted — leave as-is
+}
+function paidDate(o){
+  /* use the real payment date if the worker sends one, else fall back to the order date */
+  const cand=o.paid_at||o.paidAt||o.processed_at||o.processedAt||o.paid_date||o.paidDate||o.financial_date||o.date;
+  return fmtDMY(cand);
+}
+
 async function convertOrder(name){
   const o=ORDERS.find(x=>x.name===name); if(!o)return;
   if(statusCache[name]){ alert_(name+' is already in Odoo ('+statusCache[name]+').','warn'); return; }
@@ -436,6 +449,8 @@ async function convertOrder(name){
       order_line.push([0,0,lv]);
     }
     if(missing.length) throw new Error('No Odoo product for: '+[...new Set(missing)].join(', ')+'. Add them in the Mappings tab.');
+    /* add a note at the top of the order recording the Shopify payment (only when actually paid) */
+    if(o.paid){ const pd=paidDate(o); if(pd) order_line.unshift([0,0,{display_type:'line_note',name:'Paid via Shopify on '+pd}]); }
     const partnerId=await resolvePartner(o.customer,o.email,o.client);
     const vals={partner_id:partnerId,client_order_ref:o.name,origin:'Shopify '+o.name,warehouse_id:warehouseId(o),order_line};
     const tid=await onlineTeamId(); if(tid) vals.team_id=tid;   // always book under the "Online" sales team
