@@ -506,8 +506,9 @@ function renderMaps(){
     <h3 style="margin:22px 0 8px;font-size:14px">Pickup dealers ${dealers.length?`(${dealers.length})`:''}</h3>
     <div id="dealer-list">${dealers.length?dealers.map(d=>dealerRow(d)).join(''):'<div class="muted" style="font-size:12.5px">All pickup locations are matched.</div>'}</div>
     <h3 style="margin:22px 0 8px;font-size:14px">All current mappings (${MAPPING.length})</h3>
-    <div style="font-size:12px;max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:9px">
-      ${MAPPING.map(m=>`<div style="padding:6px 10px;border-bottom:1px solid var(--line-soft)"><span class="mono" style="color:var(--blue)">${esc(m.odoo_reference)}</span> ← ${esc(m.shopify_sku||m.shopify_name)}</div>`).join('')}
+    <div class="fld" style="margin:0 0 6px"><input id="map-filter" placeholder="Filter mappings…" oninput="filterMaps(this.value)"/></div>
+    <div id="map-list" style="font-size:12px;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:9px">
+      ${MAPPING.map((m,i)=>`<div class="map-line" data-text="${esc(((m.odoo_reference||'')+' '+(m.shopify_sku||m.shopify_name||'')+' '+(m.note||'')).toLowerCase())}" style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line-soft)"><span style="flex:1"><span class="mono" style="color:var(--blue)">${esc(m.odoo_reference)}</span> ← ${esc(m.shopify_sku||m.shopify_name)}${m.note?` <span class="muted">· ${esc(m.note)}</span>`:''}</span><button class="btn ghost" style="padding:3px 9px;font-size:11px" title="Remove this mapping" onclick="deleteMap(${i})">✕ unmatch</button></div>`).join('')}
     </div>`;
 }
 function mapItemRow(it){
@@ -549,6 +550,15 @@ async function addMap(id,ref){
   computeAll(); renderOrders(); renderMaps();              // take effect immediately
   const saved=await kvPut(MAP_KEY,MAPPING);
   alert_('Mapped “'+(it.sku||it.name)+'” → '+ref+'.'+(saved?'':' (saved on this device only — shared storage unreachable)'), saved?'ok':'warn');
+}
+function filterMaps(q){ q=(q||'').toLowerCase().trim(); document.querySelectorAll('#map-list .map-line').forEach(el=>{ el.style.display=(!q||((el.getAttribute('data-text')||'').includes(q)))?'':'none'; }); }
+async function deleteMap(i){
+  const m=MAPPING[i]; if(!m)return;
+  if(!confirm('Unmatch this product mapping?\n\n'+(m.odoo_reference||'')+'  ←  '+(m.shopify_sku||m.shopify_name||'')+'\n\nThe Shopify item will reappear under “Unmapped products” so you can re-map it to the right Odoo product.')) return;
+  MAPPING.splice(i,1);
+  computeAll(); renderOrders(); renderMaps();               // take effect immediately
+  const saved=await kvPut(MAP_KEY,MAPPING);
+  alert_('Unmatched “'+(m.shopify_sku||m.shopify_name||m.odoo_reference)+'”.'+(saved?' It now shows under Unmapped products.':' (saved on this device only — shared storage unreachable)'), saved?'ok':'warn');
 }
 function searchPartner(id,loc){
   clearTimeout(_t); const q=$('dq-'+id).value.trim(); const box=$('dsr-'+id);
