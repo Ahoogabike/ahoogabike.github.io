@@ -2103,10 +2103,11 @@ function renderQueue() {
       : o.predictedDelivery
         ? '<span style="font-size:12px;color:var(--text3)">~'+fmtDate(o.predictedDelivery)+' (est.)</span>'
         : '—';
-    const actionBtn = o.status==='hold'
-      ? `<button class="btn btn-success btn-sm" onclick="releaseHold('${o.id}')">Release</button>`
-      : o.isManual
-        ? `<button class="btn btn-danger btn-sm" onclick="removeManualOrder('${o.id}')">Remove</button>`
+    // Manual reservations can ALWAYS be removed (even while on hold); a held real order shows Release.
+    const actionBtn = o.isManual
+      ? `${o.status==='hold' ? `<button class="btn btn-success btn-sm" onclick="releaseHold('${o.id}')" style="margin-right:4px">Release</button>` : ''}<button class="btn btn-danger btn-sm" onclick="removeManualOrder('${o.id}')">Remove</button>`
+      : o.status==='hold'
+        ? `<button class="btn btn-success btn-sm" onclick="releaseHold('${o.id}')">Release</button>`
         : `<button class="btn btn-danger btn-sm" onclick="putOnHold('${o.id}')">Hold</button>`;
 
     const allCells = [
@@ -3170,6 +3171,26 @@ function addManualOrder() {
   save();
   saveSharedState();
   closeModal('modal-manual');
+  renderQueue();
+  updateKPIs();
+}
+
+// Remove a manual reservation (e.g. Matt Cooke). Deletes it locally AND from the shared KV
+// state so it does not reappear on the next sync from another device.
+function removeManualOrder(orderId) {
+  const idx = manualOrders.findIndex(x => x.id === orderId);
+  if(idx === -1) return;
+  const o = manualOrders[idx];
+  if(!confirm(`Remove the manual reservation for "${o.customer}" (${o.sku})?`)) return;
+  manualOrders.splice(idx, 1);
+  // Re-sequence remaining priorities, re-match stock, and persist locally + to shared KV.
+  [...orders,...manualOrders].filter(x=>x.status!=='shipped').sort((a,b)=>a.priority-b.priority).forEach((x,i)=>x.priority=i+1);
+  markUrgent();
+  matchStockToOrders();
+  assignSerials();
+  if(typeof assignPredictedDeliveries==='function') assignPredictedDeliveries();
+  save();
+  saveSharedState();
   renderQueue();
   updateKPIs();
 }
