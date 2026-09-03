@@ -584,13 +584,78 @@ const CF_WORKER_URL='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
 const CLOUD_ON=location.protocol.indexOf('http')===0&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1';
 const CLOUD_KEYS=['ticked','recs','tasks','vanOverride','weights','planState','collapsedCo','budgetDef','budgetModel','customFairs','empRoster'];
 const CKEY=k=>'fairdash_'+k; // flat key, no colon (required by the worker /store route)
+// ── v2 data-loss guards (added 2026-09-03) ─────────────────────────────────
+// A device that boots with empty localStorage used to upload its blank default
+// state and overwrite everyone's shared data. Three rules now prevent that:
+//   1. nothing is uploaded until loadCloud() has finished (no boot-time writes)
+//   2. a blank value never overwrites a non-blank one
+//   3. if the cloud is blank but this device has real data, we push ours up
+function _isBlank(v){
+  if(v==null)return true;
+  if(Array.isArray(v))return v.length===0;
+  if(typeof v==='object'){
+    const ks=Object.keys(v); if(!ks.length)return true;
+    // {f0:{},f1:{},...} — the empty per-fair skeleton — counts as blank
+    return ks.every(k=>{const x=v[k];
+      return x==null||x===''||(Array.isArray(x)&&!x.length)||
+             (typeof x==='object'&&!Array.isArray(x)&&!Object.keys(x).length);});
+  }
+  return false;
+}
+// Some keys have a NON-blank first-boot default: `ticked` starts as every fair
+// true. That is a default, not a decision — so if the cloud holds an all-true
+// map while this device has explicit untickings, this device wins.
+function _isDefaultish(k,v){
+  if(k!=='ticked'||!v||typeof v!=='object')return false;
+  const ks=Object.keys(v);
+  return ks.length>0&&ks.every(x=>v[x]===true);
+}
+let _cloudReady=false;      // true once the first loadCloud() has settled
+const _cloudSeen={};        // last value we know the cloud holds, per key
 function setCloud(txt,cls){const el=document.getElementById('cloudStatus');if(el){el.textContent=txt;el.className='cloud '+(cls||'');}}
 async function kvGet(k){if(!CLOUD_ON)return undefined;try{const r=await fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(CKEY(k))}`);const t=await r.text();return t==='null'?undefined:JSON.parse(t);}catch(e){console.warn('cloud get failed',k,e);return undefined;}}
 const _cloudTimers={};
-function kvSet(k,v){if(!CLOUD_ON||!CLOUD_KEYS.includes(k))return;clearTimeout(_cloudTimers[k]);setCloud('☁ saving…','saving');_cloudTimers[k]=setTimeout(()=>{fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(CKEY(k))}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(v)}).then(r=>setCloud(r.ok?'☁ saved':'⚠ save failed',r.ok?'ok':'err')).catch(e=>{console.warn('cloud set failed',k,e);setCloud('⚠ offline — saved on this device','err');});},600);}
+function kvSet(k,v){
+  if(!CLOUD_ON||!CLOUD_KEYS.includes(k))return;
+  if(!_cloudReady)return;                       // rule 1: no boot-time uploads
+  if((_isBlank(v)||_isDefaultish(k,v))&&!_isBlank(_cloudSeen[k])&&!window.__forceBlank){ // rule 2
+    console.warn('[cloud] blocked blank overwrite of',k,_cloudSeen[k]);
+    setCloud('⚠ blank save blocked','err');return;
+  }
+  clearTimeout(_cloudTimers[k]);setCloud('☁ saving…','saving');
+  _cloudTimers[k]=setTimeout(()=>{
+    fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(CKEY(k))}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(v)})
+      .then(r=>{if(r.ok)_cloudSeen[k]=v;setCloud(r.ok?'☁ saved':'⚠ save failed',r.ok?'ok':'err');})
+      .catch(e=>{console.warn('cloud set failed',k,e);setCloud('⚠ offline — saved on this device','err');});
+  },600);
+}
 function _assignCloud(k,v){if(k==='ticked')ticked=v;else if(k==='recs')recs=v;else if(k==='tasks')tasks=v;else if(k==='vanOverride')vanOverride=v;else if(k==='weights')weights=v;else if(k==='planState')planState=v;else if(k==='collapsedCo')collapsedCo=v;else if(k==='budgetDef')budgetDef=v;else if(k==='budgetModel')budgetModel=v;else if(k==='empRoster'){if(Array.isArray(v)&&v.length)EMP_PRESENCE=v;}else if(k==='customFairs'){customFairs=v||[];mergeCustomFairs();}}
 function _curCloud(k){return{ticked,recs,tasks,vanOverride,weights,planState,collapsedCo,budgetDef,budgetModel,customFairs,empRoster:EMP_PRESENCE}[k];}
-async function loadCloud(){if(!CLOUD_ON)return;setCloud('☁ syncing…','saving');try{const vals=await Promise.all(CLOUD_KEYS.map(kvGet));let got=false;CLOUD_KEYS.forEach((k,i)=>{const v=vals[i];if(v!==undefined){try{localStorage.setItem('ahfd2_'+k,JSON.stringify(v))}catch(e){}_assignCloud(k,v);got=true;}else{const cur=_curCloud(k);if(cur!==undefined)fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(CKEY(k))}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cur)}).catch(()=>{});}});if(got){syncW();refreshFairSelects();renderFairs();const at=document.querySelector('nav button.on');if(at)at.click();}setCloud('☁ synced','ok');}catch(e){console.warn(e);setCloud('⚠ sync failed — using this device','err');}}
+async function loadCloud(){
+  if(!CLOUD_ON){_cloudReady=true;return;}
+  setCloud('☁ syncing…','saving');
+  try{
+    const vals=await Promise.all(CLOUD_KEYS.map(kvGet));
+    let got=false,pushed=0;
+    CLOUD_KEYS.forEach((k,i)=>{
+      const v=vals[i], cur=_curCloud(k);
+      _cloudSeen[k]=v;
+      const stale=_isDefaultish(k,v)&&!_isDefaultish(k,cur)&&!_isBlank(cur);
+      if(v!==undefined&&!_isBlank(v)&&!stale){         // cloud has real data → take it
+        try{localStorage.setItem('ahfd2_'+k,JSON.stringify(v))}catch(e){}
+        _assignCloud(k,v);got=true;return;
+      }
+      if(!_isBlank(cur)){                              // rule 3: cloud blank, we have data → push up
+        pushed++;
+        fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(CKEY(k))}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cur)})
+          .then(()=>{_cloudSeen[k]=cur;console.info('[cloud] restored',k,'from this device');}).catch(()=>{});
+      }
+    });
+    if(got){syncW();refreshFairSelects();renderFairs();const at=document.querySelector('nav button.on');if(at)at.click();}
+    setCloud(pushed?'☁ synced — '+pushed+' restored from this device':'☁ synced','ok');
+  }catch(e){console.warn(e);setCloud('⚠ sync failed — using this device','err');}
+  finally{_cloudReady=true;}
+}
 let ticked=store.get('ticked',null); if(!ticked){ticked={};FAIRS.forEach(f=>ticked[f.id]=true);}
 let recs=store.get('recs',{});            // per-fair editable record {visitors,days,status:{...},...}
 let vanOverride=store.get('vanOverride',{});
