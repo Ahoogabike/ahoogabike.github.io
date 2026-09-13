@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ahooga Sales Forecast — MY27</title>
+<style>
+:root{--bg:#f2f1ed;--surface:#fff;--surface2:#f0efe9;--border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);--text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#1a4fa0;--accent-bg:#e6f0fb;--success:#2d6e2d;--success-bg:#eaf3de;--warn:#7a4e0a;--warn-bg:#faeeda;--danger:#8b1f1f;--danger-bg:#fcebeb;--purple:#3c3489;--purple-bg:#eeedfe;--radius:10px;--radius-sm:6px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Georgia,serif;background:var(--bg);color:var(--text);font-size:14px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:52px;gap:12px;position:sticky;top:0;z-index:100}
+.logo{font-size:17px;font-weight:bold}.logo span{color:var(--accent)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--text3);border:1px solid var(--border2)}
+.pill.ok{background:var(--success-bg);color:var(--success)}
+.pill.err{background:var(--danger-bg);color:var(--danger)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;font-weight:600;cursor:pointer;border:none}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+main{padding:20px;max-width:1600px;margin:0 auto}
+.controls{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text2);font-weight:600}
+.field input{padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;background:var(--surface)}
+.field input:focus{border-color:var(--accent)}
+.field .hint{font-size:10px;color:var(--text3)}
+.conn-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;max-width:520px;display:none}
+.conn-panel.open{display:block}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px}
+.kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:4px}
+.kpi-value{font-size:21px;font-weight:700}
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border)}
+.tab{padding:9px 18px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;border:none;background:none;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.view{display:none}.view.active{display:block}
+.section{margin-bottom:22px}
+.section-title{font-size:15px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.section-note{font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.5}
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface)}
+table.grid{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+table.grid th,table.grid td{border-bottom:1px solid var(--border);border-right:1px solid var(--border);padding:5px 8px;font-size:12px;text-align:right;white-space:nowrap}
+table.grid thead th{background:var(--surface2);color:var(--text2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.03em;position:sticky;top:0;z-index:5}
+table.grid th.sku,table.grid td.sku{text-align:left;position:sticky;left:0;background:var(--surface);z-index:4;min-width:230px;font-weight:600;border-right:2px solid var(--border2)}
+table.grid thead th.sku{z-index:6;background:var(--surface2)}
+table.grid tr:hover td{background:var(--surface2)}
+table.grid tr:hover td.sku{background:var(--surface2)}
+table.grid td.zero{color:var(--text3)}
+table.grid td.has{color:var(--purple);font-weight:700;background:rgba(60,52,137,0.05)}
+table.grid td.cur{box-shadow:inset 3px 0 0 var(--accent)}
+table.grid thead th.cur{box-shadow:inset 0 -2px 0 var(--accent)}
+table.grid tfoot td,table.grid tfoot th{background:var(--surface2);font-weight:700;border-top:2px solid var(--border2)}
+table.grid td.total,table.grid th.total{font-weight:700;border-left:2px solid var(--border2);background:rgba(26,79,160,0.05)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px;border:1px solid rgba(0,0,0,0.15)}
+.alert{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:12px}
+.alert-info{background:var(--accent-bg);color:var(--accent)}
+.alert-warn{background:var(--warn-bg);color:var(--warn)}
+.alert-success{background:var(--success-bg);color:var(--success)}
+.alert-danger{background:var(--danger-bg);color:var(--danger)}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--accent-bg);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.po-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px}
+.po-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.po-title{font-size:15px;font-weight:700}
+.po-meta{font-size:11px;color:var(--text3)}
+.po-size{font-size:13px;font-weight:700;color:var(--accent);background:var(--accent-bg);padding:3px 10px;border-radius:20px}
+.bk-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.bk-table td,.bk-table th{padding:4px 8px;font-size:12px;border-bottom:1px solid var(--border);text-align:right}
+.bk-table th{color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:0.04em;text-align:right}
+.bk-table td:first-child,.bk-table th:first-child{text-align:left}
+.tag{font-size:10px;padding:2px 7px;border-radius:20px;background:var(--surface2);color:var(--text2);border:1px solid var(--border2)}
+.tag.fill{background:var(--purple-bg);color:var(--purple)}
+.tag.comm{background:var(--success-bg);color:var(--success)}
+table.grid thead th.wk{cursor:pointer}
+table.grid thead th.wk:hover{color:var(--accent)}
+table.grid thead th.blocked{background:repeating-linear-gradient(45deg,#efe9da,#efe9da 5px,#e2dccb 5px,#e2dccb 10px);color:var(--text3);text-decoration:line-through}
+table.grid td.blocked{background:rgba(0,0,0,0.045)!important;color:var(--text3)}
+table.grid td.total.over{background:#fcebeb!important;color:#8b1f1f}
+table.grid tr.caprow td{background:var(--surface2,#faf9f5);border-bottom:2px solid var(--border2)}
+table.grid tr.caprow input::-webkit-outer-spin-button,table.grid tr.caprow input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 4px 2px 9px;border-radius:20px;background:var(--warn-bg);color:var(--warn);border:1px solid var(--border2);margin:1px}
+.chip button{border:none;background:none;cursor:pointer;color:var(--warn);font-weight:700;font-size:13px;line-height:1;padding:0 3px}
+@media(max-width:700px){main{padding:12px}input{font-size:16px!important}}
+</style>
+  <script src="mxp-auth.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style id="ahooga-brand">
+body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+:root{--accent:#14259b;--pink:#14259b}
+.ahooga-home{position:fixed;left:14px;bottom:14px;z-index:2147483600;display:inline-flex;align-items:center;gap:6px;font-family:'Inter',system-ui,sans-serif;font-weight:700;font-size:12.5px;line-height:1;padding:9px 14px;border-radius:999px;text-decoration:none;background:#14259b;color:#fff;border:1px solid rgba(255,255,255,.25);box-shadow:0 6px 18px rgba(20,37,155,.4);opacity:.9;transition:opacity .15s,transform .15s}
+.ahooga-home:hover{opacity:1;transform:translateY(-1px)}
+@media print{.ahooga-home{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>Sales Forecast — MY27</span></div>
+  <div class="header-right">
+    <span class="pill" id="conn-pill">Not connected</span>
+    <span class="pill" id="pub-pill" title="Published to the shared store for the MY27 PO Builder">Not published</span>
+    <button class="btn btn-secondary" onclick="toggleConn()">⚙ Connection</button>
+    <button class="btn btn-secondary" onclick="exportCSV()">⬇ CSV</button>
+    <button class="btn btn-secondary" onclick="publishForecast()">⇧ Publish</button>
+    <button class="btn btn-primary" onclick="loadData()">↻ Refresh</button>
+  </div>
+</header>
+
+<main>
+  <div id="alert-box"></div>
+
+  <div class="conn-panel" id="conn-panel">
+    <h2 style="font-size:15px;font-weight:700;margin-bottom:12px">Odoo Connection</h2>
+    <div class="field" style="margin-bottom:10px"><label>Your Odoo email</label><input type="text" id="cfg-user" placeholder="yourname@ahooga.bike"/></div>
+    <div class="field" style="margin-bottom:10px"><label>API Key</label><input type="password" id="cfg-key" placeholder="your-api-key"/><span class="hint">Odoo → My Profile → Account Security → New API Key. Read-only use.</span></div>
+    <button class="btn btn-primary" onclick="loadData()">Connect &amp; load</button>
+  </div>
+
+  <div class="controls">
+    <div class="field"><label>MY27 total (units)</label><input type="number" id="f-total" style="width:120px" min="0" value="6100" oninput="recompute()"/><span class="hint">the season's sales plan</span></div>
+    <div class="field"><label>Colour mix from</label><select id="f-mix" onchange="recompute()" style="padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface)"><option value="preorder">MY27 pre-orders</option><option value="invoiced">2026 invoiced</option></select><span class="hint">model &amp; rack always from 2026 invoiced</span></div>
+    <div class="field" style="flex:1;min-width:220px"><span class="hint" id="basis-line"></span></div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="section">
+    <div class="section-title">Season shape <span class="tag" style="background:var(--purple-bg);color:var(--purple)">Oct 2026 → Sep 2027</span></div>
+    <div class="section-note">MY27 is sold across these twelve months. These weights set <b>when</b> the season's volume lands; they are relative, not absolute — the app normalises them. Dated orders already in Odoo keep their own month and the rest of each SKU's volume is spread by this shape. The PO Builder reads the result and works backwards through production and transit to decide which week each bike has to start.</div>
+    <div class="table-wrap"><table class="grid"><thead><tr id="shape-head"></tr></thead><tbody><tr id="shape-row"></tr></tbody></table></div>
+    <div style="margin-top:8px"><button class="btn btn-secondary" onclick="resetShape()">Reset to the standard curve</button></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Markets <span class="tag" id="mkt-tag"></span></div>
+    <div class="section-note">The range does not sell the same way everywhere, so the season is planned country by country. Each market's <b>E-MAX share</b>, <b>Alfine share</b> and <b>rack share</b> come from that market's own 2026 invoiced sales; a market with fewer than 25 bikes last year is too thin a sample to read anything into, so it borrows the overall split and is marked <i>shared</i>. Set the targets here — <b>Other countries</b> is whatever is left of the season total.</div>
+    <div class="table-wrap"><div id="markets"></div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">1 · MY27 demand already in Odoo <span class="tag" id="known-tag"></span></div>
+    <div class="section-note">Confirmed MY27 sales orders plus pre-orders still in quotation, by the month they are wanted. Undated lines are shown in the <b>n/d</b> column and get spread by the season shape rather than being forced into the first month.</div>
+    <div class="table-wrap"><div id="t1"></div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">2 · MY27 demand forecast <span class="tag fill">published to the PO Builder</span></div>
+    <div class="section-note">Each SKU's season total, laid out month by month. Dated orders sit in their own month; whatever is left of that SKU's total is spread across the season by the shape above. This grid is what gets published as <code>sales_forecast_my27</code>.</div>
+    <div class="table-wrap"><div id="t2"></div></div>
+  </div>
+</main>
+<script>
+// ── CONFIG (shared with the other Ahooga apps) ───────────────
+const ODOO_URL='https://ahooga.odoo.com';
+const ODOO_DB ='logicasoft-aho-18-0-21599177';
+const CF_WORKER='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
+const LS_CFG='ahooga_forecast_my27_cfg';
+const LS_SHAPE='ahooga_forecast_my27_shape';
+const LS_CTRY='ahooga_forecast_my27_country_targets';
+const IS_ONLINE = location.hostname!=='localhost' && location.hostname!=='127.0.0.1';
+let odooUid=null;
+
+// MY27 sells across Oct 2026 → Sep 2027. Slot i is [year, monthIndex]; every monthly row in
+// this app — and in the payload the PO Builder reads — is in this order, NOT Jan–Dec. The MY26
+// app published Jan–Dec calendar rows, which is one of the reasons its numbers could not be
+// lined up with a model year that straddles New Year.
+const MY27_SLOTS=[[2026,9],[2026,10],[2026,11],[2027,0],[2027,1],[2027,2],[2027,3],[2027,4],[2027,5],[2027,6],[2027,7],[2027,8]];
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const slotLabel=(i)=>MONTHS[MY27_SLOTS[i][1]]+" '"+String(MY27_SLOTS[i][0]).slice(2);
+const absMonth=(y,m)=>y*12+m;
+const SLOT_ABS=MY27_SLOTS.map(s=>absMonth(s[0],s[1]));
+function slotOfDate(d){
+  if(!d) return -1;
+  const x=(d instanceof Date)?d:new Date(d);
+  if(isNaN(x)) return -1;
+  const a=absMonth(x.getFullYear(), x.getMonth());
+  if(a<=SLOT_ABS[0]) return 0;                       // already due, or before the season → first month
+  const i=SLOT_ABS.indexOf(a);
+  return i>=0 ? i : -1;                               // past the season → treat as undated
+}
+//        Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec  — the house seasonality tiers
+const SEASON_FWD=[3,  7, 11, 15, 15, 15, 11,  7, 11,  7,  3,  3];
+const DEFAULT_SHAPE=MY27_SLOTS.map(s=>SEASON_FWD[s[1]]);
+let shape=DEFAULT_SHAPE.slice();
+
+// ── THE 32 MY27 SKUs (identical keys to the MY27 PO Builder) ──
+const BT=[['emax','E-MAX'],['amax','A-MAX']];
+const TR=[['alfine','Alfine'],['derailleur','Derailleur']];
+const CO=[['bumblebee','Bumblebee'],['cosmic_black','Cosmic Black'],['bordeaux_red','Bordeaux Red'],['midnight_blue','Midnight Blue'],['emerald_green','Emerald Green'],['atomium','Atomium'],['custom','Custom']];
+const RK=[['rack','With rack'],['no rack','Without rack']];
+const COLOR_HEX={bumblebee:'#f5c842',cosmic_black:'#2a2a2a',bordeaux_red:'#7b1e2b',midnight_blue:'#1b2a52',emerald_green:'#1e7d5a',atomium:'#9aa4ad',custom:'#7f77dd'};
+const STOCK_COLS=['bumblebee','cosmic_black','bordeaux_red'];
+const BTO_COLS=['emerald_green','atomium','midnight_blue','custom'];
+const isBTO=(co)=>BTO_COLS.indexOf(co)>=0;
+const SKUS=[];
+for(const [bt,btl] of BT) for(const [tr,trl] of TR) for(const [co,col] of CO) for(const [rk,rkl] of RK)
+  SKUS.push({key:`${bt}|${tr}|${co}|${rk}`, bt,tr,co,rk, color:co, label:`${btl} ${trl}`, col, rkl});
+
+// ── MARKETS ──────────────────────────────────────────────────
+// The range does not sell the same way everywhere — on 2026 invoiced lines Belgium ran about
+// 75% E-MAX against Germany's 57%, and the Alfine / derailleur split moves with it. So the
+// season is planned country by country and each market gets its own model mix, taken from that
+// market's own 2026 invoiced sales rather than from a single company-wide average.
+// Everything outside the named markets is planned together as "Other".
+const COUNTRIES=[
+  {code:'DE',    label:'Germany',        target:2500},
+  {code:'GB',    label:'United Kingdom', target:800},
+  {code:'BE',    label:'Belgium',        target:800},
+  {code:'NL',    label:'Netherlands',    target:400},
+  {code:'AT',    label:'Austria',        target:400},
+  {code:'OTHER', label:'Other countries', target:null}   // null → whatever is left of the season total
+];
+const NAMED=COUNTRIES.filter(c=>c.code!=='OTHER').map(c=>c.code);
+const bucketOf=(cc)=> NAMED.indexOf(cc)>=0 ? cc : 'OTHER';
+let countryTargets={};   // code -> units (editable; OTHER is derived)
+function targetFor(code){
+  if(code==='OTHER'){
+    const named=NAMED.reduce((a,c)=>a+(countryTargets[c]||0),0);
+    return Math.max(0, myTotal()-named);
+  }
+  return countryTargets[code]||0;
+}
+let invByCountry={};    // code -> sku -> 2026 invoiced units
+let preByCountry={};    // code -> sku -> MY27 pre-order units
+let knownByCountry={};  // code -> sku -> [12]
+let undatedByCountry={};// code -> sku -> units
+let fcByCountry={};     // code -> sku -> [12]  the per-market forecast
+
+let knownBySku={};      // sku -> [12] dated MY27 orders (confirmed + quotation)
+let undatedBySku={};    // sku -> undated MY27 orders
+let invoicedBySku={};   // 2026 invoiced per SKU — model / transmission / rack shape
+let preorderBySku={};   // MY27 quotation-stage pre-orders per SKU — colour shape
+let forecast={};        // sku -> [12] the published grid
+let confirmedTotal=0, quotationTotal=0, _loaded=false, _pubTimer=null;
+// ── PROXY / XML-RPC (same as the other apps) ─────────────────
+function proxyUrl(path){
+  return (location.hostname==='localhost'||location.hostname==='127.0.0.1')
+    ? `/odoo/${encodeURIComponent(ODOO_URL+path)}`
+    : `${CF_WORKER}/odoo/${encodeURIComponent(ODOO_URL+path)}`;
+}
+function v(x){
+  if(x===null||x===undefined) return '<value><boolean>0</boolean></value>';
+  if(typeof x==='boolean') return `<value><boolean>${x?1:0}</boolean></value>`;
+  if(typeof x==='number'&&Number.isInteger(x)) return `<value><int>${x}</int></value>`;
+  if(typeof x==='number') return `<value><double>${x}</double></value>`;
+  if(Array.isArray(x)) return `<value><array><data>${x.map(v).join('')}</data></array></value>`;
+  if(typeof x==='object'){const m=Object.entries(x).map(([k,vv])=>`<member><name>${k}</name>${v(vv)}</member>`).join('');return `<value><struct>${m}</struct></value>`;}
+  return `<value><string>${String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</string></value>`;
+}
+function parseXml(xml){
+  const doc=new DOMParser().parseFromString(xml,'text/xml');
+  if(doc.querySelector('fault')) throw new Error('Odoo error: '+(doc.querySelector('faultString')?.textContent?.substring(0,160)||'fault'));
+  function pv(n){
+    if(!n) return null;
+    const c=n.firstElementChild;
+    if(!c) return n.textContent;
+    switch(c.tagName){
+      case 'int':case 'i4':case 'i8': return parseInt(c.textContent);
+      case 'double': return parseFloat(c.textContent);
+      case 'boolean': return c.textContent==='1';
+      case 'string': return c.textContent;
+      case 'nil': return null;
+      case 'array': return Array.from(c.querySelector('data')?.children||[]).map(pv);
+      case 'struct':{const o={};c.querySelectorAll(':scope>member').forEach(m=>{o[m.querySelector('name').textContent]=pv(m.querySelector('value'))});return o;}
+      default: return c.textContent;
+    }
+  }
+  return pv(doc.querySelector('methodResponse>params>param>value'));
+}
+function arr(x){return Array.isArray(x)?x:[null,x?String(x):''];}
+function toArr(x){return Array.isArray(x)?x:(x?[x]:[]);}
+async function odoo(model,method,args,kwargs={}){
+  const user=document.getElementById('cfg-user').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  if(!user||!key) throw new Error('Enter your Odoo email and API key (⚙ Connection).');
+  if(!odooUid){
+    const b=`<?xml version="1.0"?><methodCall><methodName>authenticate</methodName><params>${[v(ODOO_DB),v(user),v(key),v({})].map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+    const r=await fetch(proxyUrl('/xmlrpc/2/common'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+    odooUid=parseXml(await r.text());
+    if(!odooUid||typeof odooUid!=='number') throw new Error('Authentication failed — check email and API key');
+  }
+  // COMPANY LOCK: exclude Ahooga Paris (company 2, closed/unreliable). Force company 1 (Belgium).
+  kwargs=Object.assign({},kwargs); kwargs.context=Object.assign({},kwargs.context,{allowed_company_ids:[1],company_id:1});
+  const params=[v(ODOO_DB),v(odooUid),v(key),v(model),v(method),v(args),v(kwargs)];
+  const b=`<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>${params.map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+  const r=await fetch(proxyUrl('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+  return parseXml(await r.text());
+}
+async function kvGet(key){
+  if(!IS_ONLINE) return null;
+  try{ const r=await fetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`); const t=await r.text(); return t==='null'?null:JSON.parse(t); }
+  catch(e){ console.warn('KV get failed',e); return null; }
+}
+async function kvSet(key,value){
+  if(!IS_ONLINE) return;
+  try{ await fetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)}); }
+  catch(e){ console.warn('KV set failed',e); }
+}
+
+// ── SHARED STORE ─────────────────────────────────────────────
+async function kvGet(key){
+  if(!IS_ONLINE) return null;
+  try{ const r=await fetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`); const t=await r.text(); return t==='null'?null:JSON.parse(t); }
+  catch(e){ console.warn('KV get failed',e); return null; }
+}
+async function kvSet(key,value){
+  if(!IS_ONLINE) return false;
+  const r=await fetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});
+  if(!r.ok) throw new Error('store responded '+r.status);
+  return true;
+}
+
+// ── DETECTION — the MY27 colour palette. Order matters: 'cosmic' before any plain
+// colour word, and 'bordeaux' is checked on its own so Ruby Red (a MY26 colour) does
+// NOT get folded into it. ─────────────────────────────────────
+function detectColor(n){const l=(n||'').toLowerCase();
+  if(l.includes('bumblebee')||l.includes('yellow'))return'bumblebee';
+  if(l.includes('cosmic')||l.includes('black'))return'cosmic_black';
+  if(l.includes('bordeaux'))return'bordeaux_red';
+  if(l.includes('midnight'))return'midnight_blue';
+  if(l.includes('emerald'))return'emerald_green';
+  if(l.includes('atomium'))return'atomium';
+  return'custom';}
+function detectTransmission(n){const l=(n||'').toLowerCase();if(l.includes('alfine')||l.includes('alf'))return'alfine';if(l.includes('derailleur')||l.includes('der'))return'derailleur';return'unknown';}
+function detectBikeType(n){const l=(n||'').toLowerCase();if(l.includes('e-max')||l.includes('emax'))return'emax';if(l.includes('a-max')||l.includes('amax'))return'amax';return'other';}
+function detectRack(n){const l=(n||'').toLowerCase();if(l.includes('without rack')||l.includes('no rack')||l.includes('w/o rack'))return'no rack';if(l.includes('with rack')||l.includes('w/rack')||l.includes('w/ rack')||l.includes('rack'))return'rack';return'no rack';}
+function skuKeyForName(name){
+  const bt=detectBikeType(name), tr=detectTransmission(name);
+  if(!['emax','amax'].includes(bt)) return null;
+  if(!['alfine','derailleur'].includes(tr)) return null;
+  return `${bt}|${tr}|${detectColor(name)}|${detectRack(name)}`;
+}
+
+// ── HELPERS ──────────────────────────────────────────────────
+function alert_(msg,type){document.getElementById('alert-box').innerHTML=`<div class="alert alert-${type}">${msg}</div>`;if(type==='success')setTimeout(()=>{const b=document.getElementById('alert-box');if(b&&b.querySelector('.alert-success'))b.innerHTML='';},5000);}
+function toggleConn(){document.getElementById('conn-panel').classList.toggle('open');}
+function fmt(n){ if(!n) return '·'; return Math.round(n).toLocaleString('en-GB'); }
+function emptyGrid(){const g={};for(const s of SKUS)g[s.key]=Array(12).fill(0);return g;}
+function myTotal(){ const v=parseFloat(document.getElementById('f-total').value); return v>0?v:0; }
+function mixSource(){ const el=document.getElementById('f-mix'); return el?el.value:'preorder'; }
+function normShape(){ const t=shape.reduce((a,b)=>a+(b>0?b:0),0); return t>0?shape.map(x=>Math.max(0,x)/t):Array(12).fill(1/12); }
+
+// ── LOAD ─────────────────────────────────────────────────────
+async function loadData(){
+  saveCfg();
+  try{
+    odooUid=null;
+    document.getElementById('conn-pill').textContent='Connecting…';
+    document.getElementById('conn-pill').className='pill';
+
+    alert_('<span class="spinner"></span> Reading MY27 orders and pre-orders…','info');
+    await loadMy27Demand();
+    alert_('<span class="spinner"></span> Reading 2026 invoiced sales for the model mix…','info');
+    await loadInvoicedMix();
+
+    document.getElementById('conn-panel').classList.remove('open');
+    document.getElementById('conn-pill').textContent=`Connected · ${new Date().toLocaleTimeString()}`;
+    document.getElementById('conn-pill').className='pill ok';
+    _loaded=true;
+    recompute();
+    await publishForecast();
+    alert_('✓ Loaded and published.','success');
+  }catch(e){
+    document.getElementById('conn-pill').textContent='Error';
+    document.getElementById('conn-pill').className='pill err';
+    alert_('Error: '+e.message,'danger');
+    console.error(e);
+    recompute();
+  }
+}
+
+// Every MY27 bike line already in Odoo: confirmed sales orders AND quotations. Quotations
+// matter here — the new colours are sold as pre-orders and would otherwise be invisible.
+async function loadMy27Demand(){
+  knownBySku={}; undatedBySku={}; preorderBySku={};
+  confirmedTotal=0; quotationTotal=0;
+  for(const s of SKUS){ knownBySku[s.key]=Array(12).fill(0); undatedBySku[s.key]=0; }
+
+  // Go at the lines directly and pull only the orders they belong to — reading every sale
+  // order in the database first is a lot of traffic for a handful of MY27 lines.
+  const lines=toArr(await odoo('sale.order.line','search_read',
+    [[['order_id.state','in',['draft','sent','sale','done']],['product_uom_qty','>',0],
+      ['product_id.categ_id.complete_name','ilike','Bikes'],['product_id.name','ilike','MY27']]],
+    {fields:['order_id','product_id','product_uom_qty','qty_delivered'],limit:20000}));
+  const oIds=[...new Set(lines.map(l=>arr(l.order_id)[0]).filter(Boolean))];
+  const byId={};
+  for(let i=0;i<oIds.length;i+=2000){
+    for(const o of toArr(await odoo('sale.order','search_read',
+      [[['id','in',oIds.slice(i,i+2000)]]],{fields:['state','commitment_date','date_order','partner_id'],limit:2000}))) byId[o.id]=o;
+  }
+  const ctryByPartner=await countriesFor(Object.values(byId).map(o=>arr(o.partner_id)[0]));
+  for(const l of lines){
+    const sku=skuKeyForName(arr(l.product_id)[1]||''); if(!sku||!knownBySku[sku]) continue;
+    const o=byId[arr(l.order_id)[0]]; if(!o) continue;
+    const quote=(o.state==='draft'||o.state==='sent');
+    const qty=quote ? (parseFloat(l.product_uom_qty)||0)
+                    : Math.max(0,(parseFloat(l.product_uom_qty)||0)-(parseFloat(l.qty_delivered)||0));
+    if(qty<=0) continue;
+    const cc=bucketOf(ctryByPartner[arr(o.partner_id)[0]]||'');
+    if(quote){ quotationTotal+=qty; preorderBySku[sku]=(preorderBySku[sku]||0)+qty;
+               (preByCountry[cc]=preByCountry[cc]||{})[sku]=(preByCountry[cc][sku]||0)+qty; }
+    else confirmedTotal+=qty;
+    const i=slotOfDate((o.commitment_date||'').split(' ')[0]||null);
+    if(i>=0) knownBySku[sku][i]+=qty; else undatedBySku[sku]+=qty;
+    const kc=(knownByCountry[cc]=knownByCountry[cc]||{});
+    if(i>=0){ (kc[sku]=kc[sku]||Array(12).fill(0))[i]+=qty; }
+    else { (undatedByCountry[cc]=undatedByCountry[cc]||{})[sku]=((undatedByCountry[cc]||{})[sku]||0)+qty; }
+  }
+  console.log('[FC MY27] confirmed',Math.round(confirmedTotal),'· quotation',Math.round(quotationTotal),
+              '· dated',SKUS.reduce((a,s)=>a+knownBySku[s.key].reduce((x,y)=>x+y,0),0),
+              '· undated',SKUS.reduce((a,s)=>a+undatedBySku[s.key],0));
+}
+
+// Resolve a list of partner ids to ISO country codes, in batches, cached for the session.
+let _ctryCache={}, _codeByCountryId=null;
+// Odoo exposes country_code on the partner in recent versions; where it isn't there we fall
+// back to mapping country_id through res.country ourselves. Names are never used as the key —
+// "Germany"/"Deutschland" depends on the reader's language, the ISO code does not.
+async function countryCodeMap(){
+  if(_codeByCountryId) return _codeByCountryId;
+  _codeByCountryId={};
+  try{
+    for(const c of toArr(await odoo('res.country','search_read',[[]],{fields:['code'],limit:500})))
+      _codeByCountryId[c.id]=(c.code||'').toUpperCase();
+  }catch(e){ console.warn('country list failed', e.message); }
+  return _codeByCountryId;
+}
+async function countriesFor(ids){
+  const want=[...new Set(ids.filter(Boolean))].filter(id=>!(id in _ctryCache));
+  if(want.length){
+    const codes=await countryCodeMap();
+    for(let i=0;i<want.length;i+=500){
+      let ps=[];
+      try{ ps=toArr(await odoo('res.partner','search_read',
+        [[['id','in',want.slice(i,i+500)]]],{fields:['country_code','country_id'],limit:500})); }
+      catch(e){ ps=toArr(await odoo('res.partner','search_read',
+        [[['id','in',want.slice(i,i+500)]]],{fields:['country_id'],limit:500})); }
+      for(const p of ps){
+        const cid=arr(p.country_id)[0];
+        _ctryCache[p.id]=String(p.country_code||codes[cid]||'').toUpperCase();
+      }
+    }
+    for(const id of want) if(!(id in _ctryCache)) _ctryCache[id]='';
+  }
+  return _ctryCache;
+}
+
+// 2026 invoiced MAX bikes per SKU, and per SKU per market. MY27 has no Nexus, and skuKeyForName
+// drops Nexus lines, so this is the model / transmission / rack shape of the modern range only.
+async function loadInvoicedMix(){
+  invoicedBySku={}; invByCountry={};
+  const base=[['parent_state','=','posted'],['date','>=','2026-01-01'],['date','<=','2026-12-31'],
+    ['product_id.categ_id.complete_name','ilike','Bikes'],['product_id.name','ilike','MAX']];
+  const rows=[];
+  const add=async(mt,sign)=>{
+    const lines=toArr(await odoo('account.move.line','search_read',
+      [[...base,['move_id.move_type','=',mt]]],{fields:['quantity','product_id','partner_id'],limit:60000}));
+    for(const l of lines){ const k=skuKeyForName(arr(l.product_id)[1]||''); if(!k) continue;
+      const q=sign*(parseFloat(l.quantity)||0);
+      invoicedBySku[k]=(invoicedBySku[k]||0)+q;
+      rows.push([arr(l.partner_id)[0], k, q]);
+    }
+  };
+  await add('out_invoice',1); await add('out_refund',-1);
+  for(const k in invoicedBySku) invoicedBySku[k]=Math.max(0,invoicedBySku[k]);
+  const byPartner=await countriesFor(rows.map(r=>r[0]));
+  for(const [pid,k,q] of rows){
+    const cc=bucketOf(byPartner[pid]||'');
+    const m=(invByCountry[cc]=invByCountry[cc]||{});
+    m[k]=(m[k]||0)+q;
+  }
+  for(const cc in invByCountry) for(const k in invByCountry[cc]) invByCountry[cc][k]=Math.max(0,invByCountry[cc][k]);
+  console.log('[FC MY27] 2026 invoiced by market:', Object.fromEntries(Object.entries(invByCountry).map(([c,m])=>[c, Math.round(Object.values(m).reduce((a,b)=>a+b,0))])));
+}
+
+// ── THE MIX ──────────────────────────────────────────────────
+// Two dimensions, because no single source carries both. 2026 never sold Bordeaux Red,
+// Emerald Green, Atomium or Midnight Blue, so 2026 cannot tell us anything about MY27
+// colour; and the handful of MY27 pre-orders is too thin a sample to set the model split.
+// A market needs this many 2026 bikes before we trust its own model split; below it we use
+// the whole book, because a handful of bikes is noise, not a market characteristic.
+const MIN_SAMPLE=25;
+function btrFrom(src){
+  const out={}; let tot=0;
+  for(const s of SKUS){ const k=`${s.bt}|${s.tr}|${s.rk}`; const q=src[s.key]||0; out[k]=(out[k]||0)+q; tot+=q; }
+  const keys=Object.keys(out);
+  if(tot<=0){ for(const k of keys) out[k]=1/keys.length; return out; }
+  for(const k of keys) out[k]=out[k]/tot; return out;
+}
+function sampleOf(code){ const m=invByCountry[code]||{}; return Object.values(m).reduce((a,b)=>a+b,0); }
+function usesOwnMix(code){ return sampleOf(code)>=MIN_SAMPLE; }
+function btrShare(code){
+  if(!code) return btrFrom(invoicedBySku);
+  return btrFrom(usesOwnMix(code) ? (invByCountry[code]||{}) : invoicedBySku);
+}
+function colourShareFrom(src, fallback){
+  const out={};
+  const take=(from)=>{ let t=0; for(const c of STOCK_COLS){ let q=0; for(const s of SKUS) if(s.co===c) q+=(from[s.key]||0); out[c]=q; t+=q; } return t; };
+  let tot=take(src);
+  if(tot<=0) tot=take(fallback||{});
+  if(tot<=0){ for(const c of STOCK_COLS) out[c]=1/STOCK_COLS.length; return out; }
+  for(const c of STOCK_COLS) out[c]=out[c]/tot; return out;
+}
+// Colour is a range decision more than a market one, and the per-market pre-order sample is
+// thin, so a market only gets its own colour split once it has enough pre-orders of its own.
+function stockColourShare(code){
+  if(mixSource()==='invoiced') return colourShareFrom(invoicedBySku, invoicedBySku);
+  const own=(preByCountry[code]||{});
+  const ownTot=Object.values(own).reduce((a,b)=>a+b,0);
+  return colourShareFrom(ownTot>=MIN_SAMPLE ? own : preorderBySku, invoicedBySku);
+}
+// Season total per SKU, built market by market and then added up. Build-to-order colours are
+// exactly what that market has ordered — never forecast upward, because we hold no stock in
+// them. Whatever is left of a market's target is its stock build, split by that market's own
+// colour × model mix.
+function seasonTotalBySku(){
+  const out={}; for(const s of SKUS) out[s.key]=0;
+  fcByCountry={};
+  let btoAll=0, budgetAll=0;
+  for(const C of COUNTRIES){
+    const code=C.code, tgt=targetFor(code);
+    const per={}; for(const s of SKUS) per[s.key]=0;
+    let bto=0;
+    for(const s of SKUS) if(isBTO(s.co)){
+      const dated=((knownByCountry[code]||{})[s.key]||[]).reduce((a,b)=>a+b,0);
+      const und=((undatedByCountry[code]||{})[s.key])||0;
+      per[s.key]=dated+und; bto+=dated+und;
+    }
+    const budget=Math.max(0, tgt-bto);
+    const btr=btrShare(code), col=stockColourShare(code);
+    let w=0; const ws={};
+    for(const s of SKUS){ if(isBTO(s.co)) continue;
+      ws[s.key]=(col[s.co]||0)*(btr[`${s.bt}|${s.tr}|${s.rk}`]||0); w+=ws[s.key]; }
+    for(const s of SKUS){ if(isBTO(s.co)) continue; per[s.key]= w>0 ? budget*(ws[s.key]/w) : 0; }
+    fcByCountry[code]=per;
+    for(const s of SKUS) out[s.key]+=per[s.key];
+    btoAll+=bto; budgetAll+=budget;
+  }
+  return {bySku:out, bto:btoAll, budget:budgetAll};
+}
+// Share of a market that is E-MAX / Alfine / with-rack — the numbers that actually differ
+// between countries, and the reason the season is planned per market at all.
+function marketProfile(code){
+  const src = usesOwnMix(code) ? (invByCountry[code]||{}) : invoicedBySku;
+  let tot=0, emax=0, alf=0, rack=0;
+  for(const s of SKUS){ const q=src[s.key]||0; if(q<=0) continue; tot+=q;
+    if(s.bt==='emax') emax+=q; if(s.tr==='alfine') alf+=q; if(s.rk==='rack') rack+=q; }
+  if(tot<=0) return {emax:0, alf:0, rack:0, sample:0, own:false};
+  return {emax:emax/tot, alf:alf/tot, rack:rack/tot, sample:tot, own:usesOwnMix(code)};
+}
+
+// ── COMPUTE ──────────────────────────────────────────────────
+function recompute(){
+  const sh=normShape();
+  const {bySku, bto, budget}=seasonTotalBySku();
+  forecast=emptyGrid();
+  for(const s of SKUS){
+    const known=knownBySku[s.key]||Array(12).fill(0);
+    const knownTot=known.reduce((a,b)=>a+b,0);
+    // Dated orders keep the month they are wanted in; whatever is left of this SKU's season
+    // total is spread across the twelve months by the shape.
+    const spread=Math.max(0, (bySku[s.key]||0)-knownTot);
+    for(let i=0;i<12;i++) forecast[s.key][i]=known[i]+spread*sh[i];
+  }
+  // Round to whole bikes ALONG each SKU's row, largest remainder, so every SKU's season total
+  // survives exactly. Rounding down the columns instead moved a few units between SKUs and left
+  // the build-to-order rows a handful short of what was actually pre-ordered.
+  for(const s of SKUS){
+    const row=forecast[s.key];
+    const exact=row.reduce((a,b)=>a+b,0);
+    if(exact<=1e-9){ for(let i=0;i<12;i++) row[i]=0; continue; }
+    const want=Math.round(exact); let used=0; const rem=[];
+    for(let i=0;i<12;i++){ const f=Math.floor(row[i]); rem.push([i,row[i]-f]); row[i]=f; used+=f; }
+    rem.sort((a,b)=>b[1]-a[1]);
+    for(let n=0;n<want-used;n++) row[rem[n%rem.length][0]]++;
+  }
+  renderShape(); renderMarkets(); renderKPIs(bto,budget); renderKnown(); renderForecast();
+  document.getElementById('basis-line').innerHTML =
+    `<b>${fmt(myTotal())}</b> MY27 units = <b>${fmt(Math.round(budget))}</b> stock build + <b>${fmt(Math.round(bto))}</b> built to order · colours from ${mixSource()==='invoiced'?'2026 invoiced':'MY27 pre-orders'} · models &amp; racks from 2026 invoiced`;
+  saveCfg(); schedulePublish();
+}
+
+// ── RENDER ───────────────────────────────────────────────────
+function renderShape(){
+  document.getElementById('shape-head').innerHTML =
+    `<th class="sku">Season weight</th>${MY27_SLOTS.map((_,i)=>`<th>${slotLabel(i)}</th>`).join('')}<th class="total">Share</th>`;
+  const sh=normShape();
+  document.getElementById('shape-row').innerHTML =
+    `<td class="sku" style="font-weight:400;color:var(--text2);font-size:11px">relative — normalised</td>` +
+    MY27_SLOTS.map((_,i)=>`<td style="text-align:center;padding:2px"><input type="number" min="0" value="${shape[i]}" onchange="setShape(${i},this.value)" style="width:46px;text-align:center;font-size:11px;padding:3px;border:1px solid var(--border2);border-radius:4px"/><div style="font-size:10px;color:var(--text3);margin-top:2px">${(sh[i]*100).toFixed(0)}%</div></td>`).join('') +
+    `<td class="total">100%</td>`;
+}
+function setShape(i,v){ const n=parseFloat(v); shape[i]=(isNaN(n)||n<0)?0:n; try{localStorage.setItem(LS_SHAPE,JSON.stringify(shape));}catch(e){} recompute(); }
+function resetShape(){ shape=DEFAULT_SHAPE.slice(); try{localStorage.setItem(LS_SHAPE,JSON.stringify(shape));}catch(e){} recompute(); }
+
+function renderMarkets(){
+  const el=document.getElementById('markets'); if(!el) return;
+  const pct=(x)=>(x*100).toFixed(0)+'%';
+  const named=NAMED.reduce((a,c)=>a+(countryTargets[c]||0),0);
+  const rows=COUNTRIES.map(C=>{
+    const p=marketProfile(C.code), tgt=targetFor(C.code);
+    const plan=fcByCountry[C.code]||{};
+    const bto=SKUS.filter(s=>isBTO(s.co)).reduce((a,s)=>a+(plan[s.key]||0),0);
+    const cell = C.code==='OTHER'
+      ? `<td class="total" title="the season total minus the named markets">${fmt(tgt)}</td>`
+      : `<td style="text-align:center;padding:2px"><input type="number" min="0" value="${countryTargets[C.code]||0}" onchange="setCountryTarget('${C.code}',this.value)" style="width:64px;text-align:center;font-size:12px;padding:3px;border:1px solid var(--border2);border-radius:4px"/></td>`;
+    return `<tr>
+      <td class="sku">${C.label}${p.own?'':' <span class="tag" style="font-size:9px" title="fewer than '+MIN_SAMPLE+' bikes invoiced in 2026 — using the overall split">shared mix</span>'}</td>
+      ${cell}
+      <td>${pct(p.emax)}</td><td>${pct(1-p.emax)}</td>
+      <td>${pct(p.alf)}</td><td>${pct(1-p.alf)}</td>
+      <td>${pct(p.rack)}</td>
+      <td>${fmt(Math.round(p.sample))}</td>
+      <td class="total">${fmt(Math.round(bto))}</td>
+    </tr>`;
+  }).join('');
+  const tot=COUNTRIES.reduce((a,C)=>a+targetFor(C.code),0);
+  el.innerHTML=`<table class="grid"><thead><tr>
+      <th class="sku">Market</th><th>MY27 target</th>
+      <th title="share of that market's 2026 bikes that were E-MAX">E-MAX</th><th>A-MAX</th>
+      <th title="share that were Alfine hub gear">Alfine</th><th>Derailleur</th>
+      <th title="share sold with a rack">With rack</th>
+      <th title="bikes invoiced to this market in 2026 — the sample the split is read from">2026 sample</th>
+      <th class="total">Built to order</th></tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot><tr><th class="sku">Total</th><td class="total">${fmt(tot)}</td><td colspan="6"></td><td class="total"></td></tr></tfoot></table>`;
+  const over=named>myTotal();
+  document.getElementById('mkt-tag').textContent = over
+    ? `named markets exceed the season total by ${fmt(named-myTotal())}`
+    : `${fmt(named)} named · ${fmt(Math.max(0,myTotal()-named))} other`;
+  document.getElementById('mkt-tag').style.color = over?'var(--danger)':'';
+}
+function setCountryTarget(code,val){
+  const n=parseInt(val); countryTargets[code]=(isNaN(n)||n<0)?0:n;
+  try{ localStorage.setItem(LS_CTRY, JSON.stringify(countryTargets)); }catch(e){}
+  recompute();
+}
+
+function renderKPIs(bto,budget){
+  const fcTot=SKUS.reduce((a,s)=>a+forecast[s.key].reduce((x,y)=>x+y,0),0);
+  const cols={}; for(const s of SKUS) cols[s.co]=(cols[s.co]||0)+forecast[s.key].reduce((x,y)=>x+y,0);
+  const live=STOCK_COLS.filter(c=>cols[c]>0).length + BTO_COLS.filter(c=>cols[c]>0).length;
+  const k=(l,v,sub,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${v}</div>${sub?`<div class="kpi-label" style="margin-top:4px">${sub}</div>`:''}</div>`;
+  document.getElementById('kpis').innerHTML=
+    k('Season total', fmt(fcTot),'Oct 2026 → Sep 2027','var(--purple)')+
+    k('Confirmed orders', fmt(Math.round(confirmedTotal)),'MY27 sales orders','var(--success)')+
+    k('Pre-orders', fmt(Math.round(quotationTotal)),'still in quotation','var(--accent)')+
+    k('Built to order', fmt(Math.round(bto)),'Emerald / Atomium / Midnight / Custom','var(--accent)')+
+    k('Stock build', fmt(Math.round(budget)),'Bumblebee / Cosmic Black / Bordeaux',null)+
+    k('Colours live', live+' of 7', live<6?'some colours have no demand':'every colour planned', live<6?'var(--warn)':'var(--success)');
+  document.getElementById('known-tag').textContent =
+    `${fmt(Math.round(confirmedTotal))} confirmed · ${fmt(Math.round(quotationTotal))} quotation`;
+}
+
+function gridHtml(data, undated){
+  const head=`<tr><th class="sku">SKU (${SKUS.length})</th>${MY27_SLOTS.map((_,i)=>`<th>${slotLabel(i)}</th>`).join('')}${undated?'<th title="no requested date — spread by the season shape">n/d</th>':''}<th class="total">Total</th></tr>`;
+  const colTot=Array(12).fill(0); let grand=0, undTot=0;
+  const body=SKUS.map(s=>{
+    const row=data[s.key]||Array(12).fill(0);
+    let rt=0;
+    const cells=row.map((v,i)=>{ rt+=v; colTot[i]+=v; return `<td class="${v?'has':'zero'}">${fmt(v)}</td>`; }).join('');
+    const u=undated?(undatedBySku[s.key]||0):0; undTot+=u; grand+=rt+u;
+    return `<tr><td class="sku"><span class="dot" style="background:${COLOR_HEX[s.color]}"></span>${s.label} · ${s.col} · ${s.rkl}${isBTO(s.co)?' <span class="tag" style="font-size:9px">to order</span>':''}</td>${cells}${undated?`<td class="${u?'has':'zero'}">${fmt(u)}</td>`:''}<td class="total">${fmt(rt+u)}</td></tr>`;
+  }).join('');
+  const foot=`<tr><th class="sku">Total</th>${colTot.map(c=>`<td class="total">${fmt(c)}</td>`).join('')}${undated?`<td class="total">${fmt(undTot)}</td>`:''}<td class="total">${fmt(grand)}</td></tr>`;
+  return `<table class="grid"><thead>${head}</thead><tbody>${body}</tbody><tfoot>${foot}</tfoot></table>`;
+}
+function renderKnown(){ document.getElementById('t1').innerHTML=gridHtml(knownBySku,true); }
+function renderForecast(){ document.getElementById('t2').innerHTML=gridHtml(forecast,false); }
+
+// ── PUBLISH ──────────────────────────────────────────────────
+// The MY27 PO Builder reads this key. forwardBySkuMonthly rows are in MY27_SLOTS order
+// (Oct 2026 → Sep 2027) — the builder uses them as each SKU's timing shape and works
+// backwards through production + transit to pick the week production has to start.
+function setPubPill(t,c){ const el=document.getElementById('pub-pill'); if(!el) return; el.textContent=t; el.className='pill'+(c?' '+c:''); }
+async function publishForecast(){
+  if(!IS_ONLINE){ setPubPill('Local only',''); return; }
+  if(!_loaded){ setPubPill('Nothing loaded yet','err'); return; }
+  const forwardBySku={}, forwardBySkuMonthly={};
+  let total=0;
+  for(const s of SKUS){
+    const row=(forecast[s.key]||Array(12).fill(0)).map(x=>Math.max(0,Math.round(x||0)));
+    forwardBySkuMonthly[s.key]=row;
+    const sum=row.reduce((a,b)=>a+b,0);
+    forwardBySku[s.key]=sum; total+=sum;
+  }
+  try{
+    setPubPill('Publishing…','');
+    // Per-market season totals travel with the payload. The PO Builder only needs the aggregate
+    // (it plans production, not sales), but the split is what the season plan was built from and
+    // anything else reading this key should be able to see it.
+    const byCountry={};
+    for(const C of COUNTRIES){
+      const per=fcByCountry[C.code]||{}; const bySkuC={};
+      let t=0; for(const s of SKUS){ const q=Math.round(per[s.key]||0); if(q>0) bySkuC[s.key]=q; t+=q; }
+      const p=marketProfile(C.code);
+      byCountry[C.code]={ label:C.label, target:targetFor(C.code), total:t, bySku:bySkuC,
+                          emaxShare:+p.emax.toFixed(3), alfineShare:+p.alf.toFixed(3), rackShare:+p.rack.toFixed(3),
+                          ownMix:p.own, sample2026:Math.round(p.sample) };
+    }
+    await kvSet('sales_forecast_my27', {
+      modelYear:'MY27',
+      months:MY27_SLOTS.map((sl,i)=>({year:sl[0], month:sl[1], label:slotLabel(i)})),
+      forwardBySku, forwardBySkuMonthly, byCountry,
+      confirmed:Math.round(confirmedTotal), quotation:Math.round(quotationTotal),
+      year:2027, total:Math.round(total), updated:new Date().toISOString()
+    });
+    setPubPill('Published ✓ '+new Date().toLocaleTimeString(),'ok');
+  }catch(e){ console.warn('publish failed',e.message); setPubPill('Publish failed','err'); }
+}
+function schedulePublish(){ if(!_loaded) return; clearTimeout(_pubTimer); _pubTimer=setTimeout(publishForecast,900); }
+
+function exportCSV(){
+  let out='SKU,'+MY27_SLOTS.map((_,i)=>slotLabel(i)).join(',')+',Total\n';
+  for(const s of SKUS){
+    const row=forecast[s.key]||Array(12).fill(0);
+    out+=`"${s.label} · ${s.col} · ${s.rkl}",`+row.map(x=>Math.round(x)).join(',')+','+Math.round(row.reduce((a,b)=>a+b,0))+'\n';
+  }
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([out],{type:'text/csv'}));
+  a.download='sales_forecast_my27.csv'; a.click();
+}
+
+// ── PERSIST ──────────────────────────────────────────────────
+function saveCfg(){
+  try{ localStorage.setItem(LS_CFG, JSON.stringify({
+    user:document.getElementById('cfg-user').value.trim(),
+    key:document.getElementById('cfg-key').value.trim(),
+    total:document.getElementById('f-total').value,
+    mix:document.getElementById('f-mix').value
+  })); }catch(e){}
+}
+function loadCfg(){
+  let c={}; try{ c=JSON.parse(localStorage.getItem(LS_CFG)||'{}'); }catch(e){}
+  // reuse the PO Builder's / MY26 forecast's saved Odoo credentials if they are already there
+  let a={},b={}; try{ a=JSON.parse(localStorage.getItem('ahooga_pobuilder_my27_cfg')||'{}'); }catch(e){}
+  try{ b=JSON.parse(localStorage.getItem('ahooga_forecast_cfg')||'{}'); }catch(e){}
+  document.getElementById('cfg-user').value=c.user||a.user||b.user||'';
+  document.getElementById('cfg-key').value =c.key ||a.key ||b.key ||'';
+  document.getElementById('f-total').value=(c.total!=null&&c.total!=='')?c.total:6100;   // MY27 plan
+  document.getElementById('f-mix').value=(c.mix==='invoiced')?'invoiced':'preorder';
+  try{ const sh=JSON.parse(localStorage.getItem(LS_SHAPE)||'null'); if(Array.isArray(sh)&&sh.length===12) shape=sh.map(x=>Math.max(0,parseFloat(x)||0)); }catch(e){}
+  countryTargets={}; for(const C of COUNTRIES) if(C.target!=null) countryTargets[C.code]=C.target;
+  try{ const ct=JSON.parse(localStorage.getItem(LS_CTRY)||'null'); if(ct&&typeof ct==='object') for(const k in ct){ const n=parseInt(ct[k]); if(!isNaN(n)&&n>=0) countryTargets[k]=n; } }catch(e){}
+}
+
+// ── INIT ─────────────────────────────────────────────────────
+loadCfg();
+recompute();
+if(document.getElementById('cfg-user').value && document.getElementById('cfg-key').value){
+  loadData();
+} else {
+  document.getElementById('conn-panel').classList.add('open');
+  alert_('Enter your Odoo email and API key to load MY27 demand.','info');
+}
+
+</script>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">&#8962;&nbsp;Home</a>
+</body>
+</html>

@@ -118,7 +118,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   <div class="controls">
     <div class="field"><label>Model year</label><input type="number" id="f-year" style="width:90px" value="2027" readonly title="MY27 cycle: WK37 2026 (7 Sep 2026) → end Sept 2027"/></div>
     <div class="field"><label>MY27 target (units)</label><input type="number" id="f-target" style="width:120px" min="0" placeholder="from forecast" oninput="recompute()"/><span class="hint">total bikes to build — scales the forecast mix</span></div>
-    <div class="field"><label>SKU mix from</label><select id="f-mix" onchange="recompute()" style="padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface)"><option value="invoiced">2026 invoiced sales</option><option value="forecast">Published forecast</option></select><span class="hint">how the target splits across SKUs</span></div>
+    <div class="field"><label>SKU mix from</label><select id="f-mix" onchange="recompute()" style="padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface)"><option value="preorder">MY27 pre-orders + 2026 invoiced</option><option value="forecast">MY27 forecast</option></select><span class="hint">colour from pre-orders · model &amp; rack from 2026</span></div>
     <div class="field"><label>Minimum batch (per PO)</label><input type="number" id="f-minbatch" style="width:120px" value="20" oninput="recompute()"/><span class="hint">smallest production run</span></div>
     <div class="field"><label>Production days</label><input type="number" id="f-prod" style="width:90px" value="12" oninput="recompute()"/></div>
     <div class="field"><label>Transit days</label><input type="number" id="f-lead" style="width:90px" value="2" oninput="recompute()"/></div>
@@ -158,6 +158,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
       </div>
       <div id="cap-bar" style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-bottom:10px;font-size:12px">
         <span style="font-weight:600;color:var(--text2)">Capacity per week:</span>
+        <select id="cap-site" style="padding:6px 8px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;background:var(--surface)"><option value="okazi">Okazi</option><option value="bikefun">BikeFun</option></select>
         <span class="hint">set weeks</span>
         <input type="number" id="cap-from" min="1" placeholder="1" style="width:56px"/>
         <span class="hint">to</span>
@@ -229,7 +230,22 @@ const LS_CAPS='ahooga_pobuilder_my27_weekcaps';
 const IS_ONLINE = location.hostname!=='localhost' && location.hostname!=='127.0.0.1';
 let odooUid=null;
 let blockedWeeks=new Set();   // Monday dates (YYYY-MM-DD, local) blocked for production
-let weekCaps={};              // Monday date (YYYY-MM-DD) -> max bikes that week (per-week override)
+let weekCaps={};              // site -> { Monday date (YYYY-MM-DD) -> max bikes that week }
+// ── ASSEMBLY SITES ───────────────────────────────────────────
+// Okazi has always been the assembler. BikeFun comes online in May 2027 and — unlike Okazi —
+// builds its own wheels on site, so the bikes it assembles place NO demand on MTB Maastricht
+// and carry no 3-week wheel lead. Each site is planned and ordered separately.
+const SITES=[
+  {key:'okazi',   label:'Okazi',   vendor:'Okazi',   wheelsOnSite:false, start:null,         target:0},
+  {key:'bikefun', label:'BikeFun', vendor:'BikeFun', wheelsOnSite:true,  start:'2027-05-03', target:1500}
+];
+const SITE_KEYS=SITES.map(x=>x.key);
+const siteOf=(k)=>SITES.find(x=>x.key===k);
+const SITE_HEX={okazi:'#14259b', bikefun:'#0f7a52'};
+const NEAR_TERM_WEEKS=3;      // component availability is only checked this far out
+const MAX_MODELS_PER_WEEK=2;  // the assembler changes over at most once a week
+const DUE_BAND_WEEKS=4;       // deadlines within this many weeks count as equally urgent
+const PLATFORM_PAIR_TOL=0.05; // pair two transmissions of one platform unless that costs >5% of pacing
 const WHEEL_LEAD_WEEKS=3;     // MTB wheels: 2 wk build + 1 wk ship → assemble this many weeks before the bike week
 const WHEEL_PO_FRONT=150, WHEEL_PO_REAR=150;   // one wheel PO = 150 front + 150 rear (300 wheels)
 const WHEEL_FRONT={amax:'WHFWA00060', emax:'WHFWA00090'};   // front wheel SKU by platform
@@ -239,6 +255,10 @@ const WHEEL_SIDE_OF=(c)=> /^WHF/i.test(c)?'front':'rear';
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 //                Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec  (same tiered shape as the forecast)
 const SEASON_FWD=[3,  7, 11, 15, 15, 15, 11,  7, 11,  7,  3,  3];
+// MY27 selling calendar: the 12 months a MY27 bike can be sold in, Oct 2026 → Sep 2027.
+// Slot i is [year, monthIndex]; the MY27 forecast app publishes its monthly rows in this order.
+const MY27_SLOTS=[[2026,9],[2026,10],[2026,11],[2027,0],[2027,1],[2027,2],[2027,3],[2027,4],[2027,5],[2027,6],[2027,7],[2027,8]];
+const absMonth=(y,m)=>y*12+m;
 
 const BT=[['emax','E-MAX'],['amax','A-MAX']];
 const TR=[['alfine','Alfine'],['derailleur','Derailleur']];
@@ -246,7 +266,12 @@ const TR=[['alfine','Alfine'],['derailleur','Derailleur']];
 const CO=[['bumblebee','Bumblebee'],['cosmic_black','Cosmic Black'],['bordeaux_red','Bordeaux Red'],['midnight_blue','Midnight Blue'],['emerald_green','Emerald Green'],['atomium','Atomium'],['custom','Custom']];
 const RK=[['rack','With rack'],['no rack','Without rack']];
 const COLOR_HEX={bumblebee:'#f5c842',cosmic_black:'#2a2a2a',bordeaux_red:'#7b1e2b',midnight_blue:'#1b2a52',emerald_green:'#1e7d5a',atomium:'#9aa4ad',custom:'#7f77dd'};
-const FILL_COLS=['bumblebee','cosmic_black','bordeaux_red','midnight_blue','emerald_green','atomium'], FILL_RKS=['rack','no rack'];   // custom = committed-only
+// MY27 colour policy. We carry stock only in the three volume colours; the rest are built
+// strictly to the quantity ordered (Odoo quotation-stage pre-orders), never to stock.
+const STOCK_COLS=['bumblebee','cosmic_black','bordeaux_red'];
+const BTO_COLS  =['emerald_green','atomium','midnight_blue','custom'];
+const isBTO=(co)=>BTO_COLS.indexOf(co)>=0;
+const FILL_COLS=STOCK_COLS.slice(), FILL_RKS=['rack','no rack'];   // week-filler uses stock colours only
 const SKUS=[];
 for(const [bt,btl] of BT) for(const [tr,trl] of TR) for(const [co,col] of CO) for(const [rk,rkl] of RK)
   SKUS.push({key:`${bt}|${tr}|${co}|${rk}`, bt,tr,co,rk, color:co, label:`${btl} ${trl}`, col, rkl, fam:`${bt}|${tr}`});
@@ -255,7 +280,9 @@ const FAMILIES=[['emax','alfine'],['emax','derailleur'],['amax','alfine'],['amax
 
 let forwardBySku={}, fcYear=null, fcUpdated=null;   // from the Sales Forecast app (KV)
 let forwardMonthlyBySku={};   // sku -> [12] forward demand by month (timing), from the Forecast app
-let invoicedBySku={}, invoicedYear=null;   // this-year (2026) invoiced bikes per SKU → default mix for the MY27 target
+let invoicedBySku={}, invoicedYear=null;   // this-year (2026) invoiced bikes per SKU → platform/transmission/rack mix
+let preorderBySku={}, preorderTotal=0, preorderUpdated=null;   // MY27 pre-orders still in quotation (draft/sent)
+let my27OnOrderBySku={}, my27OnOrderTotal=0;                   // MY27 bikes on confirmed, not-yet-received POs
 let unmatchedBySku={}, freeStockBySku={}, incomingBySku={}, inprodBySku={}, basisUpdated=null;  // from the Production Planner (KV)
 // Incoming over-production already on issued POs (beyond committed in-prod orders) → becomes free stock
 function incomingFree(sku){ return Math.max(0, (incomingBySku[sku]||0) - (inprodBySku[sku]||0)); }
@@ -268,29 +295,61 @@ function myTarget(){ const el=document.getElementById('f-target'); const v=el?pa
 function forecastBaseTotal(){ return SKUS.reduce((a,s)=>a+(forwardBySku[s.key]||0),0); }
 // Scale factor that stretches the forecast mix up (or down) to hit the manual target.
 function targetFactor(){ const T=myTarget(), base=forecastBaseTotal(); return (T>0 && base>0) ? (T/base) : 1; }
-function targetMode(){ return myTarget()>0 && forecastBaseTotal()>0; }
+function targetMode(){ return myTarget()>0; }
 // Where the SKU split comes from: 2026 invoiced sales (default) or the published forecast.
-function mixSource(){ const el=document.getElementById('f-mix'); return el?el.value:'invoiced'; }
+function mixSource(){ const el=document.getElementById('f-mix'); return el?el.value:'preorder'; }
 function invoicedBaseTotal(){ return SKUS.reduce((a,s)=>a+(invoicedBySku[s.key]||0),0); }
-// Per-SKU share (sums to 1). Invoiced 2026 by default; falls back to forecast, then uniform.
+// The stock mix is built from two independent dimensions, because no single source has both:
+//   colour            → live MY27 pre-orders (2026 never sold Bordeaux/Emerald/Atomium/Midnight)
+//   platform|trans|rack → 2026 invoiced (Nexus drops out via skuKeyForName — MY27 has no Nexus)
+// 'forecast' mode takes both from the published MY27 forecast instead.
+function useForecastMix(){ return mixSource()==='forecast' && forecastBaseTotal()>0; }
+function btrShare(){
+  const src = useForecastMix() ? forwardBySku : invoicedBySku;
+  const out={}; let tot=0;
+  for(const s of SKUS){ const k=`${s.bt}|${s.tr}|${s.rk}`; const q=src[s.key]||0; out[k]=(out[k]||0)+q; tot+=q; }
+  const keys=Object.keys(out);
+  if(tot<=0){ for(const k of keys) out[k]=1/keys.length; return out; }
+  for(const k of keys) out[k]=out[k]/tot; return out;
+}
+function stockColourShare(){
+  const out={}; let tot=0;
+  const take=(src)=>{ let t=0; for(const c of STOCK_COLS){ let q=0; for(const s of SKUS) if(s.co===c) q+=(src[s.key]||0); out[c]=q; t+=q; } return t; };
+  tot = useForecastMix() ? take(forwardBySku) : take(preorderBySku);
+  if(tot<=0) tot=take(invoicedBySku);                       // no pre-orders yet → fall back to 2026
+  if(tot<=0){ for(const c of STOCK_COLS) out[c]=1/STOCK_COLS.length; return out; }
+  for(const c of STOCK_COLS) out[c]=out[c]/tot; return out;
+}
+// Per-SKU share of the STOCK build (sums to 1; build-to-order colours are zero here).
 function currentMix(){
-  const out={};
-  if(mixSource()==='invoiced'){ const t=invoicedBaseTotal(); if(t>0){ for(const s of SKUS) out[s.key]=(invoicedBySku[s.key]||0)/t; return out; } }
-  const ft=forecastBaseTotal(); if(ft>0){ for(const s of SKUS) out[s.key]=(forwardBySku[s.key]||0)/ft; return out; }
-  for(const s of SKUS) out[s.key]=1/SKUS.length; return out;
+  const out={}; for(const s of SKUS) out[s.key]=0;
+  const btr=btrShare(), col=stockColourShare(); let tot=0;
+  for(const s of SKUS){ if(isBTO(s.co)) continue;
+    const w=(col[s.co]||0)*(btr[`${s.bt}|${s.tr}|${s.rk}`]||0); out[s.key]=w; tot+=w; }
+  if(tot>0) for(const s of SKUS) out[s.key]=out[s.key]/tot;
+  return out;
 }
 // Aggregate monthly seasonality (sums to 1) used for timing; falls back to seasonal weights over the window.
 function aggMonthShare(){
   const agg=Array(12).fill(0);
-  for(const s of SKUS){ const row=forwardMonthlyBySku[s.key]||[]; for(let m=0;m<12;m++) agg[m]+=row[m]||0; }
+  for(const s of SKUS){ const row=forwardMonthlyBySku[s.key]||[]; for(let i=0;i<12;i++) agg[i]+=row[i]||0; }
   let t=agg.reduce((a,b)=>a+b,0);
-  if(t<=0){ const w=Array(12).fill(0); for(const wk of weeks) w[wk.month]+=SEASON_FWD[wk.month]; t=w.reduce((a,b)=>a+b,0)||1; return w.map(x=>x/t); }
-  return agg.map(x=>x/t);
+  if(t>0) return agg.map(x=>x/t);
+  const w=MY27_SLOTS.map(function(sl){ return SEASON_FWD[sl[1]]; });   // no MY27 forecast yet → seasonal shape
+  t=w.reduce((a,b)=>a+b,0)||1; return w.map(x=>x/t);
 }
 // Bikes still to produce per SKU. In target mode the manual target is authoritative: demand =
 // forecast mix scaled to the target (MY27 are new SKUs, so we don't net against MY26 stock/orders).
+// Bikes ordered in build-to-order colours — planned at exactly this, never more.
+function btoTotal(){ let t=0; for(const s of SKUS) if(isBTO(s.co)) t+=(preorderBySku[s.key]||0); return t; }
+// What is left of the target for the three stock colours.
+function stockBudget(){ return Math.max(0, myTarget()-btoTotal()); }
 function toProduce(sku){
-  if(targetMode()) return myTarget() * (currentMix()[sku]||0);
+  if(targetMode()){
+    const s=SKUS.find(x=>x.key===sku);
+    if(s && isBTO(s.co)) return preorderBySku[sku]||0;
+    return stockBudget() * (currentMix()[sku]||0);
+  }
   const demand = (unmatchedBySku[sku]||0) + (forwardBySku[sku]||0);
   const supply = (freeStockBySku[sku]||0) + incomingFree(sku);
   return Math.max(0, demand - supply);
@@ -312,11 +371,20 @@ function publishPlan(){
   }
   const bySku={};   // per-SKU (colour/rack) weekly plan → Parts Stock depletes the exact MY27 variant parts
   for(const s of SKUS){ const a=weeks.map((_,wi)=>Math.round(yearGrid[s.key][wi]||0)); if(a.some(x=>x>0)) bySku[s.key]=a; }
+  // Per assembly site, so Parts Stock can see where each bike is built — components ship to
+  // different places, and BikeFun builds its own wheels while Okazi takes them from MTB.
+  const bySite={};
+  for(const st of SITES){
+    const g=siteGrid[st.key]; if(!g) continue;
+    const tot=weeks.map((_,wi)=>SKUS.reduce((a,s)=>a+Math.round(g[s.key][wi]||0),0));
+    const sk={}; for(const s of SKUS){ const a=weeks.map((_,wi)=>Math.round(g[s.key][wi]||0)); if(a.some(x=>x>0)) sk[s.key]=a; }
+    bySite[st.key]={ label:st.label, wheelsOnSite:!!st.wheelsOnSite, start:st.start||null, weekly:tot, bySku:sk };
+  }
   kvSet('production_plan_my27', {
     year:selectedYear(), updated:new Date().toISOString(),
     deadline:ymd(getDeadline()), weekly:targetPerWeek(),
     weeks:weeks.map(w=>({monday:ymd(w.monday), label:w.label, iso:w.iso})),
-    byFam, bySku
+    byFam, bySku, bySite
   });
 }
 let orderbook=[];                                    // [{sku, remaining, due}]
@@ -329,6 +397,11 @@ let wheelStock=null;                                 // wheels already on hand (
 let wheelMap=null;                                   // bike-family → wheel-SKU usage (per-SKU planning)
 let wheelComponentSupply=null;                       // MTB wheel-component availability (cap wheel assembly)
 let compLimitByWeek={};                              // week index -> {fam: bindingComponentId} (capped that week)
+let unplacedByFam={}, unplacedTotal=0;               // demand the set week-caps cannot fit before the deadline
+let planCapTotal=0, planDemandTotal=0;               // total capacity set vs total demand, for the shortfall banner
+let siteGrid={}, siteGridDemand={};                  // site -> sku -> [qty per week]
+function sitePlan(site, wi, demand){ const g=(demand?siteGridDemand:siteGrid)[site]; if(!g) return 0; return SKUS.reduce((a,s)=>a+(g[s.key][wi]||0),0); }
+function siteTotal(site, demand){ const g=(demand?siteGridDemand:siteGrid)[site]; if(!g) return 0; return SKUS.reduce((a,s)=>a+g[s.key].reduce((x,y)=>x+y,0),0); }
 let unbuildableByFam={};                             // fam -> {qty, binding} that no components allow in horizon
 
 // ── PROXY / XML-RPC (same as the other apps) ─────────────────
@@ -482,22 +555,37 @@ async function loadBlocked(){ const kv=await kvGet('po_blocked_weeks_my27'); if(
 
 // ── PER-WEEK CAPACITY (max bikes that week) ──────────────────
 function capsAllObj(){ let all={}; try{ all=JSON.parse(localStorage.getItem(LS_CAPS)||'{}'); }catch(e){} return all; }
-function syncCapsForYear(){ const all=capsAllObj(); weekCaps=all[selectedYear()]||{}; }
+// Caps used to be one flat { monday: cap } map from when Okazi was the only assembler.
+// Anything stored in that shape is read as Okazi's row so nobody loses the plan they set.
+function normaliseCaps(o){
+  const out={}; for(const k of SITE_KEYS) out[k]={};
+  if(!o || typeof o!=='object') return out;
+  const looksFlat=Object.values(o).some(v=>typeof v==='number');
+  if(looksFlat){ out.okazi=Object.assign({}, o); return out; }
+  for(const k of SITE_KEYS) out[k]=Object.assign({}, o[k]||{});
+  return out;
+}
+function syncCapsForYear(){ const all=capsAllObj(); weekCaps=normaliseCaps(all[selectedYear()]); }
 function saveCaps(){ const all=capsAllObj(); all[selectedYear()]=weekCaps; try{ localStorage.setItem(LS_CAPS, JSON.stringify(all)); }catch(e){} kvSet('po_week_caps_my27', all); }
-function setWeekCap(i,val){ const k=weekKey(i); const n=parseInt(val); if(val===''||isNaN(n)||n<0) delete weekCaps[k]; else weekCaps[k]=n; saveCaps(); recompute(); }
-function setCapRange(fromPos,toPos,val){
+// A site cannot build before it opens, whatever is typed into its boxes.
+function siteOpen(site, i){ const st=siteOf(site); return !st.start || weekKey(i)>=st.start; }
+function setWeekCap(site,i,val){ const k=weekKey(i); const n=parseInt(val);
+  if(!weekCaps[site]) weekCaps[site]={};
+  if(val===''||isNaN(n)||n<0) delete weekCaps[site][k]; else weekCaps[site][k]=n; saveCaps(); recompute(); }
+function setCapRange(site,fromPos,toPos,val){
   const n=parseInt(val); const W=weeks.length;
+  if(!weekCaps[site]) weekCaps[site]={};
   let a=Math.max(1,Math.min(fromPos,toPos)), b=Math.min(W,Math.max(fromPos,toPos));
-  for(let p=a;p<=b;p++){ const i=p-1; const k=weekKey(i); if(isNaN(n)||n<0) delete weekCaps[k]; else weekCaps[k]=n; }
+  for(let p=a;p<=b;p++){ const i=p-1; const k=weekKey(i); if(isNaN(n)||n<0) delete weekCaps[site][k]; else weekCaps[site][k]=n; }
   saveCaps(); recompute();
 }
 function applyCapRange(){
   const f=parseInt(document.getElementById('cap-from').value)||1;
   const t=parseInt(document.getElementById('cap-to').value)||weeks.length;
   const v=document.getElementById('cap-val').value;
-  setCapRange(f,t,v);
+  setCapRange(document.getElementById('cap-site').value, f, t, v);
 }
-function clearCaps(){ weekCaps={}; saveCaps(); recompute(); }
+function clearCaps(){ weekCaps={}; for(const k of SITE_KEYS) weekCaps[k]={}; saveCaps(); recompute(); }
 async function loadCaps(){ const kv=await kvGet('po_week_caps_my27'); if(kv && typeof kv==='object'){ try{ localStorage.setItem(LS_CAPS, JSON.stringify(kv)); }catch(e){} } syncCapsForYear(); }
 
 // pick n production weeks spread across the AVAILABLE (non-blocked) weeks, weighted by seasonality
@@ -533,15 +621,17 @@ async function loadData(){
     document.getElementById('conn-pill').textContent='Connecting…';
     document.getElementById('conn-pill').className='pill';
 
-    alert_('<span class="spinner"></span> Reading the published Sales Forecast…','info');
-    const fc=await kvGet('sales_forecast');
+    alert_('<span class="spinner"></span> Reading the published MY27 Sales Forecast…','info');
+    // MY27 key only. The MY26 'sales_forecast' payload is on the old colour keys
+    // (yellow / black / red) and silently matched almost nothing here.
+    const fc=await kvGet('sales_forecast_my27');
     if(fc && fc.forwardBySku){ forwardBySku=fc.forwardBySku; fcYear=fc.year; fcUpdated=fc.updated;
       forwardMonthlyBySku=fc.forwardBySkuMonthly||{};
-      document.getElementById('fc-pill').textContent='Forecast: '+(fc.year||'?')+(fc.updated?(' · '+new Date(fc.updated).toLocaleDateString()):'');
+      document.getElementById('fc-pill').textContent='MY27 forecast: '+(fc.updated?new Date(fc.updated).toLocaleDateString():'ok');
       document.getElementById('fc-pill').className='pill ok';
     } else {
       forwardBySku={}; forwardMonthlyBySku={};
-      document.getElementById('fc-pill').textContent='Forecast: none';
+      document.getElementById('fc-pill').textContent='MY27 forecast: none';
       document.getElementById('fc-pill').className='pill err';
     }
 
@@ -567,6 +657,10 @@ async function loadData(){
     await loadOrderbook();
     try{ alert_('<span class="spinner"></span> Reading '+(new Date().getFullYear())+' invoiced sales for the SKU mix…','info'); await loadInvoicedMix(); }
     catch(e){ console.warn('invoiced mix load failed:', e.message); }
+    try{ alert_('<span class="spinner"></span> Reading MY27 pre-orders (quotations)…','info'); await loadPreorders(); }
+    catch(e){ console.warn('pre-order load failed:', e.message); }
+    try{ await loadMy27OnOrder(); }
+    catch(e){ console.warn('MY27 on-order load failed:', e.message); }
 
     document.getElementById('conn-panel').classList.remove('open');
     document.getElementById('conn-pill').textContent=`Connected · ${new Date().toLocaleTimeString()}`;
@@ -574,7 +668,7 @@ async function loadData(){
 
     recompute();
     const miss=[];
-    if(!fc || !fc.forwardBySku) miss.push('Sales Forecast (open the Sales Forecast app)');
+    if(!fc || !fc.forwardBySku) miss.push('MY27 Sales Forecast (open the MY27 Sales Forecast app) — timing falls back to the seasonal curve');
     if(Object.keys(unmatchedBySku).length===0 && Object.keys(freeStockBySku).length===0) miss.push('Planner basis (run a Sync in the Production Planner)');
     if(miss.length) alert_('Loaded, but missing: '+miss.join(' and ')+'. Numbers will be partial until both are published.','warn');
     else alert_('✓ Loaded.','success');
@@ -602,6 +696,40 @@ async function loadInvoicedMix(){
   };
   await add('out_invoice',1); await add('out_refund',-1);
   for(const k in invoicedBySku) invoicedBySku[k]=Math.max(0,invoicedBySku[k]);
+}
+
+// MY27 pre-orders still sitting in quotation (draft / sent). These are real, named demand:
+// Emerald Green, Atomium, Midnight Blue and Custom are planned at exactly this number and
+// never to stock, so they have to be read even though they are not confirmed sales orders.
+async function loadPreorders(){
+  preorderBySku={}; preorderTotal=0;
+  const lines=toArr(await odoo('sale.order.line','search_read',
+    [[['order_id.state','in',['draft','sent']],['product_uom_qty','>',0],
+      ['product_id.categ_id.complete_name','ilike','Bikes'],['product_id.name','ilike','MY27']]],
+    {fields:['product_id','product_uom_qty'],limit:20000}));
+  for(const l of lines){
+    const k=skuKeyForName(arr(l.product_id)[1]||''); if(!k) continue;
+    const q=parseFloat(l.product_uom_qty)||0; if(q<=0) continue;
+    preorderBySku[k]=(preorderBySku[k]||0)+q; preorderTotal+=q;
+  }
+  preorderUpdated=new Date().toISOString();
+  console.log('[PObuilder MY27] pre-orders (quotation):', Math.round(preorderTotal), 'units across', Object.keys(preorderBySku).length, 'SKUs');
+}
+
+// MY27 bikes on confirmed purchase orders that have not been received yet. The old tile read
+// the Production Planner's 'production_basis', which is MY26 stock — a different model year.
+async function loadMy27OnOrder(){
+  my27OnOrderBySku={}; my27OnOrderTotal=0;
+  const lines=toArr(await odoo('purchase.order.line','search_read',
+    [[['order_id.state','in',['purchase','done']],
+      ['product_id.categ_id.complete_name','ilike','Bikes'],['product_id.name','ilike','MY27']]],
+    {fields:['product_id','product_qty','qty_received'],limit:20000}));
+  for(const l of lines){
+    const k=skuKeyForName(arr(l.product_id)[1]||''); if(!k) continue;
+    const open=Math.max(0,(parseFloat(l.product_qty)||0)-(parseFloat(l.qty_received)||0));
+    if(open<=0) continue;
+    my27OnOrderBySku[k]=(my27OnOrderBySku[k]||0)+open; my27OnOrderTotal+=open;
+  }
 }
 
 // Open sales-order remaining units for MAX bikes, with earliest expected delivery date
@@ -653,9 +781,12 @@ function recompute(){
   document.getElementById('weekly-hint').textContent = tgt>0
     ? `default ${tgt}/wk · per-week boxes override`
     : `auto ≈ ${evenRate}/wk · set per-week below`;
-  const mixLbl = (mixSource()==='invoiced' && invoicedBaseTotal()>0) ? `mix: ${invoicedYear||'this-year'} invoiced` : 'mix: forecast';
+  const mixLbl = useForecastMix()
+    ? 'mix: MY27 forecast'
+    : `colours: ${fmt(Math.round(preorderTotal))} MY27 pre-orders · models &amp; racks: ${invoicedYear||'2026'} invoiced`;
+  const bto=Math.round(btoTotal());
   const basisTxt = targetMode()
-    ? `Target: <b>${fmt(myTarget())}</b> MY27 bikes · ${mixLbl}`
+    ? `Target: <b>${fmt(myTarget())}</b> MY27 bikes = <b>${fmt(Math.round(stockBudget()))}</b> stock build + <b>${fmt(bto)}</b> built to order · ${SITES.map(st=>`${st.label} <b>${fmt(Math.round(siteTotal(st.key,true)))}</b>${st.target>0?'/'+fmt(st.target):''}`).join(' · ')} · ${mixLbl}`
     : `To produce: <b>${fmt(prod)}</b> bikes (unmatched + forecast − surplus stock − already on PO)`;
   document.getElementById('basis-line').innerHTML =
     `${basisTxt} · ${avail} weeks to ${dl}${blockedWeeks.size?` · ${blockedWeeks.size} blocked`:''}${tgt>0?` · max ${tgt}/wk`:''}`;
@@ -666,19 +797,16 @@ function recompute(){
 function targetPerWeek(){ const v=parseInt(document.getElementById('f-weekly').value); return v>0?v:0; }
 function hasMonthly(){ return forwardMonthlyBySku && Object.keys(forwardMonthlyBySku).length>0; }
 
-// The demand-month a bike STARTED in week wi becomes available to sell (production + transit later).
-function readyMonthOfWeek(wi){
-  const d=addDays(weeks[wi].monday, arrivalDays());
-  if(d.getFullYear()>selectedYear()) return 11;     // spills past the plan year → treat as December
-  return d.getMonth();
-}
+// Absolute month (year*12+month) in which a bike STARTED in week wi becomes sellable.
+function readyAbsOfWeek(wi){ const d=addDays(weeks[wi].monday, arrivalDays()); return absMonth(d.getFullYear(), d.getMonth()); }
 
-// Latest week a SKU can START production and still be ready to sell in demand-month m.
-function deadlineWeekForMonth(av, rm, lastReady, m){
-  let best=-1;
-  for(const wi of av){ if(rm[wi]<=m && wi>best) best=wi; }
-  if(best<0) best = (m>lastReady) ? av[av.length-1] : av[0];   // beyond horizon → last week; too soon → ASAP
-  return best;
+// Latest week we can START and still be sellable in MY27 slot i. Absolute months keep this
+// monotonic across the Sep-2026 → Sep-2027 window; calendar month numbers wrap at New Year
+// and made every slot resolve to the last week of the horizon.
+function deadlineWeekForSlot(av, ra, i){
+  const target=absMonth(MY27_SLOTS[i][0], MY27_SLOTS[i][1]);
+  let best=-1; for(const wi of av) if(ra[wi]<=target && wi>best) best=wi;
+  return best<0 ? av[0] : best;   // slot already past → start as soon as possible
 }
 
 // Year plan: produce a SMOOTH weekly quantity that never exceeds the weekly limit.
@@ -694,33 +822,34 @@ function buildYearPlan(){
 
   // Build the demand list with a deadline week for each piece.
   const demands=[];
-  if(!hasMonthly()){
+  const ra={}; for(const wi of av) ra[wi]=readyAbsOfWeek(wi);
+  if(targetMode()){
+    // Manual MY27 target. Build-to-order colours take their pre-order quantity; the remainder
+    // of the target is split across the three stock colours by the mix. Timing comes from each
+    // SKU's own monthly shape in the MY27 forecast, falling back to the aggregate seasonal shape.
+    const agg=aggMonthShare();
+    for(const s of SKUS){
+      const skuTot=toProduce(s.key); if(skuTot<=1e-9) continue;
+      const row=forwardMonthlyBySku[s.key]||[]; const rs=row.reduce((a,b)=>a+(b||0),0);
+      const shape=rs>0?row.map(x=>(x||0)/rs):agg;
+      // Build-to-order bikes are already sold. They take priority inside their family queue so
+      // that when capacity is short it is the speculative stock build that gets cut, never a
+      // bike a dealer has already asked for.
+      const prio=isBTO(s.co)?1:0;
+      for(let i=0;i<12;i++){ const q=skuTot*(shape[i]||0); if(q>0) demands.push({sku:s.key, qty:q, due:deadlineWeekForSlot(av, ra, i), prio}); }
+    }
+  } else if(!hasMonthly()){
     for(const s of SKUS){ const q=toProduce(s.key); if(q>0) demands.push({sku:s.key, qty:q, due:av[0]}); }
   } else {
-    const rm={}; for(const wi of av) rm[wi]=readyMonthOfWeek(wi);
-    const lastReady=Math.max(...av.map(wi=>rm[wi]));
-    if(targetMode()){
-      // MY27 manual target: SKU split from the chosen mix (2026 invoiced by default);
-      // timing from each SKU's own seasonal monthly shape, falling back to the aggregate shape.
-      // MY27 are brand-new SKUs, so we don't net against MY26 stock/orders.
-      const T=myTarget(), mix=currentMix(), agg=aggMonthShare();
-      for(const s of SKUS){
-        const skuTot=T*(mix[s.key]||0); if(skuTot<=0) continue;
-        const row=forwardMonthlyBySku[s.key]||[]; const rs=row.reduce((a,b)=>a+(b||0),0);
-        const shape=rs>0?row.map(x=>(x||0)/rs):agg;
-        for(let m=0;m<12;m++){ const q=skuTot*(shape[m]||0); if(q>0) demands.push({sku:s.key, qty:q, due:deadlineWeekForMonth(av, rm, lastReady, m)}); }
-      }
-    } else {
-      for(const s of SKUS){
-        let surplus=(freeStockBySku[s.key]||0)+incomingFree(s.key);
-        const um=unmatchedBySku[s.key]||0;
-        if(um>0) demands.push({sku:s.key, qty:um, due:av[0]});
-        const row=forwardMonthlyBySku[s.key]||[];
-        for(let m=0;m<12;m++){
-          let q=row[m]||0; if(q<=0) continue;
-          const use=Math.min(surplus,q); surplus-=use; q-=use; if(q<=0) continue;
-          demands.push({sku:s.key, qty:q, due:deadlineWeekForMonth(av, rm, lastReady, m)});
-        }
+    for(const s of SKUS){
+      let surplus=(freeStockBySku[s.key]||0)+incomingFree(s.key);
+      const um=unmatchedBySku[s.key]||0;
+      if(um>0) demands.push({sku:s.key, qty:um, due:av[0]});
+      const row=forwardMonthlyBySku[s.key]||[];
+      for(let i=0;i<12;i++){
+        let q=row[i]||0; if(q<=0) continue;
+        const use=Math.min(surplus,q); surplus-=use; q-=use; if(q<=0) continue;
+        demands.push({sku:s.key, qty:q, due:deadlineWeekForSlot(av, ra, i)});
       }
     }
   }
@@ -728,8 +857,22 @@ function buildYearPlan(){
   if(T<=0) return;
 
   const L=targetPerWeek();
-  const evenRate=Math.max(1, Math.ceil(T/av.length));
-  const capOf=(wi)=>{ const k=weekKey(wi); if(weekCaps[k]!=null) return weekCaps[k]; return L>0?L:evenRate; };
+  // Default capacities when no box has been filled in: BikeFun spreads its season target across
+  // the weeks it is open, Okazi carries whatever is left of the year. Typed-in caps always win.
+  const openCount={}; for(const st of SITES) openCount[st.key]=av.filter(wi=>siteOpen(st.key,wi)).length;
+  const bfTarget=Math.min(siteOf('bikefun').target, T);
+  const defaultCap={};
+  defaultCap.bikefun = openCount.bikefun>0 ? Math.ceil(bfTarget/openCount.bikefun) : 0;
+  defaultCap.okazi   = openCount.okazi>0   ? Math.max(1, Math.ceil(Math.max(0,T-bfTarget)/openCount.okazi)) : 0;
+  const capOf=(site,wi)=>{
+    if(!siteOpen(site,wi)) return 0;
+    const row=weekCaps[site]||{}; const k=weekKey(wi);
+    if(row[k]!=null) return row[k];
+    if(site==='okazi' && L>0) return L;
+    return defaultCap[site]||0;
+  };
+  const capWeek=(wi)=>SITE_KEYS.reduce((a,k)=>a+capOf(k,wi),0);
+  window._capOf=capOf; window._capWeek=capWeek;   // the renderers show the same numbers
   const skuFam={}; for(const s of SKUS) skuFam[s.key]=s.fam;
   const fams=FAMILIES.map(f=>f.key);
 
@@ -745,16 +888,21 @@ function buildYearPlan(){
   // Scheduler. applyComp=false → "what we SHOULD build" (demand only); true → "what we CAN build" (component-capped).
   function schedule(applyComp){
     const grid={}; for(const s of SKUS) grid[s.key]=Array(W).fill(0);
+    const sg={}; for(const k of SITE_KEYS){ sg[k]={}; for(const s of SKUS) sg[k][s.key]=Array(W).fill(0); }
     const queue={}, remaining={};
     for(const fk of fams){ queue[fk]=[]; remaining[fk]=0; }
-    for(const d of demands){ const fk=skuFam[d.sku]; if(!queue[fk])continue; queue[fk].push({sku:d.sku, qty:d.qty, due:d.due}); remaining[fk]+=d.qty; }
-    for(const fk of fams) queue[fk].sort((a,b)=>a.due-b.due);
+    for(const d of demands){ const fk=skuFam[d.sku]; if(!queue[fk])continue; queue[fk].push({sku:d.sku, qty:d.qty, due:d.due, prio:d.prio||0}); remaining[fk]+=d.qty; }
+    for(const fk of fams) queue[fk].sort((a,b)=> (b.prio-a.prio) || (a.due-b.due));
+    const famTotal={}; for(const fk of fams) famTotal[fk]=remaining[fk];
+    // How far through its own year-total each family is. Keeping these in step is what keeps the
+    // weekly model mix — and therefore the Alfine / cassette wheel streams — proportional.
+    const doneFrac=(fk)=> famTotal[fk]>0 ? 1-(remaining[fk]/famTotal[fk]) : 1;
     const earliestDue=(fk)=>{ for(const p of queue[fk]) if(p.qty>1e-9) return p.due; return Infinity; };
-    const consume=(fk,n,wi)=>{ let need=n; for(const p of queue[fk]){ if(need<=1e-9)break; if(p.qty<=1e-9)continue; const t=Math.min(need,p.qty); grid[p.sku][wi]+=t; p.qty-=t; need-=t; } };
+    const consume=(fk,n,wi,site)=>{ let need=n; for(const p of queue[fk]){ if(need<=1e-9)break; if(p.qty<=1e-9)continue; const t=Math.min(need,p.qty); grid[p.sku][wi]+=t; sg[site][p.sku][wi]+=t; p.qty-=t; need-=t; } };
     const useComp=applyComp && compOn;
     // Cap ONLY the near-term window (next 3 weeks); beyond it, plan the full forecast demand so the
     // Parts Stock depletion goes negative and flags the component POs to place.
-    const NEAR_TERM_WEEKS=3; const ciW=Math.max(0, currentWeekIndex()); const capUntil=ciW+NEAR_TERM_WEEKS;
+    const ciW=Math.max(0, currentWeekIndex()); const capUntil=ciW+NEAR_TERM_WEEKS;
     const compAvail={}; if(useComp){ for(const cid in CS.stock) compAvail[cid]=CS.stock[cid]; }
     const buildCap=(fk)=>{ const u=usageOf(fk); if(!u) return {m:Infinity,bind:null}; let m=Infinity,bind=null; for(const cid in u){ const per=u[cid]; if(per<=1e-9) continue; const cap=(compAvail[cid]||0)/per; if(cap<m){ m=cap; bind=cid; } } return {m,bind}; };
     const drawComp=(fk,n)=>{ const u=usageOf(fk); if(!u) return; for(const cid in u) compAvail[cid]=(compAvail[cid]||0)-u[cid]*n; };
@@ -765,43 +913,85 @@ function buildYearPlan(){
       if(useComp){ for(let w=lastW+1; w<=wi; w++){ const inc=incByWeek[w]; if(inc){ for(const cid in inc) compAvail[cid]=(compAvail[cid]||0)+inc[cid]; } } }
       lastW=wi;
       const useCompNow = useComp && (wi < capUntil);   // cap only inside the near-term window
-      let budget=capOf(wi); const used=new Set();
-      while(budget>1e-9){
-        let best=null, bestDue=Infinity;
-        for(const fk of fams){
-          if(remaining[fk]<=1e-9) continue;
-          if(useCompNow && buildCap(fk).m<1) continue;
-          if(!used.has(fk) && used.size>=2) continue;
-          const ed=earliestDue(fk);
-          if(ed<bestDue || (ed===bestDue && used.has(fk) && !(best&&used.has(best)))){ best=fk; bestDue=ed; }
-        }
-        if(!best) break;
-        used.add(best);
-        let take=Math.min(budget, remaining[best]);
-        if(useCompNow){ const bc=buildCap(best); if(isFinite(bc.m)){ const cap=Math.floor(bc.m+1e-9); if(cap<take){ take=cap; (limitByWeek[wi]=limitByWeek[wi]||{})[best]=bc.bind; } } }
-        if(take<=1e-9) break;
-        consume(best, take, wi); budget-=take; remaining[best]-=take;
-        if(useCompNow) drawComp(best, take);
+      // Each assembly site is its own slot: its own capacity and its own changeover budget, so
+      // two sites can run two models each in the same week without either doing four.
+      for(const site of SITE_KEYS){
+      const budget=capOf(site,wi);
+      if(budget<=1e-9) continue;                       // a closed or zero-capacity site stays empty
+      const elig=[];
+      for(const fk of fams){
+        if(remaining[fk]<=1e-9) continue;
+        if(useCompNow && buildCap(fk).m<1) continue;
+        elig.push({fk, due:earliestDue(fk), rem:remaining[fk]});
+      }
+      if(!elig.length) continue;
+      // Earliest deadline first — but families whose deadlines land in the same band are ordered
+      // by how much is left, so the four families drain together. Ordering on deadline alone made
+      // the picker always return the first family and produced months-long single-model blocks.
+      // Families with a deadline inside the band have to be picked. Among the rest — and among
+      // equally urgent ones — pick whichever is furthest behind its share of the year, so all four
+      // models advance in step. Picking "most remaining" instead let the two Alfine families pair
+      // up week after week, which starved the cassette wheel line for months at a time.
+      const urgent=elig.filter(e=> e.due-wi<=DUE_BAND_WEEKS).sort((a,b)=> doneFrac(a.fk)-doneFrac(b.fk) || (a.due-b.due));
+      const later =elig.filter(e=> e.due-wi> DUE_BAND_WEEKS).sort((a,b)=> doneFrac(a.fk)-doneFrac(b.fk));
+      const order=urgent.concat(later);
+      let pick=order.slice(0, MAX_MODELS_PER_WEEK);
+      // Prefer to run the two transmissions of ONE platform in a week: swapping Alfine for
+      // derailleur is a smaller changeover for the assembler than switching between A-MAX and
+      // E-MAX mid-week. Only take the swap when the alternative is not meaningfully further behind.
+      if(order.length>MAX_MODELS_PER_WEEK && MAX_MODELS_PER_WEEK>=2){
+        const plat=(e)=>e.fk.split('|')[0];
+        const mate=order.slice(1).find(e=> plat(e)===plat(order[0]));
+        if(mate && doneFrac(mate.fk)-doneFrac(order[1].fk) <= PLATFORM_PAIR_TOL) pick=[order[0], mate];
+      }
+      let placed=0;
+      const give=(e,want)=>{
+        let take=Math.min(want, remaining[e.fk], budget-placed);
+        if(take<=1e-9) return;
+        if(useCompNow){ const bc=buildCap(e.fk); if(isFinite(bc.m)){ const cap=Math.floor(bc.m+1e-9); if(cap<take){ take=cap; (limitByWeek[wi]=limitByWeek[wi]||{})[e.fk]=bc.bind; } } }
+        if(take<=1e-9) return;
+        consume(e.fk, take, wi, site); remaining[e.fk]-=take; placed+=take;
+        if(useCompNow) drawComp(e.fk, take);
+      };
+      const shareTot=pick.reduce((a,e)=>a+famTotal[e.fk],0)||1;
+      for(const e of pick) give(e, Math.round(budget*(famTotal[e.fk]/shareTot)));
+      for(const e of pick) if(budget-placed>1e-9) give(e, budget-placed);      // mop up rounding
+      // only if both picked families are exhausted does a third model get the rest of the week
+      for(const e of order) if(budget-placed>1e-9 && pick.indexOf(e)<0){ give(e, budget-placed); break; }
       }
     }
-    const leftover=fams.reduce((a,fk)=>a+remaining[fk],0);
-    if(leftover>1e-9){
-      const wi=av[av.length-1];
-      if(useComp){ for(let w=lastW+1; w<weeks.length; w++){ const inc=incByWeek[w]; if(inc){ for(const cid in inc) compAvail[cid]=(compAvail[cid]||0)+inc[cid]; } } }
-      for(const fk of fams){ if(remaining[fk]>1e-9){
-        const cap = (useComp && wi<capUntil) ? Math.max(0,Math.floor(buildCap(fk).m+1e-9)) : Infinity;
-        const place = Math.min(remaining[fk], cap);
-        if(place>1e-9){ consume(fk, place, wi); if(useComp && wi<capUntil) drawComp(fk, place); remaining[fk]-=place; }
-      } }
+    // Anything still remaining does not fit inside the capacities that have been set. We do NOT
+    // write it into the last week: that week is often deliberately at zero, and a plan that puts
+    // 500 bikes into a closed week is not a plan. Report it instead and let the caps be raised.
+    const capTotal=av.reduce((a,wi)=>a+capWeek(wi),0);
+    const unplaced={}; let unplacedTot=0;
+    for(const fk of fams){ if(remaining[fk]>1e-9){ unplaced[fk]=Math.round(remaining[fk]); unplacedTot+=remaining[fk]; } }
+    // Only blame components when there was enough capacity to have built it.
+    if(useComp && capTotal>=T-1e-9){ for(const fk of fams){ if(remaining[fk]>1e-9) unbuild[fk]={qty:Math.round(remaining[fk]), binding:buildCap(fk).bind}; } }
+    // Round to whole bikes per WEEK, not per cell. Rounding 32 SKUs independently added up to
+    // three phantom bikes a week and pushed weeks over the capacity that had been set for them.
+    // The week's placed total is already an integer, so share the rounding out by largest remainder.
+    // Round each SITE's week to whole bikes, then rebuild the combined grid from the sites, so
+    // neither a site total nor the company total can drift past the capacity that was set.
+    for(const site of SITE_KEYS) for(let wi=0; wi<W; wi++){
+      let exact=0; const parts=[];
+      for(const s of SKUS){ const v=sg[site][s.key][wi]||0; if(v<=1e-9){ sg[site][s.key][wi]=0; continue; } exact+=v; parts.push(s.key); }
+      if(!parts.length) continue;
+      const want=Math.round(exact); let used=0; const rem=[];
+      for(const kk of parts){ const v=sg[site][kk][wi]; const f=Math.floor(v); sg[site][kk][wi]=f; used+=f; rem.push([kk, v-f]); }
+      rem.sort((a,b)=>b[1]-a[1]);
+      for(let i=0; i<want-used; i++) sg[site][rem[i%rem.length][0]][wi]++;
     }
-    if(useComp){ for(const fk of fams){ if(remaining[fk]>1e-9) unbuild[fk]={qty:Math.round(remaining[fk]), binding:buildCap(fk).bind}; } }
-    for(const s of SKUS){ const a=grid[s.key]; for(let i=0;i<a.length;i++) a[i]=Math.round(a[i]); }
-    return {grid, limitByWeek, unbuild};
+    for(const s of SKUS) for(let wi=0; wi<W; wi++) grid[s.key][wi]=SITE_KEYS.reduce((a,k)=>a+sg[k][s.key][wi],0);
+    return {grid, siteGrid:sg, limitByWeek, unbuild, unplaced, unplacedTot:Math.round(unplacedTot), capTotal:Math.round(capTotal), demandTot:Math.round(T)};
   }
 
-  yearGridDemand = schedule(false).grid;                 // what we SHOULD build (demand; ignores component delays)
+  const want = schedule(false);                          // what we SHOULD build (demand; ignores component delays)
+  yearGridDemand = want.grid; siteGridDemand = want.siteGrid;
+  unplacedByFam = want.unplaced; unplacedTotal = want.unplacedTot;
+  planCapTotal = want.capTotal; planDemandTotal = want.demandTot;
   const built = schedule(true);                          // what we CAN build (component-capped)
-  yearGrid = built.grid; compLimitByWeek = built.limitByWeek; unbuildableByFam = built.unbuild;
+  yearGrid = built.grid; siteGrid = built.siteGrid; compLimitByWeek = built.limitByWeek; unbuildableByFam = built.unbuild;
 }
 
 function setPlanView(v){ showDemandPlan=!!v; renderYear(); }
@@ -822,13 +1012,17 @@ async function resolveBikeProducts(){
   for(const p of prods){ const nm=p.display_name||p.name||''; if(!MY27_RE.test(nm)){ skipped++; continue; } const k=skuKeyForName(nm); if(k && !(k in skuToProduct)) skuToProduct[k]=p.id; }
   console.log('[PObuilder MY27] MY27 products resolved:', Object.keys(skuToProduct).length, '· non-MY27 skipped:', skipped, '· of', prods.length, 'variants');
 }
-async function issueBikePO(wi){
+async function issueBikePO(wi, site){
+  site=site||'okazi';
+  const st=siteOf(site)||SITES[0];
   const m=document.getElementById('po-modal'), body=document.getElementById('po-modal-body');
   body.innerHTML='<div style="padding:20px;text-align:center">Resolving bike products…</div>'; m.style.display='flex';
   try{ await resolveBikeProducts(); }catch(e){ body.innerHTML='<div style="padding:16px;color:var(--danger)">Could not read products: '+esc(e.message)+'</div>'; return; }
+  const g=siteGrid[site]||{};
   const lines=[]; let unresolved=0;
-  for(const sk of SKUS){ const q=Math.round((yearGrid[sk.key]&&yearGrid[sk.key][wi])||0); if(q<=0) continue; const pid=skuToProduct[sk.key]||null; if(!pid) unresolved+=q; lines.push({pid, qty:q, name:`${sk.label} · ${sk.col} · ${sk.rkl}`+(pid?'':' (no Odoo product)')}); }
-  openPoModal({title:`Bike PO (Okazi) — ${weeks[wi].label}`, lines, vendorName:'Okazi', dateStr:ymd(weeks[wi].monday), unresolved});
+  for(const sk of SKUS){ const q=Math.round((g[sk.key]&&g[sk.key][wi])||0); if(q<=0) continue; const pid=skuToProduct[sk.key]||null; if(!pid) unresolved+=q; lines.push({pid, qty:q, name:`${sk.label} · ${sk.col} · ${sk.rkl}`+(pid?'':' (no Odoo product)')}); }
+  if(!lines.length){ body.innerHTML=`<div style="padding:16px">Nothing scheduled at ${esc(st.label)} in ${esc(weeks[wi].label)}.</div>`; return; }
+  openPoModal({title:`Bike PO (${st.label}) — ${weeks[wi].label}`, lines, vendorName:st.vendor, dateStr:ymd(weeks[wi].monday), unresolved});
 }
 async function resolveWheelProducts(){
   if(wheelSkuProducts) return;
@@ -894,10 +1088,26 @@ function renderWheels(){
   const demand={}; for(const c of codes) demand[c]=Array(N).fill(0);
   // wheels are planned against the DEMAND (should-build) bike plan, so a bike-component delay doesn't shrink the wheel plan
   const bikeGrid=(yearGridDemand && Object.keys(yearGridDemand).length)?yearGridDemand:yearGrid;
-  let overdue=0;
+  // Only sites that do NOT build their own wheels pull demand from MTB Maastricht. BikeFun
+  // assembles wheels on site, so its bikes place no MTB order and carry no 3-week wheel lead —
+  // counting them here would have us buying wheels twice.
+  const sgw=(siteGridDemand && Object.keys(siteGridDemand).length)?siteGridDemand:siteGrid;
+  const haveSites=sgw && SITE_KEYS.some(k=>sgw[k]);
+  const mtbKeys=SITES.filter(st=>!st.wheelsOnSite).map(st=>st.key);
+  const ownKeys=SITES.filter(st=>st.wheelsOnSite).map(st=>st.key);
+  const qtyAt=(keys,sku,wi)=>keys.reduce((a,k)=>a+((sgw[k]&&sgw[k][sku]&&sgw[k][sku][wi])||0),0);
+  const mtbQty =(sku,wi)=> haveSites ? qtyAt(mtbKeys,sku,wi) : ((bikeGrid[sku]&&bikeGrid[sku][wi])||0);
+  const ownQty =(sku,wi)=> haveSites ? qtyAt(ownKeys,sku,wi) : 0;
+  const onSite={}; for(const c of codes) onSite[c]=Array(N).fill(0);   // wheels BikeFun builds itself
+  let overdue=0, onSiteTotal=0;
   for(const sku of SKUS){
     const fc=WHEEL_FRONT[sku.bt], rc=WHEEL_REAR[sku.tr]; if(!fc&&!rc) continue;
-    for(let wi=0;wi<N;wi++){ const q=(bikeGrid[sku.key]&&bikeGrid[sku.key][wi])||0; if(!q) continue; let awi=wi-leadW; if(awi<0){ awi=0; overdue+=q*((fc?1:0)+(rc?1:0)); } if(fc) demand[fc][awi]+=q; if(rc) demand[rc][awi]+=q; }
+    for(let wi=0;wi<N;wi++){
+      const q=mtbQty(sku.key,wi);
+      if(q){ let awi=wi-leadW; if(awi<0){ awi=0; overdue+=q*((fc?1:0)+(rc?1:0)); } if(fc) demand[fc][awi]+=q; if(rc) demand[rc][awi]+=q; }
+      const o=ownQty(sku.key,wi);   // built in the same week, on site, no lead
+      if(o){ if(fc) onSite[fc][wi]+=o; if(rc) onSite[rc][wi]+=o; onSiteTotal+=o*((fc?1:0)+(rc?1:0)); }
+    }
   }
   // 1) net each wheel against its own stock (on hand + on order)
   let coveredW=0, onOrderW=0, grossW=0;
@@ -938,17 +1148,23 @@ function renderWheels(){
     const nm=(p.name||'').replace(/^\[[^\]]*\]\s*/,'').slice(0,46);
     return `<tr><td class="sku"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${col};margin-right:5px"></span>${c} <span style="font-size:10px;color:var(--text3)">${side}</span>${nm?`<div style="font-size:10px;color:var(--text3);font-weight:400">${nm}</div>`:''}</td>${arr.map((v,wi)=>`<td class="${v?'has':'zero'} ${wi===ci?'cur':''}">${v?fmt(Math.round(v)):''}</td>`).join('')}<td class="total">${fmt(Math.round(tot))}</td></tr>`;
   }).join('');
+  const onSiteBody = onSiteTotal>0 ? codes.map(c=>{ const arr=onSite[c], tot=arr.reduce((a,b)=>a+b,0); if(tot<=0) return '';
+      const side=WHEEL_SIDE_OF(c);
+      return `<tr><td class="sku" style="opacity:.85"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${SITE_HEX.bikefun};margin-right:5px"></span>${c} <span style="font-size:10px;color:var(--text3)">${side} · built at BikeFun</span></td>${arr.map((v,wi)=>`<td class="${v?'has':'zero'} ${wi===ci?'cur':''}" style="${v?'opacity:.7':''}">${v?fmt(Math.round(v)):''}</td>`).join('')}<td class="total">${fmt(Math.round(tot))}</td></tr>`;
+    }).join('') : '';
   const poPerWeek=Array(N).fill(0); for(const p of pos) poPerWeek[p.wi]++;
   const poRow=`<tr><td class="sku" style="font-size:11px;color:var(--text2)">Wheel POs (×${BATCH}/type)</td>${poPerWeek.map((c,wi)=>`<td class="${c?'has':'zero'} ${wi===ci?'cur':''}" style="text-align:center;font-weight:700;color:var(--accent)">${c||''}</td>`).join('')}<td class="total">${pos.length}</td></tr>`;
   const wheelHas=Array(N).fill(false); for(const c of codes){ for(let wi=0;wi<N;wi++) if(demand[c][wi]>0.5) wheelHas[wi]=true; }
   const issueRow=`<tr><td class="sku" style="font-size:11px;color:var(--text2)">Issue PO →</td>${weeks.map((wk,wi)=>wheelHas[wi]?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue one PO for all wheels due through ${wk.label} (cumulative · net of stock &amp; open POs)" onclick="issueWheelPO(${wi})">⇩ PO</button></td>`:'<td></td>').join('')}<td class="total"></td></tr>`;
   const note = codes.some(c=>!prod[c]) ? `<div class="hint" style="padding:6px 4px;color:var(--warn)">Connect to Odoo (⚙) and reopen this tab to enable the ⇩ PO buttons — wheel products not resolved yet.</div>` : '';
-  grid.innerHTML=`${note}<table class="grid"><thead>${head}</thead><tbody>${body}${poRow}${issueRow}</tbody></table>`;
+  const onSiteNote = onSiteTotal>0 ? `<div class="hint" style="padding:6px 4px;color:var(--text2)">The faded rows are wheels <b>BikeFun assembles itself</b>, in the same week as the bike — they are not ordered from MTB and carry no 3-week lead. They still consume wheel components, so they belong in the component plan.</div>` : '';
+  grid.innerHTML=`${note}<table class="grid"><thead>${head}</thead><tbody>${body}${onSiteBody}${poRow}${issueRow}</tbody></table>${onSiteNote}`;
   const k=(l,v,sub,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${v}</div>${sub?`<div class="kpi-label" style="margin-top:4px">${sub}</div>`:''}</div>`;
   if(kpis) kpis.innerHTML=
     k('Wheels to assemble', fmt(Math.round(grossW-coveredW)), codes.length+' wheel types · net of stock','var(--teal)')+
     k('Wheel POs (×'+BATCH+')', pos.length, 'per wheel type','var(--accent)')+
-    k('Lead before bikes', leadW+' wks', '2 wk build + 1 wk ship','var(--purple)')+
+    k('Lead before bikes', leadW+' wks', '2 wk build + 1 wk ship · MTB only','var(--purple)')+
+    k('Built at BikeFun', fmt(Math.round(onSiteTotal)), onSiteTotal>0?'wheels assembled on site · no MTB order':'site not building yet', onSiteTotal>0?SITE_HEX.bikefun:'var(--text3)')+
     k('Covered', fmt(Math.round(coveredW)), 'on hand + on order','var(--teal)')+
     (compUnbuildable>0 ? k('Comp-limited', fmt(Math.round(compUnbuildable)), 'wheels MTB can\'t build — short on components','var(--danger)') : k('Components','✓ ok','MTB can build the plan','var(--success)'))+
     (overdue>0 ? k('Start now', fmt(Math.round(overdue)), 'wheels for near-term bikes','var(--danger)') : k('Schedule','✓ ahead','wheels lead bikes','var(--success)'));
@@ -973,20 +1189,42 @@ function renderYear(){
     grand+=rt;
     return `<tr><td class="sku"><span class="dot" style="background:${COLOR_HEX[s.color]}"></span>${s.label} · ${s.col} · ${s.rkl}</td>${cells}<td class="total">${fmt(rt)}</td></tr>`;
   }).join('');
-  const head=`<tr><th class="sku">SKU (32)</th>${weeks.map((wk,wi)=>`<th class="wk ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}" onclick="toggleBlock(${wi})" title="${wk.monday.toLocaleDateString('en-GB')}${isBlocked(wi)?' · blocked — click to unblock':' · click to block (assembler off)'}">${wk.label}</th>`).join('')}<th class="total">Year</th></tr>`;
-  // effective per-week capacity (override → global default → even rate)
-  const Lc=targetPerWeek(); const avN=availableWeekIdx().length||1; const evenR=Math.max(1,Math.ceil(totalToProduce()/avN));
-  const effCap=(wi)=>{ const k=weekKey(wi); if(weekCaps[k]!=null) return weekCaps[k]; return Lc>0?Lc:evenR; };
-  const capRow=`<tr class="caprow"><th class="sku" style="font-size:11px;color:var(--text2)">Capacity / wk →</th>${weeks.map((wk,wi)=>{
+  const head=`<tr><th class="sku">SKU (${SKUS.length})</th>${weeks.map((wk,wi)=>`<th class="wk ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}" onclick="toggleBlock(${wi})" title="${wk.monday.toLocaleDateString('en-GB')}${isBlocked(wi)?' · blocked — click to unblock':' · click to block (assembler off)'}">${wk.label}</th>`).join('')}<th class="total">Year</th></tr>`;
+  // Per-week capacity, one editable row per assembly site. The scheduler's own capOf is reused
+  // so the boxes always show exactly the numbers the plan was built against.
+  const effCapSite=(site,wi)=> window._capOf ? window._capOf(site,wi) : 0;
+  const effCap=(wi)=> window._capWeek ? window._capWeek(wi) : 0;
+  const capRow=SITES.map(st=>`<tr class="caprow"><th class="sku" style="font-size:11px;color:var(--text2)"><span class="dot" style="background:${SITE_HEX[st.key]}"></span>${st.label} cap / wk →</th>${weeks.map((wk,wi)=>{
       if(isBlocked(wi)) return `<td class="blocked" style="text-align:center;color:var(--text3)">—</td>`;
-      const over=weekCaps[weekKey(wi)]!=null;
-      return `<td style="text-align:center;padding:2px"><input type="number" min="0" value="${effCap(wi)}" onchange="setWeekCap(${wi}, this.value)" style="width:40px;text-align:center;font-size:11px;padding:2px;border:1px solid var(--border2);border-radius:4px;${over?'font-weight:700;color:var(--accent);background:var(--accent-bg)':'color:var(--text3)'}"/></td>`;
+      if(!siteOpen(st.key,wi)) return `<td style="text-align:center;color:var(--text3);background:rgba(0,0,0,.03)" title="${st.label} opens ${st.start}">–</td>`;
+      const set=(weekCaps[st.key]||{})[weekKey(wi)]!=null;
+      return `<td style="text-align:center;padding:2px"><input type="number" min="0" value="${effCapSite(st.key,wi)}" onchange="setWeekCap('${st.key}',${wi}, this.value)" style="width:40px;text-align:center;font-size:11px;padding:2px;border:1px solid var(--border2);border-radius:4px;${set?'font-weight:700;color:var(--accent);background:var(--accent-bg)':'color:var(--text3)'}"/></td>`;
+    }).join('')}<td class="total"></td></tr>`).join('');
+  // what each site is actually scheduled to build
+  const siteRows=SITES.map(st=>{
+    let rt=0;
+    const cells=weeks.map((wk,wi)=>{ const v=Math.round(sitePlan(st.key,wi,showDemandPlan)); rt+=v;
+      return `<td class="${v?'has':'zero'} ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}">${fmt(v)}</td>`; }).join('');
+    const tgt=st.target>0?` <span class="hint" style="font-weight:400">/ ${fmt(st.target)} target</span>`:'';
+    return `<tr><th class="sku" style="font-size:11px"><span class="dot" style="background:${SITE_HEX[st.key]}"></span>${st.label} builds${tgt}</th>${cells}<td class="total">${fmt(rt)}</td></tr>`;
+  }).join('');
+  // Models per week, counted PER SITE — two sites running two models each is fine; one site
+  // running four is not, and that is what this row is watching for.
+  const sgv=showDemandPlan?siteGridDemand:siteGrid;
+  const modelsRow=`<tr><th class="sku" style="font-size:11px;color:var(--text2)">Models / wk · per site</th>${weeks.map((wk,wi)=>{
+      if(isBlocked(wi)) return `<td class="blocked"></td>`;
+      const per=SITE_KEYS.map(k=>{ const g=sgv[k]; if(!g) return 0; return FAMILIES.filter(f=>SKUS.filter(s=>s.fam===f.key).reduce((a,s)=>a+(g[s.key][wi]||0),0)>0).length; });
+      const worst=Math.max(...per), shown=per.filter(x=>x>0).join('+');
+      // 3 at one site is the tail-week top-up the scheduler is allowed when its two chosen
+      // models run out mid-week — worth noticing, not worth alarming about. 4 is a real problem.
+      const col = worst>3 ? 'var(--danger)' : (worst>2 ? 'var(--warn)' : 'var(--text3)');
+      const tip = worst>2 ? ` title="${worst} models at one site this week — a tail-week top-up so the last bikes of a third family still fit"` : '';
+      return `<td${tip} style="text-align:center;font-size:11px;color:${col}">${shown||''}</td>`;
     }).join('')}<td class="total"></td></tr>`;
-  const modelsRow=`<tr><th class="sku" style="font-size:11px;color:var(--text2)">Models / wk</th>${weeks.map((wk,wi)=>{ if(isBlocked(wi)) return `<td class="blocked"></td>`; const n=FAMILIES.filter(f=>SKUS.filter(s=>s.fam===f.key).reduce((a,s)=>a+(grid[s.key][wi]||0),0)>0).length; return `<td style="text-align:center;font-size:11px;color:${n>2?'var(--danger)':'var(--text3)'}">${n||''}</td>`; }).join('')}<td class="total"></td></tr>`;
   const foot=`<tr><th class="sku">Total</th>${colTot.map((c,wi)=>`<td class="total ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''} ${(!isBlocked(wi)&&c>effCap(wi)+0.5)?'over':''}">${fmt(c)}</td>`).join('')}<td class="total">${fmt(grand)}</td></tr>`;
-  const issueRow= showDemandPlan ? '' : `<tr><th class="sku" style="font-size:11px;color:var(--text2)">Issue PO →</th>${weeks.map((wk,wi)=>(!isBlocked(wi)&&colTot[wi]>0.5)?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue Okazi bike PO for ${wk.label}" onclick="issueBikePO(${wi})">⇩ PO</button></td>`:'<td></td>').join('')}<td class="total"></td></tr>`;
+  const issueRow= showDemandPlan ? '' : SITES.map(st=>`<tr><th class="sku" style="font-size:11px;color:var(--text2)">Issue ${st.label} PO →</th>${weeks.map((wk,wi)=>(!isBlocked(wi)&&sitePlan(st.key,wi,false)>0.5)?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue ${st.label} bike PO for ${wk.label}" onclick="issueBikePO(${wi},'${st.key}')">⇩ PO</button></td>`:'<td></td>').join('')}<td class="total"></td></tr>`).join('');
   const toggleBar=`<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap"><span style="font-size:11px;color:var(--text2);font-weight:600">VIEW:</span><button class="btn ${showDemandPlan?'btn-secondary':'btn-primary'}" style="padding:3px 10px" onclick="setPlanView(false)">📦 What we can build</button><button class="btn ${showDemandPlan?'btn-primary':'btn-secondary'}" style="padding:3px 10px" onclick="setPlanView(true)">🎯 What we should build</button>${showDemandPlan?`<span class="hint" style="color:var(--warn)">demand view — ignores component delays; switch back to “can build” to issue POs</span>`:(compGap>0?`<span class="hint" style="color:var(--warn)">${fmt(compGap)} bikes can't be built yet (components) — see “what we should build”</span>`:'')}</div>`;
-  document.getElementById('year-grid').innerHTML=toggleBar+`<table class="grid"><thead>${head}</thead><tbody>${capRow}${body}</tbody><tfoot>${modelsRow}${foot}${issueRow}</tfoot></table>`;
+  document.getElementById('year-grid').innerHTML=toggleBar+`<table class="grid"><thead>${head}</thead><tbody>${capRow}${siteRows}${body}</tbody><tfoot>${modelsRow}${foot}${issueRow}</tfoot></table>`;
 
   // blocked-week chips + deadline note
   const chips=[...blockedWeeks].sort().map(d=>`<span class="chip">${new Date(d+'T00:00:00').toLocaleDateString('en-GB')}<button onclick="unblockKey('${d}')" title="unblock">×</button></span>`).join('');
@@ -994,10 +1232,8 @@ function renderYear(){
   const dl=getDeadline().toLocaleDateString('en-GB');
   const tgt=targetPerWeek();
   document.getElementById('year-deadline-tag').textContent='produced by '+dl;
-  const basisTxt = `Each SKU's <b>to-produce</b> = unmatched orders + extra forecast, minus surplus stock and bikes already on open POs (shown in Bikes Coming Next).`;
-  const timeTxt = hasMonthly()
-    ? `It fills each week up to <b>that week's capacity</b> using <b>at most 2 models</b> (platform+transmission), most-urgent first — colours/racks mix freely inside a run. You set the pace per period; the app picks the models and mix.`
-    : `(The forecast app hasn't published a monthly breakdown yet — refresh it to enable demand-timed planning.)`;
+  const basisTxt = `<b>Emerald Green, Atomium, Midnight Blue and Custom are built to order only</b> — planned at exactly the quantity pre-ordered in Odoo (quotations included), never to stock. The rest of the target is the <b>stock build</b>, split across Bumblebee, Cosmic Black and Bordeaux Red using the colour share of the live MY27 pre-orders, and across model / transmission / rack using ${invoicedYear||'2026'} invoiced sales.`;
+  const timeTxt = `It fills each week up to <b>that week's capacity</b> with <b>at most 2 models</b>, preferring the two transmissions of one platform so the assembler's changeover stays small, and keeping all four models level against their share of the year — that is what keeps the Alfine and cassette wheel lines balanced. Colours and racks mix freely inside a run. Nothing is ever written into a week beyond the capacity set for it: if the year does not fit, the shortfall is reported above instead. ${hasMonthly()?'Timing comes from the published MY27 forecast.':'<b>No MY27 forecast published yet</b> — timing falls back to the standard seasonal curve. Open the MY27 Sales Forecast app to set it properly.'}`;
   document.getElementById('year-note').innerHTML =
     `${basisTxt} ${timeTxt} Set capacities with the range tool above, or edit any week's box. A cell = bikes to <b>start producing</b> that week. Blocked weeks carry no production.`;
 
@@ -1005,12 +1241,24 @@ function renderYear(){
   const peak=Math.max(0,...colTot);
   const overWeeks=colTot.filter((c,wi)=>!isBlocked(wi) && c>effCap(wi)+0.5).length;
   const usedWeeks=colTot.filter(c=>c>0).length;
-  const incTot=Object.values(incomingBySku).reduce((a,b)=>a+(b||0),0);
   const k=(l,vv,sub,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${vv}</div>${sub?`<div class="kpi-label" style="margin-top:4px">${sub}</div>`:''}</div>`;
+  const compSub = componentSupply
+    ? (compGap>0 ? `${fmt(compGap)} blocked · only the next ${NEAR_TERM_WEEKS} wks are checked`
+                 : `component-checked for the next ${NEAR_TERM_WEEKS} weeks`)
+    : 'check off — Parts Stock has not published the MY27 feed';
   document.getElementById('year-kpis').innerHTML=
-    k('Should build', fmt(demandTotal),'demand — what we need','var(--purple)')+
-    k('Can build now', fmt(buildTotal), compGap>0?(fmt(compGap)+' blocked by components'):'no component limit', compGap>0?'var(--warn)':'var(--success)')+
-    k('Already on order', fmt(incTot),'on open POs · netted out','var(--accent)')+
+    k('Should build', fmt(planDemandTotal||demandTotal),'full MY27 demand','var(--purple)')+
+    k('Scheduled', fmt(demandTotal), unplacedTotal>0?`${fmt(unplacedTotal)} does not fit`:'all of it fits', unplacedTotal>0?'var(--danger)':'var(--success)')+
+    k('Built to order', fmt(Math.round(btoTotal())),'pre-orders · Emerald / Atomium / Midnight / Custom','var(--accent)')+
+    SITES.map(st=>{
+      const got=Math.round(siteTotal(st.key,true));
+      const sub = st.target>0 ? (got>=st.target ? `on the ${fmt(st.target)} target` : `${fmt(st.target-got)} under the ${fmt(st.target)} target`)
+                              : (st.start?`from ${new Date(st.start+'T00:00:00').toLocaleDateString('en-GB')}`:'the whole year');
+      const col = st.target>0 ? (got>=st.target?'var(--success)':'var(--warn)') : SITE_HEX[st.key];
+      return k(st.label, fmt(got), sub, col);
+    }).join('')+
+    k('Can build now', componentSupply?fmt(buildTotal):'—', compSub, componentSupply?(compGap>0?'var(--warn)':'var(--success)'):'var(--text3)')+
+    k('MY27 on order', fmt(Math.round(my27OnOrderTotal)),'confirmed POs, not yet received · not netted out','var(--accent)')+
     k('Busiest week', fmt(peak), overWeeks?'over capacity':'within capacity', overWeeks?'var(--danger)':null)+
     k('Production weeks', usedWeeks,`of ${availableWeekIdx().length} open`,null)+
     k('Last production', getDeadline().toLocaleDateString('en-GB'),'everything done by','var(--success)');
@@ -1027,9 +1275,14 @@ function renderYear(){
     if(ub.length){ const lines=ub.map(([fk,o])=>`<b>${fk}</b> ${fmt(o.qty)}${o.binding&&nm[o.binding]?(' — short on '+nm[o.binding]):''}`).join('; '); parts.push(`Blocked this horizon (no component arrival in time): ${lines}. Place a component PO to unblock.`); }
     return `<div class="alert alert-warn">🔧 Component availability${leadTxt}: ${parts.join(' ')}</div>`;
   })();
-  document.getElementById('year-warn').innerHTML = (overWeeks
-    ? `<div class="alert alert-warn">⚠ The set capacities can't fit everything before ${dl} — the overflow is stacked into the last week (<b>${fmt(peak)}</b>, shown in red). Raise capacity in some weeks, push the deadline, or unblock weeks.</div>`
-    : '') + compMsg;
+  const famLbl=(fk)=>{ const f=FAMILIES.find(x=>x.key===fk); return f?f.label:fk; };
+  const fitMsg = unplacedTotal>0
+    ? `<div class="alert alert-danger">⚠ <b>${fmt(unplacedTotal)}</b> bikes do not fit before ${dl}. The capacities set across the open weeks total <b>${fmt(planCapTotal)}</b> against <b>${fmt(planDemandTotal)}</b> of demand. Nothing has been written into a week beyond its capacity, so the grid above is a plan you can actually run — raise the weekly caps, unblock weeks, push the deadline, or lower the target. Short by model: ${Object.entries(unplacedByFam).map(([fk,q])=>`<b>${famLbl(fk)}</b> ${fmt(q)}`).join(' · ')}.</div>`
+    : '';
+  const overMsg = overWeeks
+    ? `<div class="alert alert-warn">⚠ ${overWeeks} week${overWeeks>1?'s are':' is'} above the capacity set for ${overWeeks>1?'them':'it'} — check the red totals.</div>`
+    : '';
+  document.getElementById('year-warn').innerHTML = fitMsg + overMsg + compMsg;
 }
 
 // This-week proposal: committed orders in the production window + batch top-up
@@ -1383,8 +1636,8 @@ function loadCfg(){
   document.getElementById('f-lead').value=c.lead||2;
   document.getElementById('f-deadline').value=c.deadline||'2027-09-30';
   document.getElementById('f-weekly').value=c.weekly||'';
-  document.getElementById('f-target').value=(c.target!=null&&c.target!=='')?c.target:4300;
-  document.getElementById('f-mix').value=c.mix||'invoiced';
+  document.getElementById('f-target').value=(c.target!=null&&c.target!=='')?c.target:6100;   // MY27 plan
+  document.getElementById('f-mix').value=(c.mix==='forecast')?'forecast':'preorder';   // legacy 'invoiced' maps to the new default
   syncBlockedForYear();
   syncCapsForYear();
 }
