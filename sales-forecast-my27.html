@@ -117,6 +117,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 
   <div class="controls">
     <div class="field"><label>MY27 total (units)</label><input type="number" id="f-total" style="width:120px" min="0" value="6100" oninput="recompute()"/><span class="hint">the season's sales plan</span></div>
+    <div class="field"><label>Custom colour / yr</label><input type="number" id="f-custom" style="width:110px" min="0" oninput="recompute()"/><span class="hint">the custom programme, set by hand</span></div>
     <div class="field"><label>Colour mix from</label><select id="f-mix" onchange="recompute()" style="padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface)"><option value="preorder">MY27 pre-orders</option><option value="invoiced">2026 invoiced</option></select><span class="hint">model &amp; rack always from 2026 invoiced</span></div>
     <div class="field" style="flex:1;min-width:220px"><span class="hint" id="basis-line"></span></div>
   </div>
@@ -132,7 +133,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 
   <div class="section">
     <div class="section-title">Markets <span class="tag" id="mkt-tag"></span></div>
-    <div class="section-note">The range does not sell the same way everywhere, so the season is planned country by country. Each market's <b>E-MAX share</b>, <b>Alfine share</b> and <b>rack share</b> come from that market's own 2026 invoiced sales; a market with fewer than 25 bikes last year is too thin a sample to read anything into, so it borrows the overall split and is marked <i>shared</i>. Set the targets here — <b>Other countries</b> is whatever is left of the season total.</div>
+    <div class="section-note">The range does not sell the same way everywhere, so the season is planned country by country. Each market's model split comes from its own 2026 invoiced sales; a market with fewer than 25 bikes last year is too thin a sample to read anything into, so it borrows the overall split and is marked <i>shared</i>. Figures are <b>bikes</b>, with that market's share underneath — so Germany's 2,500 breaks down into the E-MAX and A-MAX you will actually sell there, and then into the four model families. Set the targets here; <b>Other countries</b> is whatever is left of the season total.</div>
     <div class="table-wrap"><div id="markets"></div></div>
   </div>
 
@@ -194,8 +195,26 @@ const CO=[['bumblebee','Bumblebee'],['cosmic_black','Cosmic Black'],['bordeaux_r
 const RK=[['rack','With rack'],['no rack','Without rack']];
 const COLOR_HEX={bumblebee:'#f5c842',cosmic_black:'#2a2a2a',bordeaux_red:'#7b1e2b',midnight_blue:'#1b2a52',emerald_green:'#1e7d5a',atomium:'#9aa4ad',custom:'#7f77dd'};
 const STOCK_COLS=['bumblebee','cosmic_black','bordeaux_red'];
-const BTO_COLS=['emerald_green','atomium','midnight_blue','custom'];
+// Emerald, Atomium and Midnight are built strictly to order — we hold no stock in them.
+// CUSTOM is different and used to be lumped in with them, which meant that with no MY27 custom
+// pre-orders on the books yet it forecast zero. The custom colour programme is a standing line
+// of business (about 105 bikes in 2026), so it gets its own annual number instead.
+const BTO_COLS=['emerald_green','atomium','midnight_blue'];
+const CUSTOM_COL='custom';
 const isBTO=(co)=>BTO_COLS.indexOf(co)>=0;
+const isCustom=(co)=>co===CUSTOM_COL;
+let customProgramme2026=0, invoicedTotal2026=0;   // measured at load, used for the default
+function customTarget(){
+  const el=document.getElementById('f-custom');
+  const v=el?parseFloat(el.value):NaN;
+  return (v>=0 && !isNaN(v)) ? v : 0;
+}
+// Default: last year's custom volume carried forward at the same growth as the rest of the plan.
+function customDefault(){
+  if(customProgramme2026<=0) return 0;
+  const growth = invoicedTotal2026>0 ? (myTotal()/invoicedTotal2026) : 1;
+  return Math.round(customProgramme2026*growth);
+}
 const SKUS=[];
 for(const [bt,btl] of BT) for(const [tr,trl] of TR) for(const [co,col] of CO) for(const [rk,rkl] of RK)
   SKUS.push({key:`${bt}|${tr}|${co}|${rk}`, bt,tr,co,rk, color:co, label:`${btl} ${trl}`, col, rkl});
@@ -468,7 +487,7 @@ async function countriesFor(ids){
 // 2026 invoiced MAX bikes per SKU, and per SKU per market. MY27 has no Nexus, and skuKeyForName
 // drops Nexus lines, so this is the model / transmission / rack shape of the modern range only.
 async function loadInvoicedMix(){
-  const _inv={}, _invC={};
+  const _inv={}, _invC={}; let _cust=0, _tot=0;
   const base=[['parent_state','=','posted'],['date','>=','2026-01-01'],['date','<=','2026-12-31'],
     ['product_id.categ_id.complete_name','ilike','Bikes'],['product_id.name','ilike','MAX']];
   const rows=[];
@@ -478,6 +497,11 @@ async function loadInvoicedMix(){
     for(const l of lines){ const k=skuKeyForName(arr(l.product_id)[1]||''); if(!k) continue;
       const q=sign*(parseFloat(l.quantity)||0);
       _inv[k]=(_inv[k]||0)+q;
+      _tot+=q;
+      // Only a product actually named "custom" is the custom-colour programme. detectColor also
+      // files Ruby Red, Cookies&Cream and Silver under 'custom' because they are not MY27
+      // colours, and counting those would overstate the programme several times over.
+      if(/custom/i.test(arr(l.product_id)[1]||'')) _cust+=q;
       rows.push([arr(l.partner_id)[0], k, q]);
     }
   };
@@ -491,6 +515,10 @@ async function loadInvoicedMix(){
   }
   for(const cc in _invC) for(const k in _invC[cc]) _invC[cc][k]=Math.max(0,_invC[cc][k]);
   invoicedBySku=_inv; invByCountry=_invC;
+  customProgramme2026=Math.max(0,_cust); invoicedTotal2026=Math.max(0,_tot);
+  const ci=document.getElementById('f-custom');
+  if(ci && (ci.value===''||ci.value==null)) ci.value=customDefault();   // seed the box once
+  console.log('[FC MY27] 2026 invoiced', Math.round(invoicedTotal2026), '· of which custom programme', Math.round(customProgramme2026));
   console.log('[FC MY27] 2026 invoiced by market:', Object.fromEntries(Object.entries(invByCountry).map(([c,m])=>[c, Math.round(Object.values(m).reduce((a,b)=>a+b,0))])));
 }
 
@@ -537,7 +565,7 @@ function stockColourShare(code){
 function seasonTotalBySku(){
   const out={}; for(const s of SKUS) out[s.key]=0;
   fcByCountry={};
-  let btoAll=0, budgetAll=0;
+  let btoAll=0, budgetAll=0, customAll=0;
   for(const C of COUNTRIES){
     const code=C.code, tgt=targetFor(code);
     const per={}; for(const s of SKUS) per[s.key]=0;
@@ -547,17 +575,25 @@ function seasonTotalBySku(){
       const und=((undatedByCountry[code]||{})[s.key])||0;
       per[s.key]=dated+und; bto+=dated+und;
     }
-    const budget=Math.max(0, tgt-bto);
-    const btr=btrShare(code), col=stockColourShare(code);
+    const btr=btrShare(code);
+    // the custom programme splits across markets in proportion to their targets
+    const allT=COUNTRIES.reduce((a,C2)=>a+targetFor(C2.code),0)||1;
+    const cust=customTarget()*(tgt/allT);
+    let cw=0; const cws={};
+    for(const s of SKUS){ if(!isCustom(s.co)) continue; cws[s.key]=btr[`${s.bt}|${s.tr}|${s.rk}`]||0; cw+=cws[s.key]; }
+    for(const s of SKUS){ if(!isCustom(s.co)) continue; per[s.key]= cw>0 ? cust*(cws[s.key]/cw) : 0; }
+
+    const budget=Math.max(0, tgt-bto-cust);
+    const col=stockColourShare(code);
     let w=0; const ws={};
-    for(const s of SKUS){ if(isBTO(s.co)) continue;
+    for(const s of SKUS){ if(isBTO(s.co)||isCustom(s.co)) continue;
       ws[s.key]=(col[s.co]||0)*(btr[`${s.bt}|${s.tr}|${s.rk}`]||0); w+=ws[s.key]; }
-    for(const s of SKUS){ if(isBTO(s.co)) continue; per[s.key]= w>0 ? budget*(ws[s.key]/w) : 0; }
+    for(const s of SKUS){ if(isBTO(s.co)||isCustom(s.co)) continue; per[s.key]= w>0 ? budget*(ws[s.key]/w) : 0; }
     fcByCountry[code]=per;
     for(const s of SKUS) out[s.key]+=per[s.key];
-    btoAll+=bto; budgetAll+=budget;
+    btoAll+=bto; budgetAll+=budget; customAll+=cust;
   }
-  return {bySku:out, bto:btoAll, budget:budgetAll};
+  return {bySku:out, bto:btoAll, budget:budgetAll, custom:customAll};
 }
 // Share of a market that is E-MAX / Alfine / with-rack — the numbers that actually differ
 // between countries, and the reason the season is planned per market at all.
@@ -573,7 +609,7 @@ function marketProfile(code){
 // ── COMPUTE ──────────────────────────────────────────────────
 function recompute(){
   const sh=normShape();
-  const {bySku, bto, budget}=seasonTotalBySku();
+  const {bySku, bto, budget, custom}=seasonTotalBySku();
   forecast=emptyGrid();
   for(const s of SKUS){
     const known=knownBySku[s.key]||Array(12).fill(0);
@@ -611,9 +647,9 @@ function recompute(){
       forecast[bs][bi]=Math.max(0, forecast[bs][bi]+drift);
     }
   }
-  renderShape(); renderMarkets(); renderKPIs(bto,budget); renderKnown(); renderForecast();
+  renderShape(); renderMarkets(); renderKPIs(bto,budget,custom); renderKnown(); renderForecast();
   document.getElementById('basis-line').innerHTML =
-    `<b>${fmt(myTotal())}</b> MY27 units = <b>${fmt(Math.round(budget))}</b> stock build + <b>${fmt(Math.round(bto))}</b> built to order · colours from ${mixSource()==='invoiced'?'2026 invoiced':'MY27 pre-orders'} · models &amp; racks from 2026 invoiced`;
+    `<b>${fmt(myTotal())}</b> MY27 units = <b>${fmt(Math.round(budget))}</b> stock build + <b>${fmt(Math.round(custom))}</b> custom + <b>${fmt(Math.round(bto))}</b> built to order · colours from ${mixSource()==='invoiced'?'2026 invoiced':'MY27 pre-orders'} · models &amp; racks from 2026 invoiced`;
   saveCfg(); schedulePublish();
 }
 
@@ -633,34 +669,47 @@ function resetShape(){ shape=DEFAULT_SHAPE.slice(); try{localStorage.setItem(LS_
 function renderMarkets(){
   const el=document.getElementById('markets'); if(!el) return;
   const pct=(x)=>(x*100).toFixed(0)+'%';
+  // unit volumes, not just percentages: what this market will actually buy next year
+  const cell=(v,share)=>`<td><b>${fmt(Math.round(v))}</b>${share!=null?`<div style="font-size:10px;color:var(--text3);font-weight:400">${pct(share)}</div>`:''}</td>`;
+  const FAMS=[['emax','alfine','E-MAX Alfine'],['emax','derailleur','E-MAX Derailleur'],
+              ['amax','alfine','A-MAX Alfine'],['amax','derailleur','A-MAX Derailleur']];
   const named=NAMED.reduce((a,c)=>a+(countryTargets[c]||0),0);
+  const sumRow={emax:0,amax:0,cust:0,bto:0,tot:0,f:[0,0,0,0]};
   const rows=COUNTRIES.map(C=>{
     const p=marketProfile(C.code), tgt=targetFor(C.code);
     const plan=fcByCountry[C.code]||{};
-    const bto=SKUS.filter(s=>isBTO(s.co)).reduce((a,s)=>a+(plan[s.key]||0),0);
-    const cell = C.code==='OTHER'
+    const q=(f)=>SKUS.filter(f).reduce((a,s)=>a+(plan[s.key]||0),0);
+    const tot=q(()=>true)||0;
+    const emax=q(s=>s.bt==='emax'), amax=q(s=>s.bt==='amax');
+    const fam=FAMS.map(([bt,tr])=>q(s=>s.bt===bt&&s.tr===tr));
+    const cust=q(s=>isCustom(s.co)), bto=q(s=>isBTO(s.co));
+    sumRow.emax+=emax; sumRow.amax+=amax; sumRow.cust+=cust; sumRow.bto+=bto; sumRow.tot+=tot;
+    fam.forEach((v,i)=>sumRow.f[i]+=v);
+    const tcell = C.code==='OTHER'
       ? `<td class="total" title="the season total minus the named markets">${fmt(tgt)}</td>`
       : `<td style="text-align:center;padding:2px"><input type="number" min="0" value="${countryTargets[C.code]||0}" onchange="setCountryTarget('${C.code}',this.value)" style="width:64px;text-align:center;font-size:12px;padding:3px;border:1px solid var(--border2);border-radius:4px"/></td>`;
     return `<tr>
       <td class="sku">${C.label}${p.own?'':' <span class="tag" style="font-size:9px" title="fewer than '+MIN_SAMPLE+' bikes invoiced in 2026 — using the overall split">shared mix</span>'}</td>
-      ${cell}
-      <td>${pct(p.emax)}</td><td>${pct(1-p.emax)}</td>
-      <td>${pct(p.alf)}</td><td>${pct(1-p.alf)}</td>
-      <td>${pct(p.rack)}</td>
+      ${tcell}
+      ${cell(emax, tot?emax/tot:0)}${cell(amax, tot?amax/tot:0)}
+      ${fam.map(v=>cell(v, tot?v/tot:0)).join('')}
+      ${cell(cust,null)}${cell(bto,null)}
       <td>${fmt(Math.round(p.sample))}</td>
-      <td class="total">${fmt(Math.round(bto))}</td>
     </tr>`;
   }).join('');
-  const tot=COUNTRIES.reduce((a,C)=>a+targetFor(C.code),0);
+  const T=sumRow.tot||1;
+  const foot=`<tr><th class="sku">Total</th><td class="total">${fmt(COUNTRIES.reduce((a,C)=>a+targetFor(C.code),0))}</td>
+      ${cell(sumRow.emax, sumRow.emax/T)}${cell(sumRow.amax, sumRow.amax/T)}
+      ${sumRow.f.map(v=>cell(v, v/T)).join('')}
+      ${cell(sumRow.cust,null)}${cell(sumRow.bto,null)}<td></td></tr>`;
   el.innerHTML=`<table class="grid"><thead><tr>
       <th class="sku">Market</th><th>MY27 target</th>
-      <th title="share of that market's 2026 bikes that were E-MAX">E-MAX</th><th>A-MAX</th>
-      <th title="share that were Alfine hub gear">Alfine</th><th>Derailleur</th>
-      <th title="share sold with a rack">With rack</th>
+      <th title="electric">E-MAX</th><th title="analog">A-MAX</th>
+      ${FAMS.map(f=>`<th>${f[2]}</th>`).join('')}
+      <th title="the custom colour programme, split across markets by target">Custom</th>
+      <th title="Emerald Green, Atomium and Midnight Blue — pre-orders only">To order</th>
       <th title="bikes invoiced to this market in 2026 — the sample the split is read from">2026 sample</th>
-      <th class="total">Built to order</th></tr></thead>
-    <tbody>${rows}</tbody>
-    <tfoot><tr><th class="sku">Total</th><td class="total">${fmt(tot)}</td><td colspan="6"></td><td class="total"></td></tr></tfoot></table>`;
+    </tr></thead><tbody>${rows}</tbody><tfoot>${foot}</tfoot></table>`;
   const over=named>myTotal();
   document.getElementById('mkt-tag').textContent = over
     ? `named markets exceed the season total by ${fmt(named-myTotal())}`
@@ -673,7 +722,7 @@ function setCountryTarget(code,val){
   recompute();
 }
 
-function renderKPIs(bto,budget){
+function renderKPIs(bto,budget,custom){
   const fcTot=SKUS.reduce((a,s)=>a+forecast[s.key].reduce((x,y)=>x+y,0),0);
   const cols={}; for(const s of SKUS) cols[s.co]=(cols[s.co]||0)+forecast[s.key].reduce((x,y)=>x+y,0);
   const live=STOCK_COLS.filter(c=>cols[c]>0).length + BTO_COLS.filter(c=>cols[c]>0).length;
@@ -685,6 +734,7 @@ function renderKPIs(bto,budget){
     k('Pre-orders', fmt(Math.round(quotationTotal)),'still in quotation','var(--accent)')+
     k('Built to order', fmt(Math.round(bto)),'Emerald / Atomium / Midnight / Custom','var(--accent)')+
     k('Stock build', fmt(Math.round(budget)),'Bumblebee / Cosmic Black / Bordeaux',null)+
+    k('Custom programme', fmt(Math.round(custom)), customProgramme2026>0?`${fmt(Math.round(customProgramme2026))} sold in 2026`:'set it in the box above','var(--purple)')+
     k('Colours live', live+' of 7', live<6?'some colours have no demand':'every colour planned', live<6?'var(--warn)':'var(--success)');
   document.getElementById('known-tag').textContent =
     `${fmt(Math.round(confirmedTotal))} confirmed · ${fmt(Math.round(quotationTotal))} quotation`;
@@ -766,6 +816,7 @@ function saveCfg(){
     user:document.getElementById('cfg-user').value.trim(),
     key:document.getElementById('cfg-key').value.trim(),
     total:document.getElementById('f-total').value,
+    custom:document.getElementById('f-custom').value,
     mix:document.getElementById('f-mix').value
   })); }catch(e){}
 }
@@ -777,6 +828,7 @@ function loadCfg(){
   document.getElementById('cfg-user').value=c.user||a.user||b.user||'';
   document.getElementById('cfg-key').value =c.key ||a.key ||b.key ||'';
   document.getElementById('f-total').value=(c.total!=null&&c.total!=='')?c.total:6100;   // MY27 plan
+  document.getElementById('f-custom').value=(c.custom!=null&&c.custom!=='')?c.custom:'';   // seeded from 2026 on first load
   document.getElementById('f-mix').value=(c.mix==='invoiced')?'invoiced':'preorder';
   try{ const sh=JSON.parse(localStorage.getItem(LS_SHAPE)||'null'); if(Array.isArray(sh)&&sh.length===12) shape=sh.map(x=>Math.max(0,parseFloat(x)||0)); }catch(e){}
   countryTargets={}; for(const C of COUNTRIES) if(C.target!=null) countryTargets[C.code]=C.target;

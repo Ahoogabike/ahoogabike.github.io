@@ -272,8 +272,13 @@ const COLOR_HEX={bumblebee:'#f5c842',cosmic_black:'#2a2a2a',bordeaux_red:'#7b1e2
 // MY27 colour policy. We carry stock only in the three volume colours; the rest are built
 // strictly to the quantity ordered (Odoo quotation-stage pre-orders), never to stock.
 const STOCK_COLS=['bumblebee','cosmic_black','bordeaux_red'];
-const BTO_COLS  =['emerald_green','atomium','midnight_blue','custom'];
+const BTO_COLS  =['emerald_green','atomium','midnight_blue'];
+// The custom colour programme is a standing line of business, not a build-to-order colour.
+// Treating it as build-to-order meant that with no MY27 custom pre-orders on the books we
+// planned zero custom bikes for the year, against about 105 actually sold in 2026.
+const CUSTOM_COL='custom';
 const isBTO=(co)=>BTO_COLS.indexOf(co)>=0;
+const isCustom=(co)=>co===CUSTOM_COL;
 const FILL_COLS=STOCK_COLS.slice(), FILL_RKS=['rack','no rack'];   // week-filler uses stock colours only
 const SKUS=[];
 for(const [bt,btl] of BT) for(const [tr,trl] of TR) for(const [co,col] of CO) for(const [rk,rkl] of RK)
@@ -285,6 +290,7 @@ let forwardBySku={}, fcYear=null, fcUpdated=null;   // from the Sales Forecast a
 let forwardMonthlyBySku={};   // sku -> [12] forward demand by month (timing), from the Forecast app
 let invoicedBySku={}, invoicedYear=null;   // this-year (2026) invoiced bikes per SKU → platform/transmission/rack mix
 let preorderBySku={}, preorderTotal=0, preorderUpdated=null;   // MY27 pre-orders still in quotation (draft/sent)
+let customProgramme2026=0, invoicedTotal2026=0;                // 2026 custom-colour volume, for the fallback
 let my27OnOrderBySku={}, my27OnOrderTotal=0;                   // MY27 bikes on confirmed, not-yet-received POs
 let unmatchedBySku={}, freeStockBySku={}, incomingBySku={}, inprodBySku={}, basisUpdated=null;  // from the Production Planner (KV)
 // Incoming over-production already on issued POs (beyond committed in-prod orders) → becomes free stock
@@ -327,7 +333,7 @@ function stockColourShare(){
 function currentMix(){
   const out={}; for(const s of SKUS) out[s.key]=0;
   const btr=btrShare(), col=stockColourShare(); let tot=0;
-  for(const s of SKUS){ if(isBTO(s.co)) continue;
+  for(const s of SKUS){ if(isBTO(s.co)||isCustom(s.co)) continue;
     const w=(col[s.co]||0)*(btr[`${s.bt}|${s.tr}|${s.rk}`]||0); out[s.key]=w; tot+=w; }
   if(tot>0) for(const s of SKUS) out[s.key]=out[s.key]/tot;
   return out;
@@ -345,12 +351,30 @@ function aggMonthShare(){
 // forecast mix scaled to the target (MY27 are new SKUs, so we don't net against MY26 stock/orders).
 // Bikes ordered in build-to-order colours — planned at exactly this, never more.
 function btoTotal(){ let t=0; for(const s of SKUS) if(isBTO(s.co)) t+=(preorderBySku[s.key]||0); return t; }
+// The custom programme for the year. The MY27 forecast is the authority when it has been
+// published; otherwise last year's custom volume carried forward at the plan's own growth.
+function customTotal(){
+  if(!targetMode()) return 0;
+  let fc=0; for(const s of SKUS) if(isCustom(s.co)) fc+=(forwardBySku[s.key]||0);
+  const fcAll=forecastBaseTotal();
+  if(fc>0 && fcAll>0) return myTarget()*(fc/fcAll);
+  if(customProgramme2026>0 && invoicedTotal2026>0) return customProgramme2026*(myTarget()/invoicedTotal2026);
+  return 0;
+}
+// Per-custom-SKU weight, by model / transmission / rack — colour is not a variable here.
+function customMix(){
+  const btr=btrShare(); const out={}; let w=0;
+  for(const s of SKUS){ if(!isCustom(s.co)) continue; out[s.key]=btr[`${s.bt}|${s.tr}|${s.rk}`]||0; w+=out[s.key]; }
+  if(w>0) for(const k in out) out[k]=out[k]/w;
+  return out;
+}
 // What is left of the target for the three stock colours.
-function stockBudget(){ return Math.max(0, myTarget()-btoTotal()); }
+function stockBudget(){ return Math.max(0, myTarget()-btoTotal()-customTotal()); }
 function toProduce(sku){
   if(targetMode()){
     const s=SKUS.find(x=>x.key===sku);
     if(s && isBTO(s.co)) return preorderBySku[sku]||0;
+    if(s && isCustom(s.co)) return Math.max(customTotal()*(customMix()[sku]||0), preorderBySku[sku]||0);
     return stockBudget() * (currentMix()[sku]||0);
   }
   const demand = (unmatchedBySku[sku]||0) + (forwardBySku[sku]||0);
@@ -691,19 +715,24 @@ async function loadData(){
 // This-year (2026) invoiced MAX bikes per SKU → the default % split for the MY27 target.
 // Mirrors the Sales Forecast app's Table-1 query (posted out_invoice − out_refund).
 async function loadInvoicedMix(){
-  const _inv={}; invoicedYear=new Date().getFullYear();
+  const _inv={}; let _cust=0, _tot=0; invoicedYear=new Date().getFullYear();
   const ys=`${invoicedYear}-01-01`, ye=`${invoicedYear}-12-31`;
   const base=[['parent_state','=','posted'],['date','>=',ys],['date','<=',ye],
     ['product_id.categ_id.complete_name','ilike','Bikes'],['product_id.name','ilike','MAX']];
   const add=async(moveType,sign)=>{
     const lines=toArr(await odoo('account.move.line','search_read',
       [[...base,['move_id.move_type','=',moveType]]], {fields:['quantity','product_id'],limit:60000}));
-    for(const l of lines){ const key=skuKeyForName(arr(l.product_id)[1]||''); if(!key) continue;
-      _inv[key]=(_inv[key]||0)+sign*(parseFloat(l.quantity)||0); }
+    for(const l of lines){ const nm=arr(l.product_id)[1]||''; const key=skuKeyForName(nm);
+      const q=sign*(parseFloat(l.quantity)||0);
+      _tot+=q;
+      if(/custom/i.test(nm)) _cust+=q;   // only a product actually named "custom" is the programme
+      if(!key) continue;
+      _inv[key]=(_inv[key]||0)+q; }
   };
   await add('out_invoice',1); await add('out_refund',-1);
   for(const k in _inv) _inv[k]=Math.max(0,_inv[k]);
   invoicedBySku=_inv;
+  customProgramme2026=Math.max(0,_cust); invoicedTotal2026=Math.max(0,_tot);
 }
 
 // MY27 pre-orders still sitting in quotation (draft / sent). These are real, named demand:
@@ -799,7 +828,7 @@ function recompute(){
     : `colours: ${fmt(Math.round(preorderTotal))} MY27 pre-orders · models &amp; racks: ${invoicedYear||'2026'} invoiced`;
   const bto=Math.round(btoTotal());
   const basisTxt = targetMode()
-    ? `Target: <b>${fmt(myTarget())}</b> MY27 bikes = <b>${fmt(Math.round(stockBudget()))}</b> stock build + <b>${fmt(bto)}</b> built to order · ${SITES.map(st=>`${st.label} <b>${fmt(Math.round(siteTotal(st.key,true)))}</b>${st.target>0?'/'+fmt(st.target):''}`).join(' · ')} · ${mixLbl}`
+    ? `Target: <b>${fmt(myTarget())}</b> MY27 bikes = <b>${fmt(Math.round(stockBudget()))}</b> stock build + <b>${fmt(Math.round(customTotal()))}</b> custom + <b>${fmt(bto)}</b> built to order · ${SITES.map(st=>`${st.label} <b>${fmt(Math.round(siteTotal(st.key,true)))}</b>${st.target>0?'/'+fmt(st.target):''}`).join(' · ')} · ${mixLbl}`
     : `To produce: <b>${fmt(prod)}</b> bikes (unmatched + forecast − surplus stock − already on PO)`;
   document.getElementById('basis-line').innerHTML =
     `${basisTxt} · ${avail} weeks to ${dl}${blockedWeeks.size?` · ${blockedWeeks.size} blocked`:''}${tgt>0?` · max ${tgt}/wk`:''}`;
@@ -848,7 +877,7 @@ function buildYearPlan(){
       // Build-to-order bikes are already sold. They take priority inside their family queue so
       // that when capacity is short it is the speculative stock build that gets cut, never a
       // bike a dealer has already asked for.
-      const prio=isBTO(s.co)?1:0;
+      const prio=isBTO(s.co)?1:0;   // custom is planned, not pre-sold, so it queues with the stock build
       for(let i=0;i<12;i++){ const q=skuTot*(shape[i]||0); if(q>0) demands.push({sku:s.key, qty:q, due:deadlineWeekForSlot(av, ra, i), prio}); }
     }
   } else if(!hasMonthly()){
@@ -1021,6 +1050,23 @@ function buildYearPlan(){
       const q=Math.round(p.qty); if(q<=0) continue;
       yearGridDemand[p.sku][wi]+=q;
       siteGridDemand[biggestSiteAt(wi)][p.sku][wi]+=q;
+    }
+  }
+  // Each leftover piece is rounded on its own, so the demand grid can land a bike either side
+  // of the target. Settle the difference on the largest cell — the "should build" grid has to
+  // add up to the target exactly, because that is the first thing anyone checks.
+  {
+    let have=0; for(const s of SKUS) have+=yearGridDemand[s.key].reduce((a,b)=>a+b,0);
+    let drift=Math.round(planDemandTotal)-Math.round(have);
+    if(drift!==0){
+      let bk=null, bw=0, bv=-1;
+      for(const s of SKUS) for(let wi=0; wi<weeks.length; wi++){
+        const v=yearGridDemand[s.key][wi]; if(v>bv){ bv=v; bk=s.key; bw=wi; }
+      }
+      if(bk && bv+drift>=0){
+        yearGridDemand[bk][bw]+=drift;
+        for(const k of SITE_KEYS){ const g=siteGridDemand[k]; if(g && g[bk][bw]+drift>=0){ g[bk][bw]+=drift; break; } }
+      }
     }
   }
   const built = schedule(true);                          // what we CAN build (component-capped)
@@ -1268,7 +1314,7 @@ function renderYear(){
   const dl=getDeadline().toLocaleDateString('en-GB');
   const tgt=targetPerWeek();
   document.getElementById('year-deadline-tag').textContent='produced by '+dl;
-  const basisTxt = `<b>Emerald Green, Atomium, Midnight Blue and Custom are built to order only</b> — planned at exactly the quantity pre-ordered in Odoo (quotations included), never to stock. The rest of the target is the <b>stock build</b>, split across Bumblebee, Cosmic Black and Bordeaux Red using the colour share of the live MY27 pre-orders, and across model / transmission / rack using ${invoicedYear||'2026'} invoiced sales.`;
+  const basisTxt = `<b>Emerald Green, Atomium and Midnight Blue are built to order only</b> — planned at exactly the quantity pre-ordered in Odoo (quotations included), never to stock. <b>Custom colour</b> is a planned programme, sized from the MY27 forecast (or last year's custom volume) rather than from pre-orders. The rest of the target is the <b>stock build</b>, split across Bumblebee, Cosmic Black and Bordeaux Red using the colour share of the live MY27 pre-orders, and across model / transmission / rack using ${invoicedYear||'2026'} invoiced sales.`;
   const timeTxt = `It fills each week up to <b>that week's capacity</b> with <b>at most 2 models</b>, preferring the two transmissions of one platform so the assembler's changeover stays small, and keeping all four models level against their share of the year — that is what keeps the Alfine and cassette wheel lines balanced. Colours and racks mix freely inside a run. Nothing is ever written into a week beyond the capacity set for it: if the year does not fit, the shortfall is reported above instead. ${hasMonthly()?'Timing comes from the published MY27 forecast.':'<b>No MY27 forecast published yet</b> — timing falls back to the standard seasonal curve. Open the MY27 Sales Forecast app to set it properly.'}`;
   document.getElementById('year-note').innerHTML =
     `${basisTxt} ${timeTxt} Set capacities with the range tool above, or edit any week's box. A cell = bikes to <b>start producing</b> that week. Blocked weeks carry no production.`;
@@ -1285,7 +1331,8 @@ function renderYear(){
   document.getElementById('year-kpis').innerHTML=
     k('Should build', fmt(planDemandTotal||demandTotal),'full MY27 demand','var(--purple)')+
     k('Scheduled', fmt(demandTotal), unplacedTotal>0?`${fmt(unplacedTotal)} does not fit`:'all of it fits', unplacedTotal>0?'var(--danger)':'var(--success)')+
-    k('Built to order', fmt(Math.round(btoTotal())),'pre-orders · Emerald / Atomium / Midnight / Custom','var(--accent)')+
+    k('Built to order', fmt(Math.round(btoTotal())),'pre-orders · Emerald / Atomium / Midnight','var(--accent)')+
+    k('Custom programme', fmt(Math.round(customTotal())), customProgramme2026>0?`${fmt(Math.round(customProgramme2026))} sold in 2026`:'from the MY27 forecast','var(--purple)')+
     SITES.map(st=>{
       const got=Math.round(siteTotal(st.key,true));
       const sub = st.target>0 ? (got>=st.target ? `on the ${fmt(st.target)} target` : `${fmt(st.target-got)} under the ${fmt(st.target)} target`)
