@@ -417,6 +417,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
         <button class="btn btn-primary" onclick="downloadOrderForm()">⬇ Download Order Form (.xlsx)</button>
         <button class="btn btn-secondary" onclick="poPdfOrderForm()">⬇ PO PDF</button>
         <button class="btn btn-secondary" onclick="emailDecoOrderForm()">✉ Email Deco Coat</button>
+        <button class="btn btn-secondary" onclick="sendDecoOrderFormViaOdoo()">📨 Send it from Odoo</button>
       </div>
       <div id="of-alert" style="margin-top:10px"></div>
     </div>
@@ -5600,6 +5601,109 @@ async function emailToSupplier(o){
   try { await markSentToDeco(lns); } catch(e){ console.warn('mark-sent failed', e&&e.message); }
   formsAlert(`Outlook email (.eml) for ${po} downloaded — PO PDF + order form(s) + labels attached. Open it and hit Send. Marked as sent to Deco Coat.`);
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Send the same email from Odoo instead of downloading an .eml to forward.
+
+   Identical attachments and identical wording to emailToSupplier() above —
+   this only changes who presses send. Odoo's own outgoing mail server does
+   it, which is the same path cc-handover.html already uses successfully for
+   the DSV labels, so deliverability is proven rather than hoped for.
+
+   DECO_MAIL_FROM is deliberately BLANK. Odoo then sends from its configured
+   default sender, which is the address your domain already authorises. Put
+   supply@ahooga.bike in here only after checking that ahooga.bike's SPF
+   record lets Odoo send as it — otherwise the mail silently lands in Deco
+   Coat's spam and you will not find out for a week. Reply-To carries the
+   right address either way, so replies come back to Supply regardless.
+   ───────────────────────────────────────────────────────────────────────── */
+const DECO_MAIL_TO      = 'wietzehoppe@decocoat.nl';
+const DECO_MAIL_CC      = 'massimiliano@ahooga.bike,supply@ahooga.bike';
+const DECO_MAIL_FROM    = '';                      /* blank = Odoo's default sender */
+const DECO_MAIL_REPLYTO = 'supply@ahooga.bike';
+
+async function sendDecoOrderFormViaOdoo(){
+  const o = ofSelectedOrder();
+  if(!o){ ofAlert('Pick a custom color order first.','warn'); return; }
+  const po = decoCoatPO(o) || orderPO(o);
+  if(!po){ ofAlert('No Deco Coat PO yet for this order. Create the PO first, then Sync.','warn'); return; }
+  ofAlert('Building and sending the Deco Coat email…','success');
+  try{
+    const pack = await buildDecoMailPack(o, po);
+    const attIds = [];
+    for(const a of pack.atts){
+      const id = await odooCall('ir.attachment','create',[{
+        name: a.name, type:'binary', mimetype: a.type, datas: a.b64
+      }]);
+      attIds.push(id);
+    }
+    const vals = {
+      subject: pack.subject,
+      email_to: DECO_MAIL_TO,
+      email_cc: DECO_MAIL_CC,
+      reply_to: DECO_MAIL_REPLYTO,
+      body_html: '<div style="font:14px/1.5 Arial,sans-serif">' +
+                 pack.body.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>') +
+                 '</div>',
+      auto_delete: false
+    };
+    if(DECO_MAIL_FROM) vals.email_from = DECO_MAIL_FROM;
+    if(attIds.length) vals.attachment_ids = [[6,0,attIds]];
+
+    const mailId = await odooCall('mail.mail','create',[vals]);
+    await odooCall('mail.mail','send',[[mailId]]);
+
+    /* Odoo queues rather than throws, so read the state back before claiming
+       it was sent. "exception" means the outgoing mail server refused it. */
+    let state = '';
+    try{ const r = await odooCall('mail.mail','read',[[mailId],['state']]); state = (r&&r[0]&&r[0].state)||''; }catch(e){}
+
+    if(state === 'exception'){
+      ofAlert('Odoo refused to send the email — check Settings → Technical → Outgoing Mail Servers. Nothing was sent; use “✉ Email Deco Coat” to send it by hand.','warn');
+      return;
+    }
+    try{ await markSentToDeco(pack.lns); }catch(e){ console.warn('mark-sent failed', e&&e.message); }
+    ofAlert('Sent to Deco Coat for ' + po + ' (' + pack.atts.length + ' attachment' +
+            (pack.atts.length===1?'':'s') + '), cc ' + DECO_MAIL_CC + '. Marked as sent.','success');
+  }catch(e){
+    ofAlert('Could not send: ' + ((e&&e.message)||e) + ' — use “✉ Email Deco Coat” to send it by hand.','warn');
+  }
+}
+
+/* The attachments and wording, built once so the .eml download and the Odoo
+   send can never drift apart. */
+async function buildDecoMailPack(o, po){
+  if(typeof XLSX==='undefined' || !(window.jspdf && window.jspdf.jsPDF)) throw new Error('libraries still loading');
+  if(typeof JSZip==='undefined') throw new Error('ZIP library still loading');
+  const lns = ordersForDecoCoatPO(po).length ? ordersForDecoCoatPO(po) : ordersForPO(po);
+  const atts = [];
+
+  const pdfBytes = new Uint8Array(buildPOPdfDoc(po).output('arraybuffer'));
+  let bin=''; for(let i=0;i<pdfBytes.length;i++) bin+=String.fromCharCode(pdfBytes[i]);
+  atts.push({name:`Purchase Order - ${po}.pdf`, type:'application/pdf', b64:btoa(bin)});
+
+  const selId   = (document.getElementById('of-order-select')||{}).value || '';
+  const selWeek = (document.getElementById('of-week')||{}).value || '';
+  const selPtext= document.getElementById('of-ptext') ? document.getElementById('of-ptext').value : null;
+  for(const x of lns){
+    const opts = (x.id===selId) ? {week:selWeek, personalText:selPtext} : {};
+    const blob = await buildOrderFormBlob(x, opts);
+    atts.push({name:`Order form - ${x.name}.xlsx`,
+      type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      b64: await blobToB64(blob)});
+  }
+  try{
+    const lbytes = new Uint8Array(buildLabelsPdfDoc(lns).output('arraybuffer'));
+    let lbin=''; for(let i=0;i<lbytes.length;i++) lbin+=String.fromCharCode(lbytes[i]);
+    atts.push({name:`Labels - ${po}.pdf`, type:'application/pdf', b64:btoa(lbin)});
+  }catch(e){ console.warn('labels pdf failed', e&&e.message); }
+
+  const n = lns.length || 1;
+  const body = `Good afternoon Wietze,\n\nI hope you are doing well.\n\nWe would like to place 1 new order for a total of ${n} custom painted frame${n>1?'s':''}. Please find attached the corresponding purchase order (${po}), labels, and order forms.\n\nCould you please confirm in which week we can paint these frames?\n\nPlease let me know if anything is unclear or if you require any further information.\nThank you in advance for your support.\n\nBest regards,\nAhooga – Purchasing and Supply Chain\nsupply@ahooga.bike`;
+  const stamp = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  return { lns, atts, body, subject:`New Orders – MAX Custom Colour Frames - ${stamp} (${po})` };
+}
+
 
 // Columns follow the Decocoat order-book layout used by the sync.
 function exportUpdatedDecocoat(){
