@@ -244,7 +244,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 // ── CONFIG ────────────────────────────────────────────────
 const ODOO_URL = 'https://ahooga.odoo.com';
 const ODOO_DB  = 'logicasoft-aho-18-0-21599177';
-const CF_WORKER = 'https://ahooga-planner-proxy.massimiliano-d74.workers.dev';
+const CF_WORKER = 'https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
 let odooUid = null;
 let rows = []; // flat data rows
 let sortKey = 'expected'; let sortDir = 1;
@@ -294,6 +294,8 @@ async function odoo(model,method,args,kwargs={}){
     odooUid=parseXml(await r.text());
     if(!odooUid||typeof odooUid!=='number') throw new Error('Authentication failed — check email and API key');
   }
+  // COMPANY LOCK: exclude Ahooga Paris (company 2, closed/unreliable). Force company 1 (Belgium).
+  kwargs=Object.assign({},kwargs); kwargs.context=Object.assign({},kwargs.context,{allowed_company_ids:[1],company_id:1});
   const params=[v(ODOO_DB),v(odooUid),v(key),v(model),v(method),v(args),v(kwargs)];
   const b=`<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>${params.map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
   const r=await fetch(proxyUrl('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
@@ -331,7 +333,7 @@ async function connectAndLoad(){
   }
 }
 
-async function loadData(){
+async function loadData__inner(){
   const user=document.getElementById('cfg-user').value.trim();
   const key=document.getElementById('cfg-key').value.trim();
   if(!user||!key){showTab('settings');return;}
@@ -785,6 +787,25 @@ window.addEventListener('load', () => {
     }
   }catch(e){}
 });
+
+
+// ── RE-ENTRANCY GUARD ────────────────────────────────────────
+// loadData() is wired to a button AND runs by itself when the page opens. Clicking Refresh while
+// that first pass is still in flight used to start a second one, and because the loaders add
+// into shared totals, every record got counted twice. Declared with var, not let: the page
+// calls loadData() during start-up, before this line is reached, and a let would still be in its
+// temporal dead zone at that point.
+var _loadingData=false;
+async function loadData(){
+  if(_loadingData){
+    console.warn('[po-tracker.html] load already running — ignoring this click');
+    try{ if(typeof alert_==='function') alert_('Already loading — one moment.','info'); }catch(e){}
+    return;
+  }
+  _loadingData=true;
+  try{ return await loadData__inner.apply(this, arguments); }
+  finally{ _loadingData=false; }
+}
 </script>
 <a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
 </body>

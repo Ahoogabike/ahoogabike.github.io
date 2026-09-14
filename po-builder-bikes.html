@@ -495,7 +495,7 @@ function sizePOs(total,n,minF){
 }
 
 // ── DATA LOAD ────────────────────────────────────────────────
-async function loadData(){
+async function loadData__inner(){
   saveCfg();
   try{
     odooUid=null;
@@ -1142,6 +1142,25 @@ if(document.getElementById('cfg-user').value && document.getElementById('cfg-key
   loadData();
 } else {
   document.getElementById('conn-panel').classList.add('open');
+}
+
+
+// ── RE-ENTRANCY GUARD ────────────────────────────────────────
+// loadData() is wired to a button AND runs by itself when the page opens. Clicking Refresh while
+// that first pass is still in flight used to start a second one, and because the loaders add
+// into shared totals, every record got counted twice. Declared with var, not let: the page
+// calls loadData() during start-up, before this line is reached, and a let would still be in its
+// temporal dead zone at that point.
+var _loadingData=false;
+async function loadData(){
+  if(_loadingData){
+    console.warn('[po-builder-bikes.html] load already running — ignoring this click');
+    try{ if(typeof alert_==='function') alert_('Already loading — one moment.','info'); }catch(e){}
+    return;
+  }
+  _loadingData=true;
+  try{ return await loadData__inner.apply(this, arguments); }
+  finally{ _loadingData=false; }
 }
 </script>
 <a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>

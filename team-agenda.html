@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ahooga Supply To-Do</title>
+<style>
+:root{--bg:#f2f1ed;--surface:#fff;--surface2:#f0efe9;--border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);--text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#14259b;--accent-bg:#e6f0fb;--success:#2d6e2d;--success-bg:#eaf3de;--warn:#7a4e0a;--warn-bg:#faeeda;--danger:#8b1f1f;--danger-bg:#fcebeb;--purple:#3c3489;--purple-bg:#eeedfe;--teal:#0f6e56;--teal-bg:#e1f5ee;--radius:10px;--radius-sm:6px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:13px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 18px;display:flex;align-items:center;height:54px;gap:10px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.logo{font-size:16px;font-weight:800;white-space:nowrap}.logo span{color:var(--accent)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;font-weight:700;cursor:pointer;border:none;text-decoration:none;white-space:nowrap}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+.btn-sm{padding:4px 9px;font-size:11px}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--text3);border:1px solid var(--border2);white-space:nowrap}
+.pill.ok{background:var(--success-bg);color:var(--success)}.pill.err{background:var(--danger-bg);color:var(--danger)}
+.fresh{font-size:11.5px;color:var(--text2);background:var(--surface2);border:1px solid var(--border2);padding:4px 9px;border-radius:20px;white-space:nowrap}
+main{padding:16px 18px;max-width:1600px;margin:0 auto}
+#alert-box:empty{display:none}
+.alert{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:12px;line-height:1.5}
+.alert-info{background:var(--accent-bg);color:var(--accent)}.alert-success{background:var(--success-bg);color:var(--success)}
+.alert-warn{background:var(--warn-bg);color:var(--warn)}.alert-err{background:var(--danger-bg);color:var(--danger)}
+.kpis{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:8px 13px;display:flex;gap:8px;align-items:baseline;cursor:pointer}
+.kpi b{font-size:17px;font-weight:800}.kpi span{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em}
+.kpi.hot b{color:var(--danger)}
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:auto}
+table.q{width:100%;border-collapse:collapse;font-size:12.5px}
+table.q th,table.q td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:middle}
+table.q thead th{position:sticky;top:0;background:var(--surface2);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);z-index:2;cursor:pointer;user-select:none}
+table.q thead th .arr{color:var(--accent);font-size:10px}
+table.q tr.filters th{position:sticky;top:30px;background:var(--surface);padding:5px 8px;z-index:1}
+table.q tr.filters input,table.q tr.filters select{width:100%;min-width:84px;padding:4px 6px;border:1px solid var(--border2);border-radius:5px;font-family:inherit;font-size:11.5px;background:var(--surface);color:var(--text);outline:none}
+table.q tr.filters .dr{display:flex;gap:4px}
+table.q tr.filters .dr input{min-width:0;width:50%}
+table.q tbody tr:hover td{background:var(--surface2)}
+table.q tbody tr.done td{opacity:.5}
+.tg{font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em;display:inline-block}
+.tg.prod{background:var(--accent-bg);color:var(--accent)}
+.tg.comp{background:var(--success-bg);color:var(--success)}
+.tg.wheel{background:var(--purple-bg);color:var(--purple)}
+.tg.move{background:var(--teal-bg);color:var(--teal)}
+.tg.acc{background:var(--warn-bg);color:var(--warn)}
+.sub{display:block;font-size:10.5px;color:var(--text3);margin-top:1px}
+.due-over{color:var(--danger);font-weight:800}.due-soon{color:var(--warn);font-weight:700}
+.muted{color:var(--text3)}
+.who-sel{padding:3px 6px;border:1px solid var(--border2);border-radius:5px;font-family:inherit;font-size:11.5px;background:var(--surface);color:var(--text);font-weight:700}
+.done-chk{width:16px;height:16px;accent-color:var(--success);cursor:pointer}
+.openlink{color:var(--accent);font-weight:700;text-decoration:none;font-size:11px}
+.empty{text-align:center;color:var(--text3);padding:40px 20px}
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-1px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ahooga-home{position:fixed;left:14px;bottom:14px;z-index:300;display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px;line-height:1;padding:9px 14px;border-radius:999px;text-decoration:none;background:#14259b;color:#fff;border:1px solid rgba(255,255,255,.25);box-shadow:0 6px 18px rgba(20,37,155,.4);opacity:.9}
+.ahooga-home:hover{opacity:1}
+@media print{.ahooga-home{display:none}}
+</style>
+<script src="mxp-auth.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+<header>
+  <div class="logo">ahooga<span>·</span>supply to-do</div>
+  <div class="header-right">
+    <span id="conn-pill" class="pill">loading…</span>
+    <span id="freshness" class="fresh" data-ts="0">—</span>
+    <button class="btn btn-secondary btn-sm" onclick="loadAll()">⟳ Refresh</button>
+    <button class="btn btn-primary btn-sm" onclick="exportPdf()">⬇ End-of-day PDF</button>
+  </div>
+</header>
+<main>
+  <div id="alert-box"></div>
+  <div class="kpis" id="kpis"></div>
+  <div class="table-wrap">
+    <table class="q" id="qtable">
+      <thead><tr id="hdr"></tr><tr class="filters" id="filters"></tr></thead>
+      <tbody id="qbody"></tbody>
+    </table>
+  </div>
+</main>
+<a class="ahooga-home" href="index.html">⌂ Home</a>
+
+<script>
+/* ===========================================================
+   Ahooga Supply To-Do — one board collecting every action the
+   supply apps compute. Reads the published feeds from the shared
+   store; assignments + done-status are saved back to the store
+   (todo_state) so the whole team sees the same picture.
+   No Odoo writes here — each row links out to its source tool.
+   =========================================================== */
+const CF='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
+const EMPLOYEES=['Felix','Xavier & JC','Xavier','JC','Thao','Shikha'];
+const ASSIGNEES=['Unassigned',...EMPLOYEES];
+const FAMLBL={EMA:'E-MAX Alfine',EMD:'E-MAX Derailleur',AMA:'A-MAX Alfine',AMD:'A-MAX Derailleur'};
+
+let leadCfg={seaDefault:90,airDefault:30,byPart:{},odoo:{}};
+let state={items:{}};          // shared: { id: {who, done, doneAt} }
+let ROWS=[], oldest=null;
+
+/* ---- store ---- */
+async function kvGet(key){ try{ const r=await fetch(`${CF}/store/${encodeURIComponent(key)}`); if(!r.ok) return null; const t=(await r.text()||'').trim(); return (!t||t==='null')?null:JSON.parse(t); }catch(e){ return null; } }
+async function kvSet(key,val){ try{ await fetch(`${CF}/store/${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(val)}); return true; }catch(e){ return false; } }
+
+/* ---- util ---- */
+function todayYmd(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function addDays(s,n){ if(!s) return null; const t=new Date(String(s).slice(0,10)+'T00:00:00Z'); t.setUTCDate(t.getUTCDate()+n); return t.toISOString().slice(0,10); }
+function fmtD(s){ if(!s) return '—'; const p=String(s).slice(0,10).split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:String(s); }
+function daysUntil(s){ if(!s) return null; const a=new Date(todayYmd()+'T00:00:00Z'), b=new Date(String(s).slice(0,10)+'T00:00:00Z'); return Math.round((b-a)/86400000); }
+function esc(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function partName(nm){ return String(nm||'').replace(/^\[[^\]]*\]\s*/,''); }
+function alert_(m,t){ document.getElementById('alert-box').innerHTML=m?`<div class="alert alert-${t}">${m}</div>`:''; if(t==='success')setTimeout(()=>{const b=document.getElementById('alert-box');if(b&&b.querySelector('.alert-success'))b.innerHTML='';},4000); }
+function leadForPid(pid){ const bp=leadCfg.byPart[pid]||{}; if(bp.sea!=null&&bp.sea!=='') return +bp.sea; const od=leadCfg.odoo[pid]; if(od&&od.delay!=null) return od.delay; return leadCfg.seaDefault; }
+function orderByFor(it,tl){ const needAtAnd=addDays(it.neededDate,-(tl==null?3:tl)); return addDays(needAtAnd,-leadForPid(it.pid)); }
+function note(feed,ts){ if(ts){ const t=new Date(ts).getTime(); if(!oldest||t<oldest) oldest=t; } }
+
+/* ---- build to-dos from the feeds ---- */
+function fromPlan(plan,tag,src,link){
+  const out=[]; if(!plan||!plan.byFam) return out; const wk=plan.weeks||[];
+  for(const code in plan.byFam){ (plan.byFam[code]||[]).forEach((q,wi)=>{ if(q>0){ const mon=wk[wi]?wk[wi].monday:'';
+    out.push({id:tag+':'+code+':'+mon, source:src, act:'Production PO', tag:'prod', item:FAMLBL[code]||code, route:'', part:'', qty:q, due:mon, defWho:'Felix', link});
+  }}); } return out;
+}
+function fromDeadlines(feed,src,link,opts){
+  const out=[]; if(!feed||!feed.items) return out; const tl=feed.transferLeadDays; const o=opts||{};
+  for(const it of feed.items){
+    if(it.type==='order'){
+      out.push({id:it.id, source:src, act:o.orderLabel||'P0', tag:o.orderTag||'comp', item:partName(it.name), route:'', part:it.partNo||'', qty:it.qty,
+        due:(o.orderByNeeded? it.neededDate : orderByFor(it,tl)), defWho:o.orderWho||'Felix', link});
+    } else if(it.type==='move'){
+      out.push({id:it.id, source:src, act:'Internal transfer', tag:'move', item:partName(it.name), route:'AND → '+(o.dest||'VV'), part:it.partNo||'', qty:it.qty,
+        due:addDays(it.neededDate,-(tl==null?3:tl)), defWho:'Xavier & JC', link});
+    }
+  }
+  return out;
+}
+
+async function loadAll__inner(){
+  document.getElementById('conn-pill').textContent='loading…'; document.getElementById('conn-pill').className='pill';
+  alert_('<span class="spinner"></span> Pulling the latest to-dos from every app…','info');
+  oldest=null;
+  const [p26,p27,wheel,parts,lead,acc,st]=await Promise.all([
+    kvGet('production_plan'), kvGet('production_plan_my27'), kvGet('wheel_deadlines'),
+    kvGet('parts_deadlines'), kvGet('parts_lead_cfg'), kvGet('accessory_deadlines'), kvGet('todo_state')
+  ]);
+  if(lead) leadCfg={seaDefault:lead.seaDefault??90,airDefault:lead.airDefault??30,byPart:lead.byPart||{},odoo:lead.odoo||{}};
+  state=(st&&st.items)?st:{items:{}};
+  [ [p26,'production_plan'],[p27,'production_plan_my27'],[wheel,'wheel'],[parts,'parts'],[acc,'accessory'] ].forEach(([f])=>{ if(f&&f.updated) note(0,f.updated); });
+
+  let rows=[];
+  rows=rows.concat(fromPlan(p26,'p26','PO Builder · MY26','po-builder-bikes.html'));
+  rows=rows.concat(fromPlan(p27,'p27','PO Builder · MY27','po-builder-my27.html'));
+  rows=rows.concat(fromDeadlines(parts,'Parts Agenda','parts-agenda.html',{orderLabel:'Component P0',orderTag:'comp',orderWho:'Felix',dest:'VV'}));
+  rows=rows.concat(fromDeadlines(wheel,'Wheels · MTB','parts-agenda.html',{orderLabel:'Wheel P0',orderTag:'wheel',orderWho:'Felix',dest:'MTB'}));
+  rows=rows.concat(fromDeadlines(acc,'Accessories','accessory-sales.html',{orderLabel:'Accessory / spare P0',orderTag:'acc',orderWho:'Shikha',orderByNeeded:true}));
+
+  // merge saved assignment + done
+  for(const r of rows){ const s=state.items[r.id]; r.who=(s&&s.who)||r.defWho; r.done=!!(s&&s.done); r.doneAt=s&&s.doneAt||null; }
+  ROWS=rows.sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999'));
+
+  buildHeader(); buildFilters(); renderTable();
+  const n=ROWS.length;
+  document.getElementById('conn-pill').textContent=n?`${n} to-dos`:'no to-dos found'; document.getElementById('conn-pill').className='pill '+(n?'ok':'err');
+  const el=document.getElementById('freshness'); if(oldest){ el.dataset.ts=oldest; el.textContent='Feeds as of '+new Date(oldest).toLocaleString([],{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); } else { el.textContent='no feeds yet'; }
+  if(!n) alert_('No to-dos yet — open the source apps (PO Builder, Parts Stock, Accessory Sales) once so they publish, then Refresh.','warn'); else alert_('',null);
+}
+
+/* ---- persistence ---- */
+function ensure(id){ if(!state.items[id]) state.items[id]={}; return state.items[id]; }
+async function assign(id,who){ const r=ROWS.find(x=>x.id===id); if(r)r.who=who; ensure(id).who=who; renderKpis(); await kvSet('todo_state',state); }
+async function setDone(id,done){ const r=ROWS.find(x=>x.id===id); if(r){r.done=done; r.doneAt=done?new Date().toISOString():null;} const s=ensure(id); s.done=done; s.doneAt=done?new Date().toISOString():null; if(r&&!s.who)s.who=r.who; renderTable(); await kvSet('todo_state',state); }
+
+/* ---- columns / header / filters ---- */
+const COLS=[
+  {k:'source',l:'Source',f:'select',v:r=>r.source},
+  {k:'act',l:'Action',f:'select',v:r=>r.act},
+  {k:'item',l:'Item',f:'text',v:r=>r.item},
+  {k:'part',l:'Part #',f:'text',v:r=>r.part},
+  {k:'qty',l:'Qty',f:'text',v:r=>String(r.qty)},
+  {k:'due',l:'Due',f:'daterange',v:r=>r.due},
+  {k:'who',l:'Responsible',f:'select',v:r=>r.who},
+  {k:'status',l:'Status',f:'status',v:r=>r.done?'done':'open'},
+  {k:'open',l:'Open',f:false}
+];
+let sortKey='due', sortDir=1;
+function buildHeader(){
+  document.getElementById('hdr').innerHTML=COLS.map(c=>{
+    const click=(c.k!=='open')?`onclick="sortBy('${c.k}')"`:'';
+    const arr=(c.k===sortKey)?`<span class="arr">${sortDir>0?'▲':'▼'}</span>`:'';
+    return `<th ${click}>${c.l} ${arr}</th>`;
+  }).join('');
+}
+function buildFilters(){
+  document.getElementById('filters').innerHTML=COLS.map(c=>{
+    if(c.f===false) return '<th></th>';
+    if(c.f==='daterange') return `<th><div class="dr"><input type="date" id="flt-due-from" onchange="renderTable()" title="from"><input type="date" id="flt-due-to" onchange="renderTable()" title="to"></div></th>`;
+    if(c.f==='status') return `<th><select id="flt-status" onchange="renderTable()"><option value="">All</option><option value="open">Open</option><option value="done">Done</option><option value="overdue">Overdue</option></select></th>`;
+    if(c.f==='select'){ const vals=[...new Set(ROWS.map(c.v).filter(x=>x!=null&&x!==''))].sort(); return `<th><select id="flt-${c.k}" onchange="renderTable()"><option value="">All</option>${vals.map(x=>`<option>${esc(x)}</option>`).join('')}</select></th>`; }
+    return `<th><input id="flt-${c.k}" oninput="renderTable()" placeholder="filter…"></th>`;
+  }).join('');
+}
+function sortBy(k){ if(sortKey===k) sortDir=-sortDir; else{sortKey=k;sortDir=1;} buildHeader(); renderTable(); }
+function pass(r){
+  for(const c of COLS){
+    if(c.f===false) continue;
+    if(c.f==='daterange'){ const f=val('flt-due-from'),t=val('flt-due-to'),d=(r.due||'').slice(0,10); if((f||t)&&!d)return false; if(f&&d<f)return false; if(t&&d>t)return false; continue; }
+    if(c.f==='status'){ const s=val('flt-status'); if(!s)continue; if(s==='open'&&r.done)return false; if(s==='done'&&!r.done)return false; if(s==='overdue'&&!(!r.done&&r.due&&daysUntil(r.due)<0))return false; continue; }
+    const el=document.getElementById('flt-'+c.k); if(!el)continue; const fv=(el.value||'').trim().toLowerCase(); if(!fv)continue;
+    const vv=String(c.v(r)??'').toLowerCase();
+    if(c.f==='select'){ if(vv!==fv)return false; } else if(vv.indexOf(fv)<0) return false;
+  }
+  return true;
+}
+function val(id){ const e=document.getElementById(id); return e?e.value:''; }
+function dueCell(due,done){ if(!due) return '<span class="muted">—</span>'; const du=daysUntil(due); let cls=''; if(!done&&du!=null&&du<0)cls='due-over'; else if(!done&&du!=null&&du<=3)cls='due-soon'; const tail=done?'':(du==null?'':(du<0?` (${-du}d late)`:(du===0?' (today)':` (${du}d)`))); return `<span class="${cls}">${fmtD(due)}${tail}</span>`; }
+function renderTable(){
+  const rows=ROWS.filter(pass).slice().sort((a,b)=>{ const c=COLS.find(x=>x.k===sortKey); let av=c.v(a)||'',bv=c.v(b)||''; if(sortKey==='qty'){av=+av||0;bv=+bv||0;return (av-bv)*sortDir;} return String(av).localeCompare(String(bv))*sortDir; });
+  const body=document.getElementById('qbody');
+  if(!rows.length){ body.innerHTML=`<tr><td colspan="${COLS.length}"><div class="empty">No to-dos match the filters.</div></td></tr>`; renderKpis(); return; }
+  body.innerHTML=rows.map(r=>{
+    const opts=ASSIGNEES.map(e=>`<option ${e===r.who?'selected':''}>${esc(e)}</option>`).join('');
+    return `<tr class="${r.done?'done':''}">
+      <td>${esc(r.source)}</td>
+      <td><span class="tg ${r.tag}">${esc(r.act)}</span></td>
+      <td>${esc(r.item)}${r.route?`<span class="sub">${esc(r.route)}</span>`:''}</td>
+      <td>${r.part?esc(r.part):'<span class="muted">—</span>'}</td>
+      <td>${esc(String(r.qty))}</td>
+      <td>${dueCell(r.due,r.done)}</td>
+      <td><select class="who-sel" onchange="assign('${r.id.replace(/'/g,"\\'")}',this.value)">${opts}</select></td>
+      <td><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" class="done-chk" ${r.done?'checked':''} onchange="setDone('${r.id.replace(/'/g,"\\'")}',this.checked)">${r.done?'Done':'Open'}</label></td>
+      <td><a class="openlink" href="${r.link}" target="_blank" rel="noopener">Open ↗</a></td>
+    </tr>`;
+  }).join('');
+  renderKpis(rows.length);
+}
+function renderKpis(){
+  const open=ROWS.filter(r=>!r.done).length, done=ROWS.filter(r=>r.done).length;
+  const overdue=ROWS.filter(r=>!r.done&&r.due&&daysUntil(r.due)<0).length;
+  const soon=ROWS.filter(r=>!r.done&&r.due&&daysUntil(r.due)>=0&&daysUntil(r.due)<=7).length;
+  document.getElementById('kpis').innerHTML=
+    `<div class="kpi" onclick="clearF()"><b>${ROWS.length}</b><span>total</span></div>
+     <div class="kpi" onclick="setStatus('open')"><b>${open}</b><span>open</span></div>
+     <div class="kpi hot" onclick="setStatus('overdue')"><b>${overdue}</b><span>overdue</span></div>
+     <div class="kpi" onclick="setStatus('open')"><b>${soon}</b><span>due ≤7d</span></div>
+     <div class="kpi" onclick="setStatus('done')"><b>${done}</b><span>done</span></div>`;
+}
+function setStatus(s){ const el=document.getElementById('flt-status'); if(el){el.value=s;renderTable();} }
+function clearF(){ document.querySelectorAll('#filters input,#filters select').forEach(e=>e.value=''); renderTable(); }
+
+/* ---- end-of-day PDF: overdue & not done ---- */
+function exportPdf(){
+  const today=todayYmd();
+  const due=ROWS.filter(r=>!r.done && r.due && r.due<=today).sort((a,b)=>(a.due||'').localeCompare(b.due||''));
+  const byWho={};
+  for(const r of due){ (byWho[r.who]=byWho[r.who]||[]).push(r); }
+  const order=ASSIGNEES.filter(w=>byWho[w]);
+  const rowsHtml=(arr)=>arr.map(r=>`<tr><td>${fmtD(r.due)}</td><td>${esc(r.source)}</td><td>${esc(r.act)}</td><td>${esc(r.item)}${r.route?' — '+esc(r.route):''}</td><td>${esc(r.part||'')}</td><td style="text-align:right">${esc(String(r.qty))}</td></tr>`).join('');
+  const sections=order.length?order.map(w=>`
+      <h2>${esc(w)} — ${byWho[w].length} overdue</h2>
+      <table><thead><tr><th>Due</th><th>Source</th><th>Action</th><th>Item</th><th>Part #</th><th>Qty</th></tr></thead><tbody>${rowsHtml(byWho[w])}</tbody></table>`).join(''):'<p class="none">🎉 Nothing overdue — everything due has been done.</p>';
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ahooga supply to-do — overdue ${today}</title>
+    <style>body{font-family:Arial,Helvetica,sans-serif;color:#1a1a18;margin:28px;font-size:12px}
+    h1{font-size:19px;margin:0 0 2px}.sub{color:#666;margin:0 0 18px;font-size:12px}
+    h2{font-size:13px;margin:18px 0 6px;color:#14259b;border-bottom:2px solid #14259b;padding-bottom:3px}
+    table{width:100%;border-collapse:collapse;margin-bottom:8px}
+    th,td{border:1px solid #ccc;padding:5px 7px;text-align:left}th{background:#eef;font-size:10px;text-transform:uppercase}
+    .none{font-size:14px;color:#2d6e2d;margin-top:24px}
+    @media print{.noprint{display:none}}</style></head>
+    <body>
+    <h1>Ahooga — Supply to-do not done</h1>
+    <p class="sub">Items due on or before ${fmtD(today)} that are still open. Generated ${new Date().toLocaleString()}. Total overdue: ${due.length}.</p>
+    <button class="noprint" onclick="window.print()" style="margin-bottom:14px;padding:8px 14px;font-weight:700;background:#14259b;color:#fff;border:0;border-radius:6px;cursor:pointer">Save as PDF / Print</button>
+    ${sections}
+    </body></html>`;
+  const w=window.open('','_blank'); if(!w){ alert_('Allow pop-ups to export the PDF.','warn'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+  setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 400);
+}
+
+loadAll();
+
+
+// ── RE-ENTRANCY GUARD ────────────────────────────────────────
+// loadAll() is wired to a button AND runs by itself when the page opens. Clicking Refresh while
+// that first pass is still in flight used to start a second one, and because the loaders add
+// into shared totals, every record got counted twice. Declared with var, not let: the page
+// calls loadAll() during start-up, before this line is reached, and a let would still be in its
+// temporal dead zone at that point.
+var _loadingData=false;
+async function loadAll(){
+  if(_loadingData){
+    console.warn('[team-agenda.html] load already running — ignoring this click');
+    try{ if(typeof alert_==='function') alert_('Already loading — one moment.','info'); }catch(e){}
+    return;
+  }
+  _loadingData=true;
+  try{ return await loadAll__inner.apply(this, arguments); }
+  finally{ _loadingData=false; }
+}
+</script>
+</body>
+</html>
