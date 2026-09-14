@@ -125,6 +125,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 <div class="tabs2">
   <button id="t2-reg" class="seg" onclick="showView('register')" style="display:none">Register serial</button>
   <button id="t2-rec" class="seg active" onclick="showView('receipt')">📦 Inbound custom colour frame</button>
+  <button id="t2-goods" class="seg" onclick="showView('goods')">🚚 Goods in</button>
 </div>
 
 <section id="view-register" style="display:none">
@@ -175,6 +176,107 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   <input id="rc-in" class="rc-inp" placeholder="type the SO (e.g. S25172), then Enter" style="display:none"/>
   <h3>Received this session</h3>
   <div id="rc-recent"><div class="hint" style="text-align:left">—</div></div>
+</section>
+
+<style>
+  #view-goods .gl{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;margin:0 0 8px;color:var(--ink);font:inherit;cursor:pointer}
+  #view-goods .gl:active{transform:scale(.995)}
+  #view-goods .gl .t{flex:1;min-width:0}
+  #view-goods .gl .nm{font-weight:700;font-size:15px}
+  #view-goods .gl .cd{font-size:12.5px;color:var(--muted);margin-top:2px}
+  #view-goods .gl .q{font-weight:800;font-size:15px;white-space:nowrap}
+  #view-goods .gl.blind{border-color:var(--accent)}
+  #view-goods .gl.blind .q{color:var(--accent)}
+  #view-goods .gl.diff{border-color:var(--warn)}
+  #view-goods .gl.diff .q{color:var(--warn)}
+  #view-goods .gnum{width:100%;padding:14px;font-size:30px;font-weight:800;text-align:center;
+    border:1px solid var(--line);border-radius:12px;background:#000;color:var(--ink);margin:10px 0}
+  #view-goods .grow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  #view-goods .grow button{flex:1;min-width:110px}
+  #view-goods .gq{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:9px 12px;color:var(--muted);font-size:13.5px;margin:0 0 10px}
+  #reader3{display:none;width:100%;min-height:240px;background:#000;border-radius:14px;overflow:hidden;margin-bottom:8px}
+  #reader3 video,#reader3 canvas{width:100%!important;height:auto!important;border-radius:14px}
+</style>
+
+<section id="view-goods" style="display:none">
+
+  <div id="g-queued" class="gq" style="display:none"></div>
+
+  <!-- pick a shipment -->
+  <div id="g-pick">
+    <div class="card">
+      <div class="lab">Expected at Velovisie</div>
+      <div class="hint" style="text-align:left">Tap the delivery that just arrived, or scan the label on the box.</div>
+    </div>
+    <div id="reader3"></div>
+    <div id="g-hint" class="hint"></div>
+    <button id="g-scan" class="btn-primary">📷 Scan the box label</button>
+    <div class="btn-row"><button id="g-type" class="btn-ghost">⌨ Type the reference</button></div>
+    <input id="g-ref" class="rc-inp" placeholder="transfer, PO or order number, then Enter" style="display:none"/>
+    <h3>Due in the next 7 days</h3>
+    <div id="g-expected"><div class="hint" style="text-align:left">—</div></div>
+    <div class="btn-row" style="margin-top:14px">
+      <button id="g-unknown-btn" class="btn-ghost">❓ A box nobody can identify</button>
+    </div>
+  </div>
+
+  <!-- the lines of one shipment -->
+  <div id="g-lines" style="display:none">
+    <div class="card">
+      <div class="lab">Counting</div>
+      <div id="g-lref" class="val">—</div>
+      <div id="g-lsub" class="hint" style="text-align:left">—</div>
+    </div>
+    <div id="g-linelist"></div>
+    <button id="g-confirm" class="btn-ok" style="margin-top:10px">✓ Confirm arrival</button>
+    <div class="btn-row"><button id="g-lback" class="btn-ghost">← Back</button></div>
+  </div>
+
+  <!-- adjust one line -->
+  <div id="g-adjust" style="display:none">
+    <div class="card">
+      <div class="lab">How many are really in the box?</div>
+      <div id="g-aname" class="val">—</div>
+      <div id="g-acode" class="hint" style="text-align:left">—</div>
+    </div>
+    <input id="g-aqty" class="gnum" inputmode="numeric" value="0"/>
+    <div id="g-areasons" class="grow"></div>
+    <div class="btn-row" style="margin-top:10px">
+      <label class="btn-ghost" id="g-ashotlab" style="display:inline-block;text-align:center">＋ Photo (optional)
+        <input id="g-ashot" type="file" accept="image/*" capture="environment" style="display:none"/></label>
+    </div>
+    <button id="g-asave" class="btn-ok" style="margin-top:10px">✓ Save this line</button>
+    <div class="btn-row"><button id="g-aback" class="btn-ghost">← Back</button></div>
+  </div>
+
+  <!-- unidentified -->
+  <div id="g-unknown" style="display:none">
+    <div class="card">
+      <div class="lab">Unidentified delivery</div>
+      <div class="hint" style="text-align:left">Two photos and who brought it. It goes straight to the
+      Ahooga office — after that it is not your problem.</div>
+    </div>
+    <div class="btn-row">
+      <label class="btn-ghost" id="g-u1lab" style="display:inline-block;text-align:center">＋ Photo of the delivery note
+        <input id="g-u1" type="file" accept="image/*" capture="environment" style="display:none"/></label>
+    </div>
+    <div class="btn-row">
+      <label class="btn-ghost" id="g-u2lab" style="display:inline-block;text-align:center">＋ Photo of the pallet
+        <input id="g-u2" type="file" accept="image/*" capture="environment" style="display:none"/></label>
+    </div>
+    <div id="g-who" class="grow">
+      <button class="btn-ghost" data-r="DSV">DSV</button>
+      <button class="btn-ghost" data-r="DPD">DPD</button>
+      <button class="btn-ghost" data-r="Other carrier">Other</button>
+      <button class="btn-ghost" data-r="Unknown">Do not know</button>
+    </div>
+    <button id="g-usend" class="btn-ok" style="margin-top:10px" disabled>Send to Ahooga office</button>
+    <div class="btn-row"><button id="g-uback" class="btn-ghost">← Back</button></div>
+  </div>
+
 </section>
 
 <script>
@@ -360,10 +462,13 @@ async function kvSet(key,value){ try{ await fetch(CF_WORKER+'/store/'+encodeURIC
 function showView(v){
   $('view-register').style.display = v==='register'?'block':'none';
   $('view-receipt').style.display  = v==='receipt'?'block':'none';
+  var gv=$('view-goods'); if(gv) gv.style.display = v==='goods'?'block':'none';
   $('t2-reg').classList.toggle('active', v==='register');
   $('t2-rec').classList.toggle('active', v==='receipt');
-  try{ stopCam(); }catch(e){} rcStopCam();
+  var gt=$('t2-goods'); if(gt) gt.classList.toggle('active', v==='goods');
+  try{ stopCam(); }catch(e){} rcStopCam(); try{ ibStopCam(); }catch(e){}
   if(v==='receipt') renderReceipts();
+  if(v==='goods')   ibLoadExpected();
 }
 window.showView=showView;
 /* ── scan feedback: sound + vibration + a live session tally ── */
@@ -432,6 +537,7 @@ async function bikeLineForSO(so){ try{ var sol=await odoo('sale.order.line','sea
 /* ── Deco Coat → Anderlecht → Velovisie route (IDs read from Odoo) ── */
 const PT_RECEIPT    = 1;    /* "Anderlecht Receipts" (incoming) — Vendors -> AND/In Transit         */
 const PT_STORAGE    = 203;  /* "Storage"             (internal) — AND/In Transit -> AND/Warehouse   */
+const PT_DECO_VV    = 267;  /* "Deco Coat -> Velovisie" (incoming) - Vendors -> Velovisie, ONE step */
 const PT_TO_VELO    = 249;  /* "Resupply Velovisie"  (incoming) — AND/Warehouse -> Velovisie        */
 const LOC_INTRANSIT = 9;    /* AND/In Transit  */
 const LOC_WAREHOUSE = 8;    /* AND/Warehouse   */
@@ -489,13 +595,31 @@ async function receiveFrame(code){
   }catch(e){}
 
   var done=[];
+  var landedAtVV=false;   /* true when the receipt itself lands at Velovisie */
+  var recIds=[];
 
   /* STEP 1 — validate the Anderlecht receipt(s) of the P0 order (Vendors -> AND/In Transit) */
   try{
     $('rc-hint').textContent='Validating the '+poName+' receipt…';
-    var recs=await odoo('stock.picking','search_read',[[['origin','=',poName],['picking_type_id','=',PT_RECEIPT],['state','in',['assigned','confirmed','waiting']]]],{fields:['id','name'],limit:10});
-    for(var i=0;i<recs.length;i++){ await rcValidatePicking(recs[i].id); done.push(recs[i].name); }
+    var recs=await odoo('stock.picking','search_read',[[['origin','=',poName],['picking_type_id','in',[PT_DECO_VV,PT_RECEIPT]],['state','in',['assigned','confirmed','waiting']]]],{fields:['id','name','location_dest_id'],limit:10});
+    for(var i=0;i<recs.length;i++){
+      await rcValidatePicking(recs[i].id); done.push(recs[i].name); recIds.push(recs[i].id);
+      var dst=recs[i].location_dest_id;
+      if(Array.isArray(dst)&&dst[0]===LOC_VELOVISIE) landedAtVV=true;
+    }
   }catch(e){ rcMsg('Could not validate the '+poName+' receipt: '+((e&&e.message)||e),'err'); $('rc-hint').textContent=''; return; }
+
+  /* One-step routing (operation type 267). The receipt itself put the frame in
+     Velovisie, so the two Anderlecht hops below describe a journey that never
+     happened. Skipping them matters: creating them would invent stock moves
+     through a warehouse the frame never entered. */
+  var newPickName='';
+  if(landedAtVV){
+    newPickName=done[0]||'';
+    if(recIds.length){
+      try{ await odoo('stock.picking','message_post',[[recIds[0]]],{body:'Painted frame received at Velovisie - scanned in the VV app ('+so+', PO '+poName+').',message_type:'comment',subtype_xmlid:'mail.mt_note'}); }catch(e){}
+    }
+  } else {
 
   /* STEP 2 — the frame is now in AND/In Transit; move it In Transit -> Warehouse.
      Validate the Storage transfer Odoo created, or create it if none exists. */
@@ -507,7 +631,6 @@ async function receiveFrame(code){
   }catch(e){ rcMsg('Receipt done, but the In Transit -> Warehouse move failed: '+((e&&e.message)||e),'err'); $('rc-hint').textContent=''; return; }
 
   /* STEP 3 — create & validate the AND/Warehouse -> Velovisie transfer */
-  var newPickName='';
   try{
     $('rc-hint').textContent='Transferring Warehouse -> Velovisie…';
     if(!frameProd){
@@ -518,6 +641,7 @@ async function receiveFrame(code){
     newPickName=toVV.name; done.push(newPickName);
     try{ await odoo('stock.picking','message_post',[[toVV.id]],{body:'Painted frame received & transferred to Velovisie — scanned in the VV app ('+so+', PO '+poName+').',message_type:'comment',subtype_xmlid:'mail.mt_note'}); }catch(e){}
   }catch(e){ rcMsg('Receipt & warehouse steps done, but the Velovisie transfer failed: '+((e&&e.message)||e),'err'); $('rc-hint').textContent=''; return; }
+  }  /* end of the legacy three-step path */
 
   /* notify the PO Builder that this order is ready to build */
   var serial = looksLikeSO(code) ? '' : cleanSerial(code);
@@ -534,6 +658,259 @@ var _recLog=[];
 function renderReceipts(){ renderScanLog(); }
 
 render(); loadRecent(); showView('receipt');
+
+/* ══════════════════════════════════════════════════════════════════════════
+   GOODS IN — Velovisie confirms what physically arrived
+   --------------------------------------------------------------------------
+   Deliberately does NOT call Odoo directly like the Receipt tab above. That
+   tab goes through ahooga-odoo-proxy with VV_TOKEN, whose allowlist covers
+   stock.picking only. Goods-in also attaches damage photos and reports boxes
+   nobody can identify, so it talks to the vv-inbound Worker, which holds the
+   Odoo credential server-side and is scoped to Velovisie arrivals.
+   IB_DEVICE is a per-device token, not an Odoo login. Blank = tab inert.
+   ══════════════════════════════════════════════════════════════════════════ */
+const IB_URL    = "https://vv-inbound.ahoogahouse-1050-be.workers.dev";
+const IB_DEVICE = "a2bcaf5e6aa389dc882479bfa8afda8943d9b6225473c403";
+const IB_BY     = "VV";
+
+const gib = { ship:null, lines:[], cur:-1, reason:'', shot:'', u1:'', u2:'', who:'',
+              busy:false, scanner:null, scanning:false };
+
+function ibShow(which){
+  ['pick','lines','adjust','unknown'].forEach(function(k){
+    var el=$('g-'+k); if(el) el.style.display = (k===which)?'block':'none';
+  });
+}
+
+/* ---------- camera (its own instance; reader3 lives in this view) ---------- */
+async function ibStopCam(){
+  if(gib.scanner && gib.scanning){ try{ await gib.scanner.stop(); }catch(e){} }
+  gib.scanning=false; var R=$('reader3'); if(R) R.style.display='none';
+  var b=$('g-scan'); if(b) b.textContent='📷 Scan the box label';
+}
+async function ibStartCam(){
+  if(typeof Html5Qrcode==='undefined'){ showMsg('Scanner did not load — reload the page.','err'); return; }
+  if(!gib.scanner) gib.scanner=new Html5Qrcode('reader3',
+    (typeof SUPPORTED!=='undefined'&&SUPPORTED)?{formatsToSupport:SUPPORTED,verbose:false}:{verbose:false});
+  var conf={fps:12,qrbox:function(w,h){var m=Math.floor(Math.min(w,h)*0.8);return{width:m,height:Math.floor(m*0.62)};}};
+  var R=$('reader3'); R.style.display='block'; void R.offsetWidth; gib.scanning=true;
+  $('g-scan').textContent='■ Stop camera'; $('g-hint').textContent='Point at the label on the box.';
+  var hit=function(t){ if(gib.busy) return; gib.busy=true; try{flash();}catch(e){}
+    ibOpenRef(String(t||'').trim()).finally(function(){ setTimeout(function(){gib.busy=false;},1400); }); };
+  try{ await gib.scanner.start({facingMode:'environment'},conf,hit,function(){}); }
+  catch(e1){
+    try{ var cams=await Html5Qrcode.getCameras();
+      var back=(cams&&cams.length)?((cams.find(function(c){return /back|rear|environment|achter|arri/i.test(c.label||'');}))||cams[cams.length-1]):null;
+      if(!back) throw e1; await gib.scanner.start(back.id,conf,hit,function(){}); }
+    catch(e2){ gib.scanning=false; R.style.display='none'; $('g-scan').textContent='📷 Scan the box label';
+      showMsg('Camera could not start — use “Type the reference”.','err'); }
+  }
+}
+
+/* ---------- worker ---------- */
+async function ibGet(path){
+  if(!IB_URL||!IB_DEVICE) throw new Error('not configured');
+  var r=await fetch(IB_URL+path,{headers:{'x-device-key':IB_DEVICE}});
+  if(!r.ok) throw new Error('HTTP '+r.status);
+  return r.json();
+}
+async function ibPost(path,body){
+  if(!IB_URL||!IB_DEVICE) throw new Error('not configured');
+  var r=await fetch(IB_URL+path,{method:'POST',
+    headers:{'Content-Type':'application/json','x-device-key':IB_DEVICE},body:JSON.stringify(body)});
+  var j=await r.json().catch(function(){return {};});
+  if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+  return j;
+}
+
+/* ---------- expected list ---------- */
+async function ibLoadExpected(){
+  var box=$('g-expected'); if(!box) return;
+  if(!IB_DEVICE){ box.innerHTML='<div class="hint" style="text-align:left">Not switched on yet — set <b>IB_DEVICE</b> near the bottom of this file.</div>'; return; }
+  box.innerHTML='<div class="hint" style="text-align:left">Loading…</div>';
+  try{
+    var list=await ibGet('/expected');
+    box.innerHTML = (list&&list.length) ? list.map(function(s){
+      return '<button class="gl" data-ref="'+String(s.ref).replace(/"/g,'&quot;')+'">'+
+             '<div class="t"><div class="nm">'+escHtml(s.ref)+'</div>'+
+             '<div class="cd">'+escHtml(s.partner||'')+' · '+s.lines+' line'+(s.lines===1?'':'s')+'</div></div>'+
+             '<span class="q" style="font-size:13px;color:var(--muted)">'+escHtml(s.when||'')+'</span></button>';
+    }).join('') : '<div class="hint" style="text-align:left">Nothing expected in the next 7 days.</div>';
+    Array.prototype.forEach.call(box.querySelectorAll('.gl'),function(b){
+      b.onclick=function(){ ibOpenRef(b.getAttribute('data-ref')); };
+    });
+  }catch(e){
+    box.innerHTML='<div class="hint" style="text-align:left">Could not load ('+escHtml((e&&e.message)||e)+'). Scan or type the reference instead.</div>';
+  }
+}
+
+/* ---------- one shipment ---------- */
+async function ibOpenRef(ref){
+  if(!ref) return;
+  showMsg('Looking up “'+ref+'”…','ok');
+  try{
+    var s=await ibGet('/shipment?ref='+encodeURIComponent(ref));
+    await ibStopCam();
+    gib.ship=s;
+    gib.lines=(s.lines||[]).map(function(l){
+      return {id:l.id,code:l.code,name:l.name,expected:l.expected,blind:!!l.blind,
+              counted: l.blind?null:l.expected, reason:'', shot:''};
+    });
+    $('g-lref').textContent=s.ref;
+    $('g-lsub').textContent=(s.partner||'')+(s.when?(' · '+s.when):'');
+    $('msg').className='msg';
+    ibRenderLines(); ibShow('lines');
+  }catch(e){
+    showMsg('“'+ref+'” did not match anything expected here. Check the paperwork, or use “a box nobody can identify”.','err');
+  }
+}
+
+function ibRenderLines(){
+  $('g-linelist').innerHTML = gib.lines.map(function(l,i){
+    var cls='gl', right;
+    if(l.blind && l.counted===null){ cls+=' blind'; right='count me'; }
+    else if(l.counted===l.expected){ right=l.expected+' ✓'; }
+    else { cls+=' diff'; right=l.counted+' / '+l.expected; }
+    return '<button class="'+cls+'" data-i="'+i+'"><div class="t"><div class="nm">'+escHtml(l.name)+
+           '</div><div class="cd">'+escHtml(l.code)+(l.blind?' · count by hand':'')+'</div></div>'+
+           '<span class="q">'+right+'</span></button>';
+  }).join('');
+  Array.prototype.forEach.call($('g-linelist').querySelectorAll('.gl'),function(b){
+    b.onclick=function(){ ibOpenAdjust(+b.getAttribute('data-i')); };
+  });
+  var pending=gib.lines.some(function(l){return l.counted===null;});
+  var btn=$('g-confirm'); btn.disabled=pending;
+  btn.textContent = pending ? 'Count the highlighted lines first'
+    : (gib.lines.every(function(l){return l.counted===l.expected;})
+        ? '✓ All correct — confirm arrival' : '✓ Confirm with differences');
+}
+
+var IB_REASONS=['Short','Over','Damaged','Wrong item'];
+function ibOpenAdjust(i){
+  gib.cur=i; var l=gib.lines[i];
+  gib.reason=l.reason||''; gib.shot=l.shot||'';
+  $('g-aname').textContent=l.name; $('g-acode').textContent=l.code+' · expected '+l.expected;
+  $('g-aqty').value = (l.counted===null? '' : l.counted);
+  $('g-areasons').innerHTML=IB_REASONS.map(function(r){
+    return '<button class="btn-ghost'+(gib.reason===r?' active':'')+'" data-r="'+r+'">'+r+'</button>';
+  }).join('');
+  Array.prototype.forEach.call($('g-areasons').querySelectorAll('button'),function(b){
+    b.onclick=function(){ gib.reason=b.getAttribute('data-r');
+      Array.prototype.forEach.call($('g-areasons').querySelectorAll('button'),function(x){
+        x.style.borderColor = (x===b)?'var(--accent)':''; });
+    };
+  });
+  $('g-ashotlab').firstChild.nodeValue = gib.shot ? '✓ Photo attached' : '＋ Photo (optional)';
+  ibShow('adjust'); setTimeout(function(){ $('g-aqty').focus(); },80);
+}
+
+function ibPhoto(file,cb){
+  if(!file) return;
+  var fr=new FileReader();
+  fr.onload=function(){
+    var img=new Image();
+    img.onload=function(){
+      var w=img.width,h=img.height,M=1280;
+      if(w>M||h>M){ if(w>h){h=Math.round(h*M/w);w=M;} else {w=Math.round(w*M/h);h=M;} }
+      var c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      cb(c.toDataURL('image/jpeg',0.72));
+    };
+    img.src=fr.result;
+  };
+  fr.readAsDataURL(file);
+}
+
+/* ---------- offline queue ---------- */
+var IBQ='vv_goods_queue';
+function ibQGet(){ try{ return JSON.parse(localStorage.getItem(IBQ)||'[]'); }catch(e){ return []; } }
+function ibQSet(a){ try{ localStorage.setItem(IBQ,JSON.stringify(a)); }catch(e){} ibQBadge(); }
+function ibQBadge(){
+  var n=ibQGet().length, el=$('g-queued'); if(!el) return;
+  el.style.display=n?'block':'none';
+  el.textContent=n?('⏳ '+n+' confirmation'+(n>1?'s':'')+' waiting to send. They go automatically when the connection returns.'):'';
+}
+async function ibQFlush(){
+  var q=ibQGet(); if(!q.length) return;
+  var left=[];
+  for(var i=0;i<q.length;i++){ try{ await ibPost(q[i].path,q[i].body); }catch(e){ left.push(q[i]); } }
+  ibQSet(left);
+  if(q.length && !left.length) showMsg('✓ Queued confirmations sent.','ok');
+}
+async function ibSend(path,body,okMsg){
+  if(gib.busy) return; gib.busy=true;
+  try{ await ibPost(path,body); showMsg(okMsg,'ok'); }
+  catch(e){ var q=ibQGet(); q.push({path:path,body:body}); ibQSet(q);
+    showMsg('No connection — saved on this device, it will send by itself.','err'); }
+  gib.busy=false;
+}
+
+/* ---------- wiring ---------- */
+document.addEventListener('DOMContentLoaded',function(){
+  if(!$('view-goods')) return;
+
+  $('g-scan').onclick=function(){ gib.scanning?ibStopCam():ibStartCam(); };
+  $('g-type').onclick=function(){
+    var i=$('g-ref'), open=(i.style.display==='none');
+    i.style.display=open?'block':'none'; if(open){ ibStopCam(); i.focus(); }
+  };
+  $('g-ref').onkeydown=function(e){ if(e.key==='Enter') ibOpenRef(e.target.value.trim()); };
+  $('g-lback').onclick=function(){ gib.ship=null; gib.lines=[]; ibShow('pick'); ibLoadExpected(); };
+  $('g-aback').onclick=function(){ ibShow('lines'); };
+
+  $('g-asave').onclick=function(){
+    var l=gib.lines[gib.cur]; if(!l) return;
+    var v=parseInt($('g-aqty').value,10);
+    if(!isFinite(v)||v<0){ showMsg('Type how many are in the box.','err'); return; }
+    l.counted=v; l.reason=gib.reason||''; l.shot=gib.shot||'';
+    ibRenderLines(); ibShow('lines');
+  };
+  $('g-ashot').onchange=function(e){ ibPhoto(e.target.files[0],function(u){
+    gib.shot=u; $('g-ashotlab').firstChild.nodeValue='✓ Photo attached'; }); };
+
+  $('g-confirm').onclick=async function(){
+    if(!gib.ship) return;
+    var photos=gib.lines.map(function(l){return l.shot;}).filter(Boolean);
+    var body={ id:gib.ship.id, ref:gib.ship.ref, by:IB_BY, device:IB_DEVICE, photos:photos,
+      lines:gib.lines.map(function(l){return {id:l.id,counted:l.counted,reason:l.reason||''};}) };
+    var diffs=gib.lines.filter(function(l){return l.counted!==l.expected;}).length;
+    $('g-confirm').disabled=true; $('g-confirm').textContent='Sending…';
+    await ibSend('/confirm',body,'✓ '+gib.ship.ref+' recorded · '+gib.lines.length+' line'+
+      (gib.lines.length===1?'':'s')+(diffs?(' · '+diffs+' difference'+(diffs>1?'s':'')):''));
+    gib.ship=null; gib.lines=[]; ibShow('pick'); ibLoadExpected();
+  };
+
+  $('g-unknown-btn').onclick=function(){
+    gib.u1=''; gib.u2=''; gib.who='';
+    $('g-u1lab').firstChild.nodeValue='＋ Photo of the delivery note';
+    $('g-u2lab').firstChild.nodeValue='＋ Photo of the pallet';
+    Array.prototype.forEach.call($('g-who').querySelectorAll('button'),function(b){ b.style.borderColor=''; });
+    $('g-usend').disabled=true; ibShow('unknown');
+  };
+  $('g-uback').onclick=function(){ ibShow('pick'); };
+  function ibUNeed(){ $('g-usend').disabled = !(gib.u1 && gib.who); }
+  $('g-u1').onchange=function(e){ ibPhoto(e.target.files[0],function(u){ gib.u1=u;
+    $('g-u1lab').firstChild.nodeValue='✓ Delivery note attached'; ibUNeed(); }); };
+  $('g-u2').onchange=function(e){ ibPhoto(e.target.files[0],function(u){ gib.u2=u;
+    $('g-u2lab').firstChild.nodeValue='✓ Pallet photo attached'; ibUNeed(); }); };
+  Array.prototype.forEach.call($('g-who').querySelectorAll('button'),function(b){
+    b.onclick=function(){ gib.who=b.getAttribute('data-r');
+      Array.prototype.forEach.call($('g-who').querySelectorAll('button'),function(x){
+        x.style.borderColor=(x===b)?'var(--accent)':''; });
+      ibUNeed(); };
+  });
+  $('g-usend').onclick=async function(){
+    $('g-usend').disabled=true; $('g-usend').textContent='Sending…';
+    await ibSend('/unidentified',
+      {by:IB_BY,device:IB_DEVICE,carrier:gib.who,photos:[gib.u1,gib.u2].filter(Boolean)},
+      '✓ Logged as unidentified. The office will identify it — nothing else for you to do.');
+    $('g-usend').textContent='Send to Ahooga office'; ibShow('pick');
+  };
+
+  ibQBadge(); ibQFlush();
+  window.addEventListener('online', ibQFlush);
+});
+
 </script>
 <!-- Home link removed: VV Scan is a standalone end-point app; no navigation back to the portal -->
 </body>

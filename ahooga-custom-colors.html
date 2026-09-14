@@ -5292,7 +5292,24 @@ async function createPOInOdoo(opts){
       }
     }
     // 4) Create, then confirm so Odoo issues the real P0 number
-    const poId = await odooCall('purchase.order','create',[{partner_id:partnerId, order_line:lines}]);
+    //    picking_type_id 267 = "Deco Coat -> Velovisie" (Vendors -> Velovisie, ONE step).
+    //    Painted frames physically ship Deco Coat -> Velovisie, so the receipt must land
+    //    there directly. Without this the PO uses "Anderlecht Receipts", which routes the
+    //    frame through AND/In Transit -> AND/Warehouse -> Velovisie: three transfers for a
+    //    journey that never happens, and the last one was only ever created by hand.
+    //    Set to null to fall back to the old Anderlecht routing.
+    const DECO_PICKING_TYPE_ID = 267;
+    const poVals = {partner_id:partnerId, order_line:lines};
+    if(DECO_PICKING_TYPE_ID) poVals.picking_type_id = DECO_PICKING_TYPE_ID;
+    //    Source Document: the sale orders this PO is for. Until now this was left
+    //    empty and the only trace of the link was the words "SO# S26098" inside a
+    //    line description — a text search that breaks the moment anyone edits the
+    //    line, and that Odoo itself cannot follow. Putting the numbers in origin
+    //    makes the link a real field: it shows on the PO form, on the receipt, and
+    //    anything downstream can match on it exactly instead of guessing.
+    const soNames = Array.from(new Set(list.map(o => String((o&&o.name)||'').trim()).filter(Boolean)));
+    if(soNames.length) poVals.origin = soNames.join(', ').slice(0,250);
+    const poId = await odooCall('purchase.order','create',[poVals]);
     if(!poId){ formsAlert('Odoo did not return a PO id — nothing was created.','danger'); return; }
     try{ await odooCall('purchase.order','button_confirm',[[poId]]); }
     catch(e){ console.warn('button_confirm failed (PO created as draft):', e && e.message); }
