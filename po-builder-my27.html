@@ -255,9 +255,12 @@ const WHEEL_SIDE_OF=(c)=> /^WHF/i.test(c)?'front':'rear';
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 //                Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec  (same tiered shape as the forecast)
 const SEASON_FWD=[3,  7, 11, 15, 15, 15, 11,  7, 11,  7,  3,  3];
-// MY27 selling calendar: the 12 months a MY27 bike can be sold in, Oct 2026 → Sep 2027.
-// Slot i is [year, monthIndex]; the MY27 forecast app publishes its monthly rows in this order.
-const MY27_SLOTS=[[2026,9],[2026,10],[2026,11],[2027,0],[2027,1],[2027,2],[2027,3],[2027,4],[2027,5],[2027,6],[2027,7],[2027,8]];
+// The MY27 SALES calendar: the financial year the 6,100 target is set in — bikes invoiced
+// Jan → Dec 2027. Slot i is [year, monthIndex] and the MY27 forecast app publishes its monthly
+// rows in this order. Production is not on this calendar: it starts WK37 2026 and each month's
+// demand is walked back through build + transit to the week it has to start, so the spring
+// peak is produced over the preceding winter.
+const MY27_SLOTS=[[2027,0],[2027,1],[2027,2],[2027,3],[2027,4],[2027,5],[2027,6],[2027,7],[2027,8],[2027,9],[2027,10],[2027,11]];
 const absMonth=(y,m)=>y*12+m;
 
 const BT=[['emax','E-MAX'],['amax','A-MAX']];

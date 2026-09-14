@@ -124,8 +124,8 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   <div class="kpis" id="kpis"></div>
 
   <div class="section">
-    <div class="section-title">Season shape <span class="tag" style="background:var(--purple-bg);color:var(--purple)">Oct 2026 → Sep 2027</span></div>
-    <div class="section-note">MY27 is sold across these twelve months. These weights set <b>when</b> the season's volume lands; they are relative, not absolute — the app normalises them. Dated orders already in Odoo keep their own month and the rest of each SKU's volume is spread by this shape. The PO Builder reads the result and works backwards through production and transit to decide which week each bike has to start.</div>
+    <div class="section-title">Season shape <span class="tag" style="background:var(--purple-bg);color:var(--purple)">Jan → Dec 2027 · financial year</span></div>
+    <div class="section-note">The target is <b>bikes invoiced in calendar 2027</b>, so this is the financial year Jan → Dec. These weights set <b>when</b> that volume lands; they are relative, not absolute — the app normalises them. Dated orders already in Odoo keep their own month and the rest of each SKU's volume is spread by this shape. The PO Builder reads the result and works backwards through production and transit to decide which week each bike has to start — which is how the spring peak gets built the winter before.</div>
     <div class="table-wrap"><table class="grid"><thead><tr id="shape-head"></tr></thead><tbody><tr id="shape-row"></tr></tbody></table></div>
     <div style="margin-top:8px"><button class="btn btn-secondary" onclick="resetShape()">Reset to the standard curve</button></div>
   </div>
@@ -138,7 +138,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 
   <div class="section">
     <div class="section-title">1 · MY27 demand already in Odoo <span class="tag" id="known-tag"></span></div>
-    <div class="section-note">Confirmed MY27 sales orders plus pre-orders still in quotation, by the month they are wanted. Undated lines are shown in the <b>n/d</b> column and get spread by the season shape rather than being forced into the first month.</div>
+    <div class="section-note">Confirmed MY27 sales orders plus pre-orders still in quotation, by the month they are wanted. Undated lines are shown in the <b>n/d</b> column and get spread by the season shape rather than being forced into the first month. Lines wanted <b>before January 2027</b> are invoiced in FY2026, so they are held out of this grid and reported as <b>pre-season</b> above — they are still produced, because the PO Builder reads pre-orders straight from Odoo.</div>
     <div class="table-wrap"><div id="t1"></div></div>
   </div>
 
@@ -159,23 +159,28 @@ const LS_CTRY='ahooga_forecast_my27_country_targets';
 const IS_ONLINE = location.hostname!=='localhost' && location.hostname!=='127.0.0.1';
 let odooUid=null;
 
-// MY27 sells across Oct 2026 → Sep 2027. Slot i is [year, monthIndex]; every monthly row in
-// this app — and in the payload the PO Builder reads — is in this order, NOT Jan–Dec. The MY26
-// app published Jan–Dec calendar rows, which is one of the reasons its numbers could not be
-// lined up with a model year that straddles New Year.
-const MY27_SLOTS=[[2026,9],[2026,10],[2026,11],[2027,0],[2027,1],[2027,2],[2027,3],[2027,4],[2027,5],[2027,6],[2027,7],[2027,8]];
+// This is a SALES forecast, so it runs on the financial year the target is set in: 6,100 MAX
+// bikes INVOICED in calendar 2027, Jan → Dec. Production runs ahead of it — the PO Builder
+// takes each month here and works backwards through build and transit to find the week
+// production has to start, which is why bikes for the spring peak get built the winter before.
+// MY27 bikes invoiced before January 2027 are real sales but they land in FY2026, so they are
+// counted separately as pre-season rather than inside the 6,100.
+const MY27_SLOTS=[[2027,0],[2027,1],[2027,2],[2027,3],[2027,4],[2027,5],[2027,6],[2027,7],[2027,8],[2027,9],[2027,10],[2027,11]];
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const slotLabel=(i)=>MONTHS[MY27_SLOTS[i][1]]+" '"+String(MY27_SLOTS[i][0]).slice(2);
+const FY_LABEL='Jan → Dec 2027';
 const absMonth=(y,m)=>y*12+m;
 const SLOT_ABS=MY27_SLOTS.map(s=>absMonth(s[0],s[1]));
+// -1 = no usable date (spread by the season shape); -2 = dated before the financial year,
+// i.e. a MY27 bike that will be invoiced in 2026 and so sits outside this target.
 function slotOfDate(d){
   if(!d) return -1;
   const x=(d instanceof Date)?d:new Date(d);
   if(isNaN(x)) return -1;
   const a=absMonth(x.getFullYear(), x.getMonth());
-  if(a<=SLOT_ABS[0]) return 0;                       // already due, or before the season → first month
+  if(a<SLOT_ABS[0]) return -2;                        // invoiced before Jan 2027 → pre-season
   const i=SLOT_ABS.indexOf(a);
-  return i>=0 ? i : -1;                               // past the season → treat as undated
+  return i>=0 ? i : (a>SLOT_ABS[11] ? 11 : -1);       // beyond Dec 2027 → hold in the last month
 }
 //        Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec  — the house seasonality tiers
 const SEASON_FWD=[3,  7, 11, 15, 15, 15, 11,  7, 11,  7,  3,  3];
@@ -230,6 +235,7 @@ let undatedBySku={};    // sku -> undated MY27 orders
 let invoicedBySku={};   // 2026 invoiced per SKU — model / transmission / rack shape
 let preorderBySku={};   // MY27 quotation-stage pre-orders per SKU — colour shape
 let forecast={};        // sku -> [12] the published grid
+let preSeasonBySku={}, preSeasonTotal=0;   // MY27 bikes dated for invoicing before Jan 2027 — FY2026, not this target
 let confirmedTotal=0, quotationTotal=0, _loaded=false, _pubTimer=null;
 // ── PROXY / XML-RPC (same as the other apps) ─────────────────
 function proxyUrl(path){
@@ -400,6 +406,10 @@ async function loadMy27Demand(){
                (preByCountry[cc]=preByCountry[cc]||{})[sku]=(preByCountry[cc][sku]||0)+qty; }
     else confirmedTotal+=qty;
     const i=slotOfDate((o.commitment_date||'').split(' ')[0]||null);
+    if(i===-2){   // wanted before January 2027 → invoiced in FY2026, outside this target
+      preSeasonBySku[sku]=(preSeasonBySku[sku]||0)+qty; preSeasonTotal+=qty;
+      continue;   // still produced (the PO Builder reads pre-orders straight from Odoo), just not counted here
+    }
     if(i>=0) knownBySku[sku][i]+=qty; else undatedBySku[sku]+=qty;
     const kc=(knownByCountry[cc]=knownByCountry[cc]||{});
     if(i>=0){ (kc[sku]=kc[sku]||Array(12).fill(0))[i]+=qty; }
@@ -641,7 +651,8 @@ function renderKPIs(bto,budget){
   const live=STOCK_COLS.filter(c=>cols[c]>0).length + BTO_COLS.filter(c=>cols[c]>0).length;
   const k=(l,v,sub,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${v}</div>${sub?`<div class="kpi-label" style="margin-top:4px">${sub}</div>`:''}</div>`;
   document.getElementById('kpis').innerHTML=
-    k('Season total', fmt(fcTot),'Oct 2026 → Sep 2027','var(--purple)')+
+    k('FY2027 total', fmt(fcTot),'invoiced Jan → Dec 2027','var(--purple)')+
+    k('Pre-season', fmt(Math.round(preSeasonTotal)), preSeasonTotal>0?'MY27 wanted before Jan 2027 · FY2026':'none dated before 2027', preSeasonTotal>0?'var(--warn)':'var(--text3)')+
     k('Confirmed orders', fmt(Math.round(confirmedTotal)),'MY27 sales orders','var(--success)')+
     k('Pre-orders', fmt(Math.round(quotationTotal)),'still in quotation','var(--accent)')+
     k('Built to order', fmt(Math.round(bto)),'Emerald / Atomium / Midnight / Custom','var(--accent)')+
@@ -702,6 +713,7 @@ async function publishForecast(){
       months:MY27_SLOTS.map((sl,i)=>({year:sl[0], month:sl[1], label:slotLabel(i)})),
       forwardBySku, forwardBySkuMonthly, byCountry,
       confirmed:Math.round(confirmedTotal), quotation:Math.round(quotationTotal),
+      preSeason:Math.round(preSeasonTotal), basis:'invoiced-FY2027',
       year:2027, total:Math.round(total), updated:new Date().toISOString()
     });
     setPubPill('Published ✓ '+new Date().toLocaleTimeString(),'ok');
