@@ -94,7 +94,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 </head>
 <body>
 <header>
-  <div class="logo">Sh<span class="b">oo</span>pify Convert <span class="tag">Shopify → Odoo</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑06‑11c</span></div>
+  <div class="logo">Sh<span class="b">oo</span>pify Convert <span class="tag">Shopify → Odoo</span> <span class="tag" style="background:#0a7d32;color:#fff">build 2026‑06‑11d</span></div>
   <div id="conn-pill" class="pill">Not connected</div>
 </header>
 
@@ -284,7 +284,7 @@ function isOwnStore(o){ if(!o||!o.pickup) return false; const loc=(o.dealer||'')
 function convertBtn(o){
   const inOdoo=statusCache[o.name];
   if(inOdoo) return `<button class="btn ghost" disabled>✓ In Odoo</button>`;
-  if(!o.paid) return `<button class="btn ghost" disabled>Awaiting payment</button>`;
+  if(!o.paid) return `<button class="btn cvbtn" data-order="${esc(o.name)}" style="background:linear-gradient(100deg,#c9991f,#c01650 140%)" title="Payment is still pending — you'll be asked to confirm" onclick="event.stopPropagation();convertOrder('${esc(o.name)}')">Convert (unpaid) →</button>`;
   return `<button class="btn blue cvbtn" data-order="${esc(o.name)}" onclick="event.stopPropagation();convertOrder('${esc(o.name)}')">Convert →</button>`;
 }
 function cvButtons(name){ return Array.prototype.slice.call(document.querySelectorAll('.cvbtn')).filter(b=>b.getAttribute('data-order')===name); }
@@ -437,10 +437,23 @@ async function emailDealer(name){
   }catch(e){ alert_('Could not draft the dealer email: '+e.message,'err'); }
 }
 
+/* ── payment date for the "Paid via Shopify on …" note ── */
+function fmtDMY(v){
+  if(!v) return '';
+  const d=new Date(v);
+  if(!isNaN(d)){ const p=n=>String(n).padStart(2,'0'); return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear(); }
+  return String(v);   // already human-formatted — leave as-is
+}
+function paidDate(o){
+  /* use the real payment date if the worker sends one, else fall back to the order date */
+  const cand=o.paid_at||o.paidAt||o.processed_at||o.processedAt||o.paid_date||o.paidDate||o.financial_date||o.date;
+  return fmtDMY(cand);
+}
+
 async function convertOrder(name){
   const o=ORDERS.find(x=>x.name===name); if(!o)return;
   if(statusCache[name]){ alert_(name+' is already in Odoo ('+statusCache[name]+').','warn'); return; }
-  if(!o.paid){ alert_(name+' is not paid yet — not converting.','warn'); return; }
+  if(!o.paid){ if(!confirm(name+' is not paid yet (status: '+(o.financial_status||'pending')+').\n\nConvert it to an Odoo draft anyway? The order will be created as a draft quotation — it is NOT marked as paid.')){ return; } }
   const btns=cvButtons(name); btns.forEach(b=>{ b.disabled=true; b.innerHTML='<span class="spin"></span> Converting…'; });
   try{
     const order_line=[]; const missing=[];
@@ -453,6 +466,8 @@ async function convertOrder(name){
       order_line.push([0,0,lv]);
     }
     if(missing.length) throw new Error('No Odoo product for: '+[...new Set(missing)].join(', ')+'. Add them in the Mappings tab.');
+    /* add a note at the top of the order recording the Shopify payment (only when actually paid) */
+    if(o.paid){ const pd=paidDate(o); if(pd) order_line.unshift([0,0,{display_type:'line_note',name:'Paid via Shopify on '+pd}]); }
     const partnerId=await resolvePartner(o.customer,o.email,o.client);
     const vals={partner_id:partnerId,client_order_ref:o.name,origin:'Shopify '+o.name,warehouse_id:warehouseId(o),order_line};
     const tid=await onlineTeamId(); if(tid) vals.team_id=tid;   // always book under the "Online" sales team
@@ -675,7 +690,7 @@ function showTab(t){
   if(t==='prices') loadPriceAlerts();
 }
 
-try{ console.log("Shopify Convert build 2026-06-11c loaded OK"); }catch(e){}
+try{ console.log("Shopify Convert build 2026-06-11d loaded OK"); }catch(e){}
 
 
 // ── RE-ENTRANCY GUARD ────────────────────────────────────────
