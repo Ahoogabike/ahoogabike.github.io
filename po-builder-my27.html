@@ -403,6 +403,7 @@ let compLimitByWeek={};                              // week index -> {fam: bind
 let unplacedByFam={}, unplacedTotal=0;               // demand the set week-caps cannot fit before the deadline
 let planCapTotal=0, planDemandTotal=0;               // total capacity set vs total demand, for the shortfall banner
 let siteGrid={}, siteGridDemand={};                  // site -> sku -> [qty per week]
+let wheelGrid={}, wheelSiteGrid={};                  // what capacity allows — what the wheel plan is sized on
 function sitePlan(site, wi, demand){ const g=(demand?siteGridDemand:siteGrid)[site]; if(!g) return 0; return SKUS.reduce((a,s)=>a+(g[s.key][wi]||0),0); }
 function siteTotal(site, demand){ const g=(demand?siteGridDemand:siteGrid)[site]; if(!g) return 0; return SKUS.reduce((a,s)=>a+g[s.key].reduce((x,y)=>x+y,0),0); }
 let unbuildableByFam={};                             // fam -> {qty, binding} that no components allow in horizon
@@ -617,7 +618,10 @@ function sizePOs(total,n,minF){
 }
 
 // ── DATA LOAD ────────────────────────────────────────────────
+let _loadingData=false;
 async function loadData(){
+  if(_loadingData){ alert_('Already loading — one moment.','info'); return; }   // a second click must not run a second pass
+  _loadingData=true;
   saveCfg();
   try{
     odooUid=null;
@@ -681,13 +685,13 @@ async function loadData(){
     alert_('Error: '+e.message,'danger');
     console.error(e);
     recompute();   // still render the year plan from forecast if we have it
-  }
+  } finally { _loadingData=false; }
 }
 
 // This-year (2026) invoiced MAX bikes per SKU → the default % split for the MY27 target.
 // Mirrors the Sales Forecast app's Table-1 query (posted out_invoice − out_refund).
 async function loadInvoicedMix(){
-  invoicedBySku={}; invoicedYear=new Date().getFullYear();
+  const _inv={}; invoicedYear=new Date().getFullYear();
   const ys=`${invoicedYear}-01-01`, ye=`${invoicedYear}-12-31`;
   const base=[['parent_state','=','posted'],['date','>=',ys],['date','<=',ye],
     ['product_id.categ_id.complete_name','ilike','Bikes'],['product_id.name','ilike','MAX']];
@@ -695,17 +699,20 @@ async function loadInvoicedMix(){
     const lines=toArr(await odoo('account.move.line','search_read',
       [[...base,['move_id.move_type','=',moveType]]], {fields:['quantity','product_id'],limit:60000}));
     for(const l of lines){ const key=skuKeyForName(arr(l.product_id)[1]||''); if(!key) continue;
-      invoicedBySku[key]=(invoicedBySku[key]||0)+sign*(parseFloat(l.quantity)||0); }
+      _inv[key]=(_inv[key]||0)+sign*(parseFloat(l.quantity)||0); }
   };
   await add('out_invoice',1); await add('out_refund',-1);
-  for(const k in invoicedBySku) invoicedBySku[k]=Math.max(0,invoicedBySku[k]);
+  for(const k in _inv) _inv[k]=Math.max(0,_inv[k]);
+  invoicedBySku=_inv;
 }
 
 // MY27 pre-orders still sitting in quotation (draft / sent). These are real, named demand:
 // Emerald Green, Atomium, Midnight Blue and Custom are planned at exactly this number and
 // never to stock, so they have to be read even though they are not confirmed sales orders.
 async function loadPreorders(){
-  preorderBySku={}; preorderTotal=0;
+  // Built locally and assigned in one step — accumulating into the globals meant a Refresh
+  // clicked during the automatic load counted every pre-order twice.
+  const _pre={}; let _tot=0;
   const lines=toArr(await odoo('sale.order.line','search_read',
     [[['order_id.state','in',['draft','sent']],['product_uom_qty','>',0],
       ['product_id.categ_id.complete_name','ilike','Bikes'],['product_id.name','ilike','MY27']]],
@@ -713,8 +720,9 @@ async function loadPreorders(){
   for(const l of lines){
     const k=skuKeyForName(arr(l.product_id)[1]||''); if(!k) continue;
     const q=parseFloat(l.product_uom_qty)||0; if(q<=0) continue;
-    preorderBySku[k]=(preorderBySku[k]||0)+q; preorderTotal+=q;
+    _pre[k]=(_pre[k]||0)+q; _tot+=q;
   }
+  preorderBySku=_pre; preorderTotal=_tot;
   preorderUpdated=new Date().toISOString();
   console.log('[PObuilder MY27] pre-orders (quotation):', Math.round(preorderTotal), 'units across', Object.keys(preorderBySku).length, 'SKUs');
 }
@@ -722,7 +730,7 @@ async function loadPreorders(){
 // MY27 bikes on confirmed purchase orders that have not been received yet. The old tile read
 // the Production Planner's 'production_basis', which is MY26 stock — a different model year.
 async function loadMy27OnOrder(){
-  my27OnOrderBySku={}; my27OnOrderTotal=0;
+  const _oo={}; let _ooTot=0;
   const lines=toArr(await odoo('purchase.order.line','search_read',
     [[['order_id.state','in',['purchase','done']],
       ['product_id.categ_id.complete_name','ilike','Bikes'],['product_id.name','ilike','MY27']]],
@@ -731,13 +739,14 @@ async function loadMy27OnOrder(){
     const k=skuKeyForName(arr(l.product_id)[1]||''); if(!k) continue;
     const open=Math.max(0,(parseFloat(l.product_qty)||0)-(parseFloat(l.qty_received)||0));
     if(open<=0) continue;
-    my27OnOrderBySku[k]=(my27OnOrderBySku[k]||0)+open; my27OnOrderTotal+=open;
+    _oo[k]=(_oo[k]||0)+open; _ooTot+=open;
   }
+  my27OnOrderBySku=_oo; my27OnOrderTotal=_ooTot;
 }
 
 // Open sales-order remaining units for MAX bikes, with earliest expected delivery date
 async function loadOrderbook(){
-  orderbook=[];
+  const _ob=[];
   const soData=toArr(await odoo('sale.order','search_read',
     [[['state','in',['sale','done']],['delivery_status','in',['pending','started','partial','ready']]]],
     {fields:['name','commitment_date','order_line'],limit:6000}));
@@ -761,8 +770,9 @@ async function loadOrderbook(){
     if(remaining<=0) continue;
     const soId=arr(l.order_id)[0];
     const dueStr=dueBySO[soId]||((byId[soId]?.commitment_date||'').split(' ')[0])||null;
-    orderbook.push({sku, remaining, due:dueStr});
+    _ob.push({sku, remaining, due:dueStr});
   }
+  orderbook=_ob;
 }
 
 // ── COMPUTE both tabs ────────────────────────────────────────
@@ -967,8 +977,9 @@ function buildYearPlan(){
     // write it into the last week: that week is often deliberately at zero, and a plan that puts
     // 500 bikes into a closed week is not a plan. Report it instead and let the caps be raised.
     const capTotal=av.reduce((a,wi)=>a+capWeek(wi),0);
-    const unplaced={}; let unplacedTot=0;
+    const unplaced={}; let unplacedTot=0; const leftover=[];
     for(const fk of fams){ if(remaining[fk]>1e-9){ unplaced[fk]=Math.round(remaining[fk]); unplacedTot+=remaining[fk]; } }
+    for(const fk of fams) for(const p of queue[fk]) if(p.qty>1e-9) leftover.push({sku:p.sku, qty:p.qty, due:p.due});
     // Only blame components when there was enough capacity to have built it.
     if(useComp && capTotal>=T-1e-9){ for(const fk of fams){ if(remaining[fk]>1e-9) unbuild[fk]={qty:Math.round(remaining[fk]), binding:buildCap(fk).bind}; } }
     // Round to whole bikes per WEEK, not per cell. Rounding 32 SKUs independently added up to
@@ -986,13 +997,32 @@ function buildYearPlan(){
       for(let i=0; i<want-used; i++) sg[site][rem[i%rem.length][0]][wi]++;
     }
     for(const s of SKUS) for(let wi=0; wi<W; wi++) grid[s.key][wi]=SITE_KEYS.reduce((a,k)=>a+sg[k][s.key][wi],0);
-    return {grid, siteGrid:sg, limitByWeek, unbuild, unplaced, unplacedTot:Math.round(unplacedTot), capTotal:Math.round(capTotal), demandTot:Math.round(T)};
+    return {grid, siteGrid:sg, limitByWeek, unbuild, unplaced, unplacedTot:Math.round(unplacedTot), leftover, capTotal:Math.round(capTotal), demandTot:Math.round(T)};
   }
 
-  const want = schedule(false);                          // what we SHOULD build (demand; ignores component delays)
-  yearGridDemand = want.grid; siteGridDemand = want.siteGrid;
+  const want = schedule(false);                          // capacity-respecting, component-blind
   unplacedByFam = want.unplaced; unplacedTotal = want.unplacedTot;
   planCapTotal = want.capTotal; planDemandTotal = want.demandTot;
+
+  // Wheels are ordered against this grid: what capacity allows, without letting a component
+  // delay shrink the wheel order. Bikes that do not fit the year's capacity are NOT in here —
+  // we should not be buying wheels for bikes we have already decided we cannot build.
+  wheelGrid = want.grid; wheelSiteGrid = want.siteGrid;
+
+  // "What we SHOULD build" must total the target, so the bikes capacity could not take are added
+  // back at the week they were due. Those weeks then read above their capacity and show red —
+  // which is the honest picture: this is the demand, and the plan does not currently cover it.
+  yearGridDemand={}; for(const s of SKUS) yearGridDemand[s.key]=want.grid[s.key].slice();
+  siteGridDemand={}; for(const k of SITE_KEYS){ siteGridDemand[k]={}; for(const s of SKUS) siteGridDemand[k][s.key]=want.siteGrid[k][s.key].slice(); }
+  if(want.leftover && want.leftover.length){
+    const biggestSiteAt=(wi)=>{ let best=SITE_KEYS[0], b=-1; for(const k of SITE_KEYS){ const c=capOf(k,wi); if(c>b){ b=c; best=k; } } return best; };
+    for(const p of want.leftover){
+      const wi=Math.min(Math.max(0, p.due), weeks.length-1);
+      const q=Math.round(p.qty); if(q<=0) continue;
+      yearGridDemand[p.sku][wi]+=q;
+      siteGridDemand[biggestSiteAt(wi)][p.sku][wi]+=q;
+    }
+  }
   const built = schedule(true);                          // what we CAN build (component-capped)
   yearGrid = built.grid; siteGrid = built.siteGrid; compLimitByWeek = built.limitByWeek; unbuildableByFam = built.unbuild;
 }
@@ -1090,11 +1120,11 @@ function renderWheels(){
   // demand per wheel SKU per assembly week — front by platform, rear by transmission, shifted lead weeks
   const demand={}; for(const c of codes) demand[c]=Array(N).fill(0);
   // wheels are planned against the DEMAND (should-build) bike plan, so a bike-component delay doesn't shrink the wheel plan
-  const bikeGrid=(yearGridDemand && Object.keys(yearGridDemand).length)?yearGridDemand:yearGrid;
+  const bikeGrid=(wheelGrid && Object.keys(wheelGrid).length)?wheelGrid:yearGrid;
   // Only sites that do NOT build their own wheels pull demand from MTB Maastricht. BikeFun
   // assembles wheels on site, so its bikes place no MTB order and carry no 3-week wheel lead —
   // counting them here would have us buying wheels twice.
-  const sgw=(siteGridDemand && Object.keys(siteGridDemand).length)?siteGridDemand:siteGrid;
+  const sgw=(wheelSiteGrid && Object.keys(wheelSiteGrid).length)?wheelSiteGrid:siteGrid;
   const haveSites=sgw && SITE_KEYS.some(k=>sgw[k]);
   const mtbKeys=SITES.filter(st=>!st.wheelsOnSite).map(st=>st.key);
   const ownKeys=SITES.filter(st=>st.wheelsOnSite).map(st=>st.key);
@@ -1218,10 +1248,13 @@ function renderYear(){
       if(isBlocked(wi)) return `<td class="blocked"></td>`;
       const per=SITE_KEYS.map(k=>{ const g=sgv[k]; if(!g) return 0; return FAMILIES.filter(f=>SKUS.filter(s=>s.fam===f.key).reduce((a,s)=>a+(g[s.key][wi]||0),0)>0).length; });
       const worst=Math.max(...per), shown=per.filter(x=>x>0).join('+');
-      // 3 at one site is the tail-week top-up the scheduler is allowed when its two chosen
-      // models run out mid-week — worth noticing, not worth alarming about. 4 is a real problem.
-      const col = worst>3 ? 'var(--danger)' : (worst>2 ? 'var(--warn)' : 'var(--text3)');
-      const tip = worst>2 ? ` title="${worst} models at one site this week — a tail-week top-up so the last bikes of a third family still fit"` : '';
+      // Only flag this in the buildable plan. The demand view deliberately exceeds capacity to
+      // show the full target, so extra models there are the overflow being displayed, not a
+      // changeover anyone is being asked to run.
+      // In the buildable plan: 3 at one site is the tail-week top-up the scheduler is allowed
+      // when its two chosen models run out mid-week. 4 would be a real problem.
+      const col = showDemandPlan ? 'var(--text3)' : (worst>3 ? 'var(--danger)' : (worst>2 ? 'var(--warn)' : 'var(--text3)'));
+      const tip = (!showDemandPlan && worst>2) ? ` title="${worst} models at one site this week — a tail-week top-up so the last bikes of a third family still fit"` : '';
       return `<td${tip} style="text-align:center;font-size:11px;color:${col}">${shown||''}</td>`;
     }).join('')}<td class="total"></td></tr>`;
   const foot=`<tr><th class="sku">Total</th>${colTot.map((c,wi)=>`<td class="total ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''} ${(!isBlocked(wi)&&c>effCap(wi)+0.5)?'over':''}">${fmt(c)}</td>`).join('')}<td class="total">${fmt(grand)}</td></tr>`;

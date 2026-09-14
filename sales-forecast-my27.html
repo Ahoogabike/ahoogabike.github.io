@@ -346,7 +346,10 @@ function mixSource(){ const el=document.getElementById('f-mix'); return el?el.va
 function normShape(){ const t=shape.reduce((a,b)=>a+(b>0?b:0),0); return t>0?shape.map(x=>Math.max(0,x)/t):Array(12).fill(1/12); }
 
 // ── LOAD ─────────────────────────────────────────────────────
+let _loadingData=false;
 async function loadData(){
+  if(_loadingData){ alert_('Already loading — one moment.','info'); return; }   // a second click must not run a second pass
+  _loadingData=true;
   saveCfg();
   try{
     odooUid=null;
@@ -371,15 +374,18 @@ async function loadData(){
     alert_('Error: '+e.message,'danger');
     console.error(e);
     recompute();
-  }
+  } finally { _loadingData=false; }
 }
 
 // Every MY27 bike line already in Odoo: confirmed sales orders AND quotations. Quotations
 // matter here — the new colours are sold as pre-orders and would otherwise be invisible.
 async function loadMy27Demand(){
-  knownBySku={}; undatedBySku={}; preorderBySku={};
-  confirmedTotal=0; quotationTotal=0;
-  for(const s of SKUS){ knownBySku[s.key]=Array(12).fill(0); undatedBySku[s.key]=0; }
+  // Everything below builds LOCAL tallies and is assigned to the shared state in one step at the
+  // end. Accumulating straight into the globals meant that a Refresh clicked while the first
+  // load was still running counted every line twice — 383 pre-orders reported as 766.
+  const _known={}, _und={}, _pre={}, _preC={}, _knownC={}, _undC={}, _preSeason={};
+  let _confirmed=0, _quotation=0, _preSeasonTot=0;
+  for(const s of SKUS){ _known[s.key]=Array(12).fill(0); _und[s.key]=0; }
 
   // Go at the lines directly and pull only the orders they belong to — reading every sale
   // order in the database first is a lot of traffic for a handful of MY27 lines.
@@ -402,20 +408,25 @@ async function loadMy27Demand(){
                     : Math.max(0,(parseFloat(l.product_uom_qty)||0)-(parseFloat(l.qty_delivered)||0));
     if(qty<=0) continue;
     const cc=bucketOf(ctryByPartner[arr(o.partner_id)[0]]||'');
-    if(quote){ quotationTotal+=qty; preorderBySku[sku]=(preorderBySku[sku]||0)+qty;
-               (preByCountry[cc]=preByCountry[cc]||{})[sku]=(preByCountry[cc][sku]||0)+qty; }
-    else confirmedTotal+=qty;
+    if(quote){ _quotation+=qty; _pre[sku]=(_pre[sku]||0)+qty;
+               (_preC[cc]=_preC[cc]||{})[sku]=(_preC[cc][sku]||0)+qty; }
+    else _confirmed+=qty;
     const i=slotOfDate((o.commitment_date||'').split(' ')[0]||null);
     if(i===-2){   // wanted before January 2027 → invoiced in FY2026, outside this target
-      preSeasonBySku[sku]=(preSeasonBySku[sku]||0)+qty; preSeasonTotal+=qty;
+      _preSeason[sku]=(_preSeason[sku]||0)+qty; _preSeasonTot+=qty;
       continue;   // still produced (the PO Builder reads pre-orders straight from Odoo), just not counted here
     }
-    if(i>=0) knownBySku[sku][i]+=qty; else undatedBySku[sku]+=qty;
-    const kc=(knownByCountry[cc]=knownByCountry[cc]||{});
+    if(i>=0) _known[sku][i]+=qty; else _und[sku]+=qty;
+    const kc=(_knownC[cc]=_knownC[cc]||{});
     if(i>=0){ (kc[sku]=kc[sku]||Array(12).fill(0))[i]+=qty; }
-    else { (undatedByCountry[cc]=undatedByCountry[cc]||{})[sku]=((undatedByCountry[cc]||{})[sku]||0)+qty; }
+    else { (_undC[cc]=_undC[cc]||{})[sku]=((_undC[cc]||{})[sku]||0)+qty; }
   }
+  knownBySku=_known; undatedBySku=_und; preorderBySku=_pre;
+  preByCountry=_preC; knownByCountry=_knownC; undatedByCountry=_undC;
+  preSeasonBySku=_preSeason; preSeasonTotal=_preSeasonTot;
+  confirmedTotal=_confirmed; quotationTotal=_quotation;
   console.log('[FC MY27] confirmed',Math.round(confirmedTotal),'· quotation',Math.round(quotationTotal),
+              '· pre-season',Math.round(preSeasonTotal),
               '· dated',SKUS.reduce((a,s)=>a+knownBySku[s.key].reduce((x,y)=>x+y,0),0),
               '· undated',SKUS.reduce((a,s)=>a+undatedBySku[s.key],0));
 }
@@ -457,7 +468,7 @@ async function countriesFor(ids){
 // 2026 invoiced MAX bikes per SKU, and per SKU per market. MY27 has no Nexus, and skuKeyForName
 // drops Nexus lines, so this is the model / transmission / rack shape of the modern range only.
 async function loadInvoicedMix(){
-  invoicedBySku={}; invByCountry={};
+  const _inv={}, _invC={};
   const base=[['parent_state','=','posted'],['date','>=','2026-01-01'],['date','<=','2026-12-31'],
     ['product_id.categ_id.complete_name','ilike','Bikes'],['product_id.name','ilike','MAX']];
   const rows=[];
@@ -466,19 +477,20 @@ async function loadInvoicedMix(){
       [[...base,['move_id.move_type','=',mt]]],{fields:['quantity','product_id','partner_id'],limit:60000}));
     for(const l of lines){ const k=skuKeyForName(arr(l.product_id)[1]||''); if(!k) continue;
       const q=sign*(parseFloat(l.quantity)||0);
-      invoicedBySku[k]=(invoicedBySku[k]||0)+q;
+      _inv[k]=(_inv[k]||0)+q;
       rows.push([arr(l.partner_id)[0], k, q]);
     }
   };
   await add('out_invoice',1); await add('out_refund',-1);
-  for(const k in invoicedBySku) invoicedBySku[k]=Math.max(0,invoicedBySku[k]);
+  for(const k in _inv) _inv[k]=Math.max(0,_inv[k]);
   const byPartner=await countriesFor(rows.map(r=>r[0]));
   for(const [pid,k,q] of rows){
     const cc=bucketOf(byPartner[pid]||'');
-    const m=(invByCountry[cc]=invByCountry[cc]||{});
+    const m=(_invC[cc]=_invC[cc]||{});
     m[k]=(m[k]||0)+q;
   }
-  for(const cc in invByCountry) for(const k in invByCountry[cc]) invByCountry[cc][k]=Math.max(0,invByCountry[cc][k]);
+  for(const cc in _invC) for(const k in _invC[cc]) _invC[cc][k]=Math.max(0,_invC[cc][k]);
+  invoicedBySku=_inv; invByCountry=_invC;
   console.log('[FC MY27] 2026 invoiced by market:', Object.fromEntries(Object.entries(invByCountry).map(([c,m])=>[c, Math.round(Object.values(m).reduce((a,b)=>a+b,0))])));
 }
 
@@ -582,6 +594,22 @@ function recompute(){
     for(let i=0;i<12;i++){ const f=Math.floor(row[i]); rem.push([i,row[i]-f]); row[i]=f; used+=f; }
     rem.sort((a,b)=>b[1]-a[1]);
     for(let n=0;n<want-used;n++) row[rem[n%rem.length][0]]++;
+  }
+  // Rounding 56 rows independently leaves the grand total a bike or two off the season target.
+  // Settle the difference on the biggest month of the biggest SKU so the table adds up to the
+  // number that was typed in — a forecast whose total does not match its own target invites
+  // people to stop trusting the rest of it.
+  const goal=Math.round(myTotal());
+  let grand=0; for(const s of SKUS) grand+=forecast[s.key].reduce((a,b)=>a+b,0);
+  let drift=goal-grand;
+  if(drift!==0){
+    let bs=null, bv=-1;
+    for(const s of SKUS){ const t=forecast[s.key].reduce((a,b)=>a+b,0); if(t>bv){ bv=t; bs=s.key; } }
+    if(bs){
+      let bi=0, bmax=-1;
+      for(let i=0;i<12;i++) if(forecast[bs][i]>bmax){ bmax=forecast[bs][i]; bi=i; }
+      forecast[bs][bi]=Math.max(0, forecast[bs][bi]+drift);
+    }
   }
   renderShape(); renderMarkets(); renderKPIs(bto,budget); renderKnown(); renderForecast();
   document.getElementById('basis-line').innerHTML =
