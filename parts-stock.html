@@ -699,7 +699,7 @@ async function publishPartsDeadlines(){
          ORDER_SAFETY_WEEKS of production, so the date lands early enough to act on. */
       const ratePre=wks.length ? consArr.reduce((a,b)=>a+b,0)/wks.length : 0;
       const floorQty=ratePre*ORDER_SAFETY_WEEKS;
-      let shortWi=-1, minLevel=vv+andP, totCons=0; const moves=[];
+      let shortWi=-1, minLevel=vv+andP, totCons=0, levelAtShort=null; const moves=[];
       for(let wi=0; wi<wks.length; wi++){
         const cons=consArr[wi]; totCons+=cons;
         let arrv=incForWeek(pid,wi); if(wi===0) arrv+=overdue;
@@ -708,7 +708,7 @@ async function publishPartsDeadlines(){
         if(xfer>0) moves.push({wi, qty:Math.ceil(xfer)});
         const combined=vv+andP;
         if(combined<minLevel) minLevel=combined;
-        if(combined<floorQty && shortWi<0) shortWi=wi;
+        if(combined<floorQty && shortWi<0){ shortWi=wi; levelAtShort=combined; }
       }
       if(totCons<=0.0001) continue;
       const nm=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
@@ -718,15 +718,22 @@ async function publishPartsDeadlines(){
            ORDER_COVER_WEEKS of production, whichever is larger — then round up to
            whole cartons. `raw` keeps the bare shortfall so the email can show what
            the coverage rule added, rather than a number from nowhere. */
-        const gap   = Math.max(0, floorQty - minLevel);
+        /* Size the order to lift the pipeline back to the safety floor plus one
+           coverage window, measured AT the week it first breaches — NOT against the
+           deepest point of the whole plan. Measuring against the global minimum made
+           a single order the entire year's requirement: 4 329 pedals dated last
+           April. That number is real, but it is a volume to negotiate once, not a
+           purchase order to place today. It is reported separately as planTotal. */
+        const lvl   = (levelAtShort === null) ? minLevel : levelAtShort;
         const cover = rate * ORDER_COVER_WEEKS;
-        let want = Math.max(gap, cover);
+        let want = Math.max(cover, (floorQty + cover) - lvl);
         const pack = Number(packByPart[pid]) || 0;
         if(pack > 1) want = Math.ceil(want / pack) * pack;
         items.push({type:'order', id:'order:'+pid, pid, name:nm, partNo:r.partNo||'',
           category:r.category||'—', neededDate:wks[shortWi].monday,
           qty:Math.max(1,Math.ceil(want)), rate:Math.round(rate*100)/100,
-          raw:Math.ceil(gap), cover:Math.ceil(cover), pack,
+          raw:Math.ceil(Math.max(0, floorQty - lvl)), cover:Math.ceil(cover), pack,
+          planTotal:Math.ceil(consArr.reduce((a,b)=>a+b,0)),   /* the year's whole need — the agreement number */
           safetyWeeks:ORDER_SAFETY_WEEKS, coverWeeks:ORDER_COVER_WEEKS});
       }
       for(const mv of moves) items.push({type:'move', id:'move:'+pid+':'+wks[mv.wi].monday, pid, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[mv.wi].monday, qty:mv.qty});
