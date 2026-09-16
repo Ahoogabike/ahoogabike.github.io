@@ -31,6 +31,10 @@ if (!USER || !KEY) {
 const STEPS = [
   { page: 'sales-forecast-my27.html', key: 'sales_forecast_my27',   label: 'Sales Forecast MY27', budgetMs: 6 * 60e3 },
   { page: 'po-builder-my27.html',     key: 'production_plan_my27',  label: 'PO Builder MY27',     budgetMs: 8 * 60e3 },
+  /* MY26 is a handful of bikes finishing in October, but Parts Stock merges it
+     with MY27 and a stale plan here would show up as a stale warning on the
+     email. A warning nobody can act on is a warning people learn to ignore. */
+  { page: 'po-builder-bikes.html',    key: 'production_plan',       label: 'PO Builder MY26',     budgetMs: 8 * 60e3 },
   { page: 'parts-stock.html',         key: 'parts_deadlines',       label: 'Parts Stock',         budgetMs: 12 * 60e3 },
 ];
  
