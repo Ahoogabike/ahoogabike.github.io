@@ -1,5 +1,3 @@
-
-#!/usr/bin/env node
 /* =====================================================================
  *  refresh-feeds.mjs — open the three planning pages so the morning
  *  email is built on today's numbers instead of whenever somebody last
@@ -14,19 +12,19 @@
  *  Run locally the same way CI does:
  *      ODOO_USER=… ODOO_KEY=… node scripts/refresh-feeds.mjs
  * ===================================================================== */
- 
+
 import { chromium } from 'playwright';
- 
+
 const SITE  = process.env.SITE  || 'https://ahoogabike.github.io';
 const STORE = process.env.STORE || 'https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
 const USER  = process.env.ODOO_USER;
 const KEY   = process.env.ODOO_KEY;
- 
+
 if (!USER || !KEY) {
   console.error('ODOO_USER and ODOO_KEY must be set.');
   process.exit(1);
 }
- 
+
 /* The order is the pipeline. Each page eats the one above it, so running
    them out of order produces a plan built on yesterday's forecast. */
 /* The pipeline is not a line, it is a loop.
@@ -67,11 +65,11 @@ const STEPS = [
   { ...P.po27,     label: 'PO Builder MY27 · pass 2' },
   { ...P.parts,    label: 'Parts Stock · pass 2' },
 ];
- 
- 
- 
+
+
+
 const sleep = ms => new Promise(r => setTimeout(r, ms));
- 
+
 async function feedUpdated(key) {
   try {
     const r = await fetch(`${STORE}/store/${encodeURIComponent(key)}`, { cache: 'no-store' });
@@ -82,7 +80,7 @@ async function feedUpdated(key) {
     return j.updated || null;
   } catch { return null; }
 }
- 
+
 /* Credentials go in under every name the pages look for, so this keeps
    working if one of them changes which key it reads. They live only in this
    throwaway browser profile and die with the job. */
@@ -93,7 +91,7 @@ const CRED_KEYS = [
   'ahooga_forecast_cfg',
   'mxp_cfg',
 ];
- 
+
 /* A blank browser is not a neutral browser.
  *
  * Several of these pages hold human decisions in localStorage — the custom
@@ -126,16 +124,16 @@ if (!(SET.custom > 0)) {
   process.exit(1);
 }
 console.log(`Settings: season ${SET.total} \u00b7 custom ${SET.custom} \u00b7 mix from ${SET.mix}`);
- 
+
 const results = [];
- 
+
 const browser = await chromium.launch();
 try {
   for (const step of STEPS) {
     const before = await feedUpdated(step.key);
     console.log(`\n── ${step.label}`);
     console.log(`   feed ${step.key} was last published ${before || 'never'}`);
- 
+
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     await ctx.addInitScript(([keys, cred, set]) => {
       const put = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
@@ -149,15 +147,15 @@ try {
       if (set.countryTargets) put('ahooga_forecast_my27_country_targets', JSON.stringify(set.countryTargets));
       if (set.colourTargets)  put('ahooga_forecast_my27_colour_targets',  JSON.stringify(set.colourTargets));
     }, [CRED_KEYS, CRED, SET]);
- 
+
     const page = await ctx.newPage();
     const problems = [];
     page.on('console', m => { if (m.type() === 'error') problems.push(m.text().slice(0, 300)); });
     page.on('pageerror', e => problems.push('pageerror: ' + String(e.message).slice(0, 300)));
- 
+
     const url = `${SITE}/${step.page}?ci=${Date.now()}`;   // cache-bust every run
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 90e3 });
- 
+
     /* Wait for the STORE to move FORWARD, not merely to differ.
      *
      * KV reads are eventually consistent: a read seconds after a write can come
@@ -181,7 +179,7 @@ try {
         confirmations = 0;          // went backwards or vanished: a stale read
       }
     }
- 
+
     if (moved) {
       console.log(`   ✓ published ${after}`);
       results.push({ ...step, ok: true, after });
@@ -196,10 +194,10 @@ try {
 } finally {
   await browser.close();
 }
- 
+
 console.log('\n─────────────────────────────────────────────');
 for (const r of results) console.log(`${r.ok ? '✓' : '✗'}  ${r.label}`);
- 
+
 /* Did feeding real stock back into the builder actually change anything? If the
    second pass moves the plan a lot, somebody should know — it means production
    is being held back by components, which is a fact about the business, not a
@@ -210,7 +208,7 @@ try {
     .reduce((a, arr) => a + arr.reduce((x, y) => x + (y || 0), 0), 0);
   console.log(`\nFinal MY27 plan after the component feedback: ${Math.round(total)} bikes.`);
 } catch {}
- 
+
 /* Did we just publish a forecast that lost the custom programme? If so say it
    loudly — a silently smaller season is the most expensive kind of wrong. */
 try {
@@ -221,7 +219,7 @@ try {
     process.exitCode = 1;
   }
 } catch {}
- 
+
 const failed = results.filter(r => !r.ok);
 if (failed.length) {
   console.log(`\n${failed.length} of ${results.length} did not publish. The email will go out on older`);
@@ -229,4 +227,3 @@ if (failed.length) {
   process.exit(1);
 }
 console.log(`\nAll ${results.length} steps published. The 07:00 email will be built on these.`);
- 
