@@ -699,7 +699,9 @@ async function publishPartsDeadlines(){
          ORDER_SAFETY_WEEKS of production, so the date lands early enough to act on. */
       const ratePre=wks.length ? consArr.reduce((a,b)=>a+b,0)/wks.length : 0;
       const floorQty=ratePre*ORDER_SAFETY_WEEKS;
-      let shortWi=-1, minLevel=vv+andP, minWi=0, totCons=0, levelAtShort=null; const moves=[];
+      let shortWi=-1, minLevel=vv+andP, minWi=0, totCons=0, levelAtShort=null;
+      let outWi=-1, outLevel=0;   /* the first week the balance actually goes NEGATIVE */
+      const moves=[];
       for(let wi=0; wi<wks.length; wi++){
         const cons=consArr[wi]; totCons+=cons;
         let arrv=incForWeek(pid,wi); if(wi===0) arrv+=overdue;
@@ -709,6 +711,11 @@ async function publishPartsDeadlines(){
         const combined=vv+andP;
         if(combined<minLevel){ minLevel=combined; minWi=wi; }
         if(combined<floorQty && shortWi<0){ shortWi=wi; levelAtShort=combined; }
+        /* Dipping under the buffer and actually running out are different events,
+           and the gap between them is often months. Record both. Every part empties
+           at the far end of a 56-week plan simply because nothing is ordered that
+           far ahead, so only the FIRST zero-crossing tells you anything. */
+        if(combined<0 && outWi<0){ outWi=wi; outLevel=combined; }
       }
       if(totCons<=0.0001) continue;
       const nm=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
@@ -738,6 +745,8 @@ async function publishPartsDeadlines(){
              buffer and recovers when the next container lands. Those are different
              jobs and the email has to be able to tell them apart. */
           low:Math.round(minLevel), lowDate:wks[minWi] ? wks[minWi].monday : null,
+          outDate: outWi >= 0 && wks[outWi] ? wks[outWi].monday : null,
+          outLevel: outWi >= 0 ? Math.round(outLevel) : null,
           stockout: minLevel < 0,
           floor:Math.round(floorQty),
           planTotal:Math.ceil(consArr.reduce((a,b)=>a+b,0)),   /* the year's whole need — the agreement number */
