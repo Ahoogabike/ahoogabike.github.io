@@ -1,3 +1,4 @@
+
 #!/usr/bin/env node
 /* =====================================================================
  *  refresh-feeds.mjs — open the three planning pages so the morning
@@ -157,20 +158,35 @@ try {
     const url = `${SITE}/${step.page}?ci=${Date.now()}`;   // cache-bust every run
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 90e3 });
  
-    /* Wait for the STORE to move, not for anything on screen. */
+    /* Wait for the STORE to move FORWARD, not merely to differ.
+     *
+     * KV reads are eventually consistent: a read seconds after a write can come
+     * back with the previous value from another edge node. Testing `!==` treats
+     * that stale read as success — on 16 Sep both second passes "passed" on a
+     * timestamp ten minutes OLDER than the one before them, and the browser was
+     * closed about five seconds after opening. The pages never finished.
+     *
+     * So: strictly newer than where we started, and confirmed by two consecutive
+     * reads, so one lucky edge node cannot wave a step through. */
     const deadline = Date.now() + step.budgetMs;
-    let after = null, moved = false;
+    let after = null, moved = false, confirmations = 0;
     while (Date.now() < deadline) {
       await sleep(5000);
-      after = await feedUpdated(step.key);
-      if (after && after !== before) { moved = true; break; }
+      const now = await feedUpdated(step.key);
+      if (now && (!before || now > before)) {
+        confirmations = (now === after) ? confirmations + 1 : 1;
+        after = now;
+        if (confirmations >= 2) { moved = true; break; }
+      } else {
+        confirmations = 0;          // went backwards or vanished: a stale read
+      }
     }
  
     if (moved) {
       console.log(`   ✓ published ${after}`);
       results.push({ ...step, ok: true, after });
     } else {
-      console.log(`   ✗ nothing new after ${Math.round(step.budgetMs / 60e3)} min`);
+      console.log(`   ✗ nothing newer than ${before || '(nothing)'} after ${Math.round(step.budgetMs / 60e3)} min`);
       if (problems.length) console.log('   page errors:\n     ' + problems.slice(0, 5).join('\n     '));
       try { await page.screenshot({ path: `failed-${step.page}.png`, fullPage: false }); } catch {}
       results.push({ ...step, ok: false, problems: problems.slice(0, 5) });
@@ -212,5 +228,5 @@ if (failed.length) {
   console.log('numbers unless this is fixed before 07:00 UTC.');
   process.exit(1);
 }
-console.log('\nAll three feeds refreshed. The 07:00 email will be built on these.');
+console.log(`\nAll ${results.length} steps published. The 07:00 email will be built on these.`);
  
