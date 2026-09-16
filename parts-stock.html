@@ -699,7 +699,7 @@ async function publishPartsDeadlines(){
          ORDER_SAFETY_WEEKS of production, so the date lands early enough to act on. */
       const ratePre=wks.length ? consArr.reduce((a,b)=>a+b,0)/wks.length : 0;
       const floorQty=ratePre*ORDER_SAFETY_WEEKS;
-      let shortWi=-1, minLevel=vv+andP, totCons=0, levelAtShort=null; const moves=[];
+      let shortWi=-1, minLevel=vv+andP, minWi=0, totCons=0, levelAtShort=null; const moves=[];
       for(let wi=0; wi<wks.length; wi++){
         const cons=consArr[wi]; totCons+=cons;
         let arrv=incForWeek(pid,wi); if(wi===0) arrv+=overdue;
@@ -707,7 +707,7 @@ async function publishPartsDeadlines(){
         let xfer=0; if(vv<0 && andP>0){ let future=0; for(let j=wi+1;j<=wi+MOVE_COVER_WEEKS&&j<consArr.length;j++) future+=consArr[j]; xfer=Math.min(-vv+future, andP); vv+=xfer; andP-=xfer; }
         if(xfer>0) moves.push({wi, qty:Math.ceil(xfer)});
         const combined=vv+andP;
-        if(combined<minLevel) minLevel=combined;
+        if(combined<minLevel){ minLevel=combined; minWi=wi; }
         if(combined<floorQty && shortWi<0){ shortWi=wi; levelAtShort=combined; }
       }
       if(totCons<=0.0001) continue;
@@ -733,6 +733,13 @@ async function publishPartsDeadlines(){
           category:r.category||'—', neededDate:wks[shortWi].monday,
           qty:Math.max(1,Math.ceil(want)), rate:Math.round(rate*100)/100,
           raw:Math.ceil(Math.max(0, floorQty - lvl)), cover:Math.ceil(cover), pack,
+          /* The TRUE low point of the burn-down and the week it happens. Negative
+             means the line actually stops; a small positive means it dips under the
+             buffer and recovers when the next container lands. Those are different
+             jobs and the email has to be able to tell them apart. */
+          low:Math.round(minLevel), lowDate:wks[minWi] ? wks[minWi].monday : null,
+          stockout: minLevel < 0,
+          floor:Math.round(floorQty),
           planTotal:Math.ceil(consArr.reduce((a,b)=>a+b,0)),   /* the year's whole need — the agreement number */
           safetyWeeks:ORDER_SAFETY_WEEKS, coverWeeks:ORDER_COVER_WEEKS});
       }
