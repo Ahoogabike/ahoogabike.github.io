@@ -383,6 +383,10 @@ let bomByTmpl={}, prodToTmpl={};  // BoM graph — module-level so the wheel/MTB
 let bikeRefs=[];            // the exact bike references the PO Builder builds {id,code,name,tmplId,fam}
 let tmplParts={};           // bike template id -> Set(component productId) — for the per-reference filter
 let packByPart={};          // productId -> units per purchase carton (0 = none on file)
+/* Counted at load, read again when publishing — so they must live out here.
+   Declared inside the loader they were invisible to publishPartsDeadlines,
+   which threw on every run and was swallowed by its own try/catch. */
+let packFromOdoo=0, packFromStore=0;
 let incomingByPart={};      // productId -> [{date:'YYYY-MM-DD'|null, qty}] — COUNTED supply
 let heldIncoming={};        // productId -> [{date,qty,ref}] — overdue or undated PO lines,
                             // deliberately NOT counted as supply (see the builder below)
@@ -1391,7 +1395,7 @@ async function loadData(){
         }
       }
     }catch(e){ console.warn('[PartStock] product.packaging unavailable:', e.message); }
-    let packFromOdoo=Object.keys(packByPart).length, packFromStore=0;
+    packFromOdoo=Object.keys(packByPart).length; packFromStore=0;
     try{
       const ov=await kvGetStore('parts_pack_overrides');
       if(ov && typeof ov==='object'){
