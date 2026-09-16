@@ -139,9 +139,14 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 
   <div class="section">
     <div class="section-title">Colours <span class="tag" id="col-tag"></span></div>
-    <div class="section-note">The three <b>stock colours</b> are the only ones we hold inventory in, so they are the only ones with a target you can move. Type units against them and the rest of the plan follows; they are normalised to the stock build, so the season total never stops adding up. <b>Bordeaux Red inherits Ruby Red's 2026 history</b> — it is the colour Ruby Red replaces, and without that it would have no baseline at all. Emerald Green, Atomium and Midnight Blue are shown for completeness but are fixed at what has been pre-ordered, and Custom is set by its own box above.</div>
+    <div class="section-note"><b>Colour taste belongs to the market</b>, the same way the E-MAX / Alfine split does. Each market keeps its own 2026 colour mix, and the company-wide split at the bottom is the <b>result</b> of those tastes weighted by how much each market grows — so if Germany grows faster than Belgium the overall mix moves even though nobody's preference changed. <b>Bordeaux Red inherits Ruby Red's 2026 history</b>, the colour it replaces; without that it would have no baseline at all. A market with fewer than 25 bikes in 2026 borrows the overall mix and is marked <i>shared taste</i>. The <b>2026 mix</b> column is that market's own split last year, in the same column order, so you can see who is actually different.</div>
     <div class="table-wrap"><div id="colours"></div></div>
-    <div style="margin-top:8px"><button class="btn btn-secondary" onclick="resetColourTargets()">Reset to the 2026 / pre-order split</button></div>
+    <div id="col-override" style="margin-top:8px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span class="hint">Override the whole company mix (ignores market taste):</span>
+      ${''}
+      <span id="col-override-inputs"></span>
+      <button class="btn btn-secondary" onclick="resetColourTargets()">Clear override</button>
+    </div>
   </div>
 
   <div class="section">
@@ -583,13 +588,26 @@ function colourShareFrom(src, fallback){
 }
 // Colour is a range decision more than a market one, and the per-market pre-order sample is
 // thin, so a market only gets its own colour split once it has enough pre-orders of its own.
+// Colour taste belongs to the MARKET, the same way the E-MAX / Alfine split does. Each market
+// keeps its own 2026 colour mix; the company-wide colour split is then an OUTCOME of those
+// tastes weighted by how much each market grows. That is the point: if Germany grows faster
+// than Belgium, the global colour mix moves even though nobody's preference changed.
+// A market with too little 2026 history borrows the overall split, as with the model mix.
+function colourSampleOf(code){
+  const m=invByCountry[code]||{};
+  return STOCK_COLS.reduce((a,c)=>a+SKUS.filter(s=>s.co===c).reduce((x,s)=>x+(m[s.key]||0),0),0);
+}
+function usesOwnColour(code){ return colourSampleOf(code)>=MIN_SAMPLE; }
 function stockColourShare(code){
   const set=colourShareSet();
-  if(set) return set;                                   // the colour table is the authority
-  if(mixSource()==='invoiced') return colourShareFrom(invoicedBySku, invoicedBySku);
-  const own=(preByCountry[code]||{});
-  const ownTot=Object.values(own).reduce((a,b)=>a+b,0);
-  return colourShareFrom(ownTot>=MIN_SAMPLE ? own : preorderBySku, invoicedBySku);
+  if(set) return set;                                   // manual override, when one has been typed in
+  if(code && usesOwnColour(code)) return colourShareFrom(invByCountry[code], invoicedBySku);
+  if(mixSource()==='preorder'){
+    const pre={}; let pt=0;
+    for(const c of STOCK_COLS){ let q=0; for(const s of SKUS) if(s.co===c) q+=(preorderBySku[s.key]||0); pre[c]=q; pt+=q; }
+    if(pt>=MIN_SAMPLE) return colourShareFrom(pre, invoicedBySku);
+  }
+  return colourShareFrom(invoicedBySku, invoicedBySku);
 }
 // Season total per SKU, built market by market and then added up. Build-to-order colours are
 // exactly what that market has ordered — never forecast upward, because we hold no stock in
@@ -680,7 +698,7 @@ function recompute(){
       forecast[bs][bi]=Math.max(0, forecast[bs][bi]+drift);
     }
   }
-  renderShape(); renderMarkets(); renderColours(budget); renderKPIs(bto,budget,custom); renderKnown(); renderForecast();
+  renderShape(); renderMarkets(); renderColours(budget); renderColourOverride(); renderKPIs(bto,budget,custom); renderKnown(); renderForecast();
   document.getElementById('basis-line').innerHTML =
     `<b>${fmt(myTotal())}</b> MY27 units = <b>${fmt(Math.round(budget))}</b> stock build + <b>${fmt(Math.round(custom))}</b> custom + <b>${fmt(Math.round(bto))}</b> built to order · colours from ${mixSource()==='invoiced'?'2026 invoiced':'MY27 pre-orders'} · models &amp; racks from 2026 invoiced`;
   saveCfg(); schedulePublish();
@@ -751,51 +769,68 @@ function renderMarkets(){
 }
 function renderColours(budget){
   const el=document.getElementById('colours'); if(!el) return;
-  const base=colourBaseline();
   const pct=(x)=>(x*100).toFixed(0)+'%';
-  const FAMS=[['emax','alfine','E-MAX Alfine'],['emax','derailleur','E-MAX Derailleur'],
-              ['amax','alfine','A-MAX Alfine'],['amax','derailleur','A-MAX Derailleur']];
-  // what the plan actually came out at, per colour, across every market
-  const planned={}; for(const s of SKUS) planned[s.key]=0;
-  for(const C of COUNTRIES){ const per=fcByCountry[C.code]||{}; for(const s of SKUS) planned[s.key]+=(per[s.key]||0); }
-  const q=(f)=>SKUS.filter(f).reduce((a,s)=>a+(planned[s.key]||0),0);
-  const inv2026=(c)=>SKUS.filter(s=>s.co===c).reduce((a,s)=>a+(invoicedBySku[s.key]||0),0);
-  const inv2026All=STOCK_COLS.concat(BTO_COLS,[CUSTOM_COL]).reduce((a,c)=>a+inv2026(c),0)||1;
-  const cell=(v,share)=>`<td><b>${fmt(Math.round(v))}</b>${share!=null?`<div style="font-size:10px;color:var(--text3);font-weight:400">${pct(share)}</div>`:''}</td>`;
+  const lbl=(c)=>(CO.find(x=>x[0]===c)||[c,c])[1];
   const ALL=STOCK_COLS.concat(BTO_COLS,[CUSTOM_COL]);
-  const grand=q(()=>true)||1;
-  const rows=ALL.map(c=>{
-    const lbl=(CO.find(x=>x[0]===c)||[c,c])[1];
-    const tot=q(s=>s.co===c);
-    const fam=FAMS.map(([bt,tr])=>q(s=>s.co===c&&s.bt===bt&&s.tr===tr));
-    const isStock=STOCK_COLS.indexOf(c)>=0;
-    const tcell = isStock
-      ? `<td style="text-align:center;padding:2px"><input type="number" min="0" value="${Math.round(colourTargets[c]!=null?colourTargets[c]:(base.total>0?budget*(base.by[c]/base.total):0))}" onchange="setColourTarget('${c}',this.value)" style="width:64px;text-align:center;font-size:12px;padding:3px;border:1px solid var(--border2);border-radius:4px"/></td>`
-      : `<td class="total" title="${c===CUSTOM_COL?'set with the Custom colour / yr box above':'fixed at what has been pre-ordered'}">${fmt(Math.round(tot))}</td>`;
-    const note = c==='bordeaux_red' ? ' <span class="tag" style="font-size:9px" title="Ruby Red is the MY26 colour this replaces, so its 2026 volume reads as Bordeaux">inherits Ruby Red</span>' : '';
+  const cell=(v,share)=>`<td><b>${fmt(Math.round(v))}</b>${share!=null?`<div style="font-size:10px;color:var(--text3);font-weight:400">${pct(share)}</div>`:''}</td>`;
+
+  // every market's own 2026 colour mix, and what it turns into next year at its own target
+  const rows=COUNTRIES.map(C=>{
+    const per=fcByCountry[C.code]||{};
+    const q=(c)=>SKUS.filter(s=>s.co===c).reduce((a,s)=>a+(per[s.key]||0),0);
+    const stockTot=STOCK_COLS.reduce((a,c)=>a+q(c),0);
+    const own=usesOwnColour(C.code);
+    const m=invByCountry[C.code]||{};
+    const h=(c)=>SKUS.filter(s=>s.co===c).reduce((a,s)=>a+(m[s.key]||0),0);
+    const hTot=STOCK_COLS.reduce((a,c)=>a+h(c),0);
     return `<tr>
-      <td class="sku"><span class="dot" style="background:${COLOR_HEX[c]}"></span>${lbl}${note}</td>
-      ${cell(inv2026(c), inv2026(c)/inv2026All)}
-      ${tcell}
-      ${cell(tot, tot/grand)}
-      ${fam.map(v=>cell(v,null)).join('')}
+      <td class="sku">${C.label}${own?'':' <span class="tag" style="font-size:9px" title="under '+MIN_SAMPLE+' bikes in 2026 — borrows the overall colour mix">shared taste</span>'}</td>
+      <td class="total">${fmt(targetFor(C.code))}</td>
+      ${STOCK_COLS.map(c=>cell(q(c), stockTot?q(c)/stockTot:0)).join('')}
+      <td style="font-size:11px;color:var(--text3)">${hTot?STOCK_COLS.map(c=>pct(h(c)/hTot)).join(' / '):'—'}</td>
+      ${cell(q(CUSTOM_COL),null)}${cell(BTO_COLS.reduce((a,c)=>a+q(c),0),null)}
     </tr>`;
   }).join('');
-  const allocated=STOCK_COLS.reduce((a,c)=>a+Math.max(0,colourTargets[c]||0),0);
-  const foot=`<tr><th class="sku">Total</th>${cell(inv2026All,1)}<td class="total">${fmt(Math.round(grand))}</td>${cell(grand,1)}
-      ${FAMS.map(([bt,tr])=>cell(q(s=>s.bt===bt&&s.tr===tr),null)).join('')}</tr>`;
+
+  // the company-wide colour split — an OUTCOME, not an input
+  const tot={}; for(const c of ALL) tot[c]=0;
+  for(const C of COUNTRIES){ const per=fcByCountry[C.code]||{}; for(const c of ALL) tot[c]+=SKUS.filter(s=>s.co===c).reduce((a,s)=>a+(per[s.key]||0),0); }
+  const stockAll=STOCK_COLS.reduce((a,c)=>a+tot[c],0)||1;
+  const inv=(c)=>SKUS.filter(s=>s.co===c).reduce((a,s)=>a+(invoicedBySku[s.key]||0),0);
+  const invStock=STOCK_COLS.reduce((a,c)=>a+inv(c),0)||1;
+  const foot=`<tr><th class="sku">MY27 total</th><td class="total">${fmt(COUNTRIES.reduce((a,C)=>a+targetFor(C.code),0))}</td>
+      ${STOCK_COLS.map(c=>cell(tot[c], tot[c]/stockAll)).join('')}
+      <td style="font-size:11px;color:var(--text3)">${STOCK_COLS.map(c=>pct(inv(c)/invStock)).join(' / ')}</td>
+      ${cell(tot[CUSTOM_COL],null)}${cell(BTO_COLS.reduce((a,c)=>a+tot[c],0),null)}</tr>`;
+
   el.innerHTML=`<table class="grid"><thead><tr>
-      <th class="sku">Colour</th><th title="2026 invoiced bikes in this colour">2026 actual</th>
-      <th title="units you want — stock colours only">MY27 target</th><th>MY27 plan</th>
-      ${FAMS.map(f=>`<th>${f[2]}</th>`).join('')}
+      <th class="sku">Market</th><th>MY27 target</th>
+      ${STOCK_COLS.map(c=>`<th><span class="dot" style="background:${COLOR_HEX[c]}"></span>${lbl(c)}</th>`).join('')}
+      <th title="that market's own 2026 colour split, in the same order">2026 mix</th>
+      <th title="the custom colour programme">Custom</th>
+      <th title="Emerald Green, Atomium, Midnight Blue — pre-orders only">To order</th>
     </tr></thead><tbody>${rows}</tbody><tfoot>${foot}</tfoot></table>`;
+
+  // say plainly how far the company-wide mix has moved, and why
+  const drift=STOCK_COLS.map(c=>({c, my27:tot[c]/stockAll, y2026:inv(c)/invStock}));
+  const biggest=drift.slice().sort((a,b)=>Math.abs(b.my27-b.y2026)-Math.abs(a.my27-a.y2026))[0];
   const tag=document.getElementById('col-tag');
   if(tag){
-    tag.textContent = allocated>0
-      ? `stock build ${fmt(Math.round(budget))} · you have allocated ${fmt(Math.round(allocated))} — used as a ratio`
-      : `following the ${base.src}`;
-    tag.style.color='';
+    const set=colourShareSet();
+    if(set){ tag.textContent='manual override in use — market tastes ignored'; tag.style.color='var(--warn)'; }
+    else if(biggest && Math.abs(biggest.my27-biggest.y2026)>=0.005){
+      const dir=biggest.my27>biggest.y2026?'up':'down';
+      tag.textContent=`${lbl(biggest.c)} moves ${dir} ${pct(Math.abs(biggest.my27-biggest.y2026))} vs 2026 — purely from where the growth is`;
+      tag.style.color='';
+    } else { tag.textContent='company mix tracks 2026 — growth is spread evenly'; tag.style.color=''; }
   }
+}
+function renderColourOverride(){
+  const el=document.getElementById('col-override-inputs'); if(!el) return;
+  el.innerHTML=STOCK_COLS.map(c=>{
+    const lbl=(CO.find(x=>x[0]===c)||[c,c])[1];
+    return `<span style="margin-right:10px"><span class="dot" style="background:${COLOR_HEX[c]}"></span>${lbl} <input type="number" min="0" placeholder="—" value="${colourTargets[c]!=null?Math.round(colourTargets[c]):''}" onchange="setColourTarget('${c}',this.value)" style="width:62px;text-align:center;font-size:12px;padding:3px;border:1px solid var(--border2);border-radius:4px"/></span>`;
+  }).join('');
 }
 function setColourTarget(c,val){
   const n=parseFloat(val);
