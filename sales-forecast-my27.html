@@ -138,6 +138,13 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   </div>
 
   <div class="section">
+    <div class="section-title">Colours <span class="tag" id="col-tag"></span></div>
+    <div class="section-note">The three <b>stock colours</b> are the only ones we hold inventory in, so they are the only ones with a target you can move. Type units against them and the rest of the plan follows; they are normalised to the stock build, so the season total never stops adding up. <b>Bordeaux Red inherits Ruby Red's 2026 history</b> — it is the colour Ruby Red replaces, and without that it would have no baseline at all. Emerald Green, Atomium and Midnight Blue are shown for completeness but are fixed at what has been pre-ordered, and Custom is set by its own box above.</div>
+    <div class="table-wrap"><div id="colours"></div></div>
+    <div style="margin-top:8px"><button class="btn btn-secondary" onclick="resetColourTargets()">Reset to the 2026 / pre-order split</button></div>
+  </div>
+
+  <div class="section">
     <div class="section-title">1 · MY27 demand already in Odoo <span class="tag" id="known-tag"></span></div>
     <div class="section-note">Confirmed MY27 sales orders plus pre-orders still in quotation, by the month they are wanted. Undated lines are shown in the <b>n/d</b> column and get spread by the season shape rather than being forced into the first month. Lines wanted <b>before January 2027</b> are invoiced in FY2026, so they are held out of this grid and reported as <b>pre-season</b> above — they are still produced, because the PO Builder reads pre-orders straight from Odoo.</div>
     <div class="table-wrap"><div id="t1"></div></div>
@@ -157,6 +164,7 @@ const CF_WORKER='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
 const LS_CFG='ahooga_forecast_my27_cfg';
 const LS_SHAPE='ahooga_forecast_my27_shape';
 const LS_CTRY='ahooga_forecast_my27_country_targets';
+const LS_COL='ahooga_forecast_my27_colour_targets';
 const IS_ONLINE = location.hostname!=='localhost' && location.hostname!=='127.0.0.1';
 let odooUid=null;
 
@@ -236,6 +244,26 @@ const COUNTRIES=[
 const NAMED=COUNTRIES.filter(c=>c.code!=='OTHER').map(c=>c.code);
 const bucketOf=(cc)=> NAMED.indexOf(cc)>=0 ? cc : 'OTHER';
 let countryTargets={};   // code -> units (editable; OTHER is derived)
+// Units planned per STOCK colour. Editable; normalised to whatever the stock build actually is,
+// so the colour split can be steered without the season total ever stopping adding up.
+let colourTargets={};
+function colourBaseline(){
+  // the split to fall back on: live MY27 pre-orders if there are enough, else 2026 invoiced
+  const pre={}; let pt=0;
+  for(const c of STOCK_COLS){ let q=0; for(const s of SKUS) if(s.co===c) q+=(preorderBySku[s.key]||0); pre[c]=q; pt+=q; }
+  if(pt>=MIN_SAMPLE) return {src:'MY27 pre-orders', by:pre, total:pt};
+  const inv={}; let it=0;
+  for(const c of STOCK_COLS){ let q=0; for(const s of SKUS) if(s.co===c) q+=(invoicedBySku[s.key]||0); inv[c]=q; it+=q; }
+  if(it>0) return {src:'2026 invoiced', by:inv, total:it};
+  const even={}; for(const c of STOCK_COLS) even[c]=1;
+  return {src:'even split', by:even, total:STOCK_COLS.length};
+}
+function colourShareSet(){
+  // explicit targets win; they are normalised so they always describe a share of the stock build
+  let t=0; for(const c of STOCK_COLS) t+=Math.max(0,colourTargets[c]||0);
+  if(t>0){ const o={}; for(const c of STOCK_COLS) o[c]=Math.max(0,colourTargets[c]||0)/t; return o; }
+  return null;
+}
 function targetFor(code){
   if(code==='OTHER'){
     const named=NAMED.reduce((a,c)=>a+(countryTargets[c]||0),0);
@@ -340,7 +368,10 @@ async function kvSet(key,value){
 function detectColor(n){const l=(n||'').toLowerCase();
   if(l.includes('bumblebee')||l.includes('yellow'))return'bumblebee';
   if(l.includes('cosmic')||l.includes('black'))return'cosmic_black';
-  if(l.includes('bordeaux'))return'bordeaux_red';
+  // Ruby Red is the MY26 colour Bordeaux Red replaces, so its history reads as Bordeaux.
+  // Without this it fell through to 'custom', which both inflated the custom programme and
+  // left Bordeaux Red with no 2026 baseline at all.
+  if(l.includes('bordeaux')||l.includes('ruby'))return'bordeaux_red';
   if(l.includes('midnight'))return'midnight_blue';
   if(l.includes('emerald'))return'emerald_green';
   if(l.includes('atomium'))return'atomium';
@@ -553,6 +584,8 @@ function colourShareFrom(src, fallback){
 // Colour is a range decision more than a market one, and the per-market pre-order sample is
 // thin, so a market only gets its own colour split once it has enough pre-orders of its own.
 function stockColourShare(code){
+  const set=colourShareSet();
+  if(set) return set;                                   // the colour table is the authority
   if(mixSource()==='invoiced') return colourShareFrom(invoicedBySku, invoicedBySku);
   const own=(preByCountry[code]||{});
   const ownTot=Object.values(own).reduce((a,b)=>a+b,0);
@@ -647,7 +680,7 @@ function recompute(){
       forecast[bs][bi]=Math.max(0, forecast[bs][bi]+drift);
     }
   }
-  renderShape(); renderMarkets(); renderKPIs(bto,budget,custom); renderKnown(); renderForecast();
+  renderShape(); renderMarkets(); renderColours(budget); renderKPIs(bto,budget,custom); renderKnown(); renderForecast();
   document.getElementById('basis-line').innerHTML =
     `<b>${fmt(myTotal())}</b> MY27 units = <b>${fmt(Math.round(budget))}</b> stock build + <b>${fmt(Math.round(custom))}</b> custom + <b>${fmt(Math.round(bto))}</b> built to order · colours from ${mixSource()==='invoiced'?'2026 invoiced':'MY27 pre-orders'} · models &amp; racks from 2026 invoiced`;
   saveCfg(); schedulePublish();
@@ -716,6 +749,67 @@ function renderMarkets(){
     : `${fmt(named)} named · ${fmt(Math.max(0,myTotal()-named))} other`;
   document.getElementById('mkt-tag').style.color = over?'var(--danger)':'';
 }
+function renderColours(budget){
+  const el=document.getElementById('colours'); if(!el) return;
+  const base=colourBaseline();
+  const pct=(x)=>(x*100).toFixed(0)+'%';
+  const FAMS=[['emax','alfine','E-MAX Alfine'],['emax','derailleur','E-MAX Derailleur'],
+              ['amax','alfine','A-MAX Alfine'],['amax','derailleur','A-MAX Derailleur']];
+  // what the plan actually came out at, per colour, across every market
+  const planned={}; for(const s of SKUS) planned[s.key]=0;
+  for(const C of COUNTRIES){ const per=fcByCountry[C.code]||{}; for(const s of SKUS) planned[s.key]+=(per[s.key]||0); }
+  const q=(f)=>SKUS.filter(f).reduce((a,s)=>a+(planned[s.key]||0),0);
+  const inv2026=(c)=>SKUS.filter(s=>s.co===c).reduce((a,s)=>a+(invoicedBySku[s.key]||0),0);
+  const inv2026All=STOCK_COLS.concat(BTO_COLS,[CUSTOM_COL]).reduce((a,c)=>a+inv2026(c),0)||1;
+  const cell=(v,share)=>`<td><b>${fmt(Math.round(v))}</b>${share!=null?`<div style="font-size:10px;color:var(--text3);font-weight:400">${pct(share)}</div>`:''}</td>`;
+  const ALL=STOCK_COLS.concat(BTO_COLS,[CUSTOM_COL]);
+  const grand=q(()=>true)||1;
+  const rows=ALL.map(c=>{
+    const lbl=(CO.find(x=>x[0]===c)||[c,c])[1];
+    const tot=q(s=>s.co===c);
+    const fam=FAMS.map(([bt,tr])=>q(s=>s.co===c&&s.bt===bt&&s.tr===tr));
+    const isStock=STOCK_COLS.indexOf(c)>=0;
+    const tcell = isStock
+      ? `<td style="text-align:center;padding:2px"><input type="number" min="0" value="${Math.round(colourTargets[c]!=null?colourTargets[c]:(base.total>0?budget*(base.by[c]/base.total):0))}" onchange="setColourTarget('${c}',this.value)" style="width:64px;text-align:center;font-size:12px;padding:3px;border:1px solid var(--border2);border-radius:4px"/></td>`
+      : `<td class="total" title="${c===CUSTOM_COL?'set with the Custom colour / yr box above':'fixed at what has been pre-ordered'}">${fmt(Math.round(tot))}</td>`;
+    const note = c==='bordeaux_red' ? ' <span class="tag" style="font-size:9px" title="Ruby Red is the MY26 colour this replaces, so its 2026 volume reads as Bordeaux">inherits Ruby Red</span>' : '';
+    return `<tr>
+      <td class="sku"><span class="dot" style="background:${COLOR_HEX[c]}"></span>${lbl}${note}</td>
+      ${cell(inv2026(c), inv2026(c)/inv2026All)}
+      ${tcell}
+      ${cell(tot, tot/grand)}
+      ${fam.map(v=>cell(v,null)).join('')}
+    </tr>`;
+  }).join('');
+  const allocated=STOCK_COLS.reduce((a,c)=>a+Math.max(0,colourTargets[c]||0),0);
+  const foot=`<tr><th class="sku">Total</th>${cell(inv2026All,1)}<td class="total">${fmt(Math.round(grand))}</td>${cell(grand,1)}
+      ${FAMS.map(([bt,tr])=>cell(q(s=>s.bt===bt&&s.tr===tr),null)).join('')}</tr>`;
+  el.innerHTML=`<table class="grid"><thead><tr>
+      <th class="sku">Colour</th><th title="2026 invoiced bikes in this colour">2026 actual</th>
+      <th title="units you want — stock colours only">MY27 target</th><th>MY27 plan</th>
+      ${FAMS.map(f=>`<th>${f[2]}</th>`).join('')}
+    </tr></thead><tbody>${rows}</tbody><tfoot>${foot}</tfoot></table>`;
+  const tag=document.getElementById('col-tag');
+  if(tag){
+    tag.textContent = allocated>0
+      ? `stock build ${fmt(Math.round(budget))} · you have allocated ${fmt(Math.round(allocated))} — used as a ratio`
+      : `following the ${base.src}`;
+    tag.style.color='';
+  }
+}
+function setColourTarget(c,val){
+  const n=parseFloat(val);
+  if(isNaN(n)||n<0) delete colourTargets[c]; else colourTargets[c]=n;
+  if(STOCK_COLS.every(x=>!(colourTargets[x]>0))) colourTargets={};   // all blank → back to the baseline
+  try{ localStorage.setItem(LS_COL, JSON.stringify(colourTargets)); }catch(e){}
+  recompute();
+}
+function resetColourTargets(){
+  colourTargets={};
+  try{ localStorage.removeItem(LS_COL); }catch(e){}
+  recompute();
+}
+
 function setCountryTarget(code,val){
   const n=parseInt(val); countryTargets[code]=(isNaN(n)||n<0)?0:n;
   try{ localStorage.setItem(LS_CTRY, JSON.stringify(countryTargets)); }catch(e){}
@@ -833,6 +927,8 @@ function loadCfg(){
   try{ const sh=JSON.parse(localStorage.getItem(LS_SHAPE)||'null'); if(Array.isArray(sh)&&sh.length===12) shape=sh.map(x=>Math.max(0,parseFloat(x)||0)); }catch(e){}
   countryTargets={}; for(const C of COUNTRIES) if(C.target!=null) countryTargets[C.code]=C.target;
   try{ const ct=JSON.parse(localStorage.getItem(LS_CTRY)||'null'); if(ct&&typeof ct==='object') for(const k in ct){ const n=parseInt(ct[k]); if(!isNaN(n)&&n>=0) countryTargets[k]=n; } }catch(e){}
+  colourTargets={};
+  try{ const cl=JSON.parse(localStorage.getItem(LS_COL)||'null'); if(cl&&typeof cl==='object') for(const k in cl){ const n=parseFloat(cl[k]); if(!isNaN(n)&&n>=0) colourTargets[k]=n; } }catch(e){}
 }
 
 // ── INIT ─────────────────────────────────────────────────────

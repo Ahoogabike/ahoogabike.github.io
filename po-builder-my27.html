@@ -501,7 +501,9 @@ async function kvSet(key,value){
 function detectColor(n){const l=(n||'').toLowerCase();
   if(l.includes('bumblebee')||l.includes('yellow'))return'bumblebee';
   if(l.includes('cosmic')||l.includes('black'))return'cosmic_black';
-  if(l.includes('bordeaux'))return'bordeaux_red';
+  // Ruby Red is the MY26 colour Bordeaux Red replaces, so its history reads as Bordeaux. This
+  // must match the MY27 Sales Forecast exactly — the two apps have to agree on what 2026 means.
+  if(l.includes('bordeaux')||l.includes('ruby'))return'bordeaux_red';
   if(l.includes('midnight'))return'midnight_blue';
   if(l.includes('emerald'))return'emerald_green';
   if(l.includes('atomium'))return'atomium';
@@ -1304,8 +1306,8 @@ function renderYear(){
       return `<td${tip} style="text-align:center;font-size:11px;color:${col}">${shown||''}</td>`;
     }).join('')}<td class="total"></td></tr>`;
   const foot=`<tr><th class="sku">Total</th>${colTot.map((c,wi)=>`<td class="total ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''} ${(!isBlocked(wi)&&c>effCap(wi)+0.5)?'over':''}">${fmt(c)}</td>`).join('')}<td class="total">${fmt(grand)}</td></tr>`;
-  const issueRow= showDemandPlan ? '' : SITES.map(st=>`<tr><th class="sku" style="font-size:11px;color:var(--text2)">Issue ${st.label} PO →</th>${weeks.map((wk,wi)=>(!isBlocked(wi)&&sitePlan(st.key,wi,false)>0.5)?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue ${st.label} bike PO for ${wk.label}" onclick="issueBikePO(${wi},'${st.key}')">⇩ PO</button></td>`:'<td></td>').join('')}<td class="total"></td></tr>`).join('');
-  const toggleBar=`<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap"><span style="font-size:11px;color:var(--text2);font-weight:600">VIEW:</span><button class="btn ${showDemandPlan?'btn-secondary':'btn-primary'}" style="padding:3px 10px" onclick="setPlanView(false)">📦 What we can build</button><button class="btn ${showDemandPlan?'btn-primary':'btn-secondary'}" style="padding:3px 10px" onclick="setPlanView(true)">🎯 What we should build</button>${showDemandPlan?`<span class="hint" style="color:var(--warn)">demand view — ignores component delays; switch back to “can build” to issue POs</span>`:(compGap>0?`<span class="hint" style="color:var(--warn)">${fmt(compGap)} bikes can't be built yet (components) — see “what we should build”</span>`:'')}</div>`;
+  const issueRow= SITES.map(st=>`<tr><th class="sku" style="font-size:11px;color:var(--text2)">Issue ${st.label} PO →</th>${weeks.map((wk,wi)=>(!isBlocked(wi)&&sitePlan(st.key,wi,false)>0.5)?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue ${st.label} bike PO for ${wk.label}" onclick="issueBikePO(${wi},'${st.key}')">⇩ PO</button></td>`:'<td></td>').join('')}<td class="total"></td></tr>`).join('');
+  const toggleBar=`<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap"><span style="font-size:11px;color:var(--text2);font-weight:600">VIEW:</span><button class="btn ${showDemandPlan?'btn-secondary':'btn-primary'}" style="padding:3px 10px" onclick="setPlanView(false)">📦 What we can build</button><button class="btn ${showDemandPlan?'btn-primary':'btn-secondary'}" style="padding:3px 10px" onclick="setPlanView(true)">🎯 What we should build</button>${showDemandPlan?`<span class="hint" style="color:var(--warn)">demand view — shows the full target, including anything capacity or components can't take. The ⇩ PO buttons always order the <b>buildable</b> quantity.</span>`:(compGap>0?`<span class="hint" style="color:var(--warn)">${fmt(compGap)} bikes can't be built yet (components) — see “what we should build”</span>`:'')}</div>`;
   document.getElementById('year-grid').innerHTML=toggleBar+`<table class="grid"><thead>${head}</thead><tbody>${capRow}${siteRows}${body}</tbody><tfoot>${modelsRow}${foot}${issueRow}</tfoot></table>`;
 
   // blocked-week chips + deadline note
