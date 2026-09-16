@@ -382,6 +382,7 @@ function repairOf(pid){ return repairRateByPid[pid]||0; }
 let bomByTmpl={}, prodToTmpl={};  // BoM graph — module-level so the wheel/MTB helpers can read it
 let bikeRefs=[];            // the exact bike references the PO Builder builds {id,code,name,tmplId,fam}
 let tmplParts={};           // bike template id -> Set(component productId) — for the per-reference filter
+let packByPart={};          // productId -> units per purchase carton (0 = none on file)
 let incomingByPart={};      // productId -> [{date:'YYYY-MM-DD'|null, qty}] — COUNTED supply
 let heldIncoming={};        // productId -> [{date,qty,ref}] — overdue or undated PO lines,
                             // deliberately NOT counted as supply (see the builder below)
@@ -690,6 +691,10 @@ async function publishPartsDeadlines(){
       const consArr=wks.map((_,wi)=>{ let c=0; const um=usageForWeekMonday(wks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; c+=repairOf(pid); return c; });
       let vv=(r.vvReal||0), andP=(r.andQty||0);
       const overdue=incBeforeFirst(pid);
+      /* The floor is no longer zero. A part is short when cover would fall below
+         ORDER_SAFETY_WEEKS of production, so the date lands early enough to act on. */
+      const ratePre=wks.length ? consArr.reduce((a,b)=>a+b,0)/wks.length : 0;
+      const floorQty=ratePre*ORDER_SAFETY_WEEKS;
       let shortWi=-1, minLevel=vv+andP, totCons=0; const moves=[];
       for(let wi=0; wi<wks.length; wi++){
         const cons=consArr[wi]; totCons+=cons;
@@ -699,15 +704,34 @@ async function publishPartsDeadlines(){
         if(xfer>0) moves.push({wi, qty:Math.ceil(xfer)});
         const combined=vv+andP;
         if(combined<minLevel) minLevel=combined;
-        if(combined<0 && shortWi<0) shortWi=wi;
+        if(combined<floorQty && shortWi<0) shortWi=wi;
       }
       if(totCons<=0.0001) continue;
       const nm=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
       const rate=wks.length?(totCons/wks.length):0;   // avg weekly consumption → lets the agenda size an order to cover N weeks
-      if(shortWi>=0) items.push({type:'order', id:'order:'+pid, pid, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[shortWi].monday, qty:Math.max(1,Math.ceil(-minLevel)), rate:Math.round(rate*100)/100});
+      if(shortWi>=0){
+        /* Order enough to (a) climb back above the safety floor and (b) carry
+           ORDER_COVER_WEEKS of production, whichever is larger — then round up to
+           whole cartons. `raw` keeps the bare shortfall so the email can show what
+           the coverage rule added, rather than a number from nowhere. */
+        const gap   = Math.max(0, floorQty - minLevel);
+        const cover = rate * ORDER_COVER_WEEKS;
+        let want = Math.max(gap, cover);
+        const pack = Number(packByPart[pid]) || 0;
+        if(pack > 1) want = Math.ceil(want / pack) * pack;
+        items.push({type:'order', id:'order:'+pid, pid, name:nm, partNo:r.partNo||'',
+          category:r.category||'—', neededDate:wks[shortWi].monday,
+          qty:Math.max(1,Math.ceil(want)), rate:Math.round(rate*100)/100,
+          raw:Math.ceil(gap), cover:Math.ceil(cover), pack,
+          safetyWeeks:ORDER_SAFETY_WEEKS, coverWeeks:ORDER_COVER_WEEKS});
+      }
       for(const mv of moves) items.push({type:'move', id:'move:'+pid+':'+wks[mv.wi].monday, pid, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[mv.wi].monday, qty:mv.qty});
     }
-    await kvSetStore('parts_deadlines', { updated:new Date().toISOString(), transferLeadDays:3, weeks:wks.map(w=>w.monday), items });
+    await kvSetStore('parts_deadlines', { updated:new Date().toISOString(), transferLeadDays:3,
+      safetyWeeks:ORDER_SAFETY_WEEKS, coverWeeks:ORDER_COVER_WEEKS,
+      packsOnFile:Object.keys(packByPart).length,
+      packsFromOdoo:packFromOdoo, packsFromStore:packFromStore,
+      weeks:wks.map(w=>w.monday), items });
     console.log('[PartStock] parts_deadlines published:', items.length, 'items');
   }catch(e){ console.warn('[PartStock] publishPartsDeadlines failed:', e.message); }
 }
@@ -928,6 +952,18 @@ async function connectAndLoad(){
 // ── BIKE FAMILIES ────────────────────────────────────────────
 // Six families, ignoring rack/colour. Classified from the bike's template name.
 const MOVE_COVER_WEEKS=8;   // an AND→VV move tops Velovisie up for at least this many weeks of production
+/* HOW MUCH TO ORDER — three dials, agreed 16 Sep 2026.
+   Before this, an order was sized to the bare shortfall: the smallest number that
+   stopped the forecast going red and not one unit more. With no supplier MOQ and
+   volume pricing that is close to the worst possible quantity — it buys at the
+   worst price and ships part-empty cartons. Now:
+     ORDER_SAFETY_WEEKS  the floor. Stock is "short" when cover would drop below
+                         this many weeks, not when it reaches zero. This moves the
+                         needed-by date EARLIER, which is the point.
+     ORDER_COVER_WEEKS   one order buys at least this much production.
+     packaging           the result is rounded UP to whole cartons (packByPart). */
+const ORDER_SAFETY_WEEKS=3;
+const ORDER_COVER_WEEKS=8;
 const WHEEL_LEAD_WEEKS=3;   // MTB wheels: assembled this many weeks before the bike (2 wk build + 1 wk ship)
 const FAMILIES=[
   {key:'AMN',label:'A-MAX Nexus',     plat:'A-MAX',drive:'NEXUS'},
@@ -1329,6 +1365,43 @@ async function loadData(){
       if(!d || d < TODAY_YMD){ (heldIncoming[x.pid]=heldIncoming[x.pid]||[]).push(rec); continue; }
       (incomingByPart[x.pid]=incomingByPart[x.pid]||[]).push(rec);
     }
+
+    /* ── PACK SIZES ──────────────────────────────────────────────────────
+       Odoo's own home for this is Inventory → Products → Packagings. Where a
+       product has one, orders round up to whole cartons. Two sources:
+         1. product.packaging rows flagged for purchase — the SMALLEST one, so
+            "box of 50" wins over "pallet of 1000" and we never overshoot by an
+            order of magnitude;
+         2. an override list in the shared store, so pack sizes can be entered
+            without waiting for Odoo's packaging feature to be switched on.
+       ODOO WINS. The override only fills gaps — parts Odoo has nothing for. That
+       way the stopgap retires itself as Odoo gets populated, and a pack size the
+       team can see and edit always beats one hidden in a Cloudflare store that
+       only shows up here. No packaging in either place means no rounding. */
+    packByPart={};
+    try{
+      for(const c of idChunks){
+        const pk=await odoo('product.packaging','search_read',
+          [[['product_id','in',c],['purchase','=',true],['qty','>',0]]],
+          {fields:['product_id','qty','name']});
+        for(const q of (Array.isArray(pk)?pk:(pk?[pk]:[]))){
+          const pid=arr(q.product_id)[0]; if(!pid) continue;
+          const v=Number(q.qty)||0; if(v<=1) continue;
+          if(!packByPart[pid] || v<packByPart[pid]) packByPart[pid]=v;
+        }
+      }
+    }catch(e){ console.warn('[PartStock] product.packaging unavailable:', e.message); }
+    let packFromOdoo=Object.keys(packByPart).length, packFromStore=0;
+    try{
+      const ov=await kvGetStore('parts_pack_overrides');
+      if(ov && typeof ov==='object'){
+        for(const k in ov){
+          if(packByPart[k]) continue;                 // Odoo already answered — leave it alone
+          const v=Number(ov[k]); if(v>1){ packByPart[k]=v; packFromStore++; }
+        }
+      }
+    }catch(e){}
+    console.log('[PartStock] pack sizes —', packFromOdoo, 'from Odoo,', packFromStore, 'from the app store');
 
     // ── PER-BIKE-TYPE CONSUMPTION (BoM explosion × bikes produced) ──
     alert_('<span class="spinner"></span> Counting bikes produced & splitting consumption by type…','info');
