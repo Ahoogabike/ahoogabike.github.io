@@ -688,13 +688,22 @@ async function publishPartsDeadlines(){
     const incBeforeFirst=(pid)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[0].monday; let s=0; for(const d of list){ if(d.date && d.date<start) s+=d.qty; } return s; };
     const items=[];
     for(const r of rows){
-      if(r.isSub) continue;
+      /* Sub-assemblies are built here, not bought, so they carry no order task —
+         EXCEPT finished wheels. Velovisie consumes a wheel as a finished part and
+         buys it from MTB Maastricht on a P0, so a wheel running out is a real
+         order with a real supplier and a three-week lead. Excluding it is how a
+         whole category of shortage stayed invisible in the morning email. */
+      if(r.isSub && !r.isWheel) continue;
       if(wheelComponentIds.has(r.id)) continue;   // wheel parts are consumed at MTB → handled by the wheel agenda (AND→MTB), not the Velovisie flow
       if(skipForecast(r)) continue;   // no order/move tasks for uncounted fasteners
       const pid=r.id;
       let inprodCons=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
       const consArr=wks.map((_,wi)=>{ let c=0; const um=usageForWeekMonday(wks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; c+=repairOf(pid); return c; });
-      let vv=(r.vvReal||0), andP=(r.andQty||0);
+      /* For a wheel the upstream pool is finished wheels sitting at MTB, not
+         components at Anderlecht — the same distinction the on-screen forecast
+         already makes. Get this wrong and a wheel looks flush because Anderlecht
+         holds spokes. */
+      let vv=(r.vvReal||0), andP=(r.isWheel ? (r.mtbQty||0) : (r.andQty||0));
       const overdue=incBeforeFirst(pid);
       /* The floor is no longer zero. A part is short when cover would fall below
          ORDER_SAFETY_WEEKS of production, so the date lands early enough to act on. */
@@ -738,6 +747,7 @@ async function publishPartsDeadlines(){
         const pack = Number(packByPart[pid]) || 0;
         if(pack > 1) want = Math.ceil(want / pack) * pack;
         items.push({type:'order', id:'order:'+pid, pid, name:nm, partNo:r.partNo||'',
+          isWheel:!!r.isWheel,        /* → a P0 to MTB, not a component PO */
           category:r.category||'—', neededDate:wks[shortWi].monday,
           qty:Math.max(1,Math.ceil(want)), rate:Math.round(rate*100)/100,
           raw:Math.ceil(Math.max(0, floorQty - lvl)), cover:Math.ceil(cover), pack,
@@ -753,7 +763,10 @@ async function publishPartsDeadlines(){
           planTotal:Math.ceil(consArr.reduce((a,b)=>a+b,0)),   /* the year's whole need — the agreement number */
           safetyWeeks:ORDER_SAFETY_WEEKS, coverWeeks:ORDER_COVER_WEEKS});
       }
-      for(const mv of moves) items.push({type:'move', id:'move:'+pid+':'+wks[mv.wi].monday, pid, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[mv.wi].monday, qty:mv.qty});
+      /* A wheel move is MTB → Velovisie; everything else is Anderlecht/Brain Log → Velovisie. */
+      for(const mv of moves) items.push({type:'move', id:'move:'+pid+':'+wks[mv.wi].monday, pid, name:nm, partNo:r.partNo||'',
+        isWheel:!!r.isWheel, from:(r.isWheel?'MTB Maastricht':'Anderlecht / Brain Log'),
+        category:r.category||'—', neededDate:wks[mv.wi].monday, qty:mv.qty});
     }
     await kvSetStore('parts_deadlines', { updated:new Date().toISOString(), transferLeadDays:3,
       safetyWeeks:ORDER_SAFETY_WEEKS, coverWeeks:ORDER_COVER_WEEKS,
