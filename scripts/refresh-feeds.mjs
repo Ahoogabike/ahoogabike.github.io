@@ -28,15 +28,46 @@ if (!USER || !KEY) {
  
 /* The order is the pipeline. Each page eats the one above it, so running
    them out of order produces a plan built on yesterday's forecast. */
+/* The pipeline is not a line, it is a loop.
+ *
+ *   Sales Forecast → Production Planner → PO Builder 26 → PO Builder 27 → Parts Stock
+ *                                              ↑                              │
+ *                                              └────── component_supply ───────┘
+ *
+ * Parts Stock tells the PO Builders how many bikes the components on hand can
+ * actually build, so the first builder pass plans against a stale view of stock
+ * and only the second reflects what is really at Velovisie. And if that second
+ * pass moves the plan, parts_deadlines — the feed the email reads — was computed
+ * from the plan before it moved. Hence both builders and Parts Stock run twice.
+ *
+ * The Production Planner comes second because the builders need to know which
+ * bikes are already on open Okazi POs; those consume components up front and
+ * would otherwise be planned for twice.
+ *
+ * Two passes, not more: the loop damps quickly in practice but nothing here
+ * proves it converges, so this is a deliberate stopping point rather than a
+ * fixed point. If pass two ever moves things materially, that is worth seeing
+ * rather than burying under a third run. */
+const P = {
+  forecast: { page: 'sales-forecast-my27.html', key: 'sales_forecast_my27',  budgetMs: 6 * 60e3 },
+  planner:  { page: 'MAX_planner.html',         key: 'production_basis',     budgetMs: 8 * 60e3 },
+  po26:     { page: 'po-builder-bikes.html',    key: 'production_plan',      budgetMs: 8 * 60e3 },
+  po27:     { page: 'po-builder-my27.html',     key: 'production_plan_my27', budgetMs: 8 * 60e3 },
+  parts:    { page: 'parts-stock.html',         key: 'parts_deadlines',      budgetMs: 12 * 60e3 },
+};
 const STEPS = [
-  { page: 'sales-forecast-my27.html', key: 'sales_forecast_my27',   label: 'Sales Forecast MY27', budgetMs: 6 * 60e3 },
-  { page: 'po-builder-my27.html',     key: 'production_plan_my27',  label: 'PO Builder MY27',     budgetMs: 8 * 60e3 },
-  /* MY26 is a handful of bikes finishing in October, but Parts Stock merges it
-     with MY27 and a stale plan here would show up as a stale warning on the
-     email. A warning nobody can act on is a warning people learn to ignore. */
-  { page: 'po-builder-bikes.html',    key: 'production_plan',       label: 'PO Builder MY26',     budgetMs: 8 * 60e3 },
-  { page: 'parts-stock.html',         key: 'parts_deadlines',       label: 'Parts Stock',         budgetMs: 12 * 60e3 },
+  { ...P.forecast, label: 'Sales Forecast MY27' },
+  { ...P.planner,  label: 'Production Planner' },
+  { ...P.po26,     label: 'PO Builder MY26 · pass 1' },
+  { ...P.po27,     label: 'PO Builder MY27 · pass 1' },
+  { ...P.parts,    label: 'Parts Stock · pass 1' },
+  /* everything below re-plans now that real component availability is published */
+  { ...P.po26,     label: 'PO Builder MY26 · pass 2' },
+  { ...P.po27,     label: 'PO Builder MY27 · pass 2' },
+  { ...P.parts,    label: 'Parts Stock · pass 2' },
 ];
+ 
+ 
  
 const sleep = ms => new Promise(r => setTimeout(r, ms));
  
@@ -111,6 +142,17 @@ try {
 console.log('\n─────────────────────────────────────────────');
 for (const r of results) console.log(`${r.ok ? '✓' : '✗'}  ${r.label}`);
  
+/* Did feeding real stock back into the builder actually change anything? If the
+   second pass moves the plan a lot, somebody should know — it means production
+   is being held back by components, which is a fact about the business, not a
+   quirk of the job. */
+try {
+  const plan = await (await fetch(`${STORE}/store/production_plan_my27`)).json();
+  const total = Object.values(plan.byFam || {})
+    .reduce((a, arr) => a + arr.reduce((x, y) => x + (y || 0), 0), 0);
+  console.log(`\nFinal MY27 plan after the component feedback: ${Math.round(total)} bikes.`);
+} catch {}
+ 
 const failed = results.filter(r => !r.ok);
 if (failed.length) {
   console.log(`\n${failed.length} of ${results.length} did not publish. The email will go out on older`);
@@ -118,3 +160,4 @@ if (failed.length) {
   process.exit(1);
 }
 console.log('\nAll three feeds refreshed. The 07:00 email will be built on these.');
+ 
