@@ -456,7 +456,11 @@ async function loadMy27Demand(){
   }
   const ctryByPartner=await countriesFor(Object.values(byId).map(o=>arr(o.partner_id)[0]));
   for(const l of lines){
-    const sku=skuKeyForName(arr(l.product_id)[1]||''); if(!sku||!knownBySku[sku]) continue;
+    /* This guard used to test knownBySku — the GLOBAL, which is {} until the first load
+       finishes. That silently discarded every line on the very first pass, so opening the
+       page published a season with zero MY27 demand and only a second Refresh was right.
+       Test the local tally being built instead. */
+    const sku=skuKeyForName(arr(l.product_id)[1]||''); if(!sku||!_known[sku]) continue;
     const o=byId[arr(l.order_id)[0]]; if(!o) continue;
     const quote=(o.state==='draft'||o.state==='sent');
     const qty=quote ? (parseFloat(l.product_uom_qty)||0)
@@ -475,6 +479,11 @@ async function loadMy27Demand(){
     const kc=(_knownC[cc]=_knownC[cc]||{});
     if(i>=0){ (kc[sku]=kc[sku]||Array(12).fill(0))[i]+=qty; }
     else { (_undC[cc]=_undC[cc]||{})[sku]=((_undC[cc]||{})[sku]||0)+qty; }
+  }
+  /* If Odoo gave us lines and none of them landed, something is wrong with the SKU
+     matching — say so loudly rather than publishing an empty season. */
+  if(lines.length && !_confirmed && !_quotation && !_preSeasonTot){
+    throw new Error(`Read ${lines.length} MY27 order line(s) but matched none to a SKU — not publishing. Check the product naming.`);
   }
   knownBySku=_known; undatedBySku=_und; preorderBySku=_pre;
   preByCountry=_preC; knownByCountry=_knownC; undatedByCountry=_undC;

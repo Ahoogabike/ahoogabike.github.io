@@ -1123,9 +1123,44 @@ async function collectBomGraph(){
 // Share of production carried by each "Apply on variants" value.
 // Returns { W:{ptavId:0..1}, groups:[…] }. Within one attribute on one template the
 // weights sum to 1, so a seven-colour frame costs exactly one frame per bike.
-// Weights come from what was actually built (serial lots per variant, matched on the
-// value's name so a colour carries across model years). A value with no history yet —
-// a new colour for MY27 — is assumed to sell like an average one, never like zero.
+//
+// Where the split comes from, in order of preference:
+//   1. Sales Forecast MY27. For an MY27 bike this is the answer — it is the colour and
+//      rack mix the season was actually planned on (pre-orders or 2026 invoiced, with
+//      the custom programme as its own line). Guessing from last year's lots when the
+//      plan is sitting right there in the store would be perverse.
+//   2. What was actually built, for bikes that are not MY27 — serial lots per variant,
+//      matched on the value's name so a colour carries across model years. Smoothed,
+//      so a colour with two pre-series bikes cannot score below one with none.
+//   3. An even split, when there is nothing to go on at all.
+const RACK_ALIAS={'rack':'with rack','no rack':'without rack','norack':'without rack'};
+const normVal=x=>String(x||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+
+// Pull the colour / rack mix straight out of the published MY27 season plan.
+// sales_forecast_my27.forwardBySku is keyed  bike|transmission|colour|rack.
+async function forecastMix(){
+  const out={};   // attributeName -> { normalisedValueName -> bikes }
+  try{
+    const f=await kvGetStore('sales_forecast_my27');
+    const by=f&&f.forwardBySku;
+    if(!by) return null;
+    let n=0;
+    for(const sku in by){
+      const q=Number(by[sku])||0; if(q<=0) continue;
+      const p=String(sku).split('|'); if(p.length<4) continue;
+      const colour=normVal(p[2]);
+      const rack  =normVal(RACK_ALIAS[String(p[3]).toLowerCase()]||p[3]);
+      out['MAX color']=out['MAX color']||{}; out['MAX color'][colour]=(out['MAX color'][colour]||0)+q;
+      out['MAX rack'] =out['MAX rack'] ||{}; out['MAX rack'][rack]   =(out['MAX rack'][rack]   ||0)+q;
+      n+=q;
+    }
+    if(!n) return null;
+    console.log('[PartStock] variant mix from sales_forecast_my27 —', n, 'bikes');
+    return {mix:out, updated:f.updated||null, total:n};
+  }catch(e){ console.warn('[PartStock] sales forecast unreadable, falling back to build history', e.message); }
+  return null;
+}
+
 async function computeVariantWeights(ptavIds){
   const W={}, groups=[];
   if(!ptavIds.length) return {W,groups};
@@ -1133,10 +1168,13 @@ async function computeVariantWeights(ptavIds){
   try{
     const vals=[];
     for(const c of chunk(ptavIds,300)) vals.push(...await odoo('product.template.attribute.value','read',[c],{fields:['name','attribute_id','product_tmpl_id']}));
-    for(const v of vals) meta[v.id]={name:String(v.name||'').trim(),attr:arr(v.attribute_id)[0],attrName:arr(v.attribute_id)[1]||'',tmpl:arr(v.product_tmpl_id)[0]};
+    for(const v of vals) meta[v.id]={name:String(v.name||'').trim(),attr:arr(v.attribute_id)[0],attrName:arr(v.attribute_id)[1]||'',
+                                     tmpl:arr(v.product_tmpl_id)[0], tmplName:arr(v.product_tmpl_id)[1]||''};
   }catch(e){ console.warn('[PartStock] could not read variant values — falling back to an even split',e); }
 
-  // What was actually built, by attribute value name.
+  const fc=await forecastMix();
+
+  // What was actually built, by attribute value name — the fallback for non-MY27 bikes.
   const hist={};
   try{
     const g=await odoo('stock.lot','read_group',[[['product_id.default_code','=like','AHF%']],['product_id'],['product_id']],{limit:2000});
@@ -1145,9 +1183,9 @@ async function computeVariantWeights(ptavIds){
     const pids=Object.keys(cnt).map(Number);
     const vs=[]; for(const c of chunk(pids,300)) vs.push(...await odoo('product.product','read',[c],{fields:['product_template_attribute_value_ids']}));
     const need=new Set(); for(const pr of vs) for(const id of (pr.product_template_attribute_value_ids||[])) need.add(id);
-    const vm={}; const vd=[];
+    const vm={}, vd=[];
     for(const c of chunk([...need],300)) vd.push(...await odoo('product.template.attribute.value','read',[c],{fields:['name','attribute_id']}));
-    for(const v of vd) vm[v.id]={name:String(v.name||'').trim().toLowerCase(),attr:arr(v.attribute_id)[0]};
+    for(const v of vd) vm[v.id]={name:normVal(v.name),attr:arr(v.attribute_id)[0]};
     for(const pr of vs){
       const n=cnt[pr.id]||0; if(!n) continue;
       for(const id of (pr.product_template_attribute_value_ids||[])){
@@ -1161,20 +1199,42 @@ async function computeVariantWeights(ptavIds){
   // One group per (template, attribute): the alternatives a single bike chooses between.
   const byGroup={};
   for(const id of ptavIds){ const m=meta[id]; if(!m) continue; (byGroup[m.tmpl+'|'+m.attr]=byGroup[m.tmpl+'|'+m.attr]||[]).push(id); }
+
   for(const k in byGroup){
-    const ids=byGroup[k], m0=meta[ids[0]], h=hist[m0.attr]||{};
-    const raw={}; let tot=0, known=0;
-    for(const id of ids){ const c=h[meta[id].name.toLowerCase()]||0; raw[id]=c; tot+=c; if(c>0) known++; }
-    let src='built before';
-    if(!known){ for(const id of ids) raw[id]=1; tot=ids.length; src='even split — never built yet'; }
-    else if(known<ids.length){
-      const mean=tot/known;                         // a new value is assumed average, not zero
-      for(const id of ids) if(!raw[id]) raw[id]=mean;
-      tot=ids.reduce((a,id)=>a+raw[id],0);
-      src='built before, new values averaged';
+    const ids=byGroup[k], m0=meta[ids[0]];
+    const isMY27=/\bMY\s?27\b/i.test(m0.tmplName||'');
+    const raw={}; let src=null, tot=0;
+
+    // 1 ── the season plan, for MY27
+    if(isMY27 && fc && fc.mix[m0.attrName]){
+      const m=fc.mix[m0.attrName]; let hit=0;
+      for(const id of ids){ const q=m[normVal(meta[id].name)]||0; raw[id]=q; tot+=q; if(q>0) hit++; }
+      if(hit) src='MY27 sales forecast'+(fc.updated?' of '+String(fc.updated).slice(0,10):'');
+      else { tot=0; for(const id of ids) raw[id]=0; }
     }
+
+    // 2 ── what was built, smoothed
+    if(!src){
+      const h=hist[m0.attr]||{};
+      let obs=0, seen=0;
+      for(const id of ids){ const c=h[normVal(meta[id].name)]||0; raw[id]=c; obs+=c; if(c>0) seen++; }
+      if(obs>0){
+        /* Smoothing. Every value gets one average value's worth of benefit of the
+           doubt before its own record counts. Without this a colour built twice
+           scores below a colour never built at all, which is how Bordeaux Red came
+           out at 0.2% against 14.3% for Atomium. */
+        const prior=obs/ids.length;
+        for(const id of ids) raw[id]+=prior;
+        tot=ids.reduce((a,id)=>a+raw[id],0);
+        src = seen===ids.length ? 'built before' : 'built before, unbuilt values given the average';
+      }
+    }
+
+    // 3 ── nothing to go on
+    if(!src || !(tot>0)){ for(const id of ids) raw[id]=1; tot=ids.length; src='even split — nothing to go on'; }
+
     for(const id of ids) W[id]=raw[id]/tot;
-    groups.push({attr:m0.attr,attrName:m0.attrName,tmpl:m0.tmpl,src,
+    groups.push({attr:m0.attr,attrName:m0.attrName,tmpl:m0.tmpl,tmplName:m0.tmplName,src,
       values:ids.map(id=>({id,name:meta[id].name,share:W[id]})).sort((a,b)=>b.share-a.share)});
   }
   for(const id of ptavIds) if(W[id]===undefined) W[id]=1;   // unknown value: never silently zero the part
