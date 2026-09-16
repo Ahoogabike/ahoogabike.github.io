@@ -1,0 +1,55 @@
+# ─────────────────────────────────────────────────────────────────────
+#  Refresh the planning feeds before the morning parts email.
+#
+#  The three planning pages compute in the browser and publish to the
+#  shared store. Until this job existed, somebody had to open all three
+#  by hand or the 07:00 email went out on stale numbers — looking
+#  exactly as confident as a fresh one.
+#
+#  Runs 06:30 UTC on weekdays, half an hour before parts-watch sends.
+#  Also runnable by hand from the Actions tab.
+# ─────────────────────────────────────────────────────────────────────
+name: Refresh planning feeds
+ 
+on:
+  schedule:
+    - cron: '30 6 * * 1-5'      # 08:30 Brussels in summer, 07:30 in winter
+  workflow_dispatch:            # the "Run workflow" button
+ 
+concurrency:
+  group: refresh-feeds
+  cancel-in-progress: false     # never run two at once against one store
+ 
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+ 
+    steps:
+      - uses: actions/checkout@v4
+ 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+ 
+      - name: Install Playwright + Chromium
+        run: |
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+ 
+      - name: Open the three pages and wait for each feed to publish
+        env:
+          ODOO_USER: ${{ secrets.ODOO_USER }}
+          ODOO_KEY:  ${{ secrets.ODOO_KEY }}
+        run: node scripts/refresh-feeds.mjs
+ 
+      # Only on failure, and only screenshots — no page HTML, because the
+      # pages hold live Odoo data once loaded.
+      - name: Keep screenshots if a page did not publish
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failed-pages
+          path: failed-*.png
+          retention-days: 7
+          if-no-files-found: ignore
