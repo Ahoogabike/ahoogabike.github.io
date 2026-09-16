@@ -421,6 +421,7 @@ async function loadData(){
     document.getElementById('conn-pill').className='pill ok';
     _loaded=true;
     recompute();
+    publishSettings();
     await publishForecast();
     alert_('✓ Loaded and published.','success');
   }catch(e){
@@ -957,6 +958,34 @@ function saveCfg(){
     custom:document.getElementById('f-custom').value,
     mix:document.getElementById('f-mix').value
   })); }catch(e){}
+  publishSettings();
+}
+
+/* Every number below is a decision somebody made in this browser: the season
+   target, the custom programme, the shape of the year, each market's target.
+   They live in localStorage, which means they exist on exactly one laptop and
+   a server rebuilding this forecast cannot see them. Publishing them to the
+   shared store changes nothing here and is what lets the chain run without a
+   person opening the page. The Odoo credentials are deliberately NOT included. */
+let _setTimer=null;
+function publishSettings(){
+  if(!IS_ONLINE) return;
+  clearTimeout(_setTimer);
+  _setTimer=setTimeout(async ()=>{
+    try{
+      await kvSet('forecast_settings_my27', {
+        updated:new Date().toISOString(),
+        modelYear:'MY27',
+        total:myTotal(),
+        custom:customTarget(),
+        mix:mixSource(),
+        shape:normShape(),
+        countryTargets:{...countryTargets},
+        colourTargets:{...colourTargets},
+        savedBy:(document.getElementById('cfg-user').value||'').trim()
+      });
+    }catch(e){ console.warn('settings publish failed', e.message); }
+  }, 1200);
 }
 function loadCfg(){
   let c={}; try{ c=JSON.parse(localStorage.getItem(LS_CFG)||'{}'); }catch(e){}
