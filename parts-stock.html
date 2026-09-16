@@ -380,6 +380,7 @@ function isMY27Name(nm){ return /my\s*-?\s*27/i.test(nm||''); }
 let repairRateByPid={};
 function repairOf(pid){ return repairRateByPid[pid]||0; }
 let bomByTmpl={}, prodToTmpl={};  // BoM graph — module-level so the wheel/MTB helpers can read it
+let variantMix={W:{},groups:[]};   // how a BoM's "Apply on variants" lines are shared out (see computeVariantWeights)
 let bikeRefs=[];            // the exact bike references the PO Builder builds {id,code,name,tmplId,fam}
 let tmplParts={};           // bike template id -> Set(component productId) — for the per-reference filter
 let packByPart={};          // productId -> units per purchase carton (0 = none on file)
@@ -758,6 +759,10 @@ async function publishPartsDeadlines(){
       safetyWeeks:ORDER_SAFETY_WEEKS, coverWeeks:ORDER_COVER_WEEKS,
       packsOnFile:Object.keys(packByPart).length,
       packsFromOdoo:packFromOdoo, packsFromStore:packFromStore,
+      /* How "Apply on variants" lines were shared out. Published so the morning list
+         can be audited: a seven-colour frame must add up to ONE frame per bike. */
+      variantMix:(variantMix.groups||[]).map(g=>({attribute:g.attrName, basis:g.src,
+        values:g.values.map(v=>({name:v.name, share:Math.round(v.share*1000)/1000}))})),
       weeks:wks.map(w=>w.monday), items });
     console.log('[PartStock] parts_deadlines published:', items.length, 'items');
   }catch(e){ console.warn('[PartStock] publishPartsDeadlines failed:', e.message); }
@@ -1066,14 +1071,15 @@ async function collectBomGraph(){
     const allLineIds=queue.flatMap(q=>q.lineIds);
     const lineById={};
     for(const c of chunk(allLineIds,1000)){
-      const ls=await odoo('mrp.bom.line','read',[c],{fields:['product_id','product_qty']});
+      const ls=await odoo('mrp.bom.line','read',[c],{fields:['product_id','product_qty','bom_product_template_attribute_value_ids']});
       for(const l of ls) lineById[l.id]=l;
     }
     // attach lines to their template; collect component product ids
     const nextProductIds=new Set();
     for(const q of queue){
       const lns=q.lineIds.map(id=>lineById[id]).filter(Boolean)
-        .map(l=>({pid:arr(l.product_id)[0],qty:l.product_qty||0})).filter(x=>x.pid);
+        .map(l=>({pid:arr(l.product_id)[0],qty:l.product_qty||0,
+                  ptav:(l.bom_product_template_attribute_value_ids||[]).slice()})).filter(x=>x.pid);
       bomByTmpl[q.tmplId]={productQty:q.productQty,lines:lns};
       for(const ln of lns){partIds.add(ln.pid);nextProductIds.add(ln.pid);}
     }
@@ -1093,9 +1099,86 @@ async function collectBomGraph(){
     }
     queue=nextQueue;
   }
+  // ── "Apply on variants" ──────────────────────────────────────────
+  // A BoM that offers seven frame colours lists seven frame lines, each at qty 1,
+  // each restricted to one colour. A bike consumes ONE of them, not all seven.
+  // Weight each restricted line by how often that variant is actually built, so
+  // the seven lines add up to one frame per bike instead of seven.
+  const seenPtav=new Set();
+  for(const t in bomByTmpl) for(const ln of bomByTmpl[t].lines) for(const id of (ln.ptav||[])) seenPtav.add(id);
+  alert_('<span class="spinner"></span> Step 1/5 — Working out the variant mix (colour, rack)…','info');
+  variantMix=await computeVariantWeights([...seenPtav]);
+  for(const t in bomByTmpl) for(const ln of bomByTmpl[t].lines){
+    let w=1;
+    for(const id of (ln.ptav||[])) w *= (variantMix.W[id]!==undefined ? variantMix.W[id] : 1);
+    ln.w=w;
+  }
+  console.log('[PartStock] variant mix:', variantMix.groups);
+
   const subIds=new Set();
   for(const pid of partIds){const t=prodToTmpl[pid];if(t&&bomByTmpl[t])subIds.add(pid);}
   return {partIds,subIds,bomByTmpl,prodToTmpl,bikeBoms,bikeBomCount:bikeBoms.length};
+}
+
+// Share of production carried by each "Apply on variants" value.
+// Returns { W:{ptavId:0..1}, groups:[…] }. Within one attribute on one template the
+// weights sum to 1, so a seven-colour frame costs exactly one frame per bike.
+// Weights come from what was actually built (serial lots per variant, matched on the
+// value's name so a colour carries across model years). A value with no history yet —
+// a new colour for MY27 — is assumed to sell like an average one, never like zero.
+async function computeVariantWeights(ptavIds){
+  const W={}, groups=[];
+  if(!ptavIds.length) return {W,groups};
+  const meta={};
+  try{
+    const vals=[];
+    for(const c of chunk(ptavIds,300)) vals.push(...await odoo('product.template.attribute.value','read',[c],{fields:['name','attribute_id','product_tmpl_id']}));
+    for(const v of vals) meta[v.id]={name:String(v.name||'').trim(),attr:arr(v.attribute_id)[0],attrName:arr(v.attribute_id)[1]||'',tmpl:arr(v.product_tmpl_id)[0]};
+  }catch(e){ console.warn('[PartStock] could not read variant values — falling back to an even split',e); }
+
+  // What was actually built, by attribute value name.
+  const hist={};
+  try{
+    const g=await odoo('stock.lot','read_group',[[['product_id.default_code','=like','AHF%']],['product_id'],['product_id']],{limit:2000});
+    const cnt={};
+    for(const r of (g||[])){ const pid=arr(r.product_id)[0]; if(pid) cnt[pid]=(cnt[pid]||0)+(r.product_id_count||0); }
+    const pids=Object.keys(cnt).map(Number);
+    const vs=[]; for(const c of chunk(pids,300)) vs.push(...await odoo('product.product','read',[c],{fields:['product_template_attribute_value_ids']}));
+    const need=new Set(); for(const pr of vs) for(const id of (pr.product_template_attribute_value_ids||[])) need.add(id);
+    const vm={}; const vd=[];
+    for(const c of chunk([...need],300)) vd.push(...await odoo('product.template.attribute.value','read',[c],{fields:['name','attribute_id']}));
+    for(const v of vd) vm[v.id]={name:String(v.name||'').trim().toLowerCase(),attr:arr(v.attribute_id)[0]};
+    for(const pr of vs){
+      const n=cnt[pr.id]||0; if(!n) continue;
+      for(const id of (pr.product_template_attribute_value_ids||[])){
+        const m=vm[id]; if(!m||!m.attr) continue;
+        hist[m.attr]=hist[m.attr]||{};
+        hist[m.attr][m.name]=(hist[m.attr][m.name]||0)+n;
+      }
+    }
+  }catch(e){ console.warn('[PartStock] no build history for the variant mix — using an even split',e); }
+
+  // One group per (template, attribute): the alternatives a single bike chooses between.
+  const byGroup={};
+  for(const id of ptavIds){ const m=meta[id]; if(!m) continue; (byGroup[m.tmpl+'|'+m.attr]=byGroup[m.tmpl+'|'+m.attr]||[]).push(id); }
+  for(const k in byGroup){
+    const ids=byGroup[k], m0=meta[ids[0]], h=hist[m0.attr]||{};
+    const raw={}; let tot=0, known=0;
+    for(const id of ids){ const c=h[meta[id].name.toLowerCase()]||0; raw[id]=c; tot+=c; if(c>0) known++; }
+    let src='built before';
+    if(!known){ for(const id of ids) raw[id]=1; tot=ids.length; src='even split — never built yet'; }
+    else if(known<ids.length){
+      const mean=tot/known;                         // a new value is assumed average, not zero
+      for(const id of ids) if(!raw[id]) raw[id]=mean;
+      tot=ids.reduce((a,id)=>a+raw[id],0);
+      src='built before, new values averaged';
+    }
+    for(const id of ids) W[id]=raw[id]/tot;
+    groups.push({attr:m0.attr,attrName:m0.attrName,tmpl:m0.tmpl,src,
+      values:ids.map(id=>({id,name:meta[id].name,share:W[id]})).sort((a,b)=>b.share-a.share)});
+  }
+  for(const id of ptavIds) if(W[id]===undefined) W[id]=1;   // unknown value: never silently zero the part
+  return {W,groups};
 }
 
 // Per-bike usage of every part for one finished unit of `tmplId` (full explosion,
@@ -1107,7 +1190,7 @@ function explodeUsage(tmplId,bomByTmpl,prodToTmpl,fullExplode){
     if(!bom||depth>15) return;
     const base=bom.productQty||1;
     for(const ln of bom.lines){
-      const perUnit=(ln.qty/base)*factor;
+      const perUnit=(ln.qty*(ln.w===undefined?1:ln.w)/base)*factor;
       acc[ln.pid]=(acc[ln.pid]||0)+perUnit;
       const ct=prodToTmpl[ln.pid];
       // Stop at MTB wheel assemblies: at Velovisie the bike consumes the finished wheel, not its parts.
@@ -1563,7 +1646,11 @@ async function loadData(){
     const andNames=andLocNames.join(', ')||'none';
     const louiNames=louiLocNames.join(', ')||'none';
     const vvNames=vvLocNames.join(', ')||'none — check the location name contains "Velovisie"';
-    alert_(`✓ Loaded ${rows.length} parts from ${bikeBomCount} MAX bike BoM(s); ${totalBikes.toLocaleString()} bikes produced. AND: ${andNames}. LOUI: ${louiNames}. Velovisie: ${vvNames}.`,'success');
+    const mixNote=(variantMix.groups||[]).map(g=>{
+      const top=g.values.slice(0,3).map(v=>`${v.name} ${Math.round(v.share*100)}%`).join(', ');
+      return `${g.attrName}: ${g.values.length} options — ${top}${g.values.length>3?'…':''} (${g.src})`;
+    }).join(' · ');
+    alert_(`✓ Loaded ${rows.length} parts from ${bikeBomCount} MAX bike BoM(s); ${totalBikes.toLocaleString()} bikes produced. AND: ${andNames}. LOUI: ${louiNames}. Velovisie: ${vvNames}.${mixNote?'<br><span style="opacity:.8">Variant mix — '+mixNote+'</span>':''}`,'success');
   }catch(e){
     alert_('Error: '+e.message,'danger');
     console.error(e);
