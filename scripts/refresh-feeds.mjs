@@ -82,16 +82,49 @@ async function feedUpdated(key) {
   } catch { return null; }
 }
  
-/* Credentials go in under every name the three pages look for, so this
-   keeps working if one of them changes which key it reads. They live only
-   in this throwaway browser profile and die with the job. */
-const seed = JSON.stringify({ user: USER, key: KEY });
-const SEED_KEYS = [
+/* Credentials go in under every name the pages look for, so this keeps
+   working if one of them changes which key it reads. They live only in this
+   throwaway browser profile and die with the job. */
+const CRED = JSON.stringify({ user: USER, key: KEY });
+const CRED_KEYS = [
   'ahooga_forecast_my27_cfg',
   'ahooga_pobuilder_my27_cfg',
   'ahooga_forecast_cfg',
   'mxp_cfg',
 ];
+ 
+/* A blank browser is not a neutral browser.
+ *
+ * Several of these pages hold human decisions in localStorage — the custom
+ * colour programme, the season shape, each market's target. A fresh profile
+ * has none of them, so the page happily computes a DIFFERENT plan and
+ * publishes it looking exactly as confident as the right one. On the first
+ * automated run that silently dropped the 396-bike custom programme to zero.
+ *
+ * So before driving the forecast we read back the settings it published while
+ * a person was using it, and put them in this browser first. The robot then
+ * reproduces the human's plan rather than inventing its own. */
+async function forecastSettings() {
+  try {
+    const r = await fetch(`${STORE}/store/forecast_settings_my27`, { cache: 'no-store' });
+    if (!r.ok) return null;
+    const t = (await r.text() || '').trim();
+    return (!t || t === 'null') ? null : JSON.parse(t);
+  } catch { return null; }
+}
+const SET = await forecastSettings();
+if (!SET) {
+  console.error('forecast_settings_my27 is missing — refusing to run, because the');
+  console.error('forecast would be rebuilt without the custom programme or the season shape.');
+  process.exit(1);
+}
+if (!(SET.custom > 0)) {
+  console.error(`forecast_settings_my27 says custom = ${SET.custom}. That is almost certainly a`);
+  console.error('previous automated run having overwritten it. Open Sales Forecast MY27 in a');
+  console.error('real browser to restore it, then run this again.');
+  process.exit(1);
+}
+console.log(`Settings: season ${SET.total} \u00b7 custom ${SET.custom} \u00b7 mix from ${SET.mix}`);
  
 const results = [];
  
@@ -103,9 +136,18 @@ try {
     console.log(`   feed ${step.key} was last published ${before || 'never'}`);
  
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-    await ctx.addInitScript(([keys, value]) => {
-      for (const k of keys) { try { localStorage.setItem(k, value); } catch {} }
-    }, [SEED_KEYS, seed]);
+    await ctx.addInitScript(([keys, cred, set]) => {
+      const put = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
+      for (const k of keys) put(k, cred);
+      if (!set) return;
+      /* the forecast's own saved config carries the three boxes as well */
+      put('ahooga_forecast_my27_cfg', JSON.stringify({
+        ...JSON.parse(cred), total: String(set.total), custom: String(set.custom), mix: set.mix
+      }));
+      if (Array.isArray(set.shape) && set.shape.length === 12) put('ahooga_forecast_my27_shape', JSON.stringify(set.shape));
+      if (set.countryTargets) put('ahooga_forecast_my27_country_targets', JSON.stringify(set.countryTargets));
+      if (set.colourTargets)  put('ahooga_forecast_my27_colour_targets',  JSON.stringify(set.colourTargets));
+    }, [CRED_KEYS, CRED, SET]);
  
     const page = await ctx.newPage();
     const problems = [];
@@ -151,6 +193,17 @@ try {
   const total = Object.values(plan.byFam || {})
     .reduce((a, arr) => a + arr.reduce((x, y) => x + (y || 0), 0), 0);
   console.log(`\nFinal MY27 plan after the component feedback: ${Math.round(total)} bikes.`);
+} catch {}
+ 
+/* Did we just publish a forecast that lost the custom programme? If so say it
+   loudly — a silently smaller season is the most expensive kind of wrong. */
+try {
+  const after = await forecastSettings();
+  if (after && after.custom !== SET.custom) {
+    console.log(`\n!! custom programme changed ${SET.custom} \u2192 ${after.custom} during this run.`);
+    console.log('   The settings did not reach the browser. Treat this run as suspect.');
+    process.exitCode = 1;
+  }
 } catch {}
  
 const failed = results.filter(r => !r.ok);
