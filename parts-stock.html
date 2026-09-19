@@ -994,7 +994,14 @@ async function publishWheelDeadlines(){
       if(cons.reduce((a,b)=>a+b,0)<=0.0001) continue;
       let mtb=(r.mtbQty||0), andP=(r.andQty||0);
       const overdueUp=incBeforeFirst(r.id,['and','vv']), overdueMtb=incBeforeFirst(r.id,'mtb');
-      let shortWi=-1, minLevel=mtb+andP; const moves=[];
+      /* Same rule as the Velovisie tier, which this loop never had: a part is
+         short when cover would drop below ORDER_SAFETY_WEEKS of wheel building,
+         not at zero — so the date lands early enough to act on. */
+      const wRate=wks.length ? cons.reduce((a,b)=>a+b,0)/wks.length : 0;
+      const wFloor=wRate*ORDER_SAFETY_WEEKS;
+      let shortWi=-1, minLevel=mtb+andP, minWi=0, levelAtShort=null;
+      let outWi=-1, outLevel=0;                 // the first week the balance actually goes NEGATIVE
+      const moves=[];
       for(let wi=0; wi<wks.length; wi++){
         let arrUp=incForWeek(r.id,wi,['and','vv']), arrMtb=incForWeek(r.id,wi,'mtb');
         if(wi===0){ arrUp+=overdueUp; arrMtb+=overdueMtb; }
@@ -1005,12 +1012,37 @@ async function publishWheelDeadlines(){
         let xfer=0; if(mtb<0 && andP>0){ let future=0; for(let j=wi+1;j<=wi+MOVE_COVER_WEEKS&&j<cons.length;j++) future+=cons[j]; xfer=Math.min(-mtb+future, andP); mtb+=xfer; andP-=xfer; }
         if(xfer>0) moves.push({wi, qty:Math.ceil(xfer)});
         const combined=mtb+andP;
-        if(combined<minLevel) minLevel=combined;
-        if(combined<0 && shortWi<0) shortWi=wi;
+        if(combined<minLevel){ minLevel=combined; minWi=wi; }
+        if(combined<wFloor && shortWi<0){ shortWi=wi; levelAtShort=combined; }
+        if(combined<0 && outWi<0){ outWi=wi; outLevel=combined; }
       }
       const nm=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
       const wrate=cons.length?(cons.reduce((a,b)=>a+b,0)/cons.length):0;
-      if(shortWi>=0) out.items.push({type:'order', id:'worder:'+r.id, pid:r.id, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[shortWi].monday, qty:Math.max(1,Math.ceil(-minLevel)), tier:'MTB', rate:Math.round(wrate*100)/100});
+      if(shortWi>=0){
+        /* THE OTHER HALF OF THE 4 329 PEDALS LESSON. This used to order
+           -minLevel: the deepest point of the whole 56-week plan, which is the
+           year's entire requirement, not a call-off. It produced "buy 4 690
+           tyres" against a shelf holding 1 197 with 6 000 already on the water.
+           Size it at the week it FIRST breaches the buffer instead, and report
+           the season total separately as the number to negotiate against. */
+        const lvl   = (levelAtShort===null) ? minLevel : levelAtShort;
+        const cover = wrate*ORDER_COVER_WEEKS;
+        let want = Math.max(cover, (wFloor+cover)-lvl);
+        const pack = Number(packByPart[r.id])||0;
+        if(pack>1) want = Math.ceil(want/pack)*pack;
+        out.items.push({type:'order', id:'worder:'+r.id, pid:r.id, name:nm,
+          partNo:r.partNo||'', category:r.category||'—',
+          neededDate:wks[shortWi].monday,
+          qty:Math.max(1,Math.ceil(want)),
+          raw:Math.ceil(Math.max(0, wFloor-lvl)), cover:Math.ceil(cover), pack,
+          low:Math.round(minLevel), lowDate:wks[minWi]?wks[minWi].monday:null,
+          outDate: outWi>=0 && wks[outWi] ? wks[outWi].monday : null,
+          outLevel: outWi>=0 ? Math.round(outLevel) : null,
+          floor:Math.round(wFloor),
+          planTotal:Math.ceil(cons.reduce((a,b)=>a+b,0)),
+          safetyWeeks:ORDER_SAFETY_WEEKS, coverWeeks:ORDER_COVER_WEEKS,
+          tier:'MTB', rate:Math.round(wrate*100)/100});
+      }
       for(const mv of moves) out.items.push({type:'move', id:'wmove:'+r.id+':'+wks[mv.wi].monday, pid:r.id, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[mv.wi].monday, qty:mv.qty, tier:'MTB', moveTo:'MTB'});
     }
     await kvSetStore('wheel_deadlines', out);
@@ -1550,7 +1582,7 @@ async function loadData(){
        line; its scheduled date is what the warehouse actually expects, and it is the date the
        supply team moves when a supplier calls. Read it where it exists. If this lookup fails
        for any reason the app simply falls back to the PO line date — degraded, never broken. */
-    const rcptDate={}, rcptRef={}, rcptPool={};
+    const rcptDate={}, rcptRef={}, rcptPool={}, rcptPoolDate={};
     /* Location ids were resolved above by name, so this needs no second query. */
     const mtbSet=new Set(mtbLocIds), vvSet=new Set(vvLocIds);
     const poolOf=(locId)=> !locId ? 'and' : (mtbSet.has(locId) ? 'mtb' : (vvSet.has(locId) ? 'vv' : 'and'));
@@ -1579,8 +1611,18 @@ async function loadData(){
       for(const pl in pickOfPol){
         for(const pk of pickOfPol[pl]){
           const inf=pickInfo[pk]; if(!inf||!inf.date) continue;
-          if(!rcptDate[pl] || inf.date<rcptDate[pl]){
-            rcptDate[pl]=inf.date; rcptRef[pl]=inf.name||''; rcptPool[pl]=poolOf(inf.dest);
+          if(!rcptDate[pl] || inf.date<rcptDate[pl]){ rcptDate[pl]=inf.date; rcptRef[pl]=inf.name||''; }
+          /* WHERE it lands is decided separately from WHEN, and only a leg that
+             actually ends somewhere we know may decide it. A dropship to a
+             subcontractor writes TWO legs against the same purchase line, on the
+             same date: one into MTB, one into Partner Locations/Vendors. Taking
+             simply the earliest would let the Vendors leg answer "Anderlecht"
+             about half the time — and silently undo this whole correction.
+             Only an MTB or Velovisie destination can claim a line; everything
+             else leaves it upstream, which is the safe default. */
+          const pl_pool=poolOf(inf.dest);
+          if(pl_pool!=='and' && (!rcptPoolDate[pl] || inf.date<rcptPoolDate[pl])){
+            rcptPool[pl]=pl_pool; rcptPoolDate[pl]=inf.date;
           }
         }
       }
