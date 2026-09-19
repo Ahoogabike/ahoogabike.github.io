@@ -45,6 +45,36 @@ jobs:
  
       # Only on failure, and only screenshots — no page HTML, because the
       # pages hold live Odoo data once loaded.
+      # Feeds first, then the transfers, then the email — so all three describe
+      # the same state. A draft raised from this morning's plan, and an email
+      # that talks about it, beats an email describing moves nobody booked.
+      #
+      # Only drafts are created; nothing is confirmed or reserved. Documents
+      # carry a deterministic origin (pw:<route>:<week>) so running daily keeps
+      # one list per route rather than accumulating duplicates, and a draft a
+      # person has confirmed or edited is never touched again.
+      - name: Raise the internal transfers
+        env:
+          ADMIN_KEY: ${{ secrets.PARTS_WATCH_ADMIN_KEY }}
+        run: |
+          set -o pipefail
+          echo "Raising internal transfers …"
+          code=$(curl -sS -o /tmp/tr.json -w '%{http_code}' \
+            "https://parts-watch.ahoogahouse-1050-be.workers.dev/transfers?key=$ADMIN_KEY")
+          echo "HTTP $code"
+          if [ "$code" != "200" ]; then cat /tmp/tr.json; echo; echo "parts-watch refused."; exit 1; fi
+          node -e '
+            const d = require("/tmp/tr.json");
+            console.log(`created ${d.created}  updated ${d.updated}  left alone ${d.locked}  deferred ${d.deferred}`);
+            for (const g of d.groups || [])
+              console.log(`  ${g.action.padEnd(8)} ${(g.picking||"").padEnd(16)} ${g.route} · ${g.week} · ${g.lines.length} line(s) · move by ${g.scheduled}`);
+            if ((d.notInStock || []).length) {
+              console.log(`\n  ${d.notInStock.length} part(s) the plan wants moved are on neither shelf:`);
+              for (const s of d.notInStock.slice(0, 10))
+                console.log(`    ${(s.partNo||"").padEnd(12)} short ${String(s.missing).padStart(6)}  needed ${s.neededDate}`);
+            }
+          '
+ 
       # The feeds are fresh and verified at this point, so this is the right moment
       # to send — and it can only happen if the refresh above actually succeeded.
       # That is the staleness guard for free: no fresh data, no email.
