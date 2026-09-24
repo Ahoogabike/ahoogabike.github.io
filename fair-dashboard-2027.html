@@ -180,6 +180,28 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
 .prevbox{font-size:11px;color:var(--dim);background:#f4f5f7;border-radius:6px;padding:3px 7px;white-space:nowrap}
 .delemp{border:none;background:#e6e8eb;border-radius:50%;width:16px;height:16px;cursor:pointer;font-size:10px;line-height:1;margin-left:4px;color:#555}
 .delemp:hover{background:var(--red);color:#fff}
+.fbprev{background:#fffbea;border:1px solid #f1d98a;border-radius:8px;padding:10px 12px;margin:0 0 12px;font-size:12.5px}
+.fbprev>div{margin-top:6px;white-space:pre-wrap}
+.fbprev>div span{display:block;font-size:11px;color:var(--dim);font-weight:700}
+.phgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.ph{margin:0;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex;flex-direction:column}
+.phimg{aspect-ratio:1/1;background:#eef0f3;cursor:zoom-in;display:flex;align-items:center;justify-content:center}
+.phimg img{width:100%;height:100%;object-fit:cover;display:block}
+.ph figcaption{padding:6px;display:flex;flex-direction:column;gap:3px}
+.phcap{border:1px solid var(--line);border-radius:5px;padding:4px 6px;font-size:12px;font-family:inherit}
+.ph small{font-size:10.5px;color:var(--dim)}
+#phDrop.drag{outline:3px dashed #be185d;outline-offset:-3px}
+.phbox{position:fixed;inset:0;background:rgba(17,24,39,.88);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px}
+.phbox-in{background:#fff;border-radius:10px;max-width:min(1200px,100%);max-height:100%;display:flex;flex-direction:column;overflow:hidden;width:100%}
+.phbox-bar{display:flex;gap:6px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.phbox-bar a.btn{text-decoration:none}
+.phbox-img{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#111827}
+.phbox-img img{max-width:100%;max-height:78vh;display:block}
+.yrchips{display:flex;gap:6px;flex-wrap:wrap}
+.yrchip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;color:var(--ink)}
+.yrchip small{color:var(--dim);font-weight:500;margin-left:4px}
+.yrchip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.yrchip.on small{color:#c9ccd1}
 </style>
 </head>
 <body>
@@ -194,6 +216,7 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
   <button data-tab="vans">🚐 Van List</button>
   <button data-tab="budget">💶 Budget</button>
   <button data-tab="results">📊 Results</button>
+  <button data-tab="fb">📝 Feedback &amp; photos</button>
   <button data-tab="pm">📌 To-Do / Project Plan</button>
   <button data-tab="plan">✅ A–Z Checklist</button>
   <button data-tab="emp">👤 Employees</button>
@@ -232,7 +255,7 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
     <button class="btn" id="expandAll">▾ Expand all</button>
     <button class="btn" id="addFairBtn">➕ Add fair</button>
     <button class="btn" id="rosterBtn">👥 Roster</button>
-    <button class="btn" id="carryBtn">⤵ Carry to next year</button>
+    <button class="btn" id="carryBtn" title="Copies EVERY fair of a season. To carry just one fair, open its record (▾) and use “Carry this fair over”.">⤵ Copy whole season…</button>
     <button class="btn" id="allOn">Tick all</button>
     <button class="btn" id="allOff">Untick all</button>
     <button class="btn" id="exportBtn">⬇ Export CSV</button>
@@ -293,6 +316,7 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
   <h2>Budget estimation</h2>
   <p class="hint">Fill the rates directly in each row. The table computes: <b>Rent = m² × €/m²</b>, <b>Build = m² × €/m²</b>, <b>Hotel = people × nights × €/night</b>, <b>Meals = people × days × €/meal</b>, <b>Transport = people × 2 × €/person</b>, plus flat <b>Electricity</b>, <b>WiFi</b> and <b>Marketing</b>, minus the <b>Dealer fee</b>, to give the <b>Total</b>. <b>People</b> come from the Staffing grid (or HR-needed) and <b>nights</b> from each fair's dates; <b>m²</b> and <b>days</b> are editable. Leave any rate blank to use the default from Assumptions. Scroll the table sideways to see every column.</p>
 
+  <div class="toolbar" style="margin-bottom:8px"><label style="font-weight:600;font-size:13px">Budget for:</label><div id="budgetYears" class="yrchips"></div></div>
   <div class="cards" id="budgetStats"></div>
 
   <details class="weights">
@@ -321,9 +345,39 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
   <div class="country-block"><div class="tbl-wrap"><table><thead id="resHead"></thead><tbody id="resBody"></tbody></table></div></div>
 </section>
 
+<!-- ============ FEEDBACK & PHOTOS ============ -->
+<section class="tab" id="fb">
+  <h2>Feedback &amp; photos — after each fair</h2>
+  <p class="hint">Once a fair is over, write down what worked and what didn't, so next year's team can plan it better — and drop the fair's photos here so they're ready for Instagram or the newsletter (no more zip files). When the same fair comes back the following year, last edition's lessons show up automatically in its record. Everything syncs to the shared Ahooga cloud.</p>
+  <div class="toolbar">
+    <label style="font-weight:600;font-size:13px">Fair:</label>
+    <select id="fbFair" style="min-width:320px"></select>
+    <label style="font-size:13px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="fbPastOnly" checked> Only fairs that have already started</label>
+  </div>
+  <div id="fbPrev"></div>
+  <div class="egroup" style="--gc:#4d7c0f;--gbg:#eef6e2"><h4>Feedback &amp; lessons for next year</h4><div id="fbForm"></div></div>
+  <div class="egroup" id="phDrop" style="--gc:#be185d;--gbg:#fce7f0"><h4>Photos <span id="phCountTxt" style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--dim)"></span></h4>
+    <div class="toolbar" style="margin-bottom:10px">
+      <label class="btn gold" style="display:inline-block">➕ Add photos<input type="file" id="phFile" accept="image/*" multiple style="display:none"></label>
+      <select id="phBy" title="Who took / uploaded these photos"></select>
+      <button class="btn" id="phDlAll">⬇ Download all</button>
+      <span class="hint" style="margin:0">Or drag &amp; drop photos here. They're resized to max 2048 px (plenty for Instagram &amp; newsletters).</span>
+    </div>
+    <div id="phStatus" class="hint" style="margin:0 0 8px"></div>
+    <div id="fbPhotos" class="phgrid"></div>
+  </div>
+  <h3 style="font-size:15px;margin:22px 0 8px">All feedback at a glance</h3>
+  <div class="toolbar"><button class="btn" id="fbExport">⬇ Export feedback CSV</button></div>
+  <div class="country-block"><div class="tbl-wrap"><table><thead><tr><th>Fair</th><th>Yr</th><th>Ctry</th><th>Dates</th><th>Rating</th><th>Repeat?</th><th>Photos</th><th>Advice for next year / to improve</th><th></th></tr></thead><tbody id="fbOverview"></tbody></table></div></div>
+</section>
+<div id="phBox" class="phbox" style="display:none"><div class="phbox-in">
+  <div class="phbox-bar"><b id="phBoxTitle"></b><span style="flex:1"></span><button class="btn" id="phPrev">‹</button><button class="btn" id="phNext">›</button><a class="btn gold" id="phDl" download>⬇ Download</a><button class="btn" id="phDel" style="color:var(--red);border-color:var(--red)">🗑 Delete</button><button class="btn" id="phClose">✕</button></div>
+  <div class="phbox-img"><img id="phBoxImg" alt=""></div>
+</div></div>
+
 <section class="tab" id="pm">
   <h2>To-do / project plan</h2>
-  <p class="hint">Assign every task to a person, set a deadline, track status. Overdue open tasks turn red. Use “Seed A–Z tasks” to auto-create the full checklist for a specific fair.</p>
+  <p class="hint">Assign every task to a person, set a deadline, track status. Overdue open tasks turn red. When you assign a task, the person gets an email through Odoo (untick the box below to skip it; ✉ next to a name re-sends it). Use “Seed A–Z tasks” to auto-create the full checklist for a specific fair.</p>
 
   <div class="cards" id="pmStats"></div>
 
@@ -336,6 +390,11 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
       <option value="notstarted">Not started</option><option value="inprogress">In progress</option>
       <option value="done">Done</option><option value="blocked">Blocked</option></select></div>
     <button class="btn gold" id="addTask">+ Add task</button>
+  </div>
+  <div class="toolbar" style="margin:-4px 0 12px">
+    <label style="font-size:13px;display:flex;align-items:center;gap:6px"><input type="checkbox" id="tNotify"> 📧 Email the person when a task is assigned to them (via Odoo)</label>
+    <label style="font-size:13px">Assigned by:</label><select id="tBy" style="min-width:140px"></select>
+    <span id="pmNote" class="hint" style="margin:0"></span>
   </div>
 
   <div class="toolbar">
@@ -397,6 +456,10 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
     <input id="staffNewEmp" placeholder="Add employee name" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px">
     <button class="btn gold" id="staffAddEmp">➕ Add employee</button>
     <span class="hint" style="margin:0">Click ✕ on a person's column header to remove them.</span>
+    <span style="flex:1"></span>
+    <label style="font-weight:600;font-size:13px">Country:</label>
+    <select id="staffCo" style="min-width:190px"></select>
+    <label style="font-size:13px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="staffOnlyUsed"> Only people assigned in this country</label>
   </div>
   <div class="cards" id="staffStats"></div>
   <div id="staffGrid"></div>
@@ -507,7 +570,7 @@ FAIRS.forEach((f,i)=>f.id='f'+i);
 
 // status fields shown as clickable chips/dots
 const STATUS_FIELDS=[
- ['registered','Registered'],['spaceBooked','Space booked'],['standSketch','Stand sketch'],
+ ['orgContacted','Event organisation contacted'],['registered','Registered'],['spaceBooked','Space booked'],['standSketch','Stand sketch'],
  ['electricity','Electricity'],['waste','Waste mgmt'],['parking','Parking'],['lighting','Lighting'],
  ['transport','Transport'],['accommodation','Accommodation'],['staff','Staff scheduled'],
  ['freeEntr','Free entrances'],['vanReady','Van list'],['marketing','Marketing done'],['paid','Paid']
@@ -539,9 +602,15 @@ const TEXT_GROUPS=[
    ['password','Password on fair account','text'],['strussPassword','Password for struss booking','text'],
    ['mounting','Mounting time','text'],['dismantling','Dismantling time','text'],
    ['howToGet','How to get there','textarea'],['shipment','Shipment address','textarea']]],
- ['Results after the fair',[
+ ['Results & feedback after the fair',[
    ['b2rLeads','B2R leads collected','number'],['b2cLeads','B2C leads collected','number'],
-   ['feedback','Feedback from the fair','textarea']]]
+   ['fbBy','Feedback written by','text'],
+   ['fbWell','👍 What worked well','textarea'],
+   ['fbImprove','👎 What did not work / to improve','textarea'],
+   ['fbStand','📍 Stand position & visitor traffic','textarea'],
+   ['fbLeadsHow','📋 Lead collection (QR code, forms, tablet…)','textarea'],
+   ['fbNextYear','🔁 Advice for next year’s edition','textarea'],
+   ['feedback','Other feedback / notes','textarea']]]
 ];
 
 // ---- Budget model ----
@@ -789,7 +858,9 @@ function editorHTML(f){
     h+=`<div class="sf"><label>${l}</label><button class="statuschip st-${v}" data-sf="${f.id}|${k}">${STATUS_LABEL[v]}</button></div>`;});
   h+='</div></div>';
   TEXT_GROUPS.forEach(([g,fields],gi)=>{
-    h+=`<div class="egroup" style="${secStyle(gi+1)}"><h4>${g}</h4><div class="efields">`;
+    h+=`<div class="egroup" style="${secStyle(gi+1)}"><h4>${g}</h4>`;
+    if(gi===TEXT_GROUPS.length-1){h+=prevFeedbackHTML(f)+`<div style="margin:0 0 10px"><button class="btn" data-gofb="${f.id}">📸 Photos &amp; feedback page for this fair${photoCount(f.id)?' ('+photoCount(f.id)+' photos)':''}</button></div>`;}
+    h+=`<div class="efields">`;
     fields.forEach(([k,l,t])=>{
       let val=r[k]!=null?r[k]:'';
       if(k==='country'&&val==='') val=CO_NAME[f.ct].replace(/^[^ ]+ /,'');
@@ -816,7 +887,10 @@ function editorHTML(f){
   EMP_PRESENCE.forEach(p=>{const v=(r.presence&&r.presence[p])||'';
     h+=`<div class="sf"><label>${p}</label><select class="task-status" data-pres="${f.id}|${p}"><option value="" ${v===''?'selected':''}>—</option><option ${v==='Yes'?'selected':''}>Yes</option><option ${v==='No'?'selected':''}>No</option></select></div>`;});
   h+='</div></div>';
-  if(String(f.id).startsWith('c')||String(f.id).includes('_y')) h+=`<div style="padding:6px 2px"><button class="btn" style="border-color:var(--red);color:var(--red)" data-delfair="${f.id}">🗑 Delete this fair (added manually)</button></div>`;
+  {const ny=(f.year||2027)+1;const nx=FAIRS.find(x=>x.name===f.name&&(x.year||2027)===ny);
+   h+=`<div style="padding:6px 2px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">`+(nx?`<span class="hint" style="margin:0">✓ Already carried over to ${ny}</span>`:`<button class="btn gold" data-carry="${f.id}">⤵ Carry this fair over to ${ny}</button><span class="hint" style="margin:0">Copies contacts, booth, logistics, rates &amp; PDFs; dates +1 year. Status, staffing &amp; results start fresh.</span>`);
+   if(String(f.id).startsWith('c')||String(f.id).includes('_y')) h+=`<span style="flex:1"></span><button class="btn" style="border-color:var(--red);color:var(--red)" data-delfair="${f.id}">🗑 Delete this fair (added manually)</button>`;
+   h+='</div>';}
   h+='</div>';return h;
 }
 
@@ -838,6 +912,8 @@ function wireFairRows(){
     const lblEl=document.querySelector('[data-doclabel="'+id+'"]');const label=(lblEl&&lblEl.value.trim())||file.name.replace(/\.pdf$/i,'');
     const rd=new FileReader();rd.onload=()=>{const r=rec2(id);if(!r.docs){r.docs=r.floorPlan?[{label:'Floor plan',name:r.floorPlan.name,data:r.floorPlan.data}]:[];}r.docs.push({label,name:file.name,data:rd.result});delete r.floorPlan;if(!saveRecs()){r.docs.pop();alert('Storage full — could not save this PDF.');}renderFairs();};rd.readAsDataURL(file);});
   $$('[data-docrm]').forEach(b=>b.onclick=e=>{const[id,di]=e.target.dataset.docrm.split('|');const r=rec2(id);if(!r.docs&&r.floorPlan)r.docs=[{label:'Floor plan',name:r.floorPlan.name,data:r.floorPlan.data}];delete r.floorPlan;if(r.docs){r.docs.splice(+di,1);saveRecs();renderFairs();}});
+  $$('[data-carry]').forEach(b=>b.onclick=e=>carryOneFair(e.currentTarget.dataset.carry));
+  $$('[data-gofb]').forEach(b=>b.onclick=e=>openFeedbackTab(e.currentTarget.dataset.gofb));
   $$('[data-exp]').forEach(b=>b.onclick=e=>{const id=e.target.dataset.exp;expanded[id]=!expanded[id];renderFairs();});
   $$('[data-co]').forEach(h=>h.onclick=e=>{const ct=e.currentTarget.dataset.co;collapsedCo[ct]=!collapsedCo[ct];store.set('collapsedCo',collapsedCo);renderFairs();});
   $$('[data-delfair]').forEach(b=>b.onclick=e=>{const id=e.target.dataset.delfair;if(!confirm('Delete this manually-added fair?'))return;const i=FAIRS.findIndex(f=>f.id===id);if(i>=0)FAIRS.splice(i,1);customFairs=customFairs.filter(f=>f.id!==id);store.set('customFairs',customFairs);delete ticked[id];delete recs[id];saveTicked();saveRecs();rebuildYearOptions();populateCityFilter();renderFairs();refreshFairSelects();});
@@ -919,7 +995,7 @@ function renderTasks(){
     tr.innerHTML=`<td><input type="checkbox" class="chk" ${t.status==='done'?'checked':''} data-done="${i}"></td>
       <td class="name" style="${t.status==='done'?'text-decoration:line-through;color:var(--dim)':''}">${esc(t.task)}</td>
       <td>${t.fair?'<span class="pill" style="background:#374151">'+esc(fairName(t.fair))+'</span>':'<span style="color:var(--dim)">General</span>'}</td>
-      <td><select class="task-status" data-who="${i}">${PEOPLE.map(p=>`<option ${t.who===p?'selected':''}>${p}</option>`).join('')}<option value="" ${!t.who?'selected':''}>—</option></select></td>
+      <td><div style="display:flex;gap:4px;align-items:center"><select class="task-status" data-who="${i}">${PEOPLE.map(p=>`<option ${t.who===p?'selected':''}>${p}</option>`).join('')}<option value="" ${!t.who?'selected':''}>—</option></select>${t.who?`<button class="del" data-ntf="${i}" title="${t.notified&&t.notified.who===t.who?'Emailed '+esc(t.notified.at.slice(0,10))+' — click to send again':'Send the assignment email now'}" style="color:${t.notified&&t.notified.who===t.who?'var(--green)':'var(--dim)'}">✉</button>`:''}</div>${t.notified&&t.notified.who===t.who?`<div style="font-size:10.5px;color:var(--green)">✓ emailed ${esc(shortD(t.notified.at.slice(0,10)))}</div>`:''}</td>
       <td><input type="date" class="inp" data-date="${i}" value="${t.date||''}"><div class="${overdue?'overdue':''}" style="font-size:10.5px">${overdue?'⚠ overdue':''}</div></td>
       <td><select class="task-status ts-${t.status}" data-status="${i}">
         <option value="notstarted" ${t.status==='notstarted'?'selected':''}>Not started</option>
@@ -930,7 +1006,8 @@ function renderTasks(){
     body.appendChild(tr);
   });
   $$('[data-done]').forEach(c=>c.onchange=e=>{const t=tasks[+e.target.dataset.done];t.status=e.target.checked?'done':'notstarted';saveTasks();});
-  $$('[data-who]').forEach(s=>s.onchange=e=>{tasks[+e.target.dataset.who].who=e.target.value;saveTasks();});
+  $$('[data-who]').forEach(s=>s.onchange=e=>{const t=tasks[+e.target.dataset.who];t.who=e.target.value;saveTasks();if(t.who&&notifyOn())notifyTask(t);});
+  $$('[data-ntf]').forEach(b=>b.onclick=e=>notifyTask(tasks[+e.currentTarget.dataset.ntf],true));
   $$('[data-date]').forEach(s=>s.onchange=e=>{tasks[+e.target.dataset.date].date=e.target.value;saveTasks();});
   $$('[data-status]').forEach(s=>s.onchange=e=>{tasks[+e.target.dataset.status].status=e.target.value;saveTasks();});
   $$('[data-del]').forEach(b=>b.onclick=e=>{tasks.splice(+e.target.dataset.del,1);saveTasks();});
@@ -948,9 +1025,30 @@ function renderPmStats(){
 function saveTasks(){store.set('tasks',tasks);renderTasks();}
 function addTask(){
   const task=$('#tTask').value.trim(); if(!task)return;
-  tasks.push({task,fair:$('#tFair').value||'',who:$('#tWho').value||'',date:$('#tDate').value||'',status:$('#tStatus').value});
+  const t={task,fair:$('#tFair').value||'',who:$('#tWho').value||'',date:$('#tDate').value||'',status:$('#tStatus').value};
+  tasks.push(t);
   $('#tTask').value='';$('#tDate').value='';
   saveTasks();
+  if(t.who&&notifyOn())notifyTask(t);
+}
+// ---- assignment emails (via the ahooga-fair-notify worker → Odoo) ----
+const NOTIFY_URL='https://ahooga-fair-notify.ahoogahouse-1050-be.workers.dev';
+const TASK_STATUS_LBL={notstarted:'Not started',inprogress:'In progress',done:'Done',blocked:'Blocked'};
+function notifyOn(){const c=$('#tNotify');return !!(c&&c.checked);}
+function pmNote(msg,ok){const n=$('#pmNote');if(!n)return;n.textContent=msg;n.style.color=ok===true?'var(--green)':ok===false?'var(--red)':'';clearTimeout(pmNote._t);pmNote._t=setTimeout(()=>{n.textContent='';},9000);}
+async function notifyTask(t,manual){
+  if(!t||!t.who)return;
+  if(!CLOUD_ON){pmNote('Emails are only sent from the online dashboard.',false);return;}
+  const f=t.fair?byId(t.fair):null;const who=t.who;
+  pmNote('📧 Emailing '+who+'…');
+  try{
+    const r=await fetch(NOTIFY_URL+'/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      to:who,task:t.task,fair:f?f.name+(f.year&&f.year!==2027?' ('+f.year+')':''):'',dates:f?getDays(f):'',
+      deadline:t.date||'',status:TASK_STATUS_LBL[t.status]||'',by:($('#tBy')&&$('#tBy').value)||'',url:location.href.split('#')[0]})});
+    const j=await r.json().catch(()=>({}));
+    if(r.ok&&j.ok){t.notified={who,at:new Date().toISOString()};store.set('tasks',tasks);renderTasks();pmNote('✓ Email sent to '+(j.sentTo||who),true);}
+    else pmNote('⚠ Email not sent to '+who+': '+(j.error||('HTTP '+r.status)),false);
+  }catch(e){pmNote('⚠ Email not sent — the notification service is not reachable (is it deployed?)',false);}
 }
 function seedTasks(){
   const id=$('#seedFair').value; if(!id)return; const nm=fairName(id);
@@ -1029,17 +1127,27 @@ function fairCost(f){ return BUDGET_CATS.reduce((a,c)=>a+catValue(f,c.k),0); }
 function fairIncome(f){ const r=rec(f); return r.dealerFee?(+r.dealerFee||0):0; }
 function eur(n){ return '€'+Math.round(n).toLocaleString('en-US'); }
 
+function fairYear(f){return f.year||2027;}
+function budgetYearSel(all){let y=store.get('budgetYear',null);const ys=[...new Set(all.map(fairYear))];
+  if(y===null){const now=new Date().getFullYear();y=ys.includes(now)?String(now):(ys.length?String(Math.min(...ys)):'');}
+  if(y&&!ys.includes(+y))y='';return y;}
 function renderBudget(){
-  const active=FAIRS.filter(f=>ticked[f.id]);
+  const allTicked=FAIRS.filter(f=>ticked[f.id]);
+  const by=budgetYearSel(allTicked);
+  const active=by?allTicked.filter(f=>String(fairYear(f))===by):allTicked;
+  {const ys=[...new Set(allTicked.map(fairYear))].sort((a,b)=>a-b);
+   const net=l=>l.reduce((t,f)=>t+fairCost(f)-fairIncome(f),0);
+   $('#budgetYears').innerHTML=ys.map(y=>{const l=allTicked.filter(f=>fairYear(f)===y);return `<button class="yrchip ${String(y)===by?'on':''}" data-byear="${y}">${y}<small>${l.length} fairs · ${eur(net(l))}</small></button>`;}).join('')+`<button class="yrchip ${by===''?'on':''}" data-byear="">All years<small>${allTicked.length} fairs · ${eur(net(allTicked))}</small></button>`;
+   $$('[data-byear]').forEach(b=>b.onclick=e=>{store.set('budgetYear',e.currentTarget.dataset.byear);renderBudget();});}
   const catTot={}; BUDGET_CATS.forEach(c=>catTot[c.k]=0);
   const coTot={}; let gross=0,income=0;
   active.forEach(f=>{BUDGET_CATS.forEach(c=>catTot[c.k]+=catValue(f,c.k));const fc=fairCost(f);gross+=fc;income+=fairIncome(f);coTot[f.ct]=(coTot[f.ct]||0)+fc;});
   const net=gross-income;
   // stat cards
   $('#budgetStats').innerHTML=`
-    <div class="card"><div class="n">${eur(gross)}</div><div class="l">Gross budget (${active.length} fairs)</div></div>
+    <div class="card"><div class="n">${eur(gross)}</div><div class="l">Gross budget${by?' '+by:' · all years'} (${active.length} fairs)</div></div>
     <div class="card"><div class="n" style="color:var(--amber)">−${eur(income)}</div><div class="l">Dealer fees (income)</div></div>
-    <div class="card"><div class="n" style="color:var(--green)">${eur(net)}</div><div class="l">Net budget required</div></div>
+    <div class="card"><div class="n" style="color:var(--green)">${eur(net)}</div><div class="l">Net budget required${by?' in '+by:''}</div></div>
     <div class="card"><div class="n">${eur(active.length?gross/active.length:0)}</div><div class="l">Avg per fair</div></div>`;
   // category bars
   const maxC=Math.max(1,...Object.values(catTot));
@@ -1054,13 +1162,13 @@ function renderBudget(){
   $('#assumBody').innerHTML=MODEL_ROWS.map(([k,l,u])=>`<tr><td>${l} <span style="color:var(--dim)">(${u})</span></td><td><input type="number" data-model="${k}" value="${budgetModel[k]}" style="width:120px"></td></tr>`).join('');
   $$('[data-model]').forEach(i=>i.onchange=e=>{budgetModel[e.target.dataset.model]=+e.target.value||0;store.set('budgetModel',budgetModel);renderBudget();});
   // per-fair table
-  $('#budgetHead').innerHTML=`<tr><th>Fair</th><th>Country</th><th>m²</th><th>€/m² rent</th><th>Rent €</th><th>€/m² build</th><th>Build €</th><th>People</th><th>Nights</th><th>€/night</th><th>Hotel €</th><th>Days</th><th>€/meal</th><th>Meals €</th><th>€/pers ×2</th><th>Transport €</th><th>Elec €</th><th>WiFi €</th><th>Mktg €</th><th>−Dealer €</th><th>Total €</th></tr>`;
+  $('#budgetHead').innerHTML=`<tr><th>Fair</th>${by?'':'<th>Year</th>'}<th>Country</th><th>m²</th><th>€/m² rent</th><th>Rent €</th><th>€/m² build</th><th>Build €</th><th>People</th><th>Nights</th><th>€/night</th><th>Hotel €</th><th>Days</th><th>€/meal</th><th>Meals €</th><th>€/pers ×2</th><th>Transport €</th><th>Elec €</th><th>WiFi €</th><th>Mktg €</th><th>−Dealer €</th><th>Total €</th></tr>`;
   const body=$('#budgetBody');
   const sy=window.scrollY;
   body.innerHTML=active.slice().sort((a,b)=>getStart(a).localeCompare(getStart(b))).map(f=>{const r=rec(f);
     const nl=nightsOf(f)!=null?(''+nightsEst(f)):(nightsEst(f)+'*');
     const inp=(k,ph,w)=>`<input type="number" data-rate="${f.id}|${k}" value="${r[k]!=null&&r[k]!==''?r[k]:''}" placeholder="${ph}" style="width:${w}px">`;
-    return `<tr><td class="name">${esc(f.name)}</td><td>${CO_NAME[f.ct]}</td>
+    return `<tr><td class="name">${esc(f.name)}<small style="display:block;color:var(--dim);font-weight:400">${esc(getDays(f))}</small></td>${by?'':`<td>${fairYear(f)}</td>`}<td>${CO_NAME[f.ct]}</td>
       <td>${inp('standSize',standM2(f),48)}</td><td>${inp('rateM2',(+budgetModel.pricePerM2||0),52)}</td><td class="rowtot">${eur(catValue(f,'space'))}</td>
       <td>${inp('rateBuild',(+budgetModel.buildPerM2||0),52)}</td><td class="rowtot">${eur(catValue(f,'build'))}</td>
       <td>${peopleOf(f)}</td><td>${nl}</td><td>${inp('rateNight',(+budgetModel.hotelPerNight||0),52)}</td><td class="rowtot">${eur(catValue(f,'accom'))}</td>
@@ -1068,15 +1176,16 @@ function renderBudget(){
       <td>${inp('rateTrans',(+budgetModel.transportPerPerson||100),52)}</td><td class="rowtot">${eur(catValue(f,'transport'))}</td>
       <td>${inp('elec',(+budgetModel.elec||0),52)}</td><td>${inp('wifi',(+budgetModel.wifi||0),52)}</td><td>${inp('other',otherOf(f),52)}</td>
       <td>${inp('dealerFee',0,52)}</td><td class="rowtot"><b>${eur(fairCost(f)-fairIncome(f))}</b></td></tr>`;}).join('')
-    ||`<tr><td colspan="21" style="color:var(--dim);padding:18px">No fairs ticked — select fairs on the tracker to build a budget.</td></tr>`;
+    ||`<tr><td colspan="22" style="color:var(--dim);padding:18px">No fairs ticked${by?' for '+by:''} — select fairs on the tracker to build a budget.</td></tr>`;
   $$('[data-rate]').forEach(i=>i.onchange=e=>{const[id,k]=e.target.dataset.rate.split('|');rec2(id)[k]=e.target.value;saveRecs();renderBudget();window.scrollTo(0,sy);});
 }
 function exportBudget(){
-  const active=FAIRS.filter(f=>ticked[f.id]);
-  let out=[['Fair','Country','m2','EUR/m2rent','Rent','EUR/m2build','Build','People','Nights','EUR/night','Hotel','Days','EUR/meal','Meals','EURpers','Transport','Elec','WiFi','Mktg','DealerFee','Total'].join(',')];
-  active.forEach(f=>{let row=[f.name,f.ct,standM2(f),rateM2(f),catValue(f,'space'),rateBuild(f),catValue(f,'build'),peopleOf(f),nightsEst(f),rateNight(f),catValue(f,'accom'),daysOf(f),rateMeal(f),catValue(f,'meals'),rateTrans(f),catValue(f,'transport'),elecOf(f),wifiOf(f),otherOf(f),fairIncome(f),fairCost(f)-fairIncome(f)];
+  const allTicked=FAIRS.filter(f=>ticked[f.id]);const by=budgetYearSel(allTicked);
+  const active=(by?allTicked.filter(f=>String(fairYear(f))===by):allTicked).slice().sort((a,b)=>getStart(a).localeCompare(getStart(b)));
+  let out=[['Fair','Year','Country','m2','EUR/m2rent','Rent','EUR/m2build','Build','People','Nights','EUR/night','Hotel','Days','EUR/meal','Meals','EURpers','Transport','Elec','WiFi','Mktg','DealerFee','Total'].join(',')];
+  active.forEach(f=>{let row=[f.name,fairYear(f),f.ct,standM2(f),rateM2(f),catValue(f,'space'),rateBuild(f),catValue(f,'build'),peopleOf(f),nightsEst(f),rateNight(f),catValue(f,'accom'),daysOf(f),rateMeal(f),catValue(f,'meals'),rateTrans(f),catValue(f,'transport'),elecOf(f),wifiOf(f),otherOf(f),fairIncome(f),fairCost(f)-fairIncome(f)];
     out.push(row.map(x=>`"${(''+x).replace(/"/g,'""')}"`).join(','));});
-  dl(out.join('\n'),'ahooga_budget_2027.csv');
+  dl(out.join('\n'),'ahooga_budget_'+(by||'all-years')+'.csv');
 }
 
 // ---------- A-Z CHECKLIST ----------
@@ -1140,32 +1249,43 @@ function renderVanMap(){
   stc.innerHTML=VANS.map((v,ix)=>`<div class="card"><div class="n" style="color:${v.color}">${routes[ix].km.toLocaleString('en-US')}<span style="font-size:13px"> km</span></div><div class="l">${esc(v.name.split('·').slice(1).join('·').trim()||v.name)}</div></div>`).join('')+`<div class="card"><div class="n">${total.toLocaleString('en-US')}<span style="font-size:13px"> km</span></div><div class="l">All 3 vans · total</div></div>`;
 }
 function renderStaff(){
-  const emps=EMP_PRESENCE.filter(p=>p!=='Dealer');
-  const fairs=FAIRS.filter(f=>ticked[f.id]).sort((a,b)=>getStart(a).localeCompare(getStart(b)));
+  const allEmps=EMP_PRESENCE.filter(p=>p!=='Dealer');
+  const allFairs=FAIRS.filter(f=>ticked[f.id]).sort((a,b)=>getStart(a).localeCompare(getStart(b)));
   const grid=$('#staffGrid'),warn=$('#staffWarn'),st=$('#staffStats');
+  // country filter (per-viewer preference, not shared)
+  const coSel=$('#staffCo');let co=store.get('staffCo','');
+  if(co&&!allFairs.some(f=>f.ct===co))co='';
+  if(coSel){coSel.innerHTML=`<option value="">🌍 All countries (${allFairs.length})</option>`+CO_ORDER.concat([...new Set(allFairs.map(f=>f.ct))].filter(c=>!CO_ORDER.includes(c))).map(c=>{const n=allFairs.filter(f=>f.ct===c).length;return n?`<option value="${c}" ${c===co?'selected':''}>${CO_NAME[c]||c} (${n})</option>`:'';}).join('');coSel.value=co;}
+  const onlyUsed=!!store.get('staffOnlyUsed',false);if($('#staffOnlyUsed'))$('#staffOnlyUsed').checked=onlyUsed;
+  const fairs=co?allFairs.filter(f=>f.ct===co):allFairs;
   if(!fairs.length){grid.innerHTML='<p class="hint">No fairs selected yet — tick fairs on the Fair Tracker and they will appear here.</p>';warn.innerHTML='';if(st)st.innerHTML='';return;}
   const isYes=(f,p)=>rec(f).presence&&rec(f).presence[p]==='Yes';
   const dayNum=f=>Math.round(new Date(getStart(f)).getTime()/86400000);
-  const empFairs={};emps.forEach(p=>empFairs[p]=fairs.filter(f=>isYes(f,p)).sort((a,b)=>dayNum(a)-dayNum(b)));
+  // clashes are always computed across ALL countries — a person in Germany and the UK the same week is still a clash
+  const empAll={};allEmps.forEach(p=>empAll[p]=allFairs.filter(f=>isYes(f,p)).sort((a,b)=>dayNum(a)-dayNum(b)));
   const tight={};
-  emps.forEach(p=>{const list=empFairs[p];for(let i=0;i<list.length;i++){let best=Infinity;for(let j=0;j<list.length;j++){if(i!==j)best=Math.min(best,Math.abs(dayNum(list[i])-dayNum(list[j])));}if(best<=7)tight[list[i].id+'|'+p]='red';else if(best<=14)tight[list[i].id+'|'+p]='amber';}});
-  const head='<tr><th class="sticky-l">Dates</th><th class="sticky-l2">Fair</th>'+emps.map(p=>`<th class="empcol">${esc(p)} <button class="delemp" data-delemp="${esc(p)}" title="Remove ${esc(p)} from roster">✕</button><small>${empFairs[p].length}</small></th>`).join('')+'</tr>';
+  allEmps.forEach(p=>{const list=empAll[p];for(let i=0;i<list.length;i++){let best=Infinity;for(let j=0;j<list.length;j++){if(i!==j)best=Math.min(best,Math.abs(dayNum(list[i])-dayNum(list[j])));}if(best<=7)tight[list[i].id+'|'+p]='red';else if(best<=14)tight[list[i].id+'|'+p]='amber';}});
+  const shown=new Set(fairs.map(f=>f.id));
+  const empFairs={};allEmps.forEach(p=>empFairs[p]=empAll[p].filter(f=>shown.has(f.id)));
+  const emps=onlyUsed&&co?allEmps.filter(p=>empFairs[p].length):allEmps;
+  const head='<tr><th class="sticky-l">Dates</th><th class="sticky-l2">Fair</th>'+emps.map(p=>`<th class="empcol">${esc(p)} <button class="delemp" data-delemp="${esc(p)}" title="Remove ${esc(p)} from roster">✕</button><small title="${empAll[p].length} fair(s) in total">${empFairs[p].length}${co&&empAll[p].length!==empFairs[p].length?' <span style="font-weight:400">/ '+empAll[p].length+'</span>':''}</small></th>`).join('')+'</tr>';
   const rows=fairs.map(f=>{
     const cells=emps.map(p=>{const on=isYes(f,p);const t=tight[f.id+'|'+p]||'';
       return `<td class="cell ${on?'on':''} ${on?t:''}" data-cell="${f.id}|${p}" title="${esc(p)} — ${esc(f.name)}${on&&t==='red'?' ⚠ within a week of another fair':on&&t==='amber'?' · within 2 weeks of another fair':''}">${on?(t==='red'?'⚠':'●'):''}</td>`;}).join('');
-    const cnt=emps.filter(p=>isYes(f,p)).length;
-    return `<tr><td class="sticky-l dt">${esc(getDays(f))}</td><td class="sticky-l2 name">${esc(f.name)}${f.year!==2027?` <span class="yrtag">${f.year}</span>`:''}<small>${esc(fairCity(f))} · ${cnt} assigned</small></td>${cells}</tr>`;
+    const cnt=allEmps.filter(p=>isYes(f,p)).length;
+    return `<tr><td class="sticky-l dt">${esc(getDays(f))}</td><td class="sticky-l2 name">${co?'':`<span class="flag" style="background:var(--${f.ct});display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px"></span>`}${esc(f.name)}${f.year!==2027?` <span class="yrtag">${f.year}</span>`:''}<small>${esc(fairCity(f))} · ${cnt} assigned</small></td>${cells}</tr>`;
   }).join('');
   grid.innerHTML=`<div class="staff-scroll"><table class="staff"><thead>${head}</thead><tbody>${rows}</tbody></table></div>`;
   grid.querySelectorAll('[data-cell]').forEach(td=>td.onclick=()=>{const sc=document.querySelector('.staff-scroll');const sx=sc?sc.scrollLeft:0,sy=sc?sc.scrollTop:0;const wy=window.scrollY;const[id,p]=td.dataset.cell.split('|');const r=rec2(id);r.presence=r.presence||{};r.presence[p]=r.presence[p]==='Yes'?'No':'Yes';saveRecs();renderStaff();const s2=document.querySelector('.staff-scroll');if(s2){s2.scrollLeft=sx;s2.scrollTop=sy;}window.scrollTo(0,wy);});
   grid.querySelectorAll('[data-delemp]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();const name=b.dataset.delemp;if(!confirm('Remove '+name+' from the roster? Existing assignments stay in the data; the column is just hidden.'))return;const i=EMP_PRESENCE.indexOf(name);if(i>=0)EMP_PRESENCE.splice(i,1);store.set('empRoster',EMP_PRESENCE);renderStaff();renderFairs();populateEmpPicker();if($('#rosterList'))renderRoster();});
   const pairs=[];
-  emps.forEach(p=>{const list=empFairs[p];for(let i=1;i<list.length;i++){const gap=dayNum(list[i])-dayNum(list[i-1]);if(gap<=7)pairs.push({p,a:list[i-1],b:list[i],gap});}});
-  const busiest=emps.map(p=>[p,empFairs[p].length]).sort((a,b)=>b[1]-a[1])[0];
-  if(st)st.innerHTML=`<div class="card"><div class="n">${fairs.length}</div><div class="l">Fairs to staff</div></div>
-    <div class="card"><div class="n" style="color:var(--red)">${pairs.length}</div><div class="l">Back-to-back conflicts</div></div>
-    <div class="card"><div class="n">${busiest&&busiest[1]?esc(busiest[0]):'—'}</div><div class="l">Busiest person${busiest&&busiest[1]?' ('+busiest[1]+' fairs)':''}</div></div>`;
-  warn.innerHTML=pairs.length?('<h3 style="font-size:14px;margin:14px 0 8px">⚠ Back-to-back assignments (≤ 1 week apart)</h3>'+pairs.sort((x,y)=>x.p.localeCompare(y.p)||x.gap-y.gap).map(x=>`<div class="clash-card"><b>${esc(x.p)}:</b> ${esc(x.a.name)} (${esc(getDays(x.a))}) → ${esc(x.b.name)} (${esc(getDays(x.b))}) — only <b>${x.gap} day${x.gap===1?'':'s'}</b> apart</div>`).join('')):'<div class="clash-card" style="background:#e8f6f0;border-color:#a7d8c4;color:#166;margin-top:14px">✓ No one is assigned to two fairs within a week of each other.</div>';
+  allEmps.forEach(p=>{const list=empAll[p];for(let i=1;i<list.length;i++){const gap=dayNum(list[i])-dayNum(list[i-1]);if(gap<=7&&(shown.has(list[i].id)||shown.has(list[i-1].id)))pairs.push({p,a:list[i-1],b:list[i],gap});}});
+  const busiest=allEmps.map(p=>[p,empFairs[p].length]).sort((a,b)=>b[1]-a[1])[0];
+  const coTxt=co?' in '+(CO_NAME[co]||co).replace(/^[^ ]+ /,''):'';
+  if(st)st.innerHTML=`<div class="card"><div class="n">${fairs.length}</div><div class="l">Fairs to staff${coTxt}</div></div>
+    <div class="card"><div class="n" style="color:var(--red)">${pairs.length}</div><div class="l">Back-to-back conflicts${coTxt}</div></div>
+    <div class="card"><div class="n">${busiest&&busiest[1]?esc(busiest[0]):'—'}</div><div class="l">Busiest person${coTxt}${busiest&&busiest[1]?' ('+busiest[1]+' fairs)':''}</div></div>`;
+  warn.innerHTML=pairs.length?('<h3 style="font-size:14px;margin:14px 0 8px">⚠ Back-to-back assignments (≤ 1 week apart)'+(co?' <span style="font-weight:400;color:var(--dim)">— involving a fair in this country; the other fair may be elsewhere</span>':'')+'</h3>'+pairs.sort((x,y)=>x.p.localeCompare(y.p)||x.gap-y.gap).map(x=>`<div class="clash-card"><b>${esc(x.p)}:</b> ${esc(x.a.name)} (${esc(getDays(x.a))}) → ${esc(x.b.name)} (${esc(getDays(x.b))}) — only <b>${x.gap} day${x.gap===1?'':'s'}</b> apart</div>`).join('')):'<div class="clash-card" style="background:#e8f6f0;border-color:#a7d8c4;color:#166;margin-top:14px">✓ No one is assigned to two fairs within a week of each other'+coTxt+'.</div>';
 }
 function renderEmp(){const sel=$('#empPick');if(!sel)return;if(sel.options.length<=1)populateEmpPicker();const name=sel.value;
   const fb=$('#empFairs'),tb=$('#empTasks'),st=$('#empStats');
@@ -1219,6 +1339,31 @@ function addFairFromForm(){
   $('#addFairPanel').style.display='none';
   rebuildYearOptions();populateCityFilter();renderFairs();refreshFairSelects();
 }
+// fields that describe the fair itself (not this year's progress/results) — copied when a fair is carried over
+const CARRY_FIELDS=['website','contact','email','phone','city','country','boothType','standPos','standSize','dealerPart','dealerFee','hrNeeded','potentialLeads','password','strussPassword','howToGet','shipment','freeEntrLink','mounting','dismantling','inOut','testBike','businessDays','b2cDays','rateM2','rateNight','rateMeal','rateBuild','rateTrans','elec','wifi','other','visitors'];
+function plusYear(iso){if(!iso)return'';const[y,m,d]=iso.split('-').map(Number);const dt=new Date(Date.UTC(y+1,m-1,d));return dt.toISOString().slice(0,10);}
+function carryOneFair(id){
+  const f=byId(id);if(!f)return;const ny=(f.year||2027)+1;const nid=f.id+'_y'+ny;
+  const existing=FAIRS.find(x=>x.id===nid)||FAIRS.find(x=>x.name===f.name&&(x.year||2027)===ny);
+  if(existing){alert(f.name+' already exists in '+ny+'.');return;}
+  if(!confirm('Carry “'+f.name+'” over to '+ny+'?\n\nCopied: contacts, website, passwords, booth & stand info, logistics, budget rates, PDFs, van choice — and the dates moved +1 year (please confirm them).\nStarts fresh: booking status, staffing, results & feedback. This year’s feedback will show at the top of the '+ny+' record.'))return;
+  const nf={id:nid,ct:f.ct,type:f.type,name:f.name,date:f.date,month:f.month,visitors:f.visitors,approx:f.approx,van:f.van,year:ny};
+  FAIRS.push(nf);customFairs.push(nf);
+  const sr=recs[f.id]||{};const nr=rec2(nid);
+  CARRY_FIELDS.forEach(k=>{if(sr[k]!=null&&sr[k]!=='')nr[k]=sr[k];});
+  if(sr.budget)nr.budget=JSON.parse(JSON.stringify(sr.budget));
+  const docs=sr.docs||(sr.floorPlan?[{label:'Floor plan',name:sr.floorPlan.name,data:sr.floorPlan.data}]:null);
+  if(docs&&docs.length)nr.docs=JSON.parse(JSON.stringify(docs));
+  nr.startDate=plusYear(getStart(f));if(getEnd(f))nr.endDate=plusYear(getEnd(f));
+  nr.nextSteps='Carried over from '+(f.year||2027)+' — confirm the '+ny+' dates with the organiser.';
+  if(vanOverride[f.id]){vanOverride[nid]=vanOverride[f.id];store.set('vanOverride',vanOverride);}
+  ticked[nid]=true;
+  store.set('customFairs',customFairs);saveTicked();
+  if(!saveRecs()){alert('Warning: this browser could not store everything locally (attachments too large?) — the cloud copy is still being saved.');}
+  expanded[nid]=true;rebuildYearOptions();populateCityFilter();refreshFairSelects();renderFairs();
+  const fy=$('#fYear').value;
+  alert('✓ '+f.name+' created for '+ny+'.'+(fy&&fy!==String(ny)?'\n\nThe year filter is set to '+fy+' — switch it to '+ny+' (or “all”) to see it.':''));
+}
 function carryToNextYear(){
   const yrs=[...new Set(FAIRS.map(f=>f.year||2027))].sort((a,b)=>a-b);
   const src=parseInt(prompt('Duplicate which season into the following year? Enter the SOURCE year:',Math.max.apply(null,yrs)),10);
@@ -1226,7 +1371,7 @@ function carryToNextYear(){
   const srcFairs=FAIRS.filter(f=>(f.year||2027)===src);
   if(!srcFairs.length){alert('No fairs found for '+src+'.');return;}
   if(!confirm('Create a '+ny+' copy of all '+srcFairs.length+' fairs from '+src+'? Stable info (contact, booth, budget rates, docs…) is copied; dates & results are left blank.'))return;
-  const STABLE=['website','contact','email','phone','city','country','boothType','standPos','standSize','dealerPart','dealerFee','hrNeeded','potentialLeads','password','strussPassword','howToGet','shipment','freeEntrLink','mounting','dismantling','inOut','testBike','businessDays','b2cDays','rateM2','rateNight','rateMeal','rateBuild','rateTrans','elec','wifi','other','visitors'];
+  const STABLE=CARRY_FIELDS;
   let n=0;
   srcFairs.forEach(f=>{
     const nid=f.id+'_y'+ny;
@@ -1289,6 +1434,130 @@ function exportResults(){
   dl(out.join('\n'),'ahooga_results.csv');
 }
 
+// ---------- FEEDBACK & PHOTOS (added 2026-09-24) ----------
+// Feedback text lives in each fair's record (recs[id].fb*), so it syncs like every other field.
+// Photos are too big for the shared `recs` key (1 MB cap per key), so each photo gets its OWN cloud keys:
+//   fairdash_phimg_<photoId>  full JPEG (data URL, ≤ ~700 KB)
+//   fairdash_phth_<photoId>   small thumbnail
+//   fairdash_ph_<fairId>      the list of photos for that fair
+//   fairdash_phcount          {fairId: n} — photo counts for the overview
+// None of these are in CLOUD_KEYS, so Reset / blank-guards never touch them and they don't slow boot.
+const FB_FIELDS=[['fbWell','👍 What worked well'],['fbImprove','👎 What did not work / to improve'],['fbStand','📍 Stand position & visitor traffic'],['fbLeadsHow','📋 Lead collection (QR code, forms, tablet…)'],['fbNextYear','🔁 Advice for next year’s edition'],['feedback','Other feedback / notes']];
+const FB_HINTS={fbWell:'e.g. Great stand position near the entrance — lots of traffic.',fbImprove:'e.g. The QR code for registering visitors did not work well.',fbStand:'Where was the stand? Would you ask for the same spot again?',fbLeadsHow:'How did we collect leads? What would work better?',fbNextYear:'What should the team do differently next year? Bring / book earlier / skip?',feedback:''};
+const photoIdx={},thumbCache={};let phCount=null;
+const PH_IDX=fid=>'fairdash_ph_'+fid,PH_IMG=id=>'fairdash_phimg_'+id,PH_TH=id=>'fairdash_phth_'+id,PH_COUNT='fairdash_phcount';
+function hasFeedback(r){return !!r&&FB_FIELDS.some(([k])=>r[k]&&(''+r[k]).trim());}
+function photoCount(fid){return phCount&&phCount[fid]||0;}
+function prevEdition(f){return FAIRS.find(x=>x!==f&&x.name===f.name&&(x.year||2027)===(f.year||2027)-1)||null;}
+function prevFeedbackHTML(f){const pf=prevEdition(f);if(!pf)return'';const pr=recs[pf.id]||{};if(!hasFeedback(pr)&&!pr.rating&&!pr.repeat)return'';
+  return `<div class="fbprev"><b>📌 Last edition (${pf.year||2027}) — lessons learned</b>${pr.rating?' · '+esc(pr.rating)+'★':''}${pr.repeat?' · repeat: '+esc(pr.repeat):''}${FB_FIELDS.filter(([k])=>pr[k]&&(''+pr[k]).trim()).map(([k,l])=>`<div><span>${l}</span>${esc(pr[k])}</div>`).join('')}</div>`;}
+async function phGet(key){const r=await fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(key)}`,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);const t=await r.text();return(t==='null'||t==='')?null:JSON.parse(t);}
+async function phPut(key,val){const body=JSON.stringify(val);if(body.length>1040000)throw new Error('too large for cloud ('+Math.round(body.length/1024)+' KB)');const r=await fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body});if(!r.ok)throw new Error('HTTP '+r.status);}
+async function loadPhCount(){if(!CLOUD_ON)return;try{phCount=(await phGet(PH_COUNT))||{};}catch(e){phCount=phCount||{};}}
+// read-modify-write against the LATEST cloud list, so two people uploading to the same fair don't overwrite each other
+async function phIndexMutate(fid,fn,updCount=true){const cur=(await phGet(PH_IDX(fid)))||[];const nx=fn(cur);await phPut(PH_IDX(fid),nx);photoIdx[fid]=nx;
+  if(updCount){try{const cnt=(await phGet(PH_COUNT))||{};cnt[fid]=nx.length;await phPut(PH_COUNT,cnt);phCount=cnt;}catch(e){console.warn('photo count',e);}}}
+function loadImg(file){return new Promise((res,rej)=>{const u=URL.createObjectURL(file);const im=new Image();im.onload=()=>res({im,u});im.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('cannot read image'));};im.src=u;});}
+function drawJpeg(im,maxEdge,q){const W=im.naturalWidth,H=im.naturalHeight,sc=Math.min(1,maxEdge/Math.max(W,H));const w=Math.max(1,Math.round(W*sc)),h=Math.max(1,Math.round(H*sc));const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(im,0,0,w,h);return{data:c.toDataURL('image/jpeg',q),w,h};}
+async function compressPhoto(file){const{im,u}=await loadImg(file);try{
+  for(const[e,q]of[[2048,.86],[2048,.76],[1800,.72],[1600,.7],[1400,.65],[1200,.6],[1080,.55]]){const o=drawJpeg(im,e,q);if(o.data.length<=950000){o.thumb=drawJpeg(im,420,.72).data;return o;}}
+  throw new Error('image still too large after compression');}finally{URL.revokeObjectURL(u);}}
+function slug(s){return(''+s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)||'fair';}
+function phFileName(f,i){return `ahooga_${slug(f.name)}_${f.year||2027}_${String(i+1).padStart(2,'0')}.jpg`;}
+function fbFairList(){const today=new Date().toISOString().slice(0,10);const past=$('#fbPastOnly')&&$('#fbPastOnly').checked;
+  return FAIRS.filter(f=>ticked[f.id]||hasFeedback(recs[f.id])||photoCount(f.id)).filter(f=>!past||getStart(f)<=today).sort((a,b)=>getStart(b).localeCompare(getStart(a)));}
+function openFeedbackTab(fid){const f=byId(fid);if(!f)return;const today=new Date().toISOString().slice(0,10);if(getStart(f)>today)$('#fbPastOnly').checked=false;store.set('fbFair',fid);const b=document.querySelector('nav button[data-tab="fb"]');if(b)b.click();window.scrollTo(0,0);}
+function renderFeedback(){
+  const sel=$('#fbFair');const list=fbFairList();let fid=store.get('fbFair','');
+  if(!list.find(f=>f.id===fid))fid=list[0]?list[0].id:'';
+  sel.innerHTML=list.length?list.map(f=>`<option value="${f.id}" ${f.id===fid?'selected':''}>${esc(f.name)} · ${esc(getDays(f))} ${f.year||2027}${hasFeedback(recs[f.id])?' · 📝':''}${photoCount(f.id)?' · 📸'+photoCount(f.id):''}</option>`).join(''):'<option value="">— no fairs —</option>';
+  sel.value=fid;
+  $('#phBy').innerHTML='<option value="">Photos by…</option>'+EMP_PRESENCE.filter(p=>p!=='Dealer').map(p=>`<option ${store.get('phBy','')===p?'selected':''}>${esc(p)}</option>`).join('');
+  const f=byId(fid);
+  if(!f){$('#fbPrev').innerHTML='';$('#fbForm').innerHTML='<p class="hint" style="margin:0">No fair to show — untick “Only fairs that have already started” to see upcoming ones.</p>';$('#fbPhotos').innerHTML='';$('#phCountTxt').textContent='';renderFbOverview();return;}
+  const r=rec(f);
+  $('#fbPrev').innerHTML=prevFeedbackHTML(f);
+  let h='<div class="efields">';
+  h+=`<div class="efield"><label>Feedback written by</label><input data-fbf="${f.id}|fbBy" value="${esc(r.fbBy||'')}" placeholder="Name(s)"></div>`;
+  h+=`<div class="efield"><label>Overall rating</label><select data-fbf="${f.id}|rating">${['','1','2','3','4','5'].map(n=>`<option value="${n}" ${((r.rating||'')==n)?'selected':''}>${n?n+'★':'—'}</option>`).join('')}</select></div>`;
+  h+=`<div class="efield"><label>Do it again next year?</label><select data-fbf="${f.id}|repeat"><option value="" ${!r.repeat?'selected':''}>—</option>${['Yes','Maybe','No'].map(o=>`<option ${r.repeat===o?'selected':''}>${o}</option>`).join('')}</select></div>`;
+  h+=`<div class="efield"><label>B2R leads</label><input type="number" data-fbf="${f.id}|b2rLeads" value="${esc(r.b2rLeads!=null?r.b2rLeads:'')}"></div>`;
+  h+=`<div class="efield"><label>B2C leads</label><input type="number" data-fbf="${f.id}|b2cLeads" value="${esc(r.b2cLeads!=null?r.b2cLeads:'')}"></div>`;
+  FB_FIELDS.forEach(([k,l])=>{h+=`<div class="efield" style="grid-column:1/-1"><label>${l}</label><textarea rows="3" data-fbf="${f.id}|${k}" placeholder="${esc(FB_HINTS[k]||'')}">${esc(r[k]||'')}</textarea></div>`;});
+  h+='</div><div class="hint" id="fbSaved" style="margin:8px 0 0">Saves automatically when you click outside a box.</div>';
+  $('#fbForm').innerHTML=h;
+  $$('[data-fbf]').forEach(el=>el.onchange=e=>{const[id,k]=e.target.dataset.fbf.split('|');rec2(id)[k]=e.target.value;saveRecs();const s=$('#fbSaved');if(s)s.textContent='✓ Saved '+new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});renderFbOverview();});
+  renderPhotos(fid);renderFbOverview();
+}
+function renderFbOverview(){
+  const rows=FAIRS.filter(f=>{const r=recs[f.id];return hasFeedback(r)||photoCount(f.id)||(r&&(r.rating||r.repeat));}).sort((a,b)=>getStart(b).localeCompare(getStart(a)));
+  $('#fbOverview').innerHTML=rows.map(f=>{const r=recs[f.id]||{};const adv=(r.fbNextYear||r.fbImprove||r.feedback||'').trim();
+    return `<tr><td class="name">${esc(f.name)}</td><td>${f.year||2027}</td><td>${f.ct}</td><td>${esc(getDays(f))}</td><td>${r.rating?esc(r.rating)+'★':'—'}</td><td>${esc(r.repeat||'—')}</td><td>${photoCount(f.id)||'—'}</td><td style="max-width:420px;white-space:normal">${esc(adv.length>220?adv.slice(0,220)+'…':adv)||'<span class="approx">—</span>'}</td><td><button class="btn" data-fbopen="${f.id}">Open</button></td></tr>`;}).join('')
+    ||'<tr><td colspan="9" style="color:var(--dim);padding:14px">No feedback yet. Pick a fair above once it is over.</td></tr>';
+  $$('[data-fbopen]').forEach(b=>b.onclick=e=>{store.set('fbFair',e.currentTarget.dataset.fbopen);openFeedbackTab(e.currentTarget.dataset.fbopen);});
+}
+function exportFeedback(){
+  const out=[['Fair','Year','Country','Dates','Rating','Repeat','B2R leads','B2C leads','Photos','Written by',...FB_FIELDS.map(x=>x[1].replace(/^[^ ]+ /,''))].join(',')];
+  FAIRS.filter(f=>hasFeedback(recs[f.id])||photoCount(f.id)).forEach(f=>{const r=recs[f.id]||{};
+    out.push([f.name,f.year||2027,f.ct,getDays(f),r.rating||'',r.repeat||'',r.b2rLeads||'',r.b2cLeads||'',photoCount(f.id),r.fbBy||'',...FB_FIELDS.map(([k])=>r[k]||'')].map(x=>`"${(''+x).replace(/"/g,'""')}"`).join(','));});
+  dl('﻿'+out.join('\n'),'ahooga_fair_feedback.csv');
+}
+async function renderPhotos(fid){const g=$('#fbPhotos');if(!g)return;
+  if(!CLOUD_ON){g.innerHTML='<p class="hint" style="margin:0">Photos are stored in the shared cloud — open the online dashboard to view or add them.</p>';return;}
+  if(!photoIdx[fid]){g.innerHTML='<p class="hint" style="margin:0">Loading photos…</p>';try{photoIdx[fid]=(await phGet(PH_IDX(fid)))||[];}catch(e){g.innerHTML='<p class="hint" style="margin:0">⚠ Could not load photos (offline?).</p>';return;}}
+  if($('#fbFair').value!==fid)return;
+  const arr=photoIdx[fid];
+  $('#phCountTxt').textContent=arr.length?'· '+arr.length+' photo'+(arr.length===1?'':'s'):'';
+  if(phCount&&phCount[fid]!==arr.length){phCount[fid]=arr.length;}
+  if(!arr.length){g.innerHTML='<p class="hint" style="margin:0">No photos yet — drop them here or click “Add photos”.</p>';return;}
+  g.innerHTML=arr.map((p,i)=>`<figure class="ph"><div class="phimg" data-ph="${i}"><img alt="" data-th="${esc(p.id)}"></div><figcaption><input class="phcap" data-phcap="${i}" placeholder="Caption (Instagram / newsletter)" value="${esc(p.cap||'')}"><small>${p.by?esc(p.by)+' · ':''}${esc((p.ts||'').slice(0,10))} · ${p.w}×${p.h}</small></figcaption></figure>`).join('');
+  g.querySelectorAll('img[data-th]').forEach(async img=>{const id=img.dataset.th;try{if(!thumbCache[id])thumbCache[id]=await phGet(PH_TH(id));if(thumbCache[id])img.src=thumbCache[id];}catch(e){}});
+  g.querySelectorAll('.phimg').forEach(el=>el.onclick=()=>openLightbox(fid,+el.dataset.ph));
+  g.querySelectorAll('[data-phcap]').forEach(el=>el.onchange=async e=>{const id=arr[+e.target.dataset.phcap].id;const v=e.target.value;try{await phIndexMutate(fid,a=>{const x=a.find(y=>y.id===id);if(x)x.cap=v;return a;},false);$('#phStatus').textContent='✓ Caption saved';}catch(err){$('#phStatus').textContent='⚠ Caption not saved — '+err.message;}});
+}
+async function uploadPhotos(files){
+  const fid=$('#fbFair').value;const f=byId(fid);if(!f)return;
+  if(!CLOUD_ON){alert('Photos are stored in the shared cloud, so they can only be added on the online dashboard.');return;}
+  const list=[...files].filter(x=>/^image\//.test(x.type)||/\.(jpe?g|png|webp|heic|heif)$/i.test(x.name));if(!list.length)return;
+  const by=$('#phBy').value||'';const st=$('#phStatus');let pending=[],ok=0;const fail=[];
+  const flush=async()=>{if(!pending.length)return;const add=pending;pending=[];await phIndexMutate(fid,a=>a.concat(add.filter(p=>!a.find(y=>y.id===p.id))));};
+  for(let i=0;i<list.length;i++){const file=list[i];st.textContent=`Uploading ${i+1} / ${list.length} — ${file.name}…`;
+    try{const o=await compressPhoto(file);const id=fid+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+      await phPut(PH_IMG(id),o.data);await phPut(PH_TH(id),o.thumb);thumbCache[id]=o.thumb;
+      pending.push({id,name:file.name,by,ts:new Date().toISOString(),w:o.w,h:o.h,cap:''});ok++;
+      if(pending.length>=6){await flush();if($('#fbFair').value===fid)renderPhotos(fid);}
+    }catch(e){console.warn('photo upload',file.name,e);fail.push(file.name+(/\.hei[cf]$/i.test(file.name)?' (HEIC: export as JPG first)':''));}
+  }
+  try{await flush();}catch(e){fail.push('photo list: '+e.message);}
+  st.textContent=`✓ ${ok} photo${ok===1?'':'s'} added to ${f.name}`+(fail.length?` · ⚠ not uploaded: ${fail.join(', ')}`:'');
+  if($('#fbFair').value===fid){renderPhotos(fid);renderFbOverview();}
+}
+let _lb={fid:'',i:0};
+async function openLightbox(fid,i){const arr=photoIdx[fid]||[];if(!arr.length)return;i=(i+arr.length)%arr.length;_lb={fid,i};const p=arr[i],f=byId(fid);
+  $('#phBox').style.display='flex';$('#phBoxTitle').textContent=`${f?f.name:''} — ${i+1} / ${arr.length}${p.cap?' · '+p.cap:''}`;
+  const img=$('#phBoxImg');img.src=thumbCache[p.id]||'';const dlA=$('#phDl');dlA.removeAttribute('href');dlA.download=phFileName(f||{name:'fair'},i);
+  try{const full=await phGet(PH_IMG(p.id));if(_lb.fid===fid&&_lb.i===i&&full){img.src=full;dlA.href=full;}}catch(e){$('#phBoxTitle').textContent+=' (⚠ could not load full size)';}}
+function closeLightbox(){$('#phBox').style.display='none';$('#phBoxImg').src='';}
+async function deleteCurrentPhoto(){const{fid,i}=_lb;const arr=photoIdx[fid]||[];const p=arr[i];if(!p)return;if(!confirm('Delete this photo for everyone? This cannot be undone.'))return;
+  try{await phIndexMutate(fid,a=>a.filter(y=>y.id!==p.id));await phPut(PH_IMG(p.id),null);await phPut(PH_TH(p.id),null);delete thumbCache[p.id];}catch(e){alert('Could not delete: '+e.message);return;}
+  const n=(photoIdx[fid]||[]).length;if(n)openLightbox(fid,Math.min(i,n-1));else closeLightbox();renderPhotos(fid);renderFbOverview();}
+async function downloadAllPhotos(){const fid=$('#fbFair').value,f=byId(fid),arr=photoIdx[fid]||[];if(!arr.length){$('#phStatus').textContent='No photos to download for this fair.';return;}
+  const st=$('#phStatus');for(let i=0;i<arr.length;i++){st.textContent=`Downloading ${i+1} / ${arr.length}…`;try{const full=await phGet(PH_IMG(arr[i].id));if(full){const a=document.createElement('a');a.href=full;a.download=phFileName(f,i);document.body.appendChild(a);a.click();a.remove();await new Promise(r=>setTimeout(r,400));}}catch(e){console.warn(e);}}
+  st.textContent=`✓ ${arr.length} photo${arr.length===1?'':'s'} downloaded (if your browser asks to allow multiple downloads, click Allow).`;}
+function wireFeedback(){
+  $('#fbFair').onchange=e=>{store.set('fbFair',e.target.value);$('#phStatus').textContent='';renderFeedback();};
+  $('#fbPastOnly').onchange=renderFeedback;
+  $('#phBy').onchange=e=>store.set('phBy',e.target.value);
+  $('#phFile').onchange=e=>{uploadPhotos(e.target.files);e.target.value='';};
+  $('#phDlAll').onclick=downloadAllPhotos;$('#fbExport').onclick=exportFeedback;
+  const dz=$('#phDrop');['dragenter','dragover'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.add('drag');}));
+  ['dragleave','drop'].forEach(ev=>dz.addEventListener(ev,e=>{e.preventDefault();dz.classList.remove('drag');}));
+  dz.addEventListener('drop',e=>{if(e.dataTransfer&&e.dataTransfer.files.length)uploadPhotos(e.dataTransfer.files);});
+  $('#phClose').onclick=closeLightbox;$('#phBox').onclick=e=>{if(e.target.id==='phBox')closeLightbox();};
+  $('#phPrev').onclick=()=>openLightbox(_lb.fid,_lb.i-1);$('#phNext').onclick=()=>openLightbox(_lb.fid,_lb.i+1);$('#phDel').onclick=deleteCurrentPhoto;
+  document.addEventListener('keydown',e=>{if($('#phBox').style.display==='none')return;if(e.key==='Escape')closeLightbox();if(e.key==='ArrowLeft')$('#phPrev').click();if(e.key==='ArrowRight')$('#phNext').click();});
+}
+
 // ---------- TABS ----------
 $$('nav button').forEach(b=>b.onclick=()=>{$$('nav button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
   $$('.tab').forEach(t=>t.classList.remove('on'));$('#'+b.dataset.tab).classList.add('on');
@@ -1296,6 +1565,7 @@ $$('nav button').forEach(b=>b.onclick=()=>{$$('nav button').forEach(x=>x.classLi
   if(b.dataset.tab==='roadmap')renderRoadmap();
   if(b.dataset.tab==='budget')renderBudget();
   if(b.dataset.tab==='results')renderResults();
+  if(b.dataset.tab==='fb')renderFeedback();
   if(b.dataset.tab==='pm'){refreshFairSelects();renderTasks();}
   if(b.dataset.tab==='plan'){refreshFairSelects();renderPlan();}
   if(b.dataset.tab==='emp')renderEmp();
@@ -1320,6 +1590,9 @@ $('#tWho').innerHTML='<option value="">—</option>'+PEOPLE.map(p=>`<option>${p}
 $('#pmFilterWho').innerHTML='<option value="">All people</option>'+PEOPLE.map(p=>`<option>${p}</option>`).join('');
 $('#empPick').onchange=e=>{store.set('empPick',e.target.value);renderEmp();};
 $('#addTask').onclick=addTask;
+$('#tNotify').checked=store.get('tNotify',true)!==false;$('#tNotify').onchange=e=>store.set('tNotify',e.target.checked);
+$('#tBy').innerHTML='<option value="">— your name —</option>'+[...new Set(PEOPLE.concat(EMP_PRESENCE.filter(p=>p!=='Dealer')))].map(p=>`<option>${esc(p)}</option>`).join('');
+$('#tBy').value=store.get('tBy','')||store.get('empPick','')||'';$('#tBy').onchange=e=>store.set('tBy',e.target.value);
 $('#tTask').addEventListener('keydown',e=>{if(e.key==='Enter')addTask();});
 $('#seedBtn').onclick=seedTasks;
 $('#exportTasks').onclick=exportTasks;
@@ -1335,7 +1608,11 @@ $('#rosterNew').addEventListener('keydown',e=>{if(e.key==='Enter')addRoster();})
 $('#carryBtn').onclick=carryToNextYear;
 $('#staffAddEmp').onclick=()=>{const el=$('#staffNewEmp');const v=el.value.trim();if(!v)return;if(!EMP_PRESENCE.includes(v))EMP_PRESENCE.push(v);store.set('empRoster',EMP_PRESENCE);el.value='';renderStaff();renderFairs();populateEmpPicker();if($('#rosterList'))renderRoster();};
 $('#staffNewEmp').addEventListener('keydown',e=>{if(e.key==='Enter')$('#staffAddEmp').click();});
+$('#staffCo').onchange=e=>{store.set('staffCo',e.target.value);renderStaff();};
+$('#staffOnlyUsed').onchange=e=>{store.set('staffOnlyUsed',e.target.checked);renderStaff();};
+wireFeedback();
 syncW();rebuildYearOptions();populateCityFilter();populateEmpPicker();refreshFairSelects();renderFairs();loadCloud();
+loadPhCount();
 $('#foot').textContent='Ahooga MAX · Fair Event Dashboard · '+FAIRS.length+' fairs · edits sync live to the shared Ahooga cloud (Cloudflare) for the whole team. Export CSV for a backup.';
 </script>
 </body>
