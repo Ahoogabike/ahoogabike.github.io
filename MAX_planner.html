@@ -632,6 +632,8 @@ const locBadgeHtml = loc => loc==='LOUI/Stock'
   : '<span class="badge badge-neutral" style="font-size:10px">'+locLabel(loc)+'</span>';
 
 let manualOrders = []; // Virtual orders (e.g. Matt Cooke reservations)
+let removedManualIds = new Set(); // ids of manual reservations that were removed (synced via KV)
+try { const r = JSON.parse(localStorage.getItem('mxp_manual_removed')||'[]'); if(Array.isArray(r)) r.forEach(id=>removedManualIds.add(id)); } catch(e){}
 let decocoatData = [];
 let vvStock = [];
 let issuedPOSupply = []; // remaining-to-receive on every open purchase order for bikes (mirrors the Coming Next app)
@@ -779,10 +781,16 @@ async function loadSharedState() {
     }
 
     // Load shared manual reservations
+    // Removed reservations are tombstoned in 'shared_manual_removed', so a device that still
+    // has an old copy in its browser can't push a removed reservation back on its next save.
+    const sharedRemoved = await kvGet('shared_manual_removed');
+    if(Array.isArray(sharedRemoved)) for(const id of sharedRemoved) removedManualIds.add(id);
+    manualOrders = manualOrders.filter(x=>!removedManualIds.has(x.id));
     const sharedManual = await kvGet('shared_manual');
     if(sharedManual && Array.isArray(sharedManual)) {
-      // Merge: add manual orders not already in local list
+      // Merge: add manual orders not already in local list (and not removed)
       for(const m of sharedManual) {
+        if(removedManualIds.has(m.id)) continue;
         if(!manualOrders.find(x=>x.id===m.id)) manualOrders.push(m);
       }
     }
@@ -850,8 +858,9 @@ async function saveSharedState() {
       .map(o=>({name:o.name, sku:o.sku, note:o.holdNote||''}));
     await kvSet('shared_holds', holds);
 
-    // Save manual reservations
-    await kvSet('shared_manual', manualOrders);
+    // Save manual reservations (+ tombstones of removed ones)
+    await kvSet('shared_manual', manualOrders.filter(x=>!removedManualIds.has(x.id)));
+    await kvSet('shared_manual_removed', [...removedManualIds]);
 
     // Save priority overrides (only non-default)
     const allSorted = [...orders,...manualOrders].filter(x=>x.status!=='shipped').sort((a,b)=>a.priority-b.priority);
@@ -869,7 +878,7 @@ async function saveSharedState() {
     const stockMirror = (stock||[])
       .filter(s => isMAXmirror(s) && (s.inTransit || s.reservedFor || isWH(s.location)))
       .map(s => ({
-        bikeType: s.bikeType, transmission: s.transmission, color: s.color, rack: s.rack,
+        bikeType: s.bikeType, transmission: s.transmission, color: s.color, rack: s.rack, my: myOf(s),
         serial: s.serial||'', reserved: !!s.reservedFor, inTransit: !!s.inTransit,
         expectedArrival: s.expectedArrival||null
       }));
@@ -1693,11 +1702,22 @@ function fmtDate(d){ if(!d) return '—'; return new Date(d).toLocaleDateString(
 function colorDot(c){ const m={yellow:'#f5c842',black:'#2a2a2a',red:'#c0392b',custom:'#7f77dd'}; return `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${m[c]||'#aaa'};vertical-align:middle;margin-right:4px"></span>`; }
 
 // ─── PRODUCT DETECTION ───────────────────────────────────
-function detectColor(n){ const l=n.toLowerCase(); if(l.includes('yellow')||l.includes('bumblebee')) return 'yellow'; if(l.includes('black')||l.includes('cosmic')) return 'black'; if(l.includes('red')||l.includes('ruby')) return 'red'; return 'custom'; }
+function detectColor(n){ const l=(n||'').toLowerCase(); if(l.includes('yellow')||l.includes('bumblebee')) return 'yellow'; if(l.includes('black')||l.includes('cosmic')) return 'black'; if(l.includes('red')||l.includes('ruby')||l.includes('bordeaux')) return 'red';
+  // MY27 standard colours — NOT custom (they must not enter the Deco Coat custom-colour flow)
+  if(l.includes('midnight')||l.includes('blue')) return 'blue'; if(l.includes('emerald')||l.includes('green')) return 'green'; if(l.includes('atomium')) return 'atomium';
+  return 'custom'; }
 function isCustomColor(o){ return o.color === 'custom'; }
 function detectTransmission(n){ const l=n.toLowerCase(); if(l.includes('alfine')||l.includes('alf')) return 'alfine'; if(l.includes('derailleur')||l.includes('der')) return 'derailleur'; if(l.includes('nexus')||l.includes('nex')) return 'nexus'; return 'unknown'; }
 function detectBikeType(n){ const l=n.toLowerCase(); if(l.includes('e-max')||l.includes('emax')) return 'emax'; if(l.includes('a-max')||l.includes('amax')) return 'amax'; if(l.includes('modular')||l.includes('ahmun')) return 'modular'; if(l.includes('folding')||l.includes('ahfan')||l.includes('analog')) return 'folding'; return 'other'; }
-function detectRack(n){ const l=n.toLowerCase(); return (l.includes('rack')&&!l.includes('no rack'))?'rack':'no rack'; }
+function detectRack(n){ const l=(n||'').toLowerCase(); if(/without rack|no rack|w\/o rack/.test(l)) return 'no rack'; return l.includes('rack')?'rack':'no rack'; }
+// ─── MODEL YEAR ──────────────────────────────────────────
+// MY27 products carry "MY27" in their Odoo name (e.g. "E-MAX Derailleur MY27 (Bumblebee, with rack)").
+// MY27 bikes are for NEXT year's orders: an MY26 order may never take an MY27 bike/PO line
+// and vice versa. Anything without "MY27" is treated as MY26 (current year).
+function detectModelYear(n){ return /\bmy\s?-?27\b/i.test(n||'') ? 'MY27' : 'MY26'; }
+function myOf(o){ return (o && o.my) || detectModelYear(`${(o&&o.sku)||''} ${(o&&o.config)||''}`); }
+function isMY27(o){ return myOf(o)==='MY27'; }
+function sameMY(a,b){ return myOf(a)===myOf(b); }
 // The custom-colour programme is MAX-only. Modular / Folding / other models never belong in it.
 function isMaxBike(o){
   const bt = o && o.bikeType;
@@ -1770,7 +1790,7 @@ function matchStockToOrders() {
         if(s.location !== loc) continue;
         // Match by SKU/productId first, then fall back to bike attributes for manual orders
         const skuMatch = s.sku === o.sku || (o.productId && s.productId === o.productId);
-        const attrMatch = o.isManual && s.bikeType===o.bikeType && s.transmission===o.transmission && s.color===o.color && s.rack===o.rack;
+        const attrMatch = o.isManual && sameMY(s,o) && s.bikeType===o.bikeType && s.transmission===o.transmission && s.color===o.color && s.rack===o.rack;
         if(!skuMatch && !attrMatch) continue;
         // For warehouse bikes: respect scheduled ship date
         if(!s.inTransit){
@@ -2262,7 +2282,7 @@ async function accountForIssuedPOs() {
   for(const o of queued){
     const m = issuedPOSupply.find(s=>s.remaining>0 && (
       String(s.productId)===String(o.productId) ||
-      (s.color===o.color && s.transmission===o.transmission && s.bikeType===o.bikeType && s.rack===o.rack)
+      (sameMY(s,o) && s.color===o.color && s.transmission===o.transmission && s.bikeType===o.bikeType && s.rack===o.rack)
     ));
     if(m){
       o.status='inprod';
@@ -2383,7 +2403,7 @@ function fillerCountsForDimension(mix, already, fillerN){
 // Best real SKU/productId for a family + colour + rack, else a descriptive label
 function skuForConfig(fam, color, rack){
   const pool = [...orders, ...manualOrders, ...stock, ...vvStock];
-  const hit = pool.find(o=>(`${o.bikeType}_${o.transmission}`)===fam && o.color===color && o.rack===rack && (o.sku||o.productId));
+  const hit = pool.find(o=>!isMY27(o) && (`${o.bikeType}_${o.transmission}`)===fam && o.color===color && o.rack===rack && (o.sku||o.productId));
   if(hit) return { sku: hit.sku || `${fam.replace('_',' ').toUpperCase()} ${color} ${rack}`, productId: hit.productId||null };
   return { sku: `${fam.replace('_',' ').toUpperCase()} · ${color} · ${rack}`, productId: null };
 }
@@ -2398,9 +2418,11 @@ function getFreeStockCounts(){
   for(const s of stock){
     if(s.reservedFor) continue;
     if(!(isWH(s.location) || isTransitLoc(s.location) || s.location==='LOUI/Stock')) continue;
+    if(isMY27(s)) continue;   // MY27 stock is for next year — never offsets this year's needs
     add(`${s.bikeType}_${s.transmission}`, s.color, s.rack, 1);
   }
   for(const item of vvStock){
+    if(isMY27(item)) continue;
     const assigned = [...orders,...manualOrders].filter(o=>o.status==='inprod' && o.sku===item.sku).length;
     add(`${item.bikeType}_${item.transmission}`, item.color, item.rack, Math.max(0, item.qty - assigned));
   }
@@ -2417,6 +2439,7 @@ function publishProductionBasis(){
     const unmatchedBySku={}, freeStockBySku={}, incomingBySku={}, inprodBySku={}, incomingEtaBySku={};
     for(const o of [...orders, ...manualOrders]){
       if(!o.bikeType || !o.transmission) continue;
+      if(isMY27(o)) continue;   // production_basis is the MY26 basis
       const k=`${o.bikeType}|${o.transmission}|${o.color}|${o.rack}`;
       if(o.status==='queued'||o.status==='hold') unmatchedBySku[k]=(unmatchedBySku[k]||0)+1;
       else if(o.status==='inprod')               inprodBySku[k]=(inprodBySku[k]||0)+1;
@@ -2432,6 +2455,7 @@ function publishProductionBasis(){
     // remaining-to-receive on every open PO (same data as the Bikes Coming Next app)
     for(const s of issuedPOSupply){
       if(!s.bikeType || !s.transmission) continue;
+      if(isMY27(s)) continue;
       const k=`${s.bikeType}|${s.transmission}|${s.color}|${s.rack}`;
       incomingBySku[k]=(incomingBySku[k]||0)+(s.remaining||0);
       if(s.expectedArrival&&(!incomingEtaBySku[k]||s.expectedArrival<incomingEtaBySku[k]))incomingEtaBySku[k]=s.expectedArrival;
@@ -2445,7 +2469,7 @@ function buildRollingSchedule() {
   // Build a 6-week rolling production plan for ALL queued orders
   // Returns: array of week plans [{week, proposals:[{fam, orders, customOrders, expectedArrival}]}]
   const allQueued = [...orders,...manualOrders]
-    .filter(o=>o.status==='queued'&&!o.poRef)
+    .filter(o=>o.status==='queued'&&!o.poRef&&!isMY27(o))   // MY27 orders are planned in PO Builder MY27
     .sort((a,b)=>{
       if(a.isUrgent!==b.isUrgent) return a.isUrgent?-1:1;
       if(a.deadline&&b.deadline) return new Date(a.deadline)-new Date(b.deadline);
@@ -2465,14 +2489,14 @@ function buildRollingSchedule() {
   for(const s of stock){
     if(s.reservedFor) continue;
     if(!(isWH(s.location) || isTransitLoc(s.location) || s.location==='LOUI/Stock')) continue;
-    supplyPool.push({productId:s.productId, color:s.color, transmission:s.transmission, bikeType:s.bikeType, rack:s.rack});
+    supplyPool.push({productId:s.productId, color:s.color, transmission:s.transmission, bikeType:s.bikeType, rack:s.rack, my:myOf(s)});
   }
   for(const s of issuedPOSupply){
-    for(let i=0;i<(s.remaining||0);i++) supplyPool.push({productId:s.productId, color:s.color, transmission:s.transmission, bikeType:s.bikeType, rack:s.rack});
+    for(let i=0;i<(s.remaining||0);i++) supplyPool.push({productId:s.productId, color:s.color, transmission:s.transmission, bikeType:s.bikeType, rack:s.rack, my:myOf(s)});
   }
   const matchesSupply = (o,sup) =>
     (o.productId && String(sup.productId)===String(o.productId)) ||
-    (sup.color===o.color && sup.transmission===o.transmission && sup.bikeType===o.bikeType && sup.rack===o.rack);
+    (sameMY(sup,o) && sup.color===o.color && sup.transmission===o.transmission && sup.bikeType===o.bikeType && sup.rack===o.rack);
 
   const customQueued = allQueued.filter(o=>o.color==='custom' && isMaxBike(o)).filter(o=>{
     const idx = supplyPool.findIndex(sup=>matchesSupply(o,sup));
@@ -3162,6 +3186,26 @@ function addManualOrder() {
   updateKPIs();
 }
 
+// Remove a manual reservation (e.g. Matt Cooke). Frees any bike it had reserved, re-runs
+// matching, and syncs the removal to the shared store so it disappears on every device.
+function removeManualOrder(orderId) {
+  const o = manualOrders.find(x=>x.id===orderId);
+  if(!o) return;
+  if(!confirm(`Remove the manual reservation for ${o.customer||'this customer'} (${o.sku||''})?`)) return;
+  manualOrders = manualOrders.filter(x=>x.id!==orderId);
+  removedManualIds.add(orderId);
+  try { localStorage.setItem('mxp_manual_removed', JSON.stringify([...removedManualIds])); } catch(e){}
+  for(const s of stock) if(s.reservedFor===orderId) s.reservedFor = null;
+  markUrgent();
+  matchStockToOrders();
+  assignSerials();
+  assignPredictedDeliveries();
+  save();
+  saveSharedState();
+  renderQueue();
+  updateKPIs();
+}
+
 function putOnHold(orderId) {
   const o = [...orders,...manualOrders].find(x=>x.id===orderId);
   if(!o) return;
@@ -3227,7 +3271,11 @@ function renderHoldList() {
 
 // ─── STOCK SUMMARY ───────────────────────────────────────
 function renderStockSummary(el) {
-  const isMAX = s => s.bikeType==='amax'||s.bikeType==='emax';
+  // MY26 only — MY27 bikes are for next year's orders and would otherwise land in the
+  // same colour/rack cells (e.g. Bordeaux Red → red). They are counted separately below.
+  const isMAX = s => (s.bikeType==='amax'||s.bikeType==='emax') && !isMY27(s);
+  const my27Free = stock.filter(s=>!s.reservedFor&&(s.bikeType==='amax'||s.bikeType==='emax')&&isMY27(s)&&(isWH(s.location)||isTransitLoc(s.location)));
+  const my27VV = vvStock.filter(i=>(i.bikeType==='amax'||i.bikeType==='emax')&&isMY27(i)).reduce((n,i)=>n+(i.qty||0),0);
   const availableNow = stock.filter(s=>!s.inTransit&&!s.reservedFor&&isWH(s.location)&&isMAX(s));
   const arrivingSoon = stock.filter(s=>s.inTransit&&!s.reservedFor&&isMAX(s));
   const nextArrival = arrivingSoon.length
@@ -3275,7 +3323,7 @@ function renderStockSummary(el) {
   }
 
   function buildVVTable(){
-    const isMAXvv = i => i.bikeType==='amax'||i.bikeType==='emax';
+    const isMAXvv = i => (i.bikeType==='amax'||i.bikeType==='emax') && !isMY27(i);
     const items = vvStock.filter(isMAXvv);
     if(!items.length) return '<div class="empty" style="padding:16px">No tracked POs with unvalidated receipts.<br><span style="font-size:11px">Add PO numbers in Settings → Tracked Okazi POs</span></div>';
 
@@ -3284,7 +3332,7 @@ function renderStockSummary(el) {
       const totalVV = items.filter(i=>i.bikeType+'_'+i.transmission===famKey&&i.rack===rack&&i.color===color)
         .reduce((s,i)=>s+i.qty,0);
       const assignedOrders = [...orders,...manualOrders].filter(o=>
-        o.status==='inprod' &&
+        o.status==='inprod' && !isMY27(o) &&
         o.bikeType+'_'+o.transmission===famKey &&
         o.rack===rack && o.color===color
       ).length;
@@ -3435,7 +3483,7 @@ function renderStockSummary(el) {
         availDate:s.expectedArrival||null});
     }
     // From vvStock: qty minus assigned inprod orders
-    for(const item of vvStock.filter(i=>(i.bikeType==='amax'||i.bikeType==='emax')&&i.color!=='custom')){
+    for(const item of vvStock.filter(i=>(i.bikeType==='amax'||i.bikeType==='emax')&&i.color!=='custom'&&!isMY27(i))){
       // Count ALL active orders for this SKU (any status except shipped)
       // This prevents showing bikes as free when orders exist but aren't inprod yet
       const assignedCount=[...orders,...manualOrders].filter(o=>
@@ -3521,7 +3569,10 @@ function renderStockSummary(el) {
   }
 
   const total1=availableNow.length, total2=arrivingSoon.length;
-  el.innerHTML = `
+  const my27Note = (my27Free.length||my27VV)
+    ? `<div class="alert alert-info" style="margin-bottom:14px;font-size:12px">MY26 only below. <strong>MY27 (next year's orders):</strong> ${my27Free.filter(s=>!s.inTransit).length} free in warehouse · ${my27Free.filter(s=>s.inTransit).length} free in transit · ${my27VV} at VV — kept apart, never used for this year's orders.</div>`
+    : '';
+  el.innerHTML = my27Note + `
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;align-items:start">
       <div>
         <div style="background:var(--success-bg);border:1px solid rgba(45,110,45,0.2);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
@@ -4056,7 +4107,7 @@ function applyDecocoatToOrders() {
       //     Attribute-match an open custom-colour PO (same config) and consume it.
       const m = poCap.find(s=>s.left>0 && (
         (o.productId && String(s.productId)===String(o.productId)) ||
-        (s.color==='custom' && s.transmission===o.transmission && s.bikeType===o.bikeType && s.rack===o.rack)
+        (s.color==='custom' && sameMY(s,o) && s.transmission===o.transmission && s.bikeType===o.bikeType && s.rack===o.rack)
       ));
       o.status = 'inprod';
       o.coveredByDecocoat = true;
