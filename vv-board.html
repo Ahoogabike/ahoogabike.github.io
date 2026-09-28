@@ -80,11 +80,14 @@ function rowIn(p){
     '<div class="meta">'+esc(p.ref||"")+(p.lines?(" · "+p.lines+" line"+(p.lines===1?"":"s")):"")+'</div></div>'+
     '<div class="right">'+esc(p.when||"")+'</div></div>';
 }
+/* One shape for both sites: a code, where it is going, a line of detail,
+   and a figure on the right. At Velovisie the code is a bike serial and the
+   destination a customer; at MTB it is a wheel and the destination Hasselt. */
 function rowOut(b){
-  return '<div class="row'+(b.here?"":" pending")+'">'+
-    '<div><div class="main"><span class="sn">'+esc(b.serial)+'</span> &rarr; '+esc(b.customer||"—")+'</div>'+
-    '<div class="meta">'+esc(b.so)+(b.at?(" · "+esc(b.at)):"")+'</div></div>'+
-    '<div class="right">'+esc(b.due||"")+'</div></div>';
+  return '<div class="row'+(b.ready?"":" pending")+'">'+
+    '<div><div class="main"><span class="sn">'+esc(b.code)+'</span> &rarr; '+esc(b.to||"—")+'</div>'+
+    '<div class="meta">'+esc(b.sub||"")+'</div></div>'+
+    '<div class="right">'+esc(b.right||"")+'</div></div>';
 }
 function fill(id, rows, html, emptyText){
   var el = document.getElementById(id);
@@ -102,12 +105,12 @@ async function load(){
     document.getElementById("site").textContent = d.site || "Board";
     document.getElementById("sub").textContent  = "entrance board";
     fill("in-list",  d.inbound||[],  rowIn,  "Nothing on its way.");
-    fill("out-list", d.outbound||[], rowOut, "No bike waiting to leave.");
+    fill("out-list", d.outbound||[], rowOut, "Nothing waiting to leave.");
     document.getElementById("in-cnt").textContent  =
       (d.inbound||[]).length + " open arrival" + ((d.inbound||[]).length===1?"":"s");
-    var here = (d.outbound||[]).filter(function(b){ return b.here; }).length;
+    var ready = (d.outbound||[]).filter(function(b){ return b.ready; }).length;
     document.getElementById("out-cnt").textContent =
-      here + " here · " + (d.outbound||[]).length + " still ours";
+      ready + " ready · " + (d.outbound||[]).length + " in hand";
     document.getElementById("stamp").textContent =
       "updated " + new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
     msg.textContent = "";
