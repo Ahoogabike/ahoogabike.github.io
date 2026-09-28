@@ -196,6 +196,7 @@ input[type=number]{font-family:ui-monospace,monospace}
     <div class="row" style="margin-top:8px">
       <input id="w-eta" class="rc-inp" type="date"/>
     </div>
+    <div class="sub" id="w-ship-ready" style="margin-top:12px">—</div>
     <div class="row" style="margin-top:12px">
       <button class="btn go wide" onclick="wShip()">✉ Announce this pallet</button>
     </div>
@@ -542,9 +543,26 @@ async function wShip(){
   try{
     var r = await ibPost("/wheel-ship", { picking: pid ? Number(pid) : 0, eta: eta, by: IB_BY });
     say("w-ship-msg","Velovisie told \u2014 "+r.sent+" wheel type"+(r.sent===1?"":"s")+
+        ", "+r.pcs+" pcs"+
         (r.attached? ", delivery note attached." : ", no delivery note attached."), "ok");
-    wLoad();
+    wLoad(); wOutbound();
   }catch(e){ say("w-ship-msg", String(e.message||e), "err"); }
+}
+
+/* What the next announcement would actually cover. Only the quantity
+   that has not been announced before, so a second pallet on the same
+   order sends only its own wheels. */
+function wReady(rows){
+  var el = $("w-ship-ready"); if(!el) return;
+  var p = (rows||[]).filter(function(r){ return (r.pending||0) > 0; });
+  if(!p.length){
+    el.textContent = "Nothing new to announce \u2014 mark a wheel type Shipped, or raise its quantity.";
+    return;
+  }
+  var pcs = p.reduce(function(a,r){ return a + r.pending; }, 0);
+  el.textContent = "Ready to announce: " + p.length + " wheel type" +
+    (p.length===1?"":"s") + ", " + pcs + " pcs \u2014 " +
+    p.map(function(r){ return (r.code||r.name) + " \u00d7 " + r.pending; }).join(", ");
 }
 
 async function wLoad(){
@@ -555,9 +573,11 @@ async function wLoad(){
     var rows = await ibGet("/wheels");
     if(!rows.length){
       box.innerHTML = '<div class="empty">No open wheel orders.<br>When the office raises one it appears here.</div>';
+      wReady([]);
       return;
     }
     box.innerHTML = rows.map(wRow).join("");
+    wReady(rows);
   }catch(e){
     box.innerHTML = '<div class="empty">'+esc(String(e.message||e))+'</div>';
   }
