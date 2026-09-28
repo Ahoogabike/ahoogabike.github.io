@@ -731,6 +731,10 @@ let visibleCols = {
 let manualOrders = []; // Virtual orders (e.g. Matt Cooke reservations)
 let decocoatData = [];
 let vvStock = [];
+/* Painted frames that have actually landed at Velovisie, keyed by sales
+   order. Filled during sync from the Deco Coat -> Velovisie receipts, so a
+   frame counts as arrived only once someone at Hasselt booked it in. */
+let frameAtVV = {};
 let registrySerials = {};  // SO# -> serial, captured by Velovisie's barcode scan (Cloudflare registry)
 let sentStatus = {};       // SO# -> {ts,by}, marked when the PO + order form were emailed to Deco Coat (shared)
 let customSendFilter = ''; // '' | 'ready' | 'sent' | 'nopo' — filters the Custom Colors table by send state
@@ -1669,6 +1673,29 @@ async function syncOdoo() {
     // ── Set orders and stock first ───────────────────────────────────────
     vvStock = []; // reset global and rebuild
 
+    // ── PAINTED FRAMES THAT LANDED AT VELOVISIE ─────────────────────────
+    // Operation type 267 is "Deco Coat -> Velovisie". Its origin carries the
+    // sales order, so a done picking is the moment that order's frame became
+    // buildable at Hasselt. In transit = confirmed but not yet booked in.
+    frameAtVV = {};
+    try {
+      const dcvv = await safeCall('frameAtVV','stock.picking','search_read',
+        [[['picking_type_id','=',267],
+          ['state','in',['assigned','confirmed','waiting','done']]]],
+        {fields:['name','origin','state','date_done','scheduled_date'],limit:400});
+      (dcvv||[]).forEach(p=>{
+        const org = String(p.origin||'');
+        const m = org.match(/S\d{4,}/);            // the sales order in the origin
+        if(!m) return;
+        const so = m[0];
+        const done = p.state === 'done';
+        const prev = frameAtVV[so];
+        if(prev && prev.done && !done) return;     // an arrival beats a pending one
+        frameAtVV[so] = { ref:p.name, done,
+                          when:(p.date_done||p.scheduled_date||'').split(' ')[0] };
+      });
+    } catch(e) { /* the badge is a convenience; sync must never fail on it */ }
+
     if(trackedPOs.length) {
       const allPOsRaw2 = await safeCall('trackedPOData2','purchase.order','search_read',
         [[['state','in',['purchase','done']]]],
@@ -2328,6 +2355,12 @@ function renderQueue() {
     const louiBadge = o.isLoui ? '<span class="badge badge-warn" style="font-size:10px;margin-left:4px">Louise</span>' : '';
     const v = visibleCols; void v;
     const customBadge = o.color==='custom' ? '<span class="badge" style="font-size:10px;margin-left:4px;background:var(--purple-bg);color:var(--purple)">Custom</span>' : '';
+    // Step 12: the painted frame is at Hasselt and the bike can be built.
+    const fv = frameAtVV[o.name];
+    const frameBadge = !fv ? ''
+      : fv.done
+        ? `<span class="badge badge-stock" style="font-size:10px;margin-left:4px" title="Booked in at Velovisie on ${fv.when||''} — ${fv.ref}">🎨 Frame at VV</span>`
+        : `<span class="badge badge-warn" style="font-size:10px;margin-left:4px" title="On its way — ${fv.ref}">🎨 Frame in transit</span>`;
     const locBadge = o.stockLocation
       ? o.stockLocation.includes('LOUI') && o.stockLocation.includes('AND')
         ? '<span class="badge badge-warn" style="font-size:10px">LOUI+AND</span>'
@@ -2359,7 +2392,7 @@ function renderQueue() {
         }
       </td>`},
       {key:'priority', td:`<td style="color:var(--text3);font-size:12px">${realIdx+1}</td>`},
-      {key:'name',     td:`<td style="font-weight:600;white-space:nowrap">${o.name}${louiBadge}${customBadge}</td>`},
+      {key:'name',     td:`<td style="font-weight:600;white-space:nowrap">${o.name}${louiBadge}${customBadge}${frameBadge}</td>`},
       {key:'customer', td:`<td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${o.customer}</td>`},
       {key:'sku',      td:`<td style="font-size:12px">${o.sku}</td>`},
       {key:'color',    td:`<td>${colorDot(o.color)} ${o.color}</td>`},

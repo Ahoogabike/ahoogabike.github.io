@@ -126,6 +126,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   <button id="t2-reg" class="seg" onclick="showView('register')" style="display:none">Register serial</button>
   <button id="t2-rec" class="seg active" onclick="showView('receipt')">📦 Inbound custom colour frame</button>
   <button id="t2-goods" class="seg" onclick="showView('goods')">🚚 Goods in</button>
+  <button id="t2-bikes" class="seg" onclick="showView('bikes')">🚲 Finish a bike</button>
 </div>
 
 <section id="view-register" style="display:none">
@@ -200,6 +201,24 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   #reader3{display:none;width:100%;min-height:240px;background:#000;border-radius:14px;overflow:hidden;margin-bottom:8px}
   #reader3 video,#reader3 canvas{width:100%!important;height:auto!important;border-radius:14px}
 </style>
+
+<section id="view-bikes" style="display:none">
+
+  <div class="card">
+    <h2>Bikes to finish</h2>
+    <div class="sub">One block per Okazi delivery. Write the frame serial of every bike
+      you have assembled, then confirm — that validates the order in Odoo and puts the
+      bikes into stock. Afterwards you can download the delivery note with the serials
+      on it, to attach to your invoice.</div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" onclick="bkLoad()">↻ Refresh</button>
+    </div>
+    <div id="bk-msg"></div>
+  </div>
+
+  <div id="bk-list"><div class="card"><div class="sub">Loading…</div></div></div>
+
+</section>
 
 <section id="view-goods" style="display:none">
 
@@ -463,12 +482,15 @@ function showView(v){
   $('view-register').style.display = v==='register'?'block':'none';
   $('view-receipt').style.display  = v==='receipt'?'block':'none';
   var gv=$('view-goods'); if(gv) gv.style.display = v==='goods'?'block':'none';
+  var bv=$('view-bikes'); if(bv) bv.style.display = v==='bikes'?'block':'none';
   $('t2-reg').classList.toggle('active', v==='register');
   $('t2-rec').classList.toggle('active', v==='receipt');
   var gt=$('t2-goods'); if(gt) gt.classList.toggle('active', v==='goods');
+  var bt=$('t2-bikes'); if(bt) bt.classList.toggle('active', v==='bikes');
   try{ stopCam(); }catch(e){} rcStopCam(); try{ ibStopCam(); }catch(e){}
   if(v==='receipt') renderReceipts();
   if(v==='goods')   ibLoadExpected();
+  if(v==='bikes')   bkLoad();
 }
 window.showView=showView;
 /* ── scan feedback: sound + vibration + a live session tally ── */
@@ -721,6 +743,107 @@ async function ibPost(path,body){
   var j=await r.json().catch(function(){return {};});
   if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
   return j;
+}
+
+/* ---------- finish a bike ---------- */
+/* A bike is serial tracked: one serial is one bike, so the screen asks for
+   exactly as many serials as there are bikes on the line. Nothing reaches
+   Odoo until Confirm. */
+var BK = { groups: [] };
+
+function bkRow(r){
+  var boxes = "";
+  for(var i = 0; i < r.qty; i++){
+    boxes += '<input class="rc-inp" style="margin-top:6px" id="bk-'+r.move+'-'+i+'" '+
+             'value="'+esc(r.have[i]||"")+'" placeholder="frame serial, e.g. MACU0000132" '+
+             'autocapitalize="characters" autocomplete="off"/>';
+  }
+  return '<div style="margin-top:14px">'+
+    '<div style="font-weight:600">'+esc(r.name)+'</div>'+
+    '<div class="sub">'+esc(r.code)+' \u00b7 '+r.qty+' bike'+(r.qty===1?'':'s')+
+      (r.have.length? ' \u00b7 '+r.have.length+' already written':'')+'</div>'+
+    (r.serial ? boxes : '<div class="sub" style="margin-top:6px">Not serial tracked.</div>')+
+  '</div>';
+}
+
+function bkGroup(g){
+  return '<div class="card">'+
+    '<h2>'+esc(g.ref)+'</h2>'+
+    '<div class="sub">'+esc(g.po)+(g.when? ' \u00b7 due '+esc(g.when):'')+'</div>'+
+    g.rows.map(bkRow).join("")+
+    '<div class="row" style="margin-top:16px">'+
+      '<button class="btn-primary" onclick="bkSend('+g.pick+')">\u2713 Confirm and validate</button>'+
+    '</div>'+
+    '<div class="row" style="margin-top:8px">'+
+      '<button class="btn-ghost" onclick="bkNote('+g.pick+',\''+esc(g.ref)+'\')">Delivery note (PDF)</button>'+
+    '</div>'+
+    '<div id="bkm-'+g.pick+'"></div>'+
+  '</div>';
+}
+
+function bkSay(pick, text){
+  var el = document.getElementById('bkm-'+pick);
+  if(el) el.innerHTML = '<div class="sub" style="margin-top:8px">'+esc(text)+'</div>';
+}
+
+async function bkLoad(){
+  var box = document.getElementById('bk-list');
+  if(!box) return;
+  box.innerHTML = '<div class="card"><div class="sub">Loading\u2026</div></div>';
+  try{
+    BK.groups = await ibGet('/bikes');
+    if(!BK.groups.length){
+      box.innerHTML = '<div class="card"><div class="sub">No Okazi delivery is waiting. '+
+        'One appears as soon as the office confirms an order for assembled bikes.</div></div>';
+      return;
+    }
+    box.innerHTML = BK.groups.map(bkGroup).join("");
+  }catch(e){
+    box.innerHTML = '<div class="card"><div class="sub">'+esc(String(e.message||e))+'</div></div>';
+  }
+}
+
+async function bkSend(pick){
+  var g = BK.groups.filter(function(x){ return x.pick === pick; })[0];
+  if(!g) return;
+  var lines = [], n = 0, blank = 0;
+  g.rows.forEach(function(r){
+    if(!r.serial) return;
+    var serials = [];
+    for(var i = 0; i < r.qty; i++){
+      var el = document.getElementById('bk-'+r.move+'-'+i);
+      var v = el ? String(el.value||"").trim().toUpperCase() : "";
+      if(v) serials.push(v); else blank++;
+    }
+    if(serials.length){ lines.push({ move:r.move, serials:serials }); n += serials.length; }
+  });
+  if(!n){ bkSay(pick, 'Write at least one frame serial first.'); return; }
+  if(blank && !confirm(blank+' bike'+(blank===1?'':'s')+' without a serial. Confirm anyway? '+
+      'Odoo keeps the rest on a backorder.')) return;
+  bkSay(pick, 'Sending\u2026');
+  try{
+    var r = await ibPost('/bike-finish', { picking:pick, lines:lines, by:IB_BY });
+    bkSay(pick, '\u2713 '+r.bikes+' bike'+(r.bikes===1?'':'s')+' booked on '+r.ref+
+      (r.backorder? ' \u00b7 '+r.backorder+' still open':'')+
+      ' \u2014 the delivery note is ready to download.');
+    await bkLoad();
+  }catch(e){ bkSay(pick, String(e.message||e)); }
+}
+
+async function bkNote(pick, ref){
+  bkSay(pick, 'Fetching the delivery note\u2026');
+  try{
+    var r = await fetch(IB_URL+'/delivery-note?picking='+encodeURIComponent(pick),
+                        { headers:{ 'x-device-key': IB_DEVICE } });
+    if(!r.ok){ var j = await r.json().catch(function(){ return {}; });
+               throw new Error(j.error || ('HTTP '+r.status)); }
+    var b = await r.blob(), u = URL.createObjectURL(b);
+    var a = document.createElement('a');
+    a.href = u; a.download = String(ref||'delivery-note').replace(/[^A-Za-z0-9._-]/g,'-')+'.pdf';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ try{ URL.revokeObjectURL(u); }catch(e){} }, 8000);
+    bkSay(pick, 'Delivery note downloaded.');
+  }catch(e){ bkSay(pick, String(e.message||e)); }
 }
 
 /* ---------- expected list ---------- */

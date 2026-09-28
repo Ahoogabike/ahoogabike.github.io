@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Velovisie · Board</title>
+<style>
+:root{
+  --bg:#0F1E4D; --panel:#16234F; --line:#2B3A68;
+  --ink:#FBFBF8; --ink2:#B9C0DA; --ink3:#8A93B4;
+  --in:#7FC8A9; --out:#FF9BB3; --late:#FF8A6B; --ok:#9BE3C0;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#0F1E4D;color:#FBFBF8;
+  font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;overflow:hidden}
+.wrap{height:100%;display:flex;flex-direction:column;padding:26px 30px 18px}
+header{display:flex;align-items:baseline;gap:18px;flex:none}
+h1{margin:0;font-size:34px;font-weight:700;letter-spacing:-.5px}
+.sub{color:#8A93B4;font-size:19px}
+.clock{margin-left:auto;font-size:30px;font-weight:600;font-variant-numeric:tabular-nums}
+.cols{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:20px;min-height:0}
+.col{background:#16234F;border-radius:16px;padding:20px 22px;display:flex;flex-direction:column;min-height:0}
+.col h2{margin:0 0 4px;font-size:24px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.col .cnt{color:#8A93B4;font-size:18px;margin-bottom:14px}
+.col.in h2{color:#7FC8A9}
+.col.out h2{color:#FF9BB3}
+.list{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:10px}
+.row{background:#1D2C5E;border-radius:11px;padding:13px 16px;display:flex;gap:16px;align-items:baseline}
+.row .main{font-size:25px;font-weight:600;line-height:1.25}
+.row .meta{color:#B9C0DA;font-size:19px;line-height:1.3}
+.row .right{margin-left:auto;text-align:right;color:#8A93B4;font-size:19px;white-space:nowrap}
+.row.late{background:#3A2036}
+.row.late .right{color:#FF8A6B;font-weight:600}
+.sn{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:24px;font-weight:600;color:#9BE3C0}
+.pending{opacity:.55}
+.empty{color:#8A93B4;font-size:21px;padding:14px 2px}
+footer{flex:none;color:#8A93B4;font-size:17px;padding-top:12px;display:flex;gap:18px}
+.err{color:#FF8A6B}
+</style></head><body>
+<div class="wrap">
+  <header>
+    <h1>Velovisie</h1>
+    <span class="sub" id="site">loading…</span>
+    <span class="clock" id="clock">--:--</span>
+  </header>
+  <div class="cols">
+    <section class="col in">
+      <h2>Coming in</h2>
+      <div class="cnt" id="in-cnt">—</div>
+      <div class="list" id="in-list"></div>
+    </section>
+    <section class="col out">
+      <h2>Going out</h2>
+      <div class="cnt" id="out-cnt">—</div>
+      <div class="list" id="out-list"></div>
+    </section>
+  </div>
+  <footer><span id="stamp">—</span><span id="msg"></span></footer>
+</div>
+<script>
+/* The board is read-only. It holds the same device key as vv-scan, stored on
+   this tablet only, and asks the Worker for one combined read every minute. */
+var IB_URL = "https://vv-inbound.ahoogahouse-1050-be.workers.dev";
+var KEY = "";
+try { KEY = localStorage.getItem("vv_device") || localStorage.getItem("mtb_key") || ""; } catch(e) {}
+if(!KEY){
+  KEY = (prompt("Device key for this screen") || "").trim();
+  if(KEY){ try{ localStorage.setItem("vv_device", KEY); }catch(e){} }
+}
+function esc(s){ return String(s==null?"":s)
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function tick(){
+  var d = new Date();
+  document.getElementById("clock").textContent =
+    String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");
+}
+function rowIn(p){
+  var late = p.late || /overdue/i.test(p.when||"");
+  return '<div class="row'+(late?" late":"")+'">'+
+    '<div><div class="main">'+esc(p.partner||p.ref||"")+'</div>'+
+    '<div class="meta">'+esc(p.ref||"")+(p.lines?(" · "+p.lines+" line"+(p.lines===1?"":"s")):"")+'</div></div>'+
+    '<div class="right">'+esc(p.when||"")+'</div></div>';
+}
+function rowOut(b){
+  return '<div class="row'+(b.built?"":" pending")+'">'+
+    '<div><div class="main"><span class="sn">'+esc(b.serial)+'</span> &rarr; '+esc(b.customer||"—")+'</div>'+
+    '<div class="meta">'+esc(b.so)+(b.built?"":" · not built yet")+'</div></div>'+
+    '<div class="right">'+esc(b.due||"")+'</div></div>';
+}
+function fill(id, rows, html, emptyText){
+  var el = document.getElementById(id);
+  el.innerHTML = rows.length ? rows.slice(0,8).map(html).join("")
+                             : '<div class="empty">'+emptyText+'</div>';
+}
+async function load(){
+  var msg = document.getElementById("msg");
+  try{
+    var r = await fetch(IB_URL+"/board", { headers:{ "x-device-key": KEY } });
+    if(!r.ok) throw new Error("Worker said "+r.status);
+    var d = await r.json();
+    document.getElementById("site").textContent = d.site || "";
+    fill("in-list",  d.inbound||[],  rowIn,  "Nothing on its way.");
+    fill("out-list", d.outbound||[], rowOut, "No bike waiting to leave.");
+    document.getElementById("in-cnt").textContent  =
+      (d.inbound||[]).length + " open arrival" + ((d.inbound||[]).length===1?"":"s");
+    document.getElementById("out-cnt").textContent =
+      (d.outbound||[]).filter(function(b){return b.built;}).length + " built · " +
+      (d.outbound||[]).length + " on order";
+    document.getElementById("stamp").textContent =
+      "updated " + new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
+    msg.textContent = "";
+  }catch(e){
+    msg.className = "err";
+    msg.textContent = "· " + String(e.message||e);
+  }
+}
+tick(); setInterval(tick, 20000);
+load(); setInterval(load, 60000);
+</script>
+</body></html>
