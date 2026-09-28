@@ -767,13 +767,26 @@ function bkRow(r){
              'autocapitalize="characters" autocomplete="off"/>';
   }
   /* Colour and rack first — that is what tells two bikes apart on the floor.
-     The model follows, and the internal code is only a quiet tail. */
-  var head = r.colour
-    ? esc(r.colour) + (r.rack ? ' <span style="opacity:.75">\u00b7 '+esc(r.rack)+'</span>' : '')
-    : esc(r.name);
+     The model follows, and the internal code is only a quiet tail. When there
+     is no variant to show, the model becomes the heading: never the same line
+     twice. */
+  var model = (r.model || r.name || "").trim();
+  var top, sub;
+  if (r.colour || r.rack) {
+    top = esc(r.colour || r.rack);
+    if (r.colour && r.rack) top += ' <span style="opacity:.75">\u00b7 '+esc(r.rack)+'</span>';
+    sub = model;
+  } else if (r.variant) {
+    top = esc(r.variant);
+    sub = model;
+  } else {
+    top = esc(model || r.name);
+    sub = "";
+  }
+  if (sub && sub === (r.colour || r.rack || r.variant || "")) sub = "";
   return '<div style="margin-top:16px">'+
-    '<div style="font-size:1.15em;font-weight:700;line-height:1.25">'+head+'</div>'+
-    '<div class="sub">'+esc(r.model||r.name)+'</div>'+
+    '<div style="font-size:1.15em;font-weight:700;line-height:1.25">'+top+'</div>'+
+    (sub ? '<div class="sub">'+esc(sub)+'</div>' : '')+
     '<div class="sub" style="opacity:.75">'+esc(r.code)+' \u00b7 '+r.qty+' bike'+(r.qty===1?'':'s')+
       (r.have.length? ' \u00b7 '+r.have.length+' already written':'')+'</div>'+
     (r.serial ? boxes : '<div class="sub" style="margin-top:6px">Not serial tracked.</div>')+
