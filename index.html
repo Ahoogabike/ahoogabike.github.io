@@ -1182,10 +1182,14 @@ document.getElementById('hp-key').addEventListener('keydown',e=>{if(e.key==='Ent
     colour:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>',
     sav:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.2"/><path d="M5.6 5.6l3 3M15.4 15.4l3 3M18.4 5.6l-3 3M8.6 15.4l-3 3"/></svg>',
     book:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2z"/><path d="M4 19a2 2 0 0 1 2-2h12"/></svg>',
-    finance:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>'
+    finance:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>',
+    plan:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M7 13h5M7 17h9"/></svg>',
+    parts:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><path d="M17 13v8M13 17h8"/></svg>',
+    ship:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v9H2z"/><path d="M13 10h4l3 3.2V16h-7z"/><circle cx="6" cy="18.5" r="1.6"/><circle cx="17" cy="18.5" r="1.6"/></svg>',
+    partner:'<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l6-3v3l6-3v5h6v10z"/><path d="M8 17v-3M13 17v-3M18 17v-3"/></svg>'
   };
   const NAV=[
-    {name:'Sales & forecasting',color:'#ea1d5e',icon:I.sales,apps:[
+    {name:'Sales & forecasting',color:'#ea1d5e',icon:I.chart,apps:[
       {t:'Sales Dashboard',h:'sales-dashboard.html',c:'#ea1d5e'},
       {t:'Sales Forecast',h:'sales-forecast.html',c:'#2f6df0'},
       {t:'Sales Forecast — MY27',h:'sales-forecast-my27.html',c:'#2a9d8f'},
@@ -1193,21 +1197,21 @@ document.getElementById('hp-key').addEventListener('keydown',e=>{if(e.key==='Ent
       {t:'Fair Dashboard',h:'fair-dashboard-2027.html',c:'#7a4ad0'}]},
     {name:'Orders & integrations',color:'#0f7a52',icon:I.orders,apps:[
       {t:'Shopify Convert',h:'shopify-convert.html',c:'#0f7a52'}]},
-    {name:'Planning & production',color:'#176f8c',icon:I.supply,apps:[
+    {name:'Planning & production',color:'#176f8c',icon:I.plan,apps:[
       {t:'Production Planner',h:'MAX_planner.html',c:'#ea1d5e'},
       {t:'PO Builder — Bikes',h:'po-builder-bikes.html',c:'#176f8c'},
       {t:'PO Builder — MY27',h:'po-builder-my27.html',c:'#2a9d8f'},
       {t:'PO Tracker',h:'po-tracker.html',c:'#2f6df0'}]},
-    {name:'Parts & stock',color:'#8a4fd6',icon:I.supply,apps:[
+    {name:'Parts & stock',color:'#8a4fd6',icon:I.parts,apps:[
       {t:'Parts Stock Count',h:'parts-stock.html',c:'#8a4fd6'},
       {t:'Parts Agenda',h:'parts-agenda.html',c:'#b45309'},
       {t:'Spare Parts & Accessories',h:'spares-accessories.html',c:'#0f7a52'}]},
-    {name:'Shipping & logistics',color:'#0a4d8c',icon:I.supply,apps:[
+    {name:'Shipping & logistics',color:'#0a4d8c',icon:I.ship,apps:[
       {t:'DSV Ship',h:'dsv-ship.html',c:'#0a4d8c'},
       {t:'DPD Ship',h:'dpd-ship.html',c:'#dc0032'},
       {t:'DSV Sea & Air Shipments',h:'dsv-sea-air-shipments.html',c:'#14259b'},
       {t:'Shipments Monitor',h:'shipments-monitor.html',c:'#0f7a52'}]},
-    {name:'Subcontractor screens',color:'#0891b2',icon:I.supply,apps:[
+    {name:'Subcontractor screens',color:'#0891b2',icon:I.partner,apps:[
       {t:'MTB Wheel Shop',h:'mtb-scan.html',c:'#0891b2'},
       {t:'MTB Wheel Board',h:'mtb-board.html',c:'#0891b2'},
       {t:'Velovisie Entrance Board',h:'vv-board.html',c:'#2f6f5e'}]},
