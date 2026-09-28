@@ -2,12 +2,12 @@
 <html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Velovisie · Entrance board</title>
+<title>MTB Maastricht · Wheel board</title>
 <style>
 :root{
   --bg:#0F1E4D; --panel:#16234F; --line:#2B3A68;
   --ink:#FBFBF8; --ink2:#B9C0DA; --ink3:#8A93B4;
-  --in:#7FC8A9; --out:#FF9BB3; --late:#FF8A6B; --ok:#9BE3C0;
+  --in:#7FD4E8; --out:#FFC98A; --late:#FF8A6B; --ok:#9BE3C0;
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:#0F1E4D;color:#FBFBF8;
@@ -21,8 +21,8 @@ h1{margin:0;font-size:34px;font-weight:700;letter-spacing:-.5px}
 .col{background:#16234F;border-radius:16px;padding:20px 22px;display:flex;flex-direction:column;min-height:0}
 .col h2{margin:0 0 4px;font-size:24px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
 .col .cnt{color:#8A93B4;font-size:18px;margin-bottom:14px}
-.col.in h2{color:#7FC8A9}
-.col.out h2{color:#FF9BB3}
+.col.in h2{color:#7FD4E8}
+.col.out h2{color:#FFC98A}
 .list{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:10px}
 .row{background:#1D2C5E;border-radius:11px;padding:13px 16px;display:flex;gap:16px;align-items:baseline}
 .row .main{font-size:25px;font-weight:600;line-height:1.25}
@@ -30,7 +30,7 @@ h1{margin:0;font-size:34px;font-weight:700;letter-spacing:-.5px}
 .row .right{margin-left:auto;text-align:right;color:#8A93B4;font-size:19px;white-space:nowrap}
 .row.late{background:#3A2036}
 .row.late .right{color:#FF8A6B;font-weight:600}
-.sn{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:24px;font-weight:600;color:#9BE3C0}
+.sn{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:24px;font-weight:600;color:#9BD8E8}
 .pending{opacity:.55}
 .empty{color:#8A93B4;font-size:21px;padding:14px 2px}
 footer{flex:none;color:#8A93B4;font-size:17px;padding-top:12px;display:flex;gap:18px}
@@ -44,12 +44,12 @@ footer{flex:none;color:#8A93B4;font-size:17px;padding-top:12px;display:flex;gap:
   </header>
   <div class="cols">
     <section class="col in">
-      <h2>Coming in</h2>
+      <h2>Components coming in</h2>
       <div class="cnt" id="in-cnt">—</div>
       <div class="list" id="in-list"></div>
     </section>
     <section class="col out">
-      <h2>Bikes going out</h2>
+      <h2>Wheels to Velovisie</h2>
       <div class="cnt" id="out-cnt">—</div>
       <div class="list" id="out-list"></div>
     </section>
@@ -60,12 +60,12 @@ footer{flex:none;color:#8A93B4;font-size:17px;padding-top:12px;display:flex;gap:
 /* The board is read-only. It holds the same device key as vv-scan, stored on
    this tablet only, and asks the Worker for one combined read every minute. */
 var IB_URL = "https://vv-inbound.ahoogahouse-1050-be.workers.dev";
-var SITE   = "velovisie";
+var SITE   = "mtb";
 var KEY = "";
-try { KEY = localStorage.getItem("vv_device") || ""; } catch(e) {}
+try { KEY = localStorage.getItem("mtb_key") || ""; } catch(e) {}
 if(!KEY){
   KEY = (prompt("Device key for this screen") || "").trim();
-  if(KEY){ try{ localStorage.setItem("vv_device", KEY); }catch(e){} }
+  if(KEY){ try{ localStorage.setItem("mtb_key", KEY); }catch(e){} }
 }
 function esc(s){ return String(s==null?"":s)
   .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
@@ -103,8 +103,8 @@ async function load(){
     var d = await r.json();
     /* The heading is the site the device key belongs to — never assumed.
        A tablet holding MTB's key shows MTB's board, titled MTB. */
-    /* This page is Velovisie's. A tablet holding another site's key gets a
-       plain refusal rather than someone else's board under our name. */
+    /* This page is MTB's. A tablet holding another site's key gets a plain
+       refusal rather than someone else's board under our name. */
     if(d.key && d.key !== SITE){
       document.getElementById("site").textContent = "Wrong screen";
       document.getElementById("sub").textContent  =
@@ -115,12 +115,12 @@ async function load(){
       document.getElementById("out-cnt").textContent = "";
       return;
     }
-    document.getElementById("site").textContent = d.site || "Velovisie";
-    document.getElementById("sub").textContent  = "entrance board";
+    document.getElementById("site").textContent = d.site || "MTB Maastricht";
+    document.getElementById("sub").textContent  = "wheel board";
     fill("in-list",  d.inbound||[],  rowIn,  "Nothing on its way.");
-    fill("out-list", d.outbound||[], rowOut, "No bike waiting to leave.");
+    fill("out-list", d.outbound||[], rowOut, "No wheel ready to ship.");
     document.getElementById("in-cnt").textContent  =
-      (d.inbound||[]).length + " open arrival" + ((d.inbound||[]).length===1?"":"s");
+      (d.inbound||[]).length + " delivery" + ((d.inbound||[]).length===1?"":"s") + " due";
     var ready = (d.outbound||[]).filter(function(b){ return b.ready; }).length;
     document.getElementById("out-cnt").textContent =
       ready + " ready · " + (d.outbound||[]).length + " in hand";
