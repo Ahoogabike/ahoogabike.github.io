@@ -178,34 +178,16 @@ input[type=number]{font-family:ui-monospace,monospace}
 
   <div class="card">
     <h2>Wheels we have ordered</h2>
-    <div class="sub">One line per wheel type. Move it along as you build it. Shipped tells Hasselt a pallet is coming — the stock itself moves when they scan it in.</div>
+    <div class="sub">One block per transfer to Velovisie — that transfer <i>is</i> the delivery note.
+      Say how many of each wheel type are leaving, then announce the pallet.
+      The stock itself moves when Velovisie books it in.</div>
     <div class="row" style="margin-top:12px">
       <button class="btn sm" onclick="wLoad()">↻ Refresh</button>
     </div>
     <div id="w-msg"></div>
   </div>
 
-  <div class="card" id="w-ship-card">
-    <h2>Tell Velovisie it is on the way</h2>
-    <div class="sub">Mark the wheel types <b>Shipped</b> first, then announce the pallet.
-      One email to Dieter and Jan at Okazi listing every part number on it, with the
-      delivery note attached.</div>
-    <div class="row" style="margin-top:12px">
-      <select id="w-pick" class="rc-inp"><option value="">Delivery note — loading…</option></select>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <input id="w-eta" class="rc-inp" type="date"/>
-    </div>
-    <div class="sub" id="w-ship-ready" style="margin-top:12px">—</div>
-    <div class="row" style="margin-top:12px">
-      <button class="btn go wide" onclick="wShip()">✉ Announce this pallet</button>
-    </div>
-    <div id="w-ship-msg"></div>
-  </div>
-
-  <div class="card">
-    <div id="w-list"><div class="empty">Loading…</div></div>
-  </div>
+  <div id="w-list"><div class="empty">Loading…</div></div>
 
 </section>
 
@@ -517,103 +499,86 @@ async function gStartCam(){
    WHEELS
    ===================================================================== */
 
-/* ---------------- announce a pallet ---------------- */
-async function wOutbound(){
-  var sel = $("w-pick"); if(!sel) return;
-  try{
-    var rows = await ibGet("/outbound");
-    if(!rows.length){
-      sel.innerHTML = '<option value="">No open transfer to Velovisie \u2014 send without one</option>';
-      return;
-    }
-    sel.innerHTML = '<option value="">No delivery note \u2014 send without one</option>' +
-      rows.map(function(r){
-        return '<option value="'+r.id+'">'+esc(r.ref)+(r.when? " \u00b7 "+esc(r.when):"")+'</option>';
-      }).join("");
-  }catch(e){
-    sel.innerHTML = '<option value="">Could not load transfers</option>';
-  }
-}
-
-async function wShip(){
-  var eta = ($("w-eta")||{}).value || "";
-  if(!eta){ say("w-ship-msg","Give the date it should reach Velovisie.","err"); return; }
-  var pid = ($("w-pick")||{}).value || "";
-  say("w-ship-msg","Sending\u2026");
-  try{
-    var r = await ibPost("/wheel-ship", { picking: pid ? Number(pid) : 0, eta: eta, by: IB_BY });
-    say("w-ship-msg","Velovisie told \u2014 "+r.sent+" wheel type"+(r.sent===1?"":"s")+
-        ", "+r.pcs+" pcs"+
-        (r.attached? ", delivery note attached." : ", no delivery note attached."), "ok");
-    wLoad(); wOutbound();
-  }catch(e){ say("w-ship-msg", String(e.message||e), "err"); }
-}
-
-/* What the next announcement would actually cover. Only the quantity
-   that has not been announced before, so a second pallet on the same
-   order sends only its own wheels. */
-function wReady(rows){
-  var el = $("w-ship-ready"); if(!el) return;
-  var p = (rows||[]).filter(function(r){ return (r.pending||0) > 0; });
-  if(!p.length){
-    el.textContent = "Nothing new to announce \u2014 mark a wheel type Shipped, or raise its quantity.";
-    return;
-  }
-  var pcs = p.reduce(function(a,r){ return a + r.pending; }, 0);
-  el.textContent = "Ready to announce: " + p.length + " wheel type" +
-    (p.length===1?"":"s") + ", " + pcs + " pcs \u2014 " +
-    p.map(function(r){ return (r.code||r.name) + " \u00d7 " + r.pending; }).join(", ");
-}
-
-async function wLoad(){
-  wOutbound();
-  var box = $("w-list");
-  box.innerHTML = '<div class="empty">Loading…</div>';
-  try{
-    var rows = await ibGet("/wheels");
-    if(!rows.length){
-      box.innerHTML = '<div class="empty">No open wheel orders.<br>When the office raises one it appears here.</div>';
-      wReady([]);
-      return;
-    }
-    box.innerHTML = rows.map(wRow).join("");
-    wReady(rows);
-  }catch(e){
-    box.innerHTML = '<div class="empty">'+esc(String(e.message||e))+'</div>';
-  }
-}
+/* ---------------- wheels ---------------- */
+/* A row is a stock.move on the MTB -> Velovisie transfer. Its demand is
+   what is still owed on that pallet; Odoo splits it into a backorder when
+   Velovisie books in less than the demand. */
 
 function wStamp(r){
   if(!r.at) return "";
   var d = new Date(r.at);
   if(isNaN(d)) return "";
   var when = d.toLocaleString("en-GB",{ day:"numeric", month:"short", hour:"2-digit", minute:"2-digit" });
-  return "last change "+when+(r.by? " · "+esc(r.by):"");
+  return "last change "+when+(r.by? " \u00b7 "+esc(r.by):"");
 }
 
 function wRow(r){
   var acts = "";
   if(r.status === "waiting"){
-    acts = '<button class="btn sm" onclick="wSet('+r.line+',\'production\',0)">▶ Start building</button>';
-  } else if(r.status === "production"){
-    acts = '<input type="number" inputmode="numeric" min="0" max="'+r.ordered+'" id="wq-'+r.line+'" value="'+r.done+'"/>'+
-           '<span class="sub">of '+r.ordered+'</span>'+
-           '<button class="btn sm" onclick="wSave('+r.line+')">Save count</button>'+
-           '<button class="btn sm go" onclick="wSet('+r.line+',\'shipped\',0)">🚚 Shipped</button>';
+    acts = '<button class="btn sm" onclick="wSet('+r.line+',\'production\',0)">\u25b6 Start building</button>';
   } else {
-    acts = '<button class="btn sm" onclick="wSet('+r.line+',\'production\','+r.done+')">↩ Not shipped after all</button>';
+    var v = r.done || "";
+    acts = '<input type="number" inputmode="numeric" min="0" max="'+r.demand+'" id="wq-'+r.line+'" value="'+v+'" placeholder="0"/>'+
+           '<span class="sub">of '+r.demand+' due</span>'+
+           (r.status === "production"
+             ? '<button class="btn sm" onclick="wSave('+r.line+')">Save count</button>'+
+               '<button class="btn sm go" onclick="wShipLine('+r.line+')">\ud83d\ude9a Shipped</button>'
+             : '<button class="btn sm go" onclick="wShipLine('+r.line+')">Save shipped count</button>'+
+               '<button class="btn sm" onclick="wSet('+r.line+',\'production\','+r.done+')">\u21a9 Not shipped after all</button>');
   }
+  var prog = r.received + " of " + r.ordered + " received on " + esc(r.po);
   return '<div class="wh" id="wh-'+r.line+'">'+
     '<div class="top">'+
       '<div><div class="nm">'+esc(r.name)+'</div>'+
-      '<div class="cd">'+esc(r.code)+' · '+esc(r.po)+'</div></div>'+
-      '<div class="qty">'+r.ordered+'</div>'+
+      '<div class="cd">'+esc(r.code)+'</div></div>'+
+      '<div class="qty">'+r.demand+'</div>'+
     '</div>'+
     '<span class="pill '+r.status+'">'+esc(r.label)+
-      (r.status==="production" ? " · "+r.done+" of "+r.ordered : "")+'</span>'+
+      (r.status!=="waiting" ? " \u00b7 "+r.done+" of "+r.demand : "")+
+      (r.announced ? " \u00b7 "+r.announced+" announced" : "")+'</span>'+
+    '<div class="sub">'+prog+'</div>'+
     '<div class="acts">'+acts+'</div>'+
     (wStamp(r) ? '<div class="stamp">'+wStamp(r)+'</div>' : '')+
   '</div>';
+}
+
+function wGroup(g){
+  var pend = g.rows.filter(function(r){ return (r.pending||0) > 0; });
+  var pcs  = pend.reduce(function(a,r){ return a + r.pending; }, 0);
+  var ready = pend.length
+    ? "Ready to announce: " + pcs + " pcs \u2014 " +
+      pend.map(function(r){ return (r.code||r.name) + " \u00d7 " + r.pending; }).join(", ")
+    : "Nothing new to announce on this pallet.";
+  return '<div class="card">'+
+    '<h2>'+esc(g.ref)+'</h2>'+
+    '<div class="sub">'+esc(g.po)+(g.when? " \u00b7 due "+esc(g.when):"")+'</div>'+
+    '<div style="margin-top:12px">'+g.rows.map(wRow).join("")+'</div>'+
+    '<div class="sub" style="margin-top:14px">'+esc(ready)+'</div>'+
+    '<div class="row" style="margin-top:10px">'+
+      '<input class="rc-inp" type="date" id="weta-'+g.pick+'"/>'+
+    '</div>'+
+    '<div class="row" style="margin-top:8px">'+
+      '<button class="btn go wide" onclick="wShip('+g.pick+')"'+(pend.length? "":" disabled")+'>'+
+        '\u2709 Announce this pallet to Velovisie</button>'+
+    '</div>'+
+    '<div id="wship-'+g.pick+'"></div>'+
+  '</div>';
+}
+
+async function wLoad(){
+  var box = $("w-list");
+  box.innerHTML = '<div class="card"><div class="empty">Loading\u2026</div></div>';
+  try{
+    var groups = await ibGet("/wheels");
+    if(!groups.length){
+      box.innerHTML = '<div class="card"><div class="empty">No open transfer to Velovisie.<br>'+
+        'One is created as soon as the office confirms a wheel order to MTB.</div></div>';
+      return;
+    }
+    box.innerHTML = groups.map(wGroup).join("");
+  }catch(e){
+    box.innerHTML = '<div class="card"><div class="empty">'+esc(String(e.message||e))+'</div></div>';
+  }
 }
 
 function wSave(line){
@@ -623,8 +588,20 @@ function wSave(line){
   wSet(line, "production", n);
 }
 
+/* Shipped always carries the number in the box. Guessing the whole line
+   was how Velovisie could be told 200 when 50 had left. */
+function wShipLine(line){
+  var el = $("wq-"+line);
+  var n = el ? Number(el.value) : 0;
+  if(!isFinite(n) || n <= 0){
+    say("w-msg","Type how many wheels are leaving before marking it shipped.","err");
+    return;
+  }
+  wSet(line, "shipped", n);
+}
+
 async function wSet(line, status, done){
-  say("w-msg","Saving…","info");
+  say("w-msg","Saving\u2026","info");
   try{
     await ibPost("/wheel-status", { line:line, status:status, done:done, by:IB_BY });
     say("w-msg","");
@@ -632,6 +609,19 @@ async function wSet(line, status, done){
   }catch(e){
     say("w-msg", String(e.message||e), "err");
   }
+}
+
+async function wShip(pick){
+  var eta = ($("weta-"+pick)||{}).value || "";
+  var box = "wship-"+pick;
+  if(!eta){ say(box,"Give the date it should reach Velovisie.","err"); return; }
+  say(box,"Sending\u2026","info");
+  try{
+    var r = await ibPost("/wheel-ship", { picking: pick, eta: eta, by: IB_BY });
+    say(box,"Velovisie told \u2014 "+r.pcs+" pcs on "+r.ref+
+        (r.attached? ", delivery note attached." : ", no delivery note attached."), "ok");
+    await wLoad();
+  }catch(e){ say(box, String(e.message||e), "err"); }
 }
 
 /* =====================================================================
