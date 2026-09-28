@@ -746,6 +746,13 @@ async function ibPost(path,body){
 }
 
 /* ---------- finish a bike ---------- */
+/* vv-scan has no HTML escaper of its own, so this block brings one. */
+function esc(s){
+  return String(s==null?"":s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+
 /* A bike is serial tracked: one serial is one bike, so the screen asks for
    exactly as many serials as there are bikes on the line. Nothing reaches
    Odoo until Confirm. */
