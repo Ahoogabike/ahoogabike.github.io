@@ -765,9 +765,15 @@ function bkRow(r){
              'value="'+esc(r.have[i]||"")+'" placeholder="frame serial, e.g. MACU0000132" '+
              'autocapitalize="characters" autocomplete="off"/>';
   }
-  return '<div style="margin-top:14px">'+
-    '<div style="font-weight:600">'+esc(r.name)+'</div>'+
-    '<div class="sub">'+esc(r.code)+' \u00b7 '+r.qty+' bike'+(r.qty===1?'':'s')+
+  /* Colour and rack first — that is what tells two bikes apart on the floor.
+     The model follows, and the internal code is only a quiet tail. */
+  var head = r.colour
+    ? esc(r.colour) + (r.rack ? ' <span style="opacity:.75">\u00b7 '+esc(r.rack)+'</span>' : '')
+    : esc(r.name);
+  return '<div style="margin-top:16px">'+
+    '<div style="font-size:1.15em;font-weight:700;line-height:1.25">'+head+'</div>'+
+    '<div class="sub">'+esc(r.model||r.name)+'</div>'+
+    '<div class="sub" style="opacity:.75">'+esc(r.code)+' \u00b7 '+r.qty+' bike'+(r.qty===1?'':'s')+
       (r.have.length? ' \u00b7 '+r.have.length+' already written':'')+'</div>'+
     (r.serial ? boxes : '<div class="sub" style="margin-top:6px">Not serial tracked.</div>')+
   '</div>';
