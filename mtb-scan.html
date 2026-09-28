@@ -157,6 +157,7 @@ input[type=number]{font-family:ui-monospace,monospace}
     </div>
     <div class="row" style="margin-top:8px">
       <button class="btn sm" onclick="gPhoto()">📸 Add a photo</button>
+      <button class="btn sm" onclick="gNote()">📄 Delivery note (PDF)</button>
       <button class="btn sm" onclick="gCancel()">Cancel</button>
       <span class="sub" id="g-shots"></span>
     </div>
@@ -182,6 +183,23 @@ input[type=number]{font-family:ui-monospace,monospace}
       <button class="btn sm" onclick="wLoad()">↻ Refresh</button>
     </div>
     <div id="w-msg"></div>
+  </div>
+
+  <div class="card" id="w-ship-card">
+    <h2>Tell Velovisie it is on the way</h2>
+    <div class="sub">Mark the wheel types <b>Shipped</b> first, then announce the pallet.
+      One email to Dieter and Jan at Okazi listing every part number on it, with the
+      delivery note attached.</div>
+    <div class="row" style="margin-top:12px">
+      <select id="w-pick" class="rc-inp"><option value="">Delivery note — loading…</option></select>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <input id="w-eta" class="rc-inp" type="date"/>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn go wide" onclick="wShip()">✉ Announce this pallet</button>
+    </div>
+    <div id="w-ship-msg"></div>
   </div>
 
   <div class="card">
@@ -266,6 +284,37 @@ async function ibPost(path, body){
   var j = await r.json().catch(function(){ return {}; });
   if(!r.ok) throw new Error(j.error || ("Worker said "+r.status));
   return j;
+}
+
+/* ---------------- delivery note ---------------- */
+/* The PDF needs the device key, so it cannot be a plain link: fetch it
+   with the header, then hand the blob to the browser as a download. */
+async function ibFile(path, filename){
+  var k = devKey();
+  if(!k) throw new Error("This tablet has no device key yet.");
+  var r = await fetch(IB_URL+path, { headers:{ "x-device-key": k } });
+  if(!r.ok){
+    var j = await r.json().catch(function(){ return {}; });
+    throw new Error(j.error || ("Worker said "+r.status));
+  }
+  var b = await r.blob();
+  var u = URL.createObjectURL(b);
+  var a = document.createElement("a");
+  a.href = u; a.download = filename; a.rel = "noopener";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ try{ URL.revokeObjectURL(u); }catch(e){} }, 8000);
+}
+
+async function gNote(){
+  var s = G.pick; if(!s || !s.id) return;
+  var st = $("g-shots"); if(st) st.textContent = "Fetching the delivery note\u2026";
+  try{
+    var nm = String(s.ref || ("transfer-"+s.id)).replace(/[^A-Za-z0-9._-]/g,"-");
+    await ibFile("/delivery-note?picking="+encodeURIComponent(s.id), nm+".pdf");
+    if(st) st.textContent = "Delivery note downloaded.";
+  }catch(e){
+    if(st) st.textContent = String(e.message||e);
+  }
 }
 
 /* ---------------- tabs ---------------- */
@@ -467,7 +516,39 @@ async function gStartCam(){
    WHEELS
    ===================================================================== */
 
+/* ---------------- announce a pallet ---------------- */
+async function wOutbound(){
+  var sel = $("w-pick"); if(!sel) return;
+  try{
+    var rows = await ibGet("/outbound");
+    if(!rows.length){
+      sel.innerHTML = '<option value="">No open transfer to Velovisie \u2014 send without one</option>';
+      return;
+    }
+    sel.innerHTML = '<option value="">No delivery note \u2014 send without one</option>' +
+      rows.map(function(r){
+        return '<option value="'+r.id+'">'+esc(r.ref)+(r.when? " \u00b7 "+esc(r.when):"")+'</option>';
+      }).join("");
+  }catch(e){
+    sel.innerHTML = '<option value="">Could not load transfers</option>';
+  }
+}
+
+async function wShip(){
+  var eta = ($("w-eta")||{}).value || "";
+  if(!eta){ say("w-ship-msg","Give the date it should reach Velovisie.","err"); return; }
+  var pid = ($("w-pick")||{}).value || "";
+  say("w-ship-msg","Sending\u2026");
+  try{
+    var r = await ibPost("/wheel-ship", { picking: pid ? Number(pid) : 0, eta: eta, by: IB_BY });
+    say("w-ship-msg","Velovisie told \u2014 "+r.sent+" wheel type"+(r.sent===1?"":"s")+
+        (r.attached? ", delivery note attached." : ", no delivery note attached."), "ok");
+    wLoad();
+  }catch(e){ say("w-ship-msg", String(e.message||e), "err"); }
+}
+
 async function wLoad(){
+  wOutbound();
   var box = $("w-list");
   box.innerHTML = '<div class="empty">Loading…</div>';
   try{
