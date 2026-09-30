@@ -1123,6 +1123,44 @@ async function issueWheelPO(wi){
   for(const c in lastWheelDemand){ let q=0; for(let w=0; w<=wi; w++) q+=lastWheelDemand[c][w]||0; q=Math.round(q); if(q<=0) continue; const p=(lastWheelProducts&&lastWheelProducts[c])||null; const pid=p?p.id:null; if(!pid) unresolved+=q; lines.push({pid, qty:q, name:c+(pid?'':' (not resolved — connect to Odoo)')}); }
   openPoModal({title:`Wheel PO (MTB) — all wheels due through ${weeks[wi].label}`, lines, vendorName:'MTB', dateStr:ymd(weeks[wi].monday), unresolved});
 }
+/* ── WHERE THE GOODS LAND ─────────────────────────────────────────────
+   AND/Warehouse is closing. Left alone, Odoo puts every purchase order on
+   "Anderlecht Receipts", which delivers into AND/In Transit and then needs
+   a second internal transfer into AND/Warehouse. That route is dead, so the
+   PO now says out loud where the goods are going, and the planner can see
+   and change it before the draft is created.
+
+   284  Velovisie: Receipts      Subcontracting/Velovisie -> VV/Stock
+                                 finished bikes coming off the Okazi line
+   300  Vendor -> Velovisie line Vendors -> Subcontracting/Velovisie
+                                 components delivered straight to assembly
+   268  MTB -> Velovisie         Vendors -> Subcontracting/Velovisie (wheels)
+   267  Deco Coat -> Velovisie   Vendors -> Subcontracting/Velovisie (painted frames)
+    46  BrainLog: Receipts       Vendors -> Brain/Input
+     1  Anderlecht Receipts      Vendors -> AND/In Transit   (closing — do not use)   */
+const RECEIVE_OPTIONS = [
+  { id: 46,  label: 'Brain Log — Receipts  (Vendors → Brain/Input)' },
+  { id: 300, label: 'Velovisie line — components  (Vendors → Subcontracting/Velovisie)' },
+  { id: 284, label: 'Velovisie stock — finished bikes  (→ VV/Stock)' },
+  { id: 268, label: 'MTB → Velovisie — wheels' },
+  { id: 267, label: 'Deco Coat → Velovisie — painted frames' },
+  { id: 1,   label: 'Anderlecht Receipts  ⚠ warehouse closing — avoid' }
+];
+/* Vendors whose destination is never in doubt. Everything else defaults to
+   Brain Log; change DEFAULT_RECEIVE below if components should instead go
+   straight to the Velovisie line. */
+const RECEIVE_BY_VENDOR = { 14896: 284, 8489: 268, 36210: 267 };
+const DEFAULT_RECEIVE   = 46;
+
+function receiveTypeFor(vendorId){
+  return RECEIVE_BY_VENDOR[Number(vendorId)] || DEFAULT_RECEIVE;
+}
+/* Re-point the "Receive at" box when the planner changes vendor. */
+function syncReceiveType(){
+  const v = document.getElementById('po-vendor'), r = document.getElementById('po-receive');
+  if(v && r) r.value = String(receiveTypeFor(v.value));
+}
+
 async function openPoModal(o){
   const m=document.getElementById('po-modal'), body=document.getElementById('po-modal-body');
   body.innerHTML='<div style="padding:20px;text-align:center">Looking up vendor…</div>'; m.style.display='flex';
@@ -1133,7 +1171,8 @@ async function openPoModal(o){
   const totalQ=o.lines.reduce((a,l)=>a+l.qty,0);
   body.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><b>${esc(o.title)}</b><button class="btn btn-secondary" style="padding:3px 9px" onclick="document.getElementById('po-modal').style.display='none'">Close</button></div>
     <div style="font-size:13px;margin-bottom:10px">${o.lines.length} line(s) · ${totalQ} units${o.unresolved?` · <span style="color:var(--danger)">${o.unresolved} not matched to an Odoo product (skipped)</span>`:''}</div>
-    <div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text2);font-weight:600">Vendor</label><br><select id="po-vendor" style="width:100%;padding:6px;border:1px solid var(--border2);border-radius:6px">${vOpts||'<option value="">— none found —</option>'}</select></div>
+    <div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text2);font-weight:600">Vendor</label><br><select id="po-vendor" onchange="syncReceiveType()" style="width:100%;padding:6px;border:1px solid var(--border2);border-radius:6px">${vOpts||'<option value="">— none found —</option>'}</select></div>
+    <div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text2);font-weight:600">Receive at</label><br><select id="po-receive" style="width:100%;padding:6px;border:1px solid var(--border2);border-radius:6px">${RECEIVE_OPTIONS.map(t=>`<option value="${t.id}" ${t.id===receiveTypeFor(def)?'selected':''}>${esc(t.label)}</option>`).join('')}</select><div style="font-size:10px;color:var(--text2);margin-top:3px">This sets the receiving operation type on the PO, so the goods land in one step where they are actually needed.</div></div>
     <div style="margin-bottom:8px"><label style="font-size:11px;color:var(--text2);font-weight:600">Planned date</label><br><input type="date" id="po-date" value="${o.dateStr}" style="padding:6px;border:1px solid var(--border2);border-radius:6px"/></div>
     <div style="max-height:190px;overflow:auto;border:1px solid var(--border);border-radius:6px;margin-bottom:8px">${o.lines.map(l=>`<div style="display:flex;justify-content:space-between;padding:3px 8px;font-size:12px;${l.pid?'':'color:var(--danger)'}"><span>${esc(l.name)}</span><b>${l.qty}</b></div>`).join('')}</div>
     <div id="po-msg" style="font-size:12px;margin-bottom:8px"></div>
@@ -1150,7 +1189,11 @@ async function submitPO(){
   document.getElementById('po-go').disabled=true; msg.textContent='Creating draft PO…';
   try{
     const ol=lines.map(l=>[0,0,{product_id:l.pid, product_qty:l.qty, date_planned:date+' 08:00:00'}]);
-    const poId=await odoo('purchase.order','create',[{partner_id:vendor, date_order:ymd(new Date())+' 08:00:00', order_line:ol}]);
+    const recvSel=document.getElementById('po-receive');
+    const recv=recvSel?parseInt(recvSel.value):receiveTypeFor(vendor);
+    const poVals={partner_id:vendor, date_order:ymd(new Date())+' 08:00:00', order_line:ol};
+    if(recv) poVals.picking_type_id=recv;
+    const poId=await odoo('purchase.order','create',[poVals]);
     let name='#'+poId; try{ const rd=await odoo('purchase.order','read',[[poId]],{fields:['name']}); if(rd&&rd[0]&&rd[0].name) name=rd[0].name; }catch(e){}
     msg.innerHTML=`✓ Draft PO <b>${esc(name)}</b> created. <a href="${ODOO_URL}/odoo/purchase/${poId}" target="_blank" style="color:var(--accent);font-weight:600">Open in Odoo ↗</a> — review &amp; confirm there.`;
     setTimeout(()=>document.getElementById('po-modal').style.display='none', 2600);

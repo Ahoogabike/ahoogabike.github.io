@@ -150,6 +150,20 @@ const PORT_GUESS=[
   [/nansha|guangzhou/i,'CNNSA','Nansha'],[/xiamen/i,'CNXMN','Xiamen'],[/qingdao/i,'CNTAO','Qingdao'],[/tianjin|xingang/i,'CNTXG','Xingang'],
   [/kaohsiung|taiwan|taipei/i,'TWKHH','Kaohsiung'],[/ho chi minh|vietnam|saigon/i,'VNSGN','Ho Chi Minh'],[/hong ?kong/i,'HKHKG','Hong Kong']
 ];
+/* The PO number(s) this booking covers, remembered per supplier the same way
+   the load port is. Without it a DSV booking reads "AHOOGA SEA Spanninga" and
+   nobody receiving the container can tie it to an order: the reference on the
+   carrier's paperwork is the only thing the receiving site can match on. */
+const LS_PO = 'dsv_po_by_vendor';
+function poByVendorMap(){ try{ return JSON.parse(localStorage.getItem(LS_PO)||'{}'); }catch(e){ return {}; } }
+function loadPoFor(vendor){ return (poByVendorMap()[vendor])||''; }
+function savePoFor(vid){
+  const vendor=decodeURIComponent(vid);
+  const po=(($('po-'+vid)||{}).value||'').trim().toUpperCase();
+  const m=poByVendorMap();
+  if(po) m[vendor]=po; else delete m[vendor];
+  try{ localStorage.setItem(LS_PO,JSON.stringify(m)); }catch(e){}
+}
 function portByVendorMap(){ try{ return JSON.parse(localStorage.getItem(LS_PORT)||'{}'); }catch(e){ return {}; } }
 function loadPortFor(vendor){ return (portByVendorMap()[vendor])||null; }
 function saveLoadPort(vid){ const vendor=decodeURIComponent(vid); const code=($('pl-'+vid).value||'').trim().toUpperCase(); const m=portByVendorMap(); if(code){ m[vendor]={code,name:(m[vendor]&&m[vendor].name)||''}; } else { delete m[vendor]; } try{ localStorage.setItem(LS_PORT,JSON.stringify(m)); }catch(e){} }
@@ -322,7 +336,9 @@ function vendorCard(vendor, items){
       gross kg <input type="number" id="pk-kg-${vid}" min="0" value="0"/>
       volume m³ <input type="number" id="pk-m3-${vid}" min="0" step="0.01" value="0"/>
       <span style="margin-left:8px">load port <input type="text" id="pl-${vid}" placeholder="e.g. CNYTN" value="${esc((loadPortFor(vendor)||{}).code||'')}" onchange="saveLoadPort('${vid}')" style="width:90px;text-transform:uppercase"/></span>
+      <span style="margin-left:8px">PO number <input type="text" id="po-${vid}" placeholder="e.g. P02390" value="${esc(loadPoFor(vendor))}" onchange="savePoFor('${vid}')" style="width:150px;text-transform:uppercase"/></span>
     </div>
+    <div class="hint" style="margin-top:4px">The PO number goes on the DSV booking as the shipper reference. Several orders in one container? Type them separated by a comma.</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
       ${airTot>0?`<button class="btn btn-air" onclick="book('${vid}','Air')">✈ Book DSV air (${fmt(airTot)})</button>`:''}
       ${seaTot>0?`<button class="btn btn-sea" onclick="book('${vid}','Sea')">🚢 Book DSV sea (${fmt(seaTot)})</button>`:''}
@@ -339,6 +355,7 @@ function pkgFor(vid){ return { ctn:Math.max(1,parseInt(($('pk-ctn-'+vid)||{}).va
 function addrBlock(a){ return { companyName:(a.company||'').slice(0,60), addressLine1:a.addr||'', city:a.city||'', countryCode:(a.country||'').toUpperCase().slice(0,2), zipCode:a.zip||'' }; }
 async function buildOrder(vid, mode){
   const vendor=decodeURIComponent(vid); const items=itemsForVendor(vid); const c=cfg(); const pk=pkgFor(vid);
+  const po = ((($('po-'+vid)||{}).value)||loadPoFor(vendor)||'').trim().toUpperCase();
   const qtyKey = mode==='Air' ? '_airQty' : '_seaQty';
   const lines = items.filter(it=>it[qtyKey]>0);
   // sender from Odoo supplier (best effort)
@@ -363,7 +380,9 @@ async function buildOrder(vid, mode){
     if(Object.keys(as).length) services.airportSelection=as;
   }
   const order = {
-    bookingReferenceCode: `AHOOGA-${(vendor||'SUP').replace(/[^A-Za-z0-9]/g,'').slice(0,12)}-${mode.toUpperCase()}-${todayYmd().replace(/-/g,'')}`,
+    bookingReferenceCode: po
+      ? `${po.replace(/[^A-Za-z0-9,]/g,'').slice(0,16)}-${mode.toUpperCase()}`
+      : `AHOOGA-${(vendor||'SUP').replace(/[^A-Za-z0-9]/g,'').slice(0,12)}-${mode.toUpperCase()}-${todayYmd().replace(/-/g,'')}`,
     autobook: false,
     product: mode==='Air' ? { name:'Air', dropOff:false } : { name:'Sea', billOfLading:'Original', containerMode:'LCL', dropOff:false },
     services: Object.keys(services).length ? services : undefined,
@@ -377,12 +396,21 @@ async function buildOrder(vid, mode){
     },
     packages: [ { quantity: pk.ctn, packageType:'CTN', totalWeight: pk.kg, totalVolume: pk.m3, description:'Bicycle parts' } ],
     detailedGoodsDescription: lines.map(it=>({ description:(it.name||'').slice(0,60), quantity: it[qtyKey] })),
-    references: [ { value: order_ref(vendor,mode), type:'SHIPPER_REFERENCE' } ],
+    references: (function(){
+      const refs=[ { value: order_ref(vendor,mode,po), type:'SHIPPER_REFERENCE' } ];
+      /* A second, clean copy of the order number: some DSV documents print
+         the customer reference and not the shipper one. */
+      if(po) refs.push({ value: po.slice(0,35), type:'CUSTOMER_REFERENCE' });
+      return refs;
+    })(),
     units: { dimension:'CM', weight:'KG', volume:'M3' }
   };
   return order;
 }
-function order_ref(vendor,mode){ return `AHOOGA ${mode} ${vendor}`.slice(0,35); }
+function order_ref(vendor,mode,po){
+  /* PO first — it is the only part of this string the receiving site can act on. */
+  return (po ? `${po} \u00b7 AHOOGA ${mode}` : `AHOOGA ${mode} ${vendor}`).slice(0,35);
+}
 
 async function downloadJSON(vid, mode){
   const order=await buildOrder(vid, mode);

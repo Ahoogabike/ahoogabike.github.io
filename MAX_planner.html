@@ -225,7 +225,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
       <select id="q-filter" onchange="renderQueue()">
         <option value="">All</option>
         <option value="stock">✓ Ready to ship (Brain Log / AND)</option>
-        <option value="transit_match">🚚 Serial assigned (in transit)</option>
+        <option value="transit_match">🚚 Serial assigned (not in the warehouse)</option>
         <option value="urgent">Urgent</option>
         <option value="urgent_stock">Urgent + in stock</option>
         <option value="queued">Queued</option>
@@ -296,7 +296,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
       <button class="tab-btn active" onclick="stockTab('summary')">📊 Summary</button>
       <button class="tab-btn" onclick="stockTab('available')">Available</button>
       <button class="tab-btn" onclick="stockTab('reserved')">Reserved to orders</button>
-      <button class="tab-btn" onclick="stockTab('transit')">In transit → warehouse</button>
+      <button class="tab-btn" onclick="stockTab('transit')">Built, not in the warehouse</button>
       <button class="tab-btn" onclick="stockTab('inprod')">In production</button>
     </div>
 
@@ -618,12 +618,18 @@ let visibleCols = {
 // date switch: during the move bikes sit in both, afterwards AND simply reads zero.
 // Brain Log is listed first, so it is the preferred pick when allocating bikes.
 const WH_LOCS = ['Brain/Stock', 'AND/Warehouse'];
-// Serial known, not yet shippable: AND/In Transit (VV → warehouse) and Brain/Input
-// (arrived at Brain Log, not yet put away).
-const TRANSIT_LOCS = ['AND/In Transit', 'Brain/Input'];
+// Serial known, but not standing in the central warehouse.
+//   VV/Stock        finished at Velovisie. Since the Okazi receipt was re-routed
+//                   (type 284) this is where a new bike actually appears — it is
+//                   NOT in Anderlecht and never was. It can ship straight from
+//                   Hasselt; it only moves to Brain Log if somebody decides it should.
+//   AND/In Transit  the old route. Kept only until Anderlecht closes on 31 Oct.
+//   Brain/Input     arrived at Brain Log, not yet put away.
+const TRANSIT_LOCS = ['VV/Stock', 'AND/In Transit', 'Brain/Input'];
 const isWH = loc => WH_LOCS.includes(loc);
 const isTransitLoc = loc => TRANSIT_LOCS.includes(loc);
 const locLabel = loc => loc==='LOUI/Stock' ? 'LOUI/Stock'
+  : (loc||'').startsWith('VV/') ? 'Velovisie'
   : (loc||'').startsWith('Brain/Input') ? 'Brain Log (receiving)'
   : (loc||'').startsWith('Brain') ? 'Brain Log'
   : (loc||'AND/Warehouse');
@@ -1232,7 +1238,13 @@ async function syncOdoo() {
       [[['location_id.complete_name','like','LOUI/Stock'],['location_id.usage','=','internal'],['quantity','>',0]]],
       {fields:['lot_id','product_id','quantity','in_date'],limit:500});
 
-    // ── 3. BIKES IN TRANSIT (AND/In Transit location — real serial numbers) ──
+    // ── 3. BIKES NOT YET AT THE CENTRAL WAREHOUSE (real serial numbers) ──
+    // A finished bike now appears in VV/Stock, at Velovisie. Reading only
+    // AND/In Transit made every one of them invisible here and made the app
+    // say Anderlecht about bikes that have never left Hasselt.
+    const vvStockQuants = await safeCall('vvStockQuants', 'stock.quant','search_read',
+      [[['location_id.complete_name','like','VV/Stock'],['quantity','>',0]]],
+      {fields:['lot_id','product_id','quantity','in_date'],limit:2000});
     const inTransitQuants = await safeCall('inTransitQuants', 'stock.quant','search_read',
       [[['location_id.complete_name','like','AND/In Transit'],['quantity','>',0]]],
       {fields:['lot_id','product_id','quantity','in_date'],limit:2000});
@@ -1428,14 +1440,16 @@ async function syncOdoo() {
     buildStockItems(warehouseQuants, 'AND/Warehouse');
     buildStockItems(louiQuants, 'LOUI/Stock');
 
-    // ── 7. ADD IN-TRANSIT BIKES (AND/In Transit — real serials, expected in AND/Warehouse soon) ──
+    // ── 7. BIKES WITH A SERIAL BUT NOT IN THE CENTRAL WAREHOUSE ──────────
+    buildStockItems(vvStockQuants||[], 'VV/Stock');
     buildStockItems(inTransitQuants, 'AND/In Transit');
     buildStockItems(brainInputQuants||[], 'Brain/Input');
-    // Mark them as in transit so they show in the transit tab
     for(const s of newStock.filter(s=>isTransitLoc(s.location))){
       s.inTransit = true;
-      // Brain/Input bikes are already physically at Brain Log — expected once put away
-      s.expectedArrival = s.location==='Brain/Input'
+      // VV/Stock and Brain/Input are places the bike is already standing and
+      // already ours — nothing is "arriving". Only the old AND/In Transit
+      // route has a lead time to add.
+      s.expectedArrival = (s.location==='Brain/Input' || s.location==='VV/Stock')
         ? (s.dateArrived||null)
         : (s.dateArrived ? addDaysStr(s.dateArrived, cfg.leadtime) : null);
     }
@@ -1810,10 +1824,11 @@ function matchStockToOrders() {
       if(reserved.length>0){
         const inTransitMatch = reserved[0].inTransit;
         if(inTransitMatch){
-          // Bike is in transit (AND/In Transit or Brain/Input): serial known, not ready to ship yet
+          // Serial known, but not in the central warehouse (VV/Stock, Brain/Input,
+          // or the old AND/In Transit while Anderlecht still exists)
           o.status = 'transit_match';
           o.serialEst = reserved[0].serial;
-          o.stockLocation = reserved[0].location || 'AND/In Transit';
+          o.stockLocation = reserved[0].location || 'VV/Stock';
           o.estimatedDelivery = reserved[0].expectedArrival || o.estimatedDelivery;
         } else {
           // Bike is in the warehouse (Brain Log or AND): ready to ship
@@ -3390,12 +3405,12 @@ function renderStockSummary(el) {
   // Free stock = bikes in vvStock OR in-transit NOT assigned to any order
   function getFreeStockItems(){
     const result = [];
-    // From AND/In Transit: not reserved
+    // Built, serial known, not reserved — wherever it is standing
     const freeTransit = stock.filter(s=>s.inTransit&&!s.reservedFor&&isMAX(s));
     for(const s of freeTransit){
       result.push({sku:s.sku, color:s.color, rack:s.rack,
         bikeType:detectBikeType(s.sku), transmission:detectTransmission(s.sku),
-        serial:s.serial, source:s.location||'AND/In Transit'});
+        serial:s.serial, source:s.location||'VV/Stock'});
     }
     // From vvStock: qty minus assigned inprod orders
     for(const item of vvStock.filter(isMAX)){
@@ -3433,7 +3448,7 @@ function renderStockSummary(el) {
         const cells = COLORS.map(color=>{
           const matching = items.filter(i=>i.bikeType+'_'+i.transmission===f.key&&i.rack===rack&&i.color===color);
           const n = matching.length;
-          const transitCount = matching.filter(i=>i.source==='AND/In Transit').length;
+          const transitCount = matching.filter(i=>isTransitLoc(i.source)).length;
           const vvCount = matching.filter(i=>i.source==='At VV').length;
           if(n===0) return `<td style="text-align:center;color:var(--text3);padding:6px 8px">—</td>`;
           const detail = [
@@ -3617,7 +3632,7 @@ function renderStock() {
 
   if(currentStockTab==='transit'){
     const items=stock.filter(s=>s.inTransit);
-    if(!items.length){ el.innerHTML='<div class="empty">No bikes currently in AND/In Transit.</div>'; return; }
+    if(!items.length){ el.innerHTML='<div class="empty">Every bike with a serial is in the warehouse.</div>'; return; }
 
     // Match transit bikes to orders by SKU
     const transitRows = items.map(s=>{
@@ -3625,6 +3640,7 @@ function renderStock() {
       const matchingOrder = [...orders,...manualOrders].find(o=>o.serialEst===s.serial);
       return `<tr>
         <td><span class="serial-chip">${s.serial||'—'}</span></td>
+        <td style="font-size:12px">${locLabel(s.location)}</td>
         <td style="font-size:12px">${s.sku}</td>
         <td>${colorDot(s.color)} ${s.color}</td>
         <td>${s.rack}</td>
@@ -3637,10 +3653,14 @@ function renderStock() {
     }).join('');
 
     el.innerHTML=`<div class="alert alert-info" style="margin-bottom:12px">
-      Bikes in <strong>AND/In Transit</strong> — serial numbers created, arriving in warehouse in ~${cfg.leadtime} days.
+      Bikes that have a serial but are not standing in the central warehouse.
+      <strong>Velovisie</strong> means finished at Hasselt and sellable from there — it is
+      not on its way to Brussels unless somebody moves it. <strong>Brain Log (receiving)</strong>
+      means arrived but not yet put away. <strong>AND/In Transit</strong> is the old
+      Anderlecht route and should be empty once that warehouse closes.
     </div>
     <div class="table-wrap"><table class="data-table">
-      <thead><tr><th>Serial</th><th>SKU</th><th>Color</th><th>Rack</th><th>Date in transit</th><th>Expected in warehouse</th><th>Assigned to</th></tr></thead>
+      <thead><tr><th>Serial</th><th>Where</th><th>SKU</th><th>Color</th><th>Rack</th><th>Since</th><th>Expected in warehouse</th><th>Assigned to</th></tr></thead>
       <tbody>${transitRows}</tbody>
     </table></div>`;
     return;

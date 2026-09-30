@@ -165,6 +165,36 @@ input[type=number]{font-family:ui-monospace,monospace}
   </div>
 
   <div class="card">
+    <h2>Something is wrong</h2>
+    <div class="sub">A wrong part, a damaged pallet, a count you sent and then realised was wrong,
+      or anything about this app that does not work. It becomes a numbered quality alert in Odoo
+      <i>and</i> a mail to supply, so it cannot be lost in a phone call.</div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" onclick="cOpen()">⚠ Raise a concern</button>
+    </div>
+  </div>
+
+  <div class="card hide" id="c-card">
+    <h2>What is wrong?</h2>
+    <div id="c-kinds" class="row" style="margin-top:6px;flex-wrap:wrap"></div>
+    <div class="sub" style="margin-top:14px">Which delivery, pallet or order is it about? (optional)</div>
+    <input type="text" id="c-ref" placeholder="e.g. P02371, or the transfer reference"
+      style="width:100%;margin-top:6px"/>
+    <div class="sub" style="margin-top:14px">How many are affected? (optional)</div>
+    <input type="text" id="c-qty" placeholder="e.g. 6 of 48" style="width:100%;margin-top:6px"/>
+    <div class="sub" style="margin-top:14px">Tell us in your own words. The more precise, the faster it is fixed.</div>
+    <textarea id="c-detail" rows="4" placeholder="What happened, and what do you need from Ahooga?"
+      style="width:100%;margin-top:6px"></textarea>
+    <div class="row" style="margin-top:12px">
+      <button class="btn go" onclick="cSend()">Send to Ahooga</button>
+      <button class="btn sm" onclick="cPhoto()">📸 Add a photo</button>
+      <button class="btn sm" onclick="cClose()">Cancel</button>
+      <span class="sub" id="c-shots"></span>
+    </div>
+    <div id="c-msg"></div>
+  </div>
+
+  <div class="card">
     <h2>Nobody knows what this box is</h2>
     <div class="sub">Photograph it and send it to the office rather than guessing. It lands on MTB's record in Odoo and supply picks it up.</div>
     <div class="row" style="margin-top:12px">
@@ -325,9 +355,15 @@ async function gLoadExpected(){
     var rows = await ibGet("/expected");
     if(!rows.length){ box.innerHTML = '<div class="empty">Nothing open for Maastricht right now.</div>'; return; }
     box.innerHTML = rows.map(function(r){
+      /* The transfer reference is ours and means nothing on the dock. The
+         number printed on the supplier's paperwork is the purchase order,
+         so that goes first and the transfer stays underneath it. */
+      var head = r.order || r.ref;
+      var sub  = (r.order ? esc(r.ref)+' · ' : '') + esc(r.partner||"—") +
+                 ' · ' + r.lines + ' line' + (r.lines===1?"":"s");
       return '<div class="pick" onclick="gOpenRef(\''+esc(r.ref)+'\')">'+
-        '<div><div class="ref">'+esc(r.ref)+'</div>'+
-        '<div class="who">'+esc(r.partner||"—")+' · '+r.lines+' line'+(r.lines===1?"":"s")+'</div></div>'+
+        '<div><div class="ref">'+esc(head)+'</div>'+
+        '<div class="who">'+sub+'</div></div>'+
         '<div class="when">'+esc(r.when||"")+'</div></div>';
     }).join("");
   }catch(e){
@@ -357,8 +393,9 @@ function gRenderLines(){
   var s = G.pick;
   if(!s){ $("g-lines-card").classList.add("hide"); return; }
   $("g-lines-card").classList.remove("hide");
-  $("g-lines-title").textContent = s.ref;
-  $("g-lines-sub").textContent = (s.partner||"") + (s.when? " · due "+s.when : "");
+  $("g-lines-title").textContent = s.order || s.ref;
+  $("g-lines-sub").textContent = (s.order ? "Transfer "+s.ref+" · " : "") +
+                                 (s.partner||"") + (s.when? " · due "+s.when : "");
   $("g-shots").textContent = "";
   $("g-lines").innerHTML = s.lines.map(function(l){
     return '<div class="ln'+(l.blind?" blind":"")+'">'+
@@ -394,6 +431,14 @@ async function gSend(){
     var m = "Booked in: "+r.ref;
     if(r.backorder) m += ". What was short stays open as "+r.backorder+".";
     say("g-msg", m, "ok");
+    /* A validated transfer cannot be un-done from a tablet, and should not
+       be. What CAN be offered is the next best thing: say so immediately,
+       while the pallet is still in front of you. */
+    var sent = s.order || r.ref;
+    $("g-msg").innerHTML += '<div class="row" style="margin-top:10px">'+
+      '<button class="btn sm" onclick="cOpen(\'quantity\',\''+esc(sent)+'\',\'I have just booked in '+
+      esc(r.ref)+' and the count was wrong. The right numbers are: \')">'+
+      '⚠ I got that wrong — tell the office</button></div>';
     gCancel();
     gLoadExpected();
   }catch(e){
@@ -432,6 +477,8 @@ $("camfile").addEventListener("change", function(){
     var s = String(fr.result||"");
     if(photoTarget === "unknown"){ unknownShots.push(s); $("g-msg").innerHTML =
       '<div class="msg info">'+unknownShots.length+' photo(s) ready. Press “Report an unknown box” again to send.</div>'; }
+    else if(photoTarget === "concern"){ C.shots.push(s);
+      $("c-shots").textContent = C.shots.length+" photo(s) attached"; }
     else { G.shots.push(s); $("g-shots").textContent = G.shots.length+" photo(s) attached"; }
   };
   fr.readAsDataURL(f);
@@ -452,6 +499,80 @@ async function gUnknown(){
     unknownShots = [];
     say("g-msg","Sent to the office. Leave the box where it is until they answer.","ok");
   }catch(e){ say("g-msg", String(e.message||e), "err"); }
+}
+
+/* =====================================================================
+   RAISING A CONCERN
+   ---------------------------------------------------------------------
+   Until now the only way to say something was wrong was to telephone
+   whoever answered, and nothing was left behind afterwards. This writes
+   a real quality alert on MTB's own team in Odoo — it gets a number, a
+   stage and an owner — and sends a mail at the same time, so nobody has
+   to be watching Odoo for it to be seen.
+
+   It deliberately changes no stock. "I booked in the wrong number" is a
+   concern, not an undo: a tablet cannot rewrite a validated transfer,
+   and it should not be able to. The office corrects it in Odoo, and the
+   alert is the record of why.
+   ===================================================================== */
+
+var C_KINDS = [
+  ["quantity", "Wrong quantity"],
+  ["damage",   "Damaged on arrival"],
+  ["wrong",    "Wrong item"],
+  ["missing",  "Something missing"],
+  ["quality",  "Quality problem"],
+  ["process",  "Process or app problem"],
+  ["other",    "Something else"]
+];
+var C = { kind:"quantity", shots:[] };
+
+function cPaintKinds(){
+  $("c-kinds").innerHTML = C_KINDS.map(function(k){
+    return '<button class="btn sm'+(C.kind===k[0]?" go":"")+'" onclick="cPick(\''+k[0]+'\')">'+
+           esc(k[1])+'</button>';
+  }).join("");
+}
+function cPick(k){ C.kind=k; cPaintKinds(); }
+
+function cOpen(kind, ref, note){
+  C.kind = kind || "quantity";
+  C.shots = [];
+  cPaintKinds();
+  $("c-ref").value    = ref || "";
+  $("c-qty").value    = "";
+  $("c-detail").value = note || "";
+  $("c-shots").textContent = "";
+  say("c-msg","");
+  $("c-card").classList.remove("hide");
+  $("c-card").scrollIntoView({behavior:"smooth", block:"start"});
+  $("c-detail").focus();
+}
+function cClose(){ $("c-card").classList.add("hide"); C.shots=[]; say("c-msg",""); }
+
+function cPhoto(){ photoTarget = "concern"; $("camfile").click(); }
+
+async function cSend(){
+  var detail = String($("c-detail").value||"").trim();
+  if(detail.length < 5){
+    say("c-msg","Write what is wrong first — one sentence is enough.","err"); return;
+  }
+  say("c-msg","Sending…","info");
+  try{
+    var r = await ibPost("/concern", {
+      kind: C.kind, detail: detail,
+      ref: String($("c-ref").value||"").trim(),
+      qty: String($("c-qty").value||"").trim(),
+      by: IB_BY, photos: C.shots
+    });
+    say("c-msg", r.alert
+          ? "Sent. It is quality alert "+r.alert+" — the office has it and will answer."
+          : "Sent to the office by mail.", "ok");
+    C.shots=[]; $("c-shots").textContent="";
+    setTimeout(cClose, 2600);
+  }catch(e){
+    say("c-msg","Could not send ("+String(e.message||e)+"). Try again, or telephone the office.","err");
+  }
 }
 
 /* ---------------- camera ---------------- */
@@ -523,9 +644,9 @@ function wRow(r){
            '<span class="sub">of '+r.demand+' due</span>'+
            (r.status === "production"
              ? '<button class="btn sm" onclick="wSave('+r.line+')">Save count</button>'+
-               '<button class="btn sm go" onclick="wShipLine('+r.line+')">\ud83d\ude9a Shipped</button>'
-             : '<button class="btn sm go" onclick="wShipLine('+r.line+')">Save shipped count</button>'+
-               '<button class="btn sm" onclick="wSet('+r.line+',\'production\','+r.done+')">\u21a9 Not shipped after all</button>');
+               '<button class="btn sm go" onclick="wShipLine('+r.line+')">\ud83d\ude9a Shipment booked</button>'
+             : '<button class="btn sm go" onclick="wShipLine('+r.line+')">Save the booked count</button>'+
+               '<button class="btn sm" onclick="wSet('+r.line+',\'production\','+r.done+')">\u21a9 Put it back in production</button>');
   }
   var prog = r.received + " of " + r.ordered + " received on " + esc(r.po);
   return '<div class="wh" id="wh-'+r.line+'">'+
@@ -595,7 +716,7 @@ function wShipLine(line){
   var el = $("wq-"+line);
   var n = el ? Number(el.value) : 0;
   if(!isFinite(n) || n <= 0){
-    say("w-msg","Type how many wheels are leaving before marking it shipped.","err");
+    say("w-msg","Type how many wheels are leaving before booking the shipment.","err");
     return;
   }
   wSet(line, "shipped", n);

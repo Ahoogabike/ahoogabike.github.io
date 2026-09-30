@@ -843,7 +843,18 @@ async function submitPO(){
   document.getElementById('po-go').disabled=true; msg.textContent='Creating draft PO…';
   try{
     const ol=lines.map(l=>[0,0,{product_id:l.pid, product_qty:l.qty, date_planned:date+' 08:00:00'}]);
-    const poId=await odoo('purchase.order','create',[{partner_id:vendor, date_order:ymd(new Date())+' 08:00:00', order_line:ol}]);
+    /* WHERE THE GOODS LAND.
+       Left alone, Odoo puts every purchase order on "Anderlecht Receipts",
+       which delivers into AND/In Transit and then needs a second internal
+       transfer into AND/Warehouse. AND/Warehouse is closing, so that route
+       is dead. Each of these vendors delivers to a place of its own:
+         Okazi (bikes)  -> 284  Velovisie: Receipts   Vendors -> VV/Stock
+         MTB   (wheels) -> 268  MTB -> Velovisie      Vendors -> Subcontracting/Velovisie
+       Anything else keeps Odoo's own default. */
+    const RECEIVE_TYPE = { 14896: 284, 8489: 268 };
+    const poVals = {partner_id:vendor, date_order:ymd(new Date())+' 08:00:00', order_line:ol};
+    if(RECEIVE_TYPE[vendor]) poVals.picking_type_id = RECEIVE_TYPE[vendor];
+    const poId=await odoo('purchase.order','create',[poVals]);
     let name='#'+poId; try{ const rd=await odoo('purchase.order','read',[[poId]],{fields:['name']}); if(rd&&rd[0]&&rd[0].name) name=rd[0].name; }catch(e){}
     msg.innerHTML=`✓ Draft PO <b>${esc(name)}</b> created. <a href="${ODOO_URL}/odoo/purchase/${poId}" target="_blank" style="color:var(--accent);font-weight:600">Open in Odoo ↗</a> — review &amp; confirm there.`;
     setTimeout(()=>document.getElementById('po-modal').style.display='none', 2600);
