@@ -123,15 +123,27 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   #reader2 video,#reader2 canvas{width:100%!important;height:auto!important;border-radius:14px}
   .rc-inp{width:100%;padding:11px 12px;border:1px solid #e4ddcd;border-radius:10px;background:#ffffff;color:#1d1c16;font-size:16px;margin-top:8px}
 </style>
+<!-- Tab order follows the bike, not the history of this file:
+     a frame arrives, goods are booked in, the bike is finished, its serial is
+     tied to the customer's order, and it ships. "Link serial to order" was
+     switched off at some point and that is why Ship a bike has had nothing
+     newer than last season to read — it is the only screen that writes the
+     pairing those screens depend on. -->
 <div class="tabs2">
-  <button id="t2-reg" class="seg" onclick="showView('register')" style="display:none">Register serial</button>
   <button id="t2-rec" class="seg active" onclick="showView('receipt')">📦 Inbound custom colour frame</button>
   <button id="t2-goods" class="seg" onclick="showView('goods')">🚚 Goods in</button>
   <button id="t2-bikes" class="seg" onclick="showView('bikes')">🚲 Finish a bike</button>
-      <button id="t2-ship" class="seg" onclick="showView('ship')">🚀 Ship a bike</button>
+  <button id="t2-reg" class="seg" onclick="showView('register')">🔗 Link serial to order</button>
+  <button id="t2-ship" class="seg" onclick="showView('ship')">🚀 Ship a bike</button>
 </div>
 
 <section id="view-register" style="display:none">
+<div class="card" style="margin-bottom:10px">
+  <div class="lab">Link a finished bike to its customer</div>
+  <div class="hint" style="text-align:left">Scan the sales order label on the box, then the frame sticker.
+  Do this for every bike you finish. It is what tells <b>Ship a bike</b> which bike belongs to which
+  customer — without it a finished bike never appears on the shipping list.</div>
+</div>
 <div class="card">
   <div id="slot-so" class="slot">
     <div class="n">1</div>
@@ -218,6 +230,12 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   #view-goods .gl.bad{border-color:var(--warn);background:#fff6ef}
   #view-goods .glwarn{flex-basis:100%;margin-top:8px;font-size:13px;line-height:1.35;color:var(--muted)}
   #view-goods .glwarn.err{color:var(--warn);font-weight:700}
+  /* A serial that came from the montagelijst rather than from a person.
+     It has to look different from one that was typed, or "check them"
+     is advice nobody can act on. */
+  #view-bikes .rc-inp.bk-sug{border-color:#0f7a52;background:#f2faf6}
+  #view-bikes .rc-inp.bk-sug:focus{border-color:var(--accent);background:#ffffff}
+  #view-bikes .bk-sugnote{margin-top:6px;color:#0f7a52;font-weight:600}
   #view-goods .gl.blind{border-color:var(--accent)}
   #view-goods .gl.blind .q{color:var(--accent)}
   #view-goods .gl.diff{border-color:var(--warn)}
@@ -959,10 +977,23 @@ function bkTitle(r){
 
 function bkRow(r){
   var boxes = "";
+  var sug = r.suggest || [];
+  var nSug = 0;
   for(var i = 0; i < r.qty; i++){
-    boxes += '<input class="rc-inp" style="margin-top:6px" id="bk-'+r.move+'-'+i+'" '+
-             'value="'+esc(r.have[i]||"")+'" placeholder="frame serial, e.g. MACU0000132" '+
+    /* Already written in Odoo wins. Otherwise offer what the montagelijst
+       says, pre-filled but editable — it is a proposal, not a decision. */
+    var done = r.have[i] || "";
+    var prop = done ? "" : (sug[i - r.have.length] || "");
+    if(prop) nSug++;
+    boxes += '<input class="rc-inp'+(prop?' bk-sug':'')+'" style="margin-top:6px" '+
+             'id="bk-'+r.move+'-'+i+'" value="'+esc(done||prop)+'" '+
+             (prop?'data-sug="'+esc(prop)+'" ':'')+
+             'placeholder="frame serial, e.g. MACU0000132" '+
              'autocapitalize="characters" autocomplete="off"/>';
+  }
+  if(nSug){
+    boxes += '<div class="sub bk-sugnote">\u270e '+nSug+' filled in from the montagelijst \u2014 '+
+             'check them against the frames before you confirm.</div>';
   }
   /* One line, read the way the floor says it out loud:
      "E-MAX Alfine MY27 with rack (Bordeaux Red)", with the colour as a dot in
