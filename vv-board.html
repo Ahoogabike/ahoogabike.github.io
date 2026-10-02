@@ -29,6 +29,13 @@ h1{margin:0;font-size:34px;font-weight:700;letter-spacing:-.5px}
 .row .po{font-family:'Space Mono',ui-monospace,monospace;font-weight:700}
 .col{background:#ffffff;border:1px solid #e4ddcd;border-radius:16px;padding:20px 22px;display:flex;flex-direction:column;min-height:0}
 .col h2{margin:0 0 4px;font-size:24px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+/* A soft fade at the foot of a panel that has more in it than fits, so a
+   glance from across the room can tell a full list from a finished one. */
+.col{position:relative}
+.col::after{content:"";position:absolute;left:1px;right:1px;bottom:1px;height:38px;border-radius:0 0 15px 15px;
+  background:linear-gradient(to bottom,rgba(255,255,255,0),rgba(255,255,255,.96));pointer-events:none;opacity:0;
+  transition:opacity .3s}
+.col.more::after{opacity:1}
 .col .cnt{color:#8b8474;font-size:18px;margin-bottom:14px}
 .col.in h2{color:#0f7a52}
 .col.out h2{color:#ea1d5e}
@@ -233,6 +240,45 @@ async function load(){
     msg.textContent = "· " + String(e.message||e);
   }
 }
+/* ──────────────────────────────────────────────────────────────────
+   The lists drift down on their own.
+
+   This is a screen on a wall. Nobody walks over to it to drag a
+   scrollbar, so a panel with more rows than fit was simply hiding work.
+   Each list creeps down a pixel at a time, waits a few seconds at the
+   bottom, and jumps back to the top. Touch or scroll it yourself and it
+   gets out of the way for half a minute, so the screen is still usable
+   as a screen.
+   ────────────────────────────────────────────────────────────────── */
+function autoScroll(id){
+  var el = document.getElementById(id);
+  if(!el) return;
+  var SPEED = 0.35;        /* px per frame — slow enough to read while it moves */
+  var PAUSE = 4000;        /* ms held at the top and at the bottom            */
+  var QUIET = 30000;       /* ms to leave it alone after someone touches it   */
+  var pos = 0, waitUntil = 0, touchedUntil = 0;
+
+  ["wheel","touchstart","mousedown","keydown"].forEach(function(ev){
+    el.addEventListener(ev, function(){ touchedUntil = Date.now() + QUIET; }, {passive:true});
+  });
+
+  function step(){
+    requestAnimationFrame(step);
+    var now = Date.now();
+    if(now < touchedUntil){ pos = el.scrollTop; return; }   /* hands off */
+    var over = el.scrollHeight - el.clientHeight;
+    el.parentNode.classList.toggle("more", over > 2);
+    if(over <= 2){ pos = 0; el.scrollTop = 0; return; }     /* it all fits */
+    if(now < waitUntil) return;
+    pos += SPEED;
+    if(pos >= over){ pos = over; waitUntil = now + PAUSE;
+                     setTimeout(function(){ pos = 0; el.scrollTop = 0; waitUntil = Date.now() + PAUSE; }, PAUSE); }
+    el.scrollTop = pos;
+  }
+  requestAnimationFrame(step);
+}
+["in-list","out-list","plan-list"].forEach(autoScroll);
+
 tick(); setInterval(tick, 20000);
 load();     setInterval(load, 60000);
 loadPlan(); setInterval(loadPlan, 300000);
