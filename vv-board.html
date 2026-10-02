@@ -87,11 +87,13 @@ function tick(){
 }
 function rowIn(p){
   var late = p.late || /overdue/i.test(p.when||"");
-  /* The order number is what is printed on the supplier's paperwork, so it
-     goes on the line beside the sender. The transfer reference stays too —
-     it is what the tablet books against. */
-  var meta = (p.order ? '<span class="po">'+esc(p.order)+'</span> · ' : '') +
-             esc(p.ref||"") + (p.lines?(" · "+p.lines+" line"+(p.lines===1?"":"s")):"");
+  /* Supplier on top, their order number under it, then what is in the
+     delivery. The transfer reference (VV/IN/00002) is our own bookkeeping
+     and was only ever noise on a wall screen — it is gone. */
+  var what = (p.items && p.items.length)
+           ? esc(p.items.join(", ")) + (p.more ? " +"+p.more+" more" : "")
+           : (p.lines ? p.lines+" line"+(p.lines===1?"":"s") : "");
+  var meta = (p.order ? '<span class="po">'+esc(p.order)+'</span> · ' : '') + what;
   return '<div class="row'+(late?" late":"")+'">'+
     '<div><div class="main">'+esc(p.partner||p.ref||"")+'</div>'+
     '<div class="meta">'+meta+'</div></div>'+

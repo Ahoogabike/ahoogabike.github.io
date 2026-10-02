@@ -1044,15 +1044,22 @@ async function ibLoadExpected(){
   try{
     var list=await ibGet('/expected');
     box.innerHTML = (list&&list.length) ? list.map(function(s){
-      /* The transfer reference is ours; the number on the supplier's
-         paperwork is the order. Show the order big, because that is what
-         is printed on the box, and keep the transfer underneath. */
-      var head = s.order ? s.order : s.ref;
-      var sub  = (s.order ? s.ref + ' · ' : '') + (s.partner||'') +
-                 ' · ' + s.lines + ' line' + (s.lines===1?'':'s');
+      /* Written for someone standing in front of a pallet: the supplier's
+         name first, because that is on the outside of the box, then the
+         purchase order from their paperwork, then what is supposed to be
+         inside. The transfer reference (VV/IN/00002) is ours, means
+         nothing to them, and is deliberately not shown. */
+      var head = s.partner || s.order || s.ref;
+      var sub  = (s.order ? s.order + ' · ' : '') +
+                 s.lines + ' line' + (s.lines===1?'':'s');
+      var what = (s.items && s.items.length)
+               ? escHtml(s.items.join(', ')) + (s.more ? ' <span style="opacity:.6">+'+s.more+' more</span>' : '')
+               : '';
       return '<button class="gl" data-ref="'+String(s.ref).replace(/"/g,'&quot;')+'">'+
              '<div class="t"><div class="nm">'+escHtml(head)+'</div>'+
-             '<div class="cd">'+escHtml(sub)+'</div></div>'+
+             '<div class="cd">'+escHtml(sub)+'</div>'+
+             (what ? '<div class="cd" style="margin-top:2px;color:var(--ink);opacity:.75">'+what+'</div>' : '')+
+             '</div>'+
              '<span class="q" style="font-size:13px;color:var(--muted)">'+escHtml(s.when||'')+'</span></button>';
     }).join('') : '<div class="hint" style="text-align:left">Nothing expected in the next 7 days.</div>';
     Array.prototype.forEach.call(box.querySelectorAll('.gl'),function(b){
@@ -1077,9 +1084,10 @@ async function ibOpenRef(ref){
               raw: l.blind?'':String(l.expected),
               bad:'', warn:'', reason:'', shot:''};
     });
-    $('g-lref').textContent = s.order ? s.order : s.ref;
-    $('g-lsub').textContent = (s.order ? 'Transfer '+s.ref+' · ' : '') +
-                              (s.partner||'') + (s.when?(' · '+s.when):'');
+    /* Same rule as the list: supplier, then their order number. The
+       transfer reference is ours and is not shown. */
+    $('g-lref').textContent = s.partner || s.order || s.ref;
+    $('g-lsub').textContent = (s.order ? s.order : '') + (s.when?(' · '+s.when):'');
     $('msg').className='msg';
     ibRenderLines(); ibShow('lines');
   }catch(e){
