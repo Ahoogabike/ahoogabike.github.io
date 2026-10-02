@@ -73,11 +73,24 @@ var IB_URL = "https://vv-inbound.ahoogahouse-1050-be.workers.dev";
 var SITE   = "velovisie";
 var PLAN_MODE = "orders";   /* Velovisie build to whole orders */
 var KEY = "";
-try { KEY = localStorage.getItem("vv_device") || ""; } catch(e) {}
-if(!KEY){
-  KEY = (prompt("Device key for this screen") || "").trim();
-  if(KEY){ try{ localStorage.setItem("vv_device", KEY); }catch(e){} }
+var KEY_STORE = "vv_key";
+/* The key lives in the same slot the scan app uses, so one paste sets up
+   both on a shared tablet. A key the Worker refuses is thrown away rather
+   than retried for ever: before this, a rotated key left the screen stuck
+   on "reading the board…" with no clue why. */
+function readKey(){
+  KEY = "";
+  try{ KEY = localStorage.getItem(KEY_STORE) || ""; }catch(e){}
+  if(!KEY){ try{ KEY = localStorage.getItem("vv_device") || ""; }catch(e){} }
+  return KEY;
 }
+function askKey(why){
+  try{ localStorage.removeItem(KEY_STORE); }catch(e){}
+  KEY = (prompt(why || "Device key for this screen") || "").trim();
+  if(KEY){ try{ localStorage.setItem(KEY_STORE, KEY); }catch(e){} }
+  return KEY;
+}
+if(!readKey()) askKey();
 function esc(s){ return String(s==null?"":s)
   .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 function tick(){
@@ -127,7 +140,7 @@ function rowPrio(r){
 async function loadPlan(){
   try{
     var r = await fetch(IB_URL+"/plan", { headers:{ "x-device-key": KEY } });
-    if(!r.ok) return;
+    if(!r.ok) return;              /* the board read reports the real error */
     var d = await r.json();
     var rows = PLAN_MODE === "priority" ? (d.priority||[]) : (d.orders||[]);
     fill("plan-list", rows, PLAN_MODE === "priority" ? rowPrio : rowPlan,
@@ -160,6 +173,10 @@ async function load(){
   var msg = document.getElementById("msg");
   try{
     var r = await fetch(IB_URL+"/board", { headers:{ "x-device-key": KEY } });
+    if(r.status === 401 || r.status === 403){
+      askKey("This screen's device key is no longer valid.\nPaste the new one:");
+      throw new Error("device key refused — enter the new key");
+    }
     if(!r.ok) throw new Error("Worker said "+r.status);
     var d = await r.json();
     /* The heading is the site the device key belongs to — never assumed.
@@ -185,9 +202,11 @@ async function load(){
     document.getElementById("in-cnt").textContent  =
       (d.inbound||[]).length + " open arrival" + ((d.inbound||[]).length===1?"":"s") +
       ((d.inbound||[]).length > 18 ? " · 18 shown" : "");
-    var ready = (d.outbound||[]).filter(function(b){ return b.ready; }).length;
+    /* Everything on this list is at Velovisie now — the Worker filters the
+       rest out — so a "ready vs in hand" split no longer means anything. */
+    var n = (d.outbound||[]).length;
     document.getElementById("out-cnt").textContent =
-      ready + " ready · " + (d.outbound||[]).length + " in hand";
+      n + " bike" + (n===1?"":"s") + " waiting to leave";
     document.getElementById("stamp").textContent =
       "updated " + new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
     msg.textContent = "";
