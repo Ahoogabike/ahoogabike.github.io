@@ -1,0 +1,173 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ahooga — Test rides analytics</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+ :root{--ink:#16160f;--dim:#6f6d63;--line:#e6e3da;--gold:#f2b705;--gold-d:#caa006;--bg2:#f5f4f1;--green:#1a7a3c;--red:#b3261e}
+ *{box-sizing:border-box}html,body{margin:0}
+ body{font-family:'Archivo',system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink);background:#faf9f6}
+ a{color:inherit}
+ header{display:flex;align-items:center;gap:14px;padding:14px 24px;border-bottom:1px solid var(--line);background:#fff;position:sticky;top:0;z-index:5;flex-wrap:wrap}
+ header img{height:22px;display:block}
+ .htag{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);border-left:1px solid var(--line);padding-left:14px}
+ .sp{flex:1}
+ .btn{border:1px solid var(--line);background:#fff;border-radius:16px;padding:7px 13px;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer;font-family:inherit;text-decoration:none}
+ .btn:hover{border-color:var(--gold)}
+ .btn.gold{background:var(--gold);border-color:var(--gold)}
+ .wrap{max-width:1180px;margin:0 auto;padding:26px 24px 70px}
+ h1{font-size:26px;font-weight:900;letter-spacing:-.02em;margin:0 0 4px}
+ .sub{color:var(--dim);font-size:14px;margin:0 0 20px;line-height:1.5}
+ .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+ .chip{border:1px solid var(--line);background:#fff;border-radius:18px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer}
+ .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+ .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}
+ .kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+ .kpi b{display:block;font-size:24px;font-weight:900;letter-spacing:-.02em}
+ .kpi span{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+ .kpi i{font-style:normal;font-size:11.5px;font-weight:700;margin-left:6px}
+ .up{color:var(--green)}.down{color:var(--red)}
+ .card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px 20px;margin-bottom:18px;overflow:auto}
+ .card h2{font-size:15px;font-weight:800;margin:0 0 12px;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+ .card h2 small{font-weight:600;color:var(--dim);font-size:12px}
+ table{width:100%;border-collapse:collapse;font-size:13px}
+ th{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);text-align:right;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+ th:first-child,td:first-child{text-align:left}
+ td{padding:8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+ tr:last-child td{border-bottom:0}
+ tbody tr:hover{background:#fbfaf6}
+ .g2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+ .g2 .card{margin-bottom:0}
+ .hb{display:grid;grid-template-columns:minmax(110px,34%) 1fr auto;gap:10px;align-items:center;font-size:13px;padding:5px 0}
+ .hb .l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .hb .t{background:var(--bg2);border-radius:6px;height:10px;position:relative;overflow:hidden}
+ .hb .t i{position:absolute;inset:0 auto 0 0;background:var(--gold);border-radius:6px}
+ .hb .t b{position:absolute;inset:0 auto 0 0;background:var(--green);border-radius:6px}
+ .hb .v{font-size:12px;color:var(--dim);font-weight:700;white-space:nowrap}
+ .spark{display:flex;align-items:flex-end;gap:3px;height:70px;margin:6px 0 4px}
+ .spark div{flex:1;background:var(--gold);border-radius:4px 4px 0 0;min-height:2px;position:relative}
+ .spark div b{position:absolute;left:0;right:0;bottom:0;background:var(--green);border-radius:4px 4px 0 0}
+ .sparkx{display:flex;gap:3px;font-size:9.5px;color:var(--dim)}
+ .sparkx span{flex:1;text-align:center;overflow:hidden}
+ .legend{font-size:11.5px;color:var(--dim);display:flex;gap:14px}
+ .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+ .note{font-size:12px;color:var(--dim);line-height:1.5}
+ .gate{max-width:380px;margin:12vh auto;background:#fff;border:1px solid var(--line);border-radius:18px;padding:26px}
+ .gate input{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:10px;font-size:14px;font-family:inherit;margin:12px 0}
+ .err{color:var(--red);font-size:13px;min-height:18px}
+ .empty{color:var(--dim);font-size:13px;padding:8px 0}
+ @media(max-width:900px){.kpis{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:1fr}}
+ @media(max-width:520px){.kpis{grid-template-columns:repeat(2,1fr)}.wrap{padding:18px 14px 50px}header{padding:12px 14px}.htag{display:none}}
+</style></head>
+<body>
+<div id="gate" class="gate">
+ <img src="https://cdn.shopify.com/s/files/1/0278/5909/1527/files/AHOOGA_Logo.png?height=120&v=1642062559" alt="Ahooga" style="height:22px">
+ <h2 style="margin:16px 0 4px">Test rides analytics</h2>
+ <div class="note">Internal — same admin password as the other tools.</div>
+ <input type="password" id="pw" placeholder="Admin password" onkeydown="if(event.key==='Enter')enter()">
+ <button class="btn gold" onclick="enter()">Open</button>
+ <div class="err" id="gerr"></div>
+</div>
+<div id="app" style="display:none">
+<header>
+ <a class="btn" href="ahooga-internal-tools.html">← Tools</a>
+ <img src="https://cdn.shopify.com/s/files/1/0278/5909/1527/files/AHOOGA_Logo.png?height=120&v=1642062559" alt="Ahooga">
+ <span class="htag">Test rides analytics</span>
+ <span class="sp"></span>
+ <span class="note" id="gen"></span>
+ <button class="btn" onclick="load()">↻ Refresh</button>
+ <button class="btn" onclick="csv()">⭳ CSV (weekly per dealer)</button>
+ <button class="btn" onclick="lock()">Lock</button>
+</header>
+<div class="wrap">
+ <h1>Test rides &amp; sales — all dealers</h1>
+ <p class="sub">Live from every dealer's Test rides &amp; customers app. Weeks are ISO weeks (Monday–Sunday). Customer names and contact details are never sent to this page.</p>
+ <div class="bar" id="range">
+  <span class="chip" data-w="4">Last 4 weeks</span><span class="chip on" data-w="12">Last 12 weeks</span><span class="chip" data-w="26">Last 26 weeks</span><span class="chip" data-w="52">Last 52 weeks</span>
+  <span class="sp"></span>
+  <select id="dealerSel" class="btn" onchange="render()"></select>
+ </div>
+ <div class="kpis" id="kpis"></div>
+ <div class="card"><h2>Week by week <span class="legend"><span><i style="background:var(--gold)"></i>test rides</span><span><i style="background:var(--green)"></i>sales</span></span></h2>
+  <div class="spark" id="spark"></div><div class="sparkx" id="sparkx"></div>
+  <table id="weekTbl"></table>
+ </div>
+ <div class="card"><h2>Dealers <small>click a column to sort · click a dealer to filter</small></h2><table id="dealerTbl"></table></div>
+ <div class="g2">
+  <div class="card"><h2>Models tested <small>rides · conversion</small></h2><div id="bModel"></div></div>
+  <div class="card"><h2>Outcomes</h2><div id="bOutcome"></div></div>
+  <div class="card"><h2>Why no sale (yet)</h2><div id="bReason"></div></div>
+  <div class="card"><h2>How customers found Ahooga <small>rides · conversion</small></h2><div id="bDisc"></div></div>
+  <div class="card"><h2>Competitors also tested <small>rides · Ahooga won</small></h2><div id="bComp"></div></div>
+  <div class="card"><h2>Booked vs walk-in <small>rides · conversion</small></h2><div id="bSource"></div></div>
+ </div>
+ <p class="note" style="margin-top:18px">Sale = bought now, reserved / deposit, ordered through the portal for that customer, or marked won. Conversion = sales ÷ rides where the customer showed up. Show-up rate counts booked rides only. Follow-up done = follow-up email sent or contact logged.</p>
+</div>
+</div>
+<script>
+const CF="https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev";
+let pw="",DATA=[],weeks=12,sortK="rides",sortD=-1;
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function eur(n){return "€"+Math.round(n||0).toLocaleString("en-US");}
+function pct(a,b){return b?Math.round(a/b*100):0;}
+async function api(path){const r=await fetch(CF+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({adminPw:pw})});return r.json();}
+function lock(){try{localStorage.removeItem("ahg_admin_pw");}catch(e){}location.reload();}
+async function enter(silent){pw=document.getElementById("pw").value||"";document.getElementById("gerr").textContent="";
+ let d;try{d=await api("/crm/admin");}catch(e){d={error:String(e.message||e)};}
+ if(!d||d.error){if(!silent)document.getElementById("gerr").textContent=(d&&d.error)||"Error";try{localStorage.removeItem("ahg_admin_pw");}catch(e){}return;}
+ try{localStorage.setItem("ahg_admin_pw",pw);}catch(e){}
+ document.getElementById("gate").style.display="none";document.getElementById("app").style.display="block";use(d);}
+async function load(){const d=await api("/crm/admin");if(d&&!d.error)use(d);}
+function use(d){DATA=d.dealers||[];document.getElementById("gen").textContent="Updated "+new Date(d.generated||Date.now()).toLocaleString("en-GB",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+ const sel=document.getElementById("dealerSel"),cur=sel.value;
+ sel.innerHTML='<option value="">All dealers ('+DATA.length+')</option>'+DATA.slice().sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(x=>'<option value="'+esc(x.pid)+'"'+(String(x.pid)===cur?' selected':'')+'>'+esc(x.name)+'</option>').join("");
+ render();}
+/* ISO week helpers */
+function isoWeek(ds){const d=new Date(String(ds).slice(0,10)+"T00:00:00Z");if(isNaN(d))return null;const day=(d.getUTCDay()+6)%7;d.setUTCDate(d.getUTCDate()-day+3);const y=d.getUTCFullYear();const j=new Date(Date.UTC(y,0,4));const w=1+Math.round(((d-j)/864e5-3+((j.getUTCDay()+6)%7))/7);return y+"-W"+String(w).padStart(2,"0");}
+function mondayOf(off){const d=new Date();d.setHours(0,0,0,0);const day=(d.getDay()+6)%7;d.setDate(d.getDate()-day-7*off);return d;}
+function weekList(n){const out=[];for(let i=n-1;i>=0;i--){const m=mondayOf(i);const ds=m.getFullYear()+"-"+String(m.getMonth()+1).padStart(2,"0")+"-"+String(m.getDate()).padStart(2,"0");out.push({k:isoWeek(ds),mon:m});}return out;}
+function isSale(r){return r.outcome==="bought"||r.outcome==="reserved"||!!r.order||r.status==="won";}
+function blank(){return {rides:0,showed:0,booked:0,bookedShowed:0,sales:0,offers:0,offerVal:0,won:0,lost:0,fu:0,dealers:new Set()};}
+function add(a,r){a.rides++;if(r.showed!=="no")a.showed++;if(r.source==="booked"){a.booked++;if(r.showed!=="no")a.bookedShowed++;}if(isSale(r))a.sales++;if(r.fuSent)a.fu++;}
+function render(){
+ const ws=weekList(weeks),keys=new Set(ws.map(w=>w.k)),pick=document.getElementById("dealerSel").value;
+ const ds=DATA.filter(d=>!pick||String(d.pid)===pick);
+ const W={};ws.forEach(w=>W[w.k]=blank());
+ const prevKeys=new Set(weekList(weeks*2).slice(0,weeks).map(w=>w.k));const P=blank();
+ const T=blank(),D=[],agg={model:{},outcome:{},reason:{},disc:{},comp:{},source:{}};
+ function bump(o,k,r){if(!k)return;o[k]=o[k]||{n:0,s:0};o[k].n++;if(isSale(r))o[k].s++;}
+ ds.forEach(d=>{const A=blank();let last="";
+  d.rides.forEach(r=>{const wk=isoWeek(r.date);if(wk&&prevKeys.has(wk))add(P,r);if(!wk||!keys.has(wk))return;add(W[wk],r);W[wk].dealers.add(d.pid);add(T,r);T.dealers.add(d.pid);add(A,r);if(r.date>last)last=r.date;
+   if(r.showed!=="no")bump(agg.model,r.model,r);bump(agg.outcome,r.showed==="no"?"No-show":({bought:"Bought now",reserved:"Reserved / deposit",considering:"Considering","return":"Will return",no:"Not interested"}[r.outcome]||"Not recorded"),r);
+   if(!isSale(r))bump(agg.reason,r.reason,r);bump(agg.disc,r.discovery,r);(r.competitors||[]).forEach(c=>bump(agg.comp,c,r));if(r.showed!=="no")bump(agg.source,r.source==="walkin"?"Walk-in":"Booked",r);});
+  d.quotes.forEach(q=>{const wk=isoWeek(q.date);if(!wk||!keys.has(wk))return;[W[wk],T,A].forEach(x=>{x.offers++;x.offerVal+=q.total||0;if(q.status==="won")x.won++;if(q.status==="lost")x.lost++;});});
+  if(A.rides||A.offers)D.push({name:d.name,pid:d.pid,last:last,...A});});
+ const conv=pct(T.sales,T.showed),pconv=pct(P.sales,P.showed);
+ function delta(a,b,suf){if(!b&&!a)return "";const d=a-b;return '<i class="'+(d>=0?"up":"down")+'">'+(d>=0?"▲":"▼")+Math.abs(d)+(suf||"")+'</i>';}
+ document.getElementById("kpis").innerHTML=[
+  [T.rides,"Test rides",delta(T.rides,P.rides)],[T.dealers.size,"Active dealers",""],[T.sales,"Sales",delta(T.sales,P.sales)],
+  [conv+"%","Ride → sale",delta(conv,pconv," pts")],[pct(T.bookedShowed,T.booked)+"%","Show-up (booked)",""],[eur(T.offerVal),"Offers ("+T.offers+")",""]
+ ].map(k=>'<div class="kpi"><b>'+k[0]+k[2]+'</b><span>'+k[1]+'</span></div>').join("");
+ const max=Math.max(1,...ws.map(w=>W[w.k].rides));
+ document.getElementById("spark").innerHTML=ws.map(w=>{const x=W[w.k];return '<div title="'+w.k+': '+x.rides+' rides, '+x.sales+' sales" style="height:'+(x.rides/max*100)+'%"><b style="height:'+(x.rides?x.sales/x.rides*100:0)+'%"></b></div>';}).join("");
+ document.getElementById("sparkx").innerHTML=ws.map((w,i)=>'<span>'+((ws.length<=13||i%2===0)?w.k.slice(6):"")+'</span>').join("");
+ document.getElementById("weekTbl").innerHTML='<thead><tr><th>Week</th><th>Starts</th><th>Dealers</th><th>Rides</th><th>Show-up</th><th>Sales</th><th>Conversion</th><th>Offers</th><th>Offer value</th><th>Offers won</th><th>Follow-ups</th></tr></thead><tbody>'+
+  ws.slice().reverse().map(w=>{const x=W[w.k];return '<tr><td><b>'+w.k+'</b></td><td>'+w.mon.toLocaleDateString("en-GB",{day:"numeric",month:"short"})+'</td><td>'+x.dealers.size+'</td><td>'+x.rides+'</td><td>'+pct(x.bookedShowed,x.booked)+'%</td><td>'+x.sales+'</td><td>'+pct(x.sales,x.showed)+'%</td><td>'+x.offers+'</td><td>'+eur(x.offerVal)+'</td><td>'+x.won+'</td><td>'+x.fu+'</td></tr>';}).join("")+'</tbody>';
+ D.forEach(x=>{x.conv=pct(x.sales,x.showed);x.show=pct(x.bookedShowed,x.booked);});
+ D.sort((a,b)=>{const va=a[sortK],vb=b[sortK];return (typeof va==="string"?String(va).localeCompare(String(vb)):(va-vb))*sortD;});
+ const cols=[["name","Dealer"],["rides","Rides"],["show","Show-up %"],["sales","Sales"],["conv","Conversion %"],["offers","Offers"],["offerVal","Offer value"],["won","Won"],["fu","Follow-ups"],["last","Last ride"]];
+ document.getElementById("dealerTbl").innerHTML='<thead><tr>'+cols.map(c=>'<th onclick="sortBy(\''+c[0]+'\')">'+c[1]+(sortK===c[0]?(sortD<0?" ▾":" ▴"):"")+'</th>').join("")+'</tr></thead><tbody>'+
+  (D.length?D.map(x=>'<tr style="cursor:pointer" onclick="pickDealer(\''+esc(x.pid)+'\')"><td><b>'+esc(x.name)+'</b></td><td>'+x.rides+'</td><td>'+x.show+'%</td><td>'+x.sales+'</td><td>'+x.conv+'%</td><td>'+x.offers+'</td><td>'+eur(x.offerVal)+'</td><td>'+x.won+'</td><td>'+x.fu+'</td><td>'+esc(x.last||"—")+'</td></tr>').join(""):'<tr><td colspan="10" class="empty">No test rides logged in this period yet.</td></tr>')+'</tbody>';
+ function bars(id,o,mode){const rows=Object.keys(o).map(k=>({k,...o[k]})).sort((a,b)=>b.n-a.n).slice(0,12);const m=Math.max(1,...rows.map(r=>r.n));
+  document.getElementById(id).innerHTML=rows.length?rows.map(r=>'<div class="hb"><span class="l" title="'+esc(r.k)+'">'+esc(r.k)+'</span><span class="t"><i style="width:'+(r.n/m*100)+'%"></i>'+(mode?'<b style="width:'+(r.s/m*100)+'%"></b>':'')+'</span><span class="v">'+r.n+(mode?(' · '+pct(r.s,r.n)+'%'):'')+'</span></div>').join(""):'<div class="empty">No data yet.</div>';}
+ bars("bModel",agg.model,1);bars("bOutcome",agg.outcome,0);bars("bReason",agg.reason,0);bars("bDisc",agg.disc,1);bars("bComp",agg.comp,1);bars("bSource",agg.source,1);
+}
+function sortBy(k){if(sortK===k)sortD=-sortD;else{sortK=k;sortD=k==="name"?1:-1;}render();}
+function pickDealer(pid){document.getElementById("dealerSel").value=pid;render();window.scrollTo({top:0,behavior:"smooth"});}
+function csv(){const ws=weekList(weeks),rows=[["week","dealer","rides","showed","booked","booked_showed","sales","offers","offer_value_eur","offers_won","offers_lost","followups"]];
+ DATA.forEach(d=>{const W={};ws.forEach(w=>W[w.k]=blank());d.rides.forEach(r=>{const k=isoWeek(r.date);if(W[k])add(W[k],r);});d.quotes.forEach(q=>{const k=isoWeek(q.date);if(W[k]){W[k].offers++;W[k].offerVal+=q.total||0;if(q.status==="won")W[k].won++;if(q.status==="lost")W[k].lost++;}});
+  ws.forEach(w=>{const x=W[w.k];if(x.rides||x.offers)rows.push([w.k,d.name,x.rides,x.showed,x.booked,x.bookedShowed,x.sales,x.offers,Math.round(x.offerVal),x.won,x.lost,x.fu]);});});
+ const txt=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\n");
+ const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+txt],{type:"text/csv"}));a.download="ahooga-test-rides-weekly.csv";a.click();}
+document.getElementById("range").addEventListener("click",e=>{const c=e.target.closest(".chip");if(!c)return;weeks=+c.dataset.w;document.querySelectorAll("#range .chip").forEach(x=>x.classList.toggle("on",x===c));render();});
+window.addEventListener("DOMContentLoaded",()=>{try{const s=localStorage.getItem("ahg_admin_pw");if(s){document.getElementById("pw").value=s;enter(true);}}catch(e){}});
+</script>
+</body></html>

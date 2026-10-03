@@ -1,0 +1,138 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ahooga — Veloconnect logins</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+ :root{--ink:#16160f;--dim:#6f6d63;--line:#e6e3da;--gold:#f2b705;--gold-d:#caa006;--bg2:#f5f4f1;--green:#1a7a3c;--red:#b3261e}
+ *{box-sizing:border-box}html,body{margin:0}
+ body{font-family:'Archivo',system-ui,-apple-system,Segoe UI,sans-serif;color:var(--ink);background:#faf9f6}
+ a{color:inherit}
+ header{display:flex;align-items:center;gap:14px;padding:14px 24px;border-bottom:1px solid var(--line);background:#fff;position:sticky;top:0;z-index:5;flex-wrap:wrap}
+ header img{height:22px;display:block}
+ .htag{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);border-left:1px solid var(--line);padding-left:14px}
+ .sp{flex:1}
+ .btn{border:1px solid var(--line);background:#fff;border-radius:16px;padding:7px 13px;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer;font-family:inherit;text-decoration:none}
+ .btn:hover{border-color:var(--gold)}
+ .btn.gold{background:var(--gold);border-color:var(--gold)}
+ .wrap{max-width:1180px;margin:0 auto;padding:26px 24px 70px}
+ h1{font-size:26px;font-weight:900;letter-spacing:-.02em;margin:0 0 4px}
+ .sub{color:var(--dim);font-size:14px;margin:0 0 20px;line-height:1.5}
+ .bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+ .chip{border:1px solid var(--line);background:#fff;border-radius:18px;padding:7px 13px;font-size:12.5px;font-weight:700;cursor:pointer}
+ .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+ .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}
+ .kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+ .kpi b{display:block;font-size:24px;font-weight:900;letter-spacing:-.02em}
+ .kpi span{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+ .kpi i{font-style:normal;font-size:11.5px;font-weight:700;margin-left:6px}
+ .up{color:var(--green)}.down{color:var(--red)}
+ .card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px 20px;margin-bottom:18px;overflow:auto}
+ .card h2{font-size:15px;font-weight:800;margin:0 0 12px;display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+ .card h2 small{font-weight:600;color:var(--dim);font-size:12px}
+ table{width:100%;border-collapse:collapse;font-size:13px}
+ th{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);text-align:right;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none}
+ th:first-child,td:first-child{text-align:left}
+ td{padding:8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+ tr:last-child td{border-bottom:0}
+ tbody tr:hover{background:#fbfaf6}
+ .g2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+ .g2 .card{margin-bottom:0}
+ .hb{display:grid;grid-template-columns:minmax(110px,34%) 1fr auto;gap:10px;align-items:center;font-size:13px;padding:5px 0}
+ .hb .l{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .hb .t{background:var(--bg2);border-radius:6px;height:10px;position:relative;overflow:hidden}
+ .hb .t i{position:absolute;inset:0 auto 0 0;background:var(--gold);border-radius:6px}
+ .hb .t b{position:absolute;inset:0 auto 0 0;background:var(--green);border-radius:6px}
+ .hb .v{font-size:12px;color:var(--dim);font-weight:700;white-space:nowrap}
+ .spark{display:flex;align-items:flex-end;gap:3px;height:70px;margin:6px 0 4px}
+ .spark div{flex:1;background:var(--gold);border-radius:4px 4px 0 0;min-height:2px;position:relative}
+ .spark div b{position:absolute;left:0;right:0;bottom:0;background:var(--green);border-radius:4px 4px 0 0}
+ .sparkx{display:flex;gap:3px;font-size:9.5px;color:var(--dim)}
+ .sparkx span{flex:1;text-align:center;overflow:hidden}
+ .legend{font-size:11.5px;color:var(--dim);display:flex;gap:14px}
+ .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+ .note{font-size:12px;color:var(--dim);line-height:1.5}
+ .gate{max-width:380px;margin:12vh auto;background:#fff;border:1px solid var(--line);border-radius:18px;padding:26px}
+ .gate input{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:10px;font-size:14px;font-family:inherit;margin:12px 0}
+ .err{color:var(--red);font-size:13px;min-height:18px}
+ .empty{color:var(--dim);font-size:13px;padding:8px 0}
+ @media(max-width:900px){.kpis{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:1fr}}
+ @media(max-width:520px){.kpis{grid-template-columns:repeat(2,1fr)}.wrap{padding:18px 14px 50px}header{padding:12px 14px}.htag{display:none}}
+</style>
+<style>
+ .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+ .in{border:1px solid var(--line);border-radius:12px;padding:9px 12px;font:inherit;font-size:14px;min-width:260px;flex:1}
+ .res{border:1px solid var(--line);border-radius:12px;margin-top:8px;max-height:260px;overflow:auto;background:#fff}
+ .res div{padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13.5px}
+ .res div:hover{background:#fbfaf6}.res div small{color:var(--dim)}
+ .secret{background:#fff8dc;border:1px solid var(--gold);border-radius:14px;padding:16px 18px;margin:14px 0;display:none}
+ .secret code{font-size:15px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:3px 8px;user-select:all}
+ .secret table td{text-align:left;padding:5px 10px 5px 0;border:0}
+ .pill{font-size:11px;font-weight:800;border-radius:10px;padding:3px 8px}
+ .pill.on{background:#e3f3e8;color:var(--green)}.pill.off{background:#f8e5e3;color:var(--red)}
+ td .btn{padding:5px 10px;font-size:12px}
+ .log{font-size:12.5px;color:var(--dim);white-space:normal}
+ @media(max-width:700px){.wrap{padding:18px 14px 60px}.in{min-width:0}}
+</style></head><body>
+<div id="gate" class="gate">
+ <img src="https://cdn.shopify.com/s/files/1/0278/5909/1527/files/AHOOGA_Logo.png?height=120&v=1642062559" alt="Ahooga" style="height:22px">
+ <h2 style="margin:16px 0 4px">Veloconnect logins</h2>
+ <div class="note">Internal — same admin password as the other tools.</div>
+ <input type="password" id="pw" placeholder="Admin password" onkeydown="if(event.key==='Enter')enter()">
+ <button class="btn gold" onclick="enter()">Open</button>
+ <div class="err" id="gerr"></div>
+</div>
+<div id="app" style="display:none">
+<header>
+ <a class="btn" href="ahooga-internal-tools.html">← Tools</a>
+ <img src="https://cdn.shopify.com/s/files/1/0278/5909/1527/files/AHOOGA_Logo.png?height=120&v=1642062559" alt="Ahooga">
+ <span class="htag">Veloconnect</span><span class="sp"></span>
+ <button class="btn" onclick="load()">↻ Refresh</button><button class="btn" onclick="lock()">Lock</button>
+</header>
+<div class="wrap">
+ <h1>Veloconnect logins</h1>
+ <p class="sub">German dealers connect their shop system (e.g. velo.port, Bike&amp;Co, Tune, Velodata) to Ahooga with these details. Spare-part orders arrive in Odoo as confirmed orders; bike orders arrive as quotations for us to review. Passwords are stored hashed — they are shown once, when created or reset.</p>
+ <div class="card"><h2>Connection details for dealers</h2>
+  <table><tr><td>Endpoint (URL / XML-POST)</td><td style="text-align:left"><code id="ep"></code></td></tr>
+  <tr><td>Supplier</td><td style="text-align:left">Ahooga · Veloconnect 1.1 (order, catalogue text search, receipts 1.3)</td></tr></table></div>
+ <div class="card"><h2>Give a dealer access</h2>
+  <div class="row"><input class="in" id="q" placeholder="Search dealer by name or customer reference…" oninput="search()"></div>
+  <div class="res" id="res" style="display:none"></div>
+  <div class="secret" id="secret"></div>
+ </div>
+ <div class="card"><h2>All logins <small id="cnt"></small></h2>
+  <table><thead><tr><th>Dealer</th><th>BuyersID</th><th>Status</th><th>Created</th><th>Last used</th><th></th></tr></thead><tbody id="list"></tbody></table></div>
+ <div class="card" id="logCard" style="display:none"><h2 id="logTitle">Activity</h2><table><tbody id="logBody"></tbody></table></div>
+</div></div>
+<script>
+const CF="https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev";
+let pw="";try{pw=sessionStorage.getItem("ahAdminPw")||""}catch(e){}
+const E=id=>document.getElementById(id);
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt=t=>t?new Date(t).toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}):"—";
+async function api(body){const r=await fetch(CF+"/vc/admin",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({adminPw:pw},body))});const j=await r.json().catch(()=>({error:"Bad response"}));if(r.status===401){lock();throw new Error(j.error)}if(j.error)throw new Error(j.error);return j;}
+async function enter(){pw=E("pw").value||pw;E("gerr").textContent="";try{await api({action:"login"});try{sessionStorage.setItem("ahAdminPw",pw)}catch(e){}E("gate").style.display="none";E("app").style.display="";E("ep").textContent=CF+"/veloconnect";load();}catch(e){E("gerr").textContent=e.message||"Wrong password";}}
+function lock(){pw="";try{sessionStorage.removeItem("ahAdminPw")}catch(e){}E("app").style.display="none";E("gate").style.display="";}
+let LOGINS=[];
+async function load(){try{const j=await api({action:"list"});LOGINS=j.logins.sort((a,b)=>String(a.name).localeCompare(b.name));render();}catch(e){alert(e.message)}}
+function render(){E("cnt").textContent=LOGINS.length+" dealer"+(LOGINS.length===1?"":"s");
+ E("list").innerHTML=LOGINS.map(l=>'<tr><td>'+esc(l.name)+'</td><td><code>'+esc(l.buyersId)+'</code></td><td><span class="pill '+(l.active?'on">active':'off">disabled')+'</span></td><td>'+fmt(l.created)+'</td><td>'+fmt(l.lastSeen)+'</td><td>'+
+  '<button class="btn" onclick="act(\'log\',\''+esc(l.buyersId)+'\')">Activity</button> <button class="btn" onclick="act(\'reset\',\''+esc(l.buyersId)+'\')">New password</button> '+
+  (l.active?'<button class="btn" onclick="act(\'disable\',\''+esc(l.buyersId)+'\')">Disable</button>':'<button class="btn" onclick="act(\'enable\',\''+esc(l.buyersId)+'\')">Enable</button>')+'</td></tr>').join("")||'<tr><td colspan="6" style="color:var(--dim)">No dealer has a Veloconnect login yet.</td></tr>';}
+let st;function search(){clearTimeout(st);st=setTimeout(async()=>{const q=E("q").value.trim();const R=E("res");if(q.length<2){R.style.display="none";return}
+ try{const j=await api({action:"partners",q});R.innerHTML=j.partners.map(p=>'<div onclick="create('+p.id+',this)">'+esc(p.name)+' <small>'+esc([p.ref,p.city,p.country].filter(Boolean).join(" · "))+'</small></div>').join("")||'<div><small>No company found</small></div>';R.style.display="";}catch(e){}},250);}
+function showSecret(j,what){const s=E("secret");s.style.display="block";
+ s.innerHTML='<b>'+esc(what)+' for '+esc(j.login.name)+'</b> — copy now, the password is not shown again.<table><tr><td>Endpoint</td><td><code>'+esc(CF+"/veloconnect")+'</code></td></tr><tr><td>BuyersID (Kundennummer)</td><td><code>'+esc(j.login.buyersId)+'</code></td></tr><tr><td>Password</td><td><code>'+esc(j.password)+'</code></td></tr></table>'+
+ '<button class="btn" onclick="copySecret(this)" data-t="'+esc("Ahooga Veloconnect\nURL: "+CF+"/veloconnect\nBuyersID: "+j.login.buyersId+"\nPasswort: "+j.password)+'">Copy all</button>';s.scrollIntoView({behavior:"smooth",block:"center"});}
+function copySecret(b){navigator.clipboard.writeText(b.dataset.t).then(()=>{b.textContent="Copied ✓"});}
+async function create(pid,el){if(!confirm("Create a Veloconnect login for "+el.textContent.trim()+"?"))return;
+ try{const j=await api({action:"create",pid});E("res").style.display="none";E("q").value="";showSecret(j,"New login");load();}catch(e){alert(e.message)}}
+async function act(a,b){
+ if(a==="reset"&&!confirm("Make a new password for "+b+"? The old one stops working immediately."))return;
+ if(a==="disable"&&!confirm("Disable Veloconnect for "+b+"?"))return;
+ try{const j=await api({action:a,buyersId:b});
+  if(a==="reset")showSecret(j,"New password");
+  if(a==="log"){E("logCard").style.display="";E("logTitle").textContent="Activity — "+b;
+   E("logBody").innerHTML=(j.log||[]).map(x=>'<tr><td>'+fmt(x.ts)+'</td><td class="log" style="text-align:left">'+(x.type==="order"?(x.orders||[]).map(o=>esc(o.name)+(o.bikes?" (bikes, quotation)":" (parts, confirmed)")).join(", ")+" · "+x.lines+" lines":'<span class="down">Error: '+esc(x.msg)+'</span>')+'</td></tr>').join("")||'<tr><td style="color:var(--dim)">No orders yet.</td></tr>';
+   E("logCard").scrollIntoView({behavior:"smooth"});}
+  load();}catch(e){alert(e.message)}}
+if(pw)enter();
+</script></body></html>
