@@ -14,27 +14,31 @@
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);
   font-family:'Archivo',system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
-.wrap{max-width:1240px;margin:0 auto;padding:22px 18px 70px}
+.wrap{max-width:1460px;margin:0 auto;padding:22px 18px 70px}
 header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
 h1{margin:0;font-size:24px;font-weight:800;letter-spacing:-.3px}
 h1 span{color:var(--accent)}
 .who{color:var(--muted);font-size:15px;margin-left:auto;display:flex;align-items:center}
 .lede{color:var(--muted);font-size:14.5px;line-height:1.5;margin:6px 0 18px;max-width:72ch}
 .tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:auto}
-table{border-collapse:collapse;width:100%;min-width:980px}
-th{text-align:left;font-size:11.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;
-   color:var(--muted);padding:12px 12px 9px;border-bottom:1px solid var(--line);white-space:nowrap;
+table{border-collapse:collapse;width:100%;min-width:1080px}
+th{text-align:left;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+   color:var(--muted);padding:12px 9px 9px;border-bottom:1px solid var(--line);line-height:1.3;
    background:var(--panel);position:sticky;top:0;z-index:2}
-td{padding:11px 12px;border-bottom:1px solid var(--line2);vertical-align:top;font-size:14px}
+td{padding:10px 9px;border-bottom:1px solid var(--line2);vertical-align:top;font-size:13.5px}
 tr:last-child td{border-bottom:none}
 tr.dirty{background:#fffdf4}
 .ord{font-weight:800;font-size:15px;white-space:nowrap}
 .ref{color:var(--muted);font-size:11.5px;white-space:nowrap}
-.parts{line-height:1.5;min-width:230px}
+.parts{line-height:1.45;min-width:190px;max-width:290px;font-size:13px}
+.parts .more{display:block;margin-top:4px;color:var(--accent);font-weight:700;font-size:12px;cursor:pointer}
+.parts .rest{display:none}
+.parts.open .rest{display:block}
+.parts.open .more{display:none}
 .parts .q{color:var(--muted)}
-input[type=date],select{padding:8px 9px;border:1.5px solid var(--line);border-radius:9px;
-  background:#fff;color:var(--ink);font:inherit;font-size:14px;width:150px}
-select{width:108px}
+input[type=date],select{padding:7px 7px;border:1.5px solid var(--line);border-radius:9px;
+  background:#fff;color:var(--ink);font:inherit;font-size:13.5px;width:126px}
+select{width:88px}
 input:focus,select:focus{outline:none;border-color:var(--accent)}
 /* The need-by column. This is the one piece of information that might
    actually change what a supplier does, so it is allowed to shout a
@@ -52,7 +56,14 @@ button{font:inherit;font-weight:800;font-size:13.5px;border:none;border-radius:9
 button.ghost{background:transparent;color:var(--muted);border:1.5px solid var(--line);font-weight:700}
 button.ghost:hover{border-color:var(--accent);color:var(--ink)}
 button[disabled]{opacity:.35;cursor:default}
-.note{display:block;font-size:11.5px;margin-top:5px;max-width:130px;line-height:1.35}
+.note{display:block;font-size:11.5px;margin-top:5px;max-width:150px;line-height:1.35}
+.act{white-space:nowrap}
+.act button{padding:8px 14px}
+.act .row2{display:flex;gap:7px}
+/* macOS hides scrollbars, so a table that runs off the right edge looks
+   simply cut off. Say so once, above the sheet, rather than hoping. */
+.hint{color:var(--muted);font-size:12px;margin:0 0 7px;display:none}
+.hint.on{display:block}
 .note.saved{color:var(--ok);font-weight:700}
 .note.err{color:var(--warn);font-weight:700}
 .msg{padding:16px 18px;border-radius:12px;font-size:15px;background:var(--panel);
@@ -106,6 +117,8 @@ label.lab{display:block;font-size:11px;font-weight:800;color:var(--muted);margin
      reach our assembly line before we run out of that part. It already allows for the
      time in transit. If you cannot meet it, tell us early — we can often fly part of the
      order instead, but only if we know in time.</p>
+  <p class="lede" id="asof" style="margin-top:-8px;font-size:13px"></p>
+  <p class="hint" id="hint">The sheet is wider than your window — scroll sideways inside it to reach <b>Split</b> and <b>Save</b>.</p>
   <div id="list"></div>
 </div>
 
@@ -170,8 +183,15 @@ function signOut(){
 /* ---------- the worksheet ---------- */
 function row(sh){
   var i = sh.id;
-  var parts = sh.lines.map(function(l){
-    return esc(l.part)+' <span class="q">× '+l.qty+'</span>'; }).join("<br>");
+  /* An order of nine part numbers made the row four hundred pixels tall and
+     pushed everything else off the screen. Three lines, then a count. */
+  var pl = sh.lines.map(function(l){
+    return esc(l.part)+' <span class="q">× '+l.qty+'</span>'; });
+  var parts = pl.slice(0,3).join("<br>");
+  if(pl.length > 3){
+    parts += '<span class="more" onclick="this.parentNode.classList.add(\'open\')">+ '+
+             (pl.length-3)+' more</span><span class="rest">'+pl.slice(3).join("<br>")+'</span>';
+  }
   var state = sh.atd ? '<span class="state s-go">on its way</span>'
             : sh.prep ? '<span class="state s-prep">in preparation</span>' : "";
   function d(id,v){ return '<input type="date" id="'+id+i+'" value="'+esc(v||"")+'" oninput="touch('+i+')">'; }
@@ -202,8 +222,9 @@ function row(sh){
         return '<option value="'+m+'"'+(sh.mode===m?' selected':'')+'>'+
           (m?m.charAt(0).toUpperCase()+m.slice(1):"—")+'</option>'; }).join("")+
       '</select></td>'+
-    '<td><button class="ghost" onclick="openSplit('+i+')">Split</button></td>'+
-    '<td><button id="b'+i+'" onclick="save('+i+')" disabled>Save</button>'+
+    '<td class="act"><div class="row2">'+
+        '<button class="ghost" onclick="openSplit('+i+')">Split</button>'+
+        '<button id="b'+i+'" onclick="save('+i+')" disabled>Save</button></div>'+
         '<span class="note" id="n'+i+'"></span></td>'+
   '</tr>';
 }
@@ -225,9 +246,14 @@ async function load(){
     d.shipments.forEach(function(sh){ SH[sh.id]=sh; });
     $("list").innerHTML =
       '<div class="tablewrap"><table><thead><tr>'+
-      '<th>Order</th><th>Parts</th><th>Please ship by</th><th>Preparation started</th>'+
-      '<th>Expected to leave</th><th>Actually left</th><th>How</th><th></th><th></th>'+
+      '<th>Order</th><th>Parts</th><th>Please<br>ship by</th><th>Preparation<br>started</th>'+
+      '<th>Expected<br>to leave</th><th>Actually<br>left</th><th>How</th><th></th>'+
       '</tr></thead><tbody>'+ d.shipments.map(row).join("") +'</tbody></table></div>';
+    if(d.planAsOf) $("asof").textContent = "Run-out dates from our production plan of "+d.planAsOf+".";
+    var tw = document.querySelector(".tablewrap");
+    var h  = $("hint");
+    function hintCheck(){ h.classList.toggle("on", tw.scrollWidth > tw.clientWidth + 4); }
+    hintCheck(); window.addEventListener("resize", hintCheck);
   }catch(e){
     $("list").innerHTML = '<div class="msg bad">Could not load your orders: '+esc(e.message||e)+'</div>';
   }

@@ -123,7 +123,8 @@ async function load(){
     if(!r.ok) throw new Error(d.error||("Server said "+r.status));
     ROWS=(d.transit||[]).concat(d.preparing||[]);
     $("stamp").textContent="updated "+new Date(d.at).toLocaleString("en-GB",
-      {day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+      {day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})+
+      (d.planAsOf?" · run-out dates from the plan of "+d.planAsOf:" · no run-out dates on file");
     draw();
   }catch(e){ $("list").innerHTML='<div class="msg">Could not load: '+esc(e.message||e)+'</div>'; }
 }
@@ -171,9 +172,13 @@ function th(k,t){ return '<th data-s="'+k+'">'+t+(SORT===k?(DIR>0?" ↑":" ↓")
 function dt(v){ return v?'<span class="d">'+esc(v)+'</span>':'<span class="d miss">—</span>'; }
 
 function row(r){
+  /* risk is empty when no run-out date is on file for any part in the box.
+     That is not the same as the supplier being silent, and saying "no date
+     yet" to a shipment that has an ETD would be a plain lie on the screen. */
   var tag = r.atd ? '<span class="tag t-go">on its way</span>'
           : r.risk==="late" ? '<span class="tag t-late">will be late</span>'
           : r.risk==="ok" ? '<span class="tag t-ok">on time</span>'
+          : r.etd ? '<span class="tag t-ok">date given</span>'
           : '<span class="tag t-unk">no date yet</span>';
   return '<tr'+(r.risk==="late"?' class="late"':'')+'>'+
     '<td class="sup">'+esc(r.supplier)+'</td>'+
