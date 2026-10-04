@@ -729,6 +729,14 @@ async function publishPartsDeadlines(){
          "If nothing else arrives, we build until this date." A shipment's
          real margin is that date minus its arrival. */
       let coverLeft=vv+andP, coverWi=-1;
+      /* ONE DATE IS NOT ENOUGH when a part arrives in several shipments.
+         Measuring every box against "the day today's stock runs dry" makes
+         all three Mivice motor deliveries late on the same morning, when in
+         truth the first one covers the gap and the second only has to beat
+         the day the pool empties AFTER the first has landed. That is a
+         queue, and a queue needs the consumption curve — so publish it and
+         let the consumer walk the arrivals in date order. */
+      const onHand0=vv+andP;
       for(let wi=0; wi<wks.length; wi++){
         const cons=consArr[wi]; totCons+=cons;
         let arrv=incForWeek(pid,wi); if(wi===0) arrv+=overdue;
@@ -778,6 +786,8 @@ async function publishPartsDeadlines(){
           /* null means today's stock carries the whole plan — nothing on
              order is holding anything up. */
           coverUntil: coverWi >= 0 && wks[coverWi] ? wks[coverWi].monday : null,
+          onHand: Math.round(onHand0),
+          cons: consArr.map(c=>Math.round(c*100)/100),
           outLevel: outWi >= 0 ? Math.round(outLevel) : null,
           stockout: minLevel < 0,
           floor:Math.round(floorQty),
@@ -787,8 +797,10 @@ async function publishPartsDeadlines(){
       /* A part that never goes short publishes no order row, so its cover
          date would be lost — and that is exactly the part a shipment might
          still be holding up. Publish it on its own. */
-      if(shortWi<0 && coverWi>=0) items.push({type:'cover', id:'cover:'+pid, pid, name:nm,
-        partNo:r.partNo||'', coverUntil:wks[coverWi].monday, rate:Math.round(rate*100)/100});
+      if(shortWi<0) items.push({type:'cover', id:'cover:'+pid, pid, name:nm,
+        partNo:r.partNo||'', coverUntil: coverWi>=0 ? wks[coverWi].monday : null,
+        onHand:Math.round(onHand0), cons:consArr.map(c=>Math.round(c*100)/100),
+        rate:Math.round(rate*100)/100});
       for(const mv of moves) items.push({type:'move', id:'move:'+pid+':'+wks[mv.wi].monday, pid, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[mv.wi].monday, qty:mv.qty});
     }
     await kvSetStore('parts_deadlines', { updated:new Date().toISOString(), transferLeadDays:3,
@@ -1008,6 +1020,7 @@ async function publishWheelDeadlines(){
       /* Same question for the wheel pool: how far does what is at MTB
          today carry us, counting nothing on its way. */
       let coverLeft=mtb+andP, coverWi=-1;
+      const onHand0=mtb+andP;   /* see the line tier: the curve, not just a date */
       for(let wi=0; wi<wks.length; wi++){
         let arrv=incForWeek(r.id,wi); if(wi===0) arrv+=overdue;
         andP+=arrv; mtb-=cons[wi];
@@ -1022,9 +1035,12 @@ async function publishWheelDeadlines(){
       const nm=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
       const wrate=cons.length?(cons.reduce((a,b)=>a+b,0)/cons.length):0;
       if(shortWi>=0) out.items.push({type:'order', id:'worder:'+r.id, pid:r.id, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[shortWi].monday, qty:Math.max(1,Math.ceil(-minLevel)), tier:'MTB', rate:Math.round(wrate*100)/100,
-        coverUntil: coverWi >= 0 && wks[coverWi] ? wks[coverWi].monday : null});
-      else if(coverWi>=0) out.items.push({type:'cover', id:'wcover:'+r.id, pid:r.id, name:nm, partNo:r.partNo||'', tier:'MTB',
-        coverUntil:wks[coverWi].monday, rate:Math.round(wrate*100)/100});
+        coverUntil: coverWi >= 0 && wks[coverWi] ? wks[coverWi].monday : null,
+        onHand:Math.round(onHand0), cons:cons.map(c=>Math.round(c*100)/100)});
+      else out.items.push({type:'cover', id:'wcover:'+r.id, pid:r.id, name:nm, partNo:r.partNo||'', tier:'MTB',
+        coverUntil: coverWi>=0 ? wks[coverWi].monday : null,
+        onHand:Math.round(onHand0), cons:cons.map(c=>Math.round(c*100)/100),
+        rate:Math.round(wrate*100)/100});
       for(const mv of moves) out.items.push({type:'move', id:'wmove:'+r.id+':'+wks[mv.wi].monday, pid:r.id, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[mv.wi].monday, qty:mv.qty, tier:'MTB', moveTo:'MTB'});
     }
     await kvSetStore('wheel_deadlines', out);
