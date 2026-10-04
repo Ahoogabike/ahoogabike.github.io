@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ahooga · Inbound pipeline</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap">
+<style>
+:root{ --bg:#f7f4ec; --panel:#fff; --line:#e4ddcd; --line2:#f0ebe0; --ink:#1d1c16;
+       --muted:#6b6557; --accent:#ea1d5e; --ok:#0f7a52; --warn:#c0451f; --amber:#8a6d1f; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:'Archivo',system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+.wrap{max-width:1500px;margin:0 auto;padding:22px 18px 70px}
+header{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+h1{margin:0;font-size:24px;font-weight:800}
+h1 span{color:var(--accent)}
+.stamp{color:var(--muted);font-size:13px;margin-left:auto}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin:18px 0}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px 16px}
+.kpi .n{font-size:28px;font-weight:800;line-height:1.1}
+.kpi .l{font-size:12.5px;color:var(--muted);margin-top:3px}
+.kpi.bad .n{color:var(--warn)}
+.kpi.amber .n{color:var(--amber)}
+.kpi.good .n{color:var(--ok)}
+.bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
+.chip{border:1.5px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 14px;
+  font-size:13px;font-weight:700;color:var(--muted);cursor:pointer}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.bar input{margin-left:auto;padding:8px 12px;border:1.5px solid var(--line);border-radius:10px;
+  font:inherit;font-size:14px;width:230px;background:var(--panel)}
+.tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:auto}
+table{border-collapse:collapse;width:100%;min-width:1180px}
+th{text-align:left;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--muted);padding:12px 12px 9px;border-bottom:1px solid var(--line);white-space:nowrap;
+  background:var(--panel);position:sticky;top:0;z-index:2;cursor:pointer;user-select:none}
+th:hover{color:var(--ink)}
+td{padding:10px 12px;border-bottom:1px solid var(--line2);font-size:13.5px;vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr.late{background:#fdf1ec}
+.sup{font-weight:800;font-size:14px;white-space:nowrap}
+.po{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--muted);white-space:nowrap}
+.items{color:var(--muted);line-height:1.45;max-width:330px}
+.d{white-space:nowrap}
+.d.miss{color:var(--muted)}
+.tag{display:inline-block;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.t-late{background:#fdece7;color:var(--warn)}
+.t-ok{background:#e7f3ec;color:var(--ok)}
+.t-unk{background:#f4efe0;color:var(--amber)}
+.t-go{background:#e8eef6;color:#0a4d8c}
+.msg{padding:18px;border-radius:12px;background:var(--panel);border:1px solid var(--line);color:var(--muted)}
+#gate{position:fixed;inset:0;z-index:99;background:var(--bg);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px}
+#gate input{width:330px;max-width:84vw;text-align:center;font-size:16px;padding:11px 12px;
+  border:1.5px solid var(--line);border-radius:10px}
+#gate button{font:inherit;font-weight:800;border:none;border-radius:999px;padding:11px 26px;
+  background:var(--accent);color:#fff;cursor:pointer}
+.err{color:var(--warn);font-weight:700;font-size:13.5px}
+</style></head><body>
+
+<div id="gate">
+  <h1>Ahooga · <span>Inbound pipeline</span></h1>
+  <p style="color:#6b6557">Paste your office key.</p>
+  <input type="password" id="gk" placeholder="Office key" autocomplete="off"/>
+  <button id="ggo">Open</button><div id="gmsg" class="err" style="min-height:20px"></div>
+</div>
+
+<div class="wrap" id="app" style="display:none">
+  <header>
+    <h1>Ahooga · <span>Inbound pipeline</span></h1>
+    <div class="stamp" id="stamp"></div>
+  </header>
+  <div class="cards" id="kpis"></div>
+  <div class="bar">
+    <span class="chip on" data-f="all">Everything</span>
+    <span class="chip" data-f="late">At risk</span>
+    <span class="chip" data-f="transit">On the water</span>
+    <span class="chip" data-f="prep">Being prepared</span>
+    <span class="chip" data-f="nodate">No date given</span>
+    <input id="q" placeholder="Filter by supplier, order or part…"/>
+  </div>
+  <div id="list"></div>
+</div>
+
+<script>
+var API="https://vv-inbound.ahoogahouse-1050-be.workers.dev";
+var STORE="vv_office_key";
+var ROWS=[], FILTER="all", SORT="shipBy", DIR=1;
+function key(){ try{ return localStorage.getItem(STORE)||""; }catch(e){ return ""; } }
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+
+async function open_(k){
+  var r=await fetch(API+"/whoami",{headers:{"x-device-key":k}});
+  var me=await r.json().catch(function(){return {};});
+  if(!r.ok) throw new Error(me.error||("Server said "+r.status));
+  if(me.role!=="office"&&me.role!=="full") throw new Error("That key is not an office key.");
+  try{ localStorage.setItem(STORE,k); }catch(e){}
+  $("gate").style.display="none"; $("app").style.display=""; load();
+}
+document.addEventListener("DOMContentLoaded",async function(){
+  $("ggo").onclick=async function(){
+    var k=($("gk").value||"").trim();
+    if(k.length<24){ $("gmsg").textContent="That key looks too short."; return; }
+    try{ await open_(k); }catch(e){ $("gmsg").textContent=e.message||String(e); }
+  };
+  $("gk").addEventListener("keydown",function(e){ if(e.key==="Enter") $("ggo").click(); });
+  Array.prototype.forEach.call(document.querySelectorAll(".chip"),function(c){
+    c.onclick=function(){
+      Array.prototype.forEach.call(document.querySelectorAll(".chip"),function(x){x.classList.remove("on");});
+      c.classList.add("on"); FILTER=c.getAttribute("data-f"); draw(); };
+  });
+  $("q").addEventListener("input",draw);
+  if(key()){ try{ await open_(key()); return; }catch(e){ $("gmsg").textContent=e.message||String(e); } }
+  $("gk").focus();
+});
+
+async function load(){
+  $("list").innerHTML='<div class="msg">Loading…</div>';
+  try{
+    var r=await fetch(API+"/pipeline",{headers:{"x-device-key":key()}});
+    var d=await r.json();
+    if(!r.ok) throw new Error(d.error||("Server said "+r.status));
+    ROWS=(d.transit||[]).concat(d.preparing||[]);
+    $("stamp").textContent="updated "+new Date(d.at).toLocaleString("en-GB",
+      {day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+    draw();
+  }catch(e){ $("list").innerHTML='<div class="msg">Could not load: '+esc(e.message||e)+'</div>'; }
+}
+
+function keep(r){
+  if(FILTER==="late" && r.risk!=="late") return false;
+  if(FILTER==="transit" && !r.atd) return false;
+  if(FILTER==="prep" && r.atd) return false;
+  if(FILTER==="nodate" && (r.etd||r.atd)) return false;
+  var q=($("q").value||"").trim().toLowerCase();
+  if(q){
+    var hay=(r.supplier+" "+r.po+" "+r.ref+" "+r.items.join(" ")).toLowerCase();
+    if(hay.indexOf(q)<0) return false;
+  }
+  return true;
+}
+
+function draw(){
+  var rows=ROWS.filter(keep).slice().sort(function(a,b){
+    var x=a[SORT]||"￿", y=b[SORT]||"￿";
+    return (x<y?-1:x>y?1:0)*DIR; });
+
+  var late=ROWS.filter(function(r){return r.risk==="late";}).length;
+  var unk=ROWS.filter(function(r){return !r.etd&&!r.atd;}).length;
+  var onw=ROWS.filter(function(r){return !!r.atd;}).length;
+  $("kpis").innerHTML=
+    kpi(ROWS.length,"open shipments","")+
+    kpi(late,"at risk of being late","bad")+
+    kpi(unk,"with no date from the supplier","amber")+
+    kpi(onw,"already on their way","good");
+
+  if(!rows.length){ $("list").innerHTML='<div class="msg">Nothing matches.</div>'; return; }
+  $("list").innerHTML='<div class="tablewrap"><table><thead><tr>'+
+    th("supplier","Supplier")+th("po","Order")+'<th>Parts</th>'+
+    th("shipBy","Ship by")+th("etd","Supplier says")+th("atd","Left")+
+    th("eta","Arrives")+'<th>Status</th>'+
+    '</tr></thead><tbody>'+rows.map(row).join("")+'</tbody></table></div>';
+  Array.prototype.forEach.call(document.querySelectorAll("th[data-s]"),function(h){
+    h.onclick=function(){ var k=h.getAttribute("data-s");
+      if(SORT===k) DIR=-DIR; else { SORT=k; DIR=1; } draw(); };
+  });
+}
+function kpi(n,l,c){ return '<div class="kpi '+(c||'')+'"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
+function th(k,t){ return '<th data-s="'+k+'">'+t+(SORT===k?(DIR>0?" ↑":" ↓"):"")+'</th>'; }
+function dt(v){ return v?'<span class="d">'+esc(v)+'</span>':'<span class="d miss">—</span>'; }
+
+function row(r){
+  var tag = r.atd ? '<span class="tag t-go">on its way</span>'
+          : r.risk==="late" ? '<span class="tag t-late">will be late</span>'
+          : r.risk==="ok" ? '<span class="tag t-ok">on time</span>'
+          : '<span class="tag t-unk">no date yet</span>';
+  return '<tr'+(r.risk==="late"?' class="late"':'')+'>'+
+    '<td class="sup">'+esc(r.supplier)+'</td>'+
+    '<td><div class="po">'+esc(r.po)+'</div><div class="po" style="opacity:.6">'+esc(r.ref)+'</div></td>'+
+    '<td class="items">'+esc(r.items.join(", "))+(r.more?' +'+r.more+' more':'')+'</td>'+
+    '<td>'+(r.shipBy?'<span class="d"><b>'+esc(r.shipBy)+'</b></span>':'<span class="d miss">—</span>')+
+      (r.needBy?'<div class="po" style="opacity:.7">out '+esc(r.needBy)+'</div>':'')+'</td>'+
+    '<td>'+dt(r.etd)+(r.mode?'<div class="po" style="opacity:.7">'+esc(r.mode)+'</div>':'')+'</td>'+
+    '<td>'+dt(r.atd)+'</td>'+
+    '<td>'+dt(r.eta)+'</td>'+
+    '<td>'+tag+'</td></tr>';
+}
+</script>
+</body></html>
