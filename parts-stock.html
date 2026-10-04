@@ -380,6 +380,16 @@ function isMY27Name(nm){ return /my\s*-?\s*27/i.test(nm||''); }
 let repairRateByPid={};
 function repairOf(pid){ return repairRateByPid[pid]||0; }
 let bomByTmpl={}, prodToTmpl={};  // BoM graph — module-level so the wheel/MTB helpers can read it
+let variantsOfTmpl={};            // template -> [Set(attribute value ids)] per variant
+let variantSetOf={};              // product id -> Set(attribute value ids)
+/* An Odoo BoM can be tied to ONE VARIANT rather than to the whole template.
+   Ahooga uses that for frames: BoM 405 builds the Custom AOFV2E frame out of
+   an unpainted frame, because custom colours are painted at Deco Coat. The
+   six standard colours have no BoM at all — they are bought already painted.
+   Keyed by template alone, that single BoM was applied to all seven colours
+   and every bike appeared to eat an unpainted frame. Variant BoMs therefore
+   live here, and only the variant they belong to can reach them. */
+let bomByProduct={};              // product id -> {productQty, lines} for a variant-specific BoM
 let bikeRefs=[];            // the exact bike references the PO Builder builds {id,code,name,tmplId,fam}
 let tmplParts={};           // bike template id -> Set(component productId) — for the per-reference filter
 let packByPart={};          // productId -> units per purchase carton (0 = none on file)
@@ -1057,7 +1067,7 @@ function bikeFamilyKey(name){
 const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o;};
 
 async function collectBomGraph(){
-  bomByTmpl={}; prodToTmpl={};
+  bomByTmpl={}; prodToTmpl={}; variantsOfTmpl={}; variantSetOf={}; bomByProduct={};
   // Anchor to EXACTLY the bikes the PO Builder builds: AHFAM… (A-MAX) / AHFMC… (E-MAX) variants,
   // Current model year (no "MYxx" tag) PLUS MY27, in Alfine or Derailleur (no Nexus). Old
   // model-year tags (MY25 etc.) and Nexus still leak-proofed; MY27 is allowed through explicitly.
@@ -1078,20 +1088,24 @@ async function collectBomGraph(){
   if(!bikeTmplIds.length) return {partIds:new Set(),subIds:new Set(),bomByTmpl:{},prodToTmpl:{},bikeBoms:[],bikeBomCount:0};
   const bikeBomsRaw=await odoo('mrp.bom','search_read',
     [[['product_tmpl_id','in',bikeTmplIds]]],
-    {fields:['id','product_tmpl_id','product_qty','bom_line_ids'],limit:2000});
+    {fields:['id','product_tmpl_id','product_id','product_qty','bom_line_ids'],limit:2000});
 
   const partIds=new Set();
   const bikeBoms=[];    // [{tmplId,name}]
   const seenTmpl=new Set();
 
+  const seenBom=new Set();
   let queue=[];
   for(const b of bikeBomsRaw){
     const t=arr(b.product_tmpl_id);
     if(!seenTmpl.has(t[0])){
       bikeBoms.push({tmplId:t[0],name:t[1]||tmplName[t[0]]||''});
-      queue.push({tmplId:t[0],productQty:b.product_qty||1,lineIds:b.bom_line_ids||[]});
       seenTmpl.add(t[0]);
     }
+    if(seenBom.has(b.id)) continue;
+    seenBom.add(b.id);
+    queue.push({bomId:b.id, tmplId:t[0], productId:arr(b.product_id)[0]||null,
+                productQty:b.product_qty||1, lineIds:b.bom_line_ids||[]});
   }
 
   let level=0;
@@ -1103,15 +1117,21 @@ async function collectBomGraph(){
     const allLineIds=queue.flatMap(q=>q.lineIds);
     const lineById={};
     for(const c of chunk(allLineIds,1000)){
-      const ls=await odoo('mrp.bom.line','read',[c],{fields:['product_id','product_qty']});
+      const ls=await odoo('mrp.bom.line','read',[c],
+        {fields:['product_id','product_qty','bom_product_template_attribute_value_ids']});
       for(const l of ls) lineById[l.id]=l;
     }
     // attach lines to their template; collect component product ids
     const nextProductIds=new Set();
     for(const q of queue){
       const lns=q.lineIds.map(id=>lineById[id]).filter(Boolean)
-        .map(l=>({pid:arr(l.product_id)[0],qty:l.product_qty||0})).filter(x=>x.pid);
-      bomByTmpl[q.tmplId]={productQty:q.productQty,lines:lns};
+        .map(l=>({pid:arr(l.product_id)[0], qty:l.product_qty||0,
+                  ptav:(l.bom_product_template_attribute_value_ids||[]).slice().sort().join(',')}))
+        .filter(x=>x.pid);
+      const node={productQty:q.productQty,lines:lns};
+      if(q.productId) bomByProduct[q.productId]=node;   /* this variant only */
+      else            bomByTmpl[q.tmplId]=node;         /* every variant */
+      q._node=node;
       for(const ln of lns){partIds.add(ln.pid);nextProductIds.add(ln.pid);}
     }
     // resolve templates for new products
@@ -1119,38 +1139,139 @@ async function collectBomGraph(){
     const prods=[];
     for(const c of chunk(newPids,300)) prods.push(...await odoo('product.product','read',[c],{fields:['product_tmpl_id']}));
     for(const p of prods) prodToTmpl[p.id]=arr(p.product_tmpl_id)[0];
+    /* Only now is it known which component template each line builds, and the
+       weighting groups variant-filtered lines BY that template — seven colours
+       of one frame are one choice, not seven parts. Running it any earlier
+       silently gave every line a weight of 1 and changed nothing, which is
+       exactly the kind of fix that looks applied and is not. */
+    /* The variants of each product these BoMs build, so a filtered line can
+       be weighted by how much of the range it actually covers. Inactive
+       variants are included: a BoM line pointing at one is still a line, and
+       excluding them would quietly change every fraction. */
+    const needVar=queue.map(q=>q.tmplId).filter(t=>t&&!(t in variantsOfTmpl));
+    for(const c of chunk(needVar,200)){
+      try{
+        const vs=await odoo('product.product','search_read',
+          [[['product_tmpl_id','in',c],['active','in',[true,false]]]],
+          {fields:['product_tmpl_id','product_template_attribute_value_ids'],limit:5000});
+        for(const t of c) variantsOfTmpl[t]=variantsOfTmpl[t]||[];
+        for(const v of (Array.isArray(vs)?vs:[])){
+          const t=arr(v.product_tmpl_id)[0]; if(!t) continue;
+          const set=new Set(v.product_template_attribute_value_ids||[]);
+          variantSetOf[v.id]=set;
+          (variantsOfTmpl[t]=variantsOfTmpl[t]||[]).push(set);
+        }
+      }catch(e){ console.warn('[PartStock] variant lookup failed for a BoM wave:',e.message); }
+    }
+    for(const q of queue){
+      if(!q._node) continue;
+      /* A BoM tied to one variant has exactly one variant to satisfy, so its
+         own line filters are measured against that variant alone. */
+      const vs = q.productId
+        ? (variantSetOf[q.productId] ? [variantSetOf[q.productId]] : null)
+        : variantsOfTmpl[q.tmplId];
+      applyVariantWeights(q._node.lines, vs);
+    }
     // find sub-assembly BoMs for new templates
+    /* Every BoM of these templates, not one per template. A template can
+       carry several — the MY26 frame has four, one per colour — and taking
+       only the first silently applied one colour's recipe to all of them. */
     const tmplIds=[...new Set(prods.map(p=>arr(p.product_tmpl_id)[0]).filter(Boolean))].filter(t=>!seenTmpl.has(t));
     const subBoms=[];
-    for(const c of chunk(tmplIds,200)) subBoms.push(...await odoo('mrp.bom','search_read',[[['product_tmpl_id','in',c]]],{fields:['id','product_tmpl_id','product_qty','bom_line_ids'],limit:5000}));
+    for(const c of chunk(tmplIds,200)) subBoms.push(...await odoo('mrp.bom','search_read',[[['product_tmpl_id','in',c]]],{fields:['id','product_tmpl_id','product_id','product_qty','bom_line_ids'],limit:5000}));
+    for(const t of tmplIds) seenTmpl.add(t);
     const nextQueue=[];
     for(const sb of subBoms){
       const t=arr(sb.product_tmpl_id)[0];
-      if(t&&!seenTmpl.has(t)){seenTmpl.add(t);nextQueue.push({tmplId:t,productQty:sb.product_qty||1,lineIds:sb.bom_line_ids||[]});}
+      if(!t || seenBom.has(sb.id)) continue;
+      seenBom.add(sb.id);
+      nextQueue.push({bomId:sb.id, tmplId:t, productId:arr(sb.product_id)[0]||null,
+                      productQty:sb.product_qty||1, lineIds:sb.bom_line_ids||[]});
     }
     queue=nextQueue;
   }
   const subIds=new Set();
-  for(const pid of partIds){const t=prodToTmpl[pid];if(t&&bomByTmpl[t])subIds.add(pid);}
+  for(const pid of partIds){const t=prodToTmpl[pid];if(bomByProduct[pid]||(t&&bomByTmpl[t]))subIds.add(pid);}
   return {partIds,subIds,bomByTmpl,prodToTmpl,bikeBoms,bikeBomCount:bikeBoms.length};
 }
 
 // Per-bike usage of every part for one finished unit of `tmplId` (full explosion,
 // counting sub-assemblies AND their children). Returns { productId: qtyPerBike }.
+/* ── VARIANT-SPECIFIC BoM LINES ───────────────────────────────────────
+   An Odoo BoM line can be restricted to certain variants of the product it
+   builds, through bom_product_template_attribute_value_ids. The MY27 bike
+   BoMs lean on this heavily, in two different shapes, and a naive explosion
+   gets both wrong in the same direction — upwards.
+
+     ONE CHOICE SPREAD OVER MANY LINES. EMA-002 carries SEVEN frame lines,
+     one per colour, each qty 1. Odoo applies exactly one. Summing them asks
+     for seven frames per bike — which is precisely how [FRNAA00281] Frame
+     pre-assy AOFV2E unpainted came to show a plan of 42,630 against 6,090
+     bikes (exactly 7.0 each) and a burn-down 42,508 units under water.
+
+     ONE OPTION, ONE LINE. The Rear Rack and the three rear mudguard stays
+     each appear once, filtered to a single option. Only the bikes carrying
+     that option consume them, so counting one per bike is roughly double.
+
+   Both are answered by the same question: of all the variants this BoM can
+   build, what fraction does this line actually apply to? Seven colours → a
+   seventh. Rack-only → however many variants have a rack. A line with no
+   filter applies to all of them and keeps its full quantity.
+
+   74 of the 308 lines in the four MY27 bike BoMs carry a filter, so this was
+   inflating roughly a quarter of all component demand.
+
+   HONEST LIMIT: the fraction treats every variant as equally likely, so it
+   is an average over an even colour and rack mix, not the planned mix. The
+   PO Builder does publish a per-SKU plan and this could be weighted by it —
+   worth doing, and noted rather than quietly assumed. It is the difference
+   between approximate and sevenfold. */
+function applyVariantWeights(lns, variants){
+  /* variants: array of Sets of product_template_attribute_value ids, one per
+     variant of the product this BoM builds. */
+  const total = variants ? variants.length : 0;
+  for(const ln of lns){
+    if(!ln.ptav){ ln.w=1; continue; }                 /* applies to every variant */
+    if(!total){ ln.w=1; continue; }                   /* no variant data → do not shrink demand */
+    const want = ln.ptav.split(',').map(Number);
+    let hit=0;
+    for(const v of variants){ if(want.every(x=>v.has(x))) hit++; }
+    if(!hit){
+      /* The line matches no variant at all — a leftover from an option that
+         no longer exists. Odoo would never consume it. Say so rather than
+         carrying it silently either way. */
+      console.warn('[PartStock] BoM line for product '+ln.pid+' matches no variant — not counted');
+      ln.w=0; continue;
+    }
+    ln.w = hit/total;
+  }
+}
+
 function explodeUsage(tmplId,bomByTmpl,prodToTmpl,fullExplode){
   const acc={};
-  (function rec(tid,factor,depth,seen){
-    const bom=bomByTmpl[tid];
+  (function rec(node,factor,depth,seen){
+    const bom=(typeof node==='object'&&node)?node:bomByTmpl[node];
     if(!bom||depth>15) return;
     const base=bom.productQty||1;
     for(const ln of bom.lines){
-      const perUnit=(ln.qty/base)*factor;
+      const perUnit=(ln.qty/base)*factor*(ln.w===undefined?1:ln.w);
       acc[ln.pid]=(acc[ln.pid]||0)+perUnit;
       const ct=prodToTmpl[ln.pid];
+      /* The variant's own BoM wins; a template-level BoM applies only when
+         the variant has none of its own. A component with neither is bought
+         as it is — which is the whole answer for a Bumblebee frame. */
+      const sub=bomByProduct[ln.pid] || (ct ? bomByTmpl[ct] : null);
+      const key=bomByProduct[ln.pid] ? ('p'+ln.pid) : ('t'+ct);
       // Stop at MTB wheel assemblies: at Velovisie the bike consumes the finished wheel, not its parts.
-      if(ct&&bomByTmpl[ct]&&!seen.has(ct) && (fullExplode || !mtbWheelTmpls.has(ct))) rec(ct,perUnit,depth+1,new Set(seen).add(ct));
+      if(sub && !seen.has(key) && (fullExplode || !ct || !mtbWheelTmpls.has(ct))){
+        rec(sub,perUnit,depth+1,new Set(seen).add(key));
+      }
     }
-  })(tmplId,1,0,new Set([tmplId]));
+  /* Always a TEMPLATE at the top — every caller passes one. Template ids and
+     product ids are different records that can share a number, so looking the
+     entry point up in the per-product map would occasionally explode a
+     stranger's BoM. */
+  })(bomByTmpl[tmplId],1,0,new Set(['t'+tmplId]));
   return acc;
 }
 
