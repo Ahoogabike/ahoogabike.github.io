@@ -379,6 +379,13 @@ function isMY27Name(nm){ return /my\s*-?\s*27/i.test(nm||''); }
 // Added on top of production consumption so each component is ordered once for production + repair.
 let repairRateByPid={};
 function repairOf(pid){ return repairRateByPid[pid]||0; }
+/* WHICH VERSION WROTE THIS FEED.
+   Three times today a run was read as "the fix did not work" when the
+   browser was simply still running yesterday's file. Guessing from byte
+   counts is no way to settle it, so every published payload now carries
+   the build that produced it, and the header shows it on screen. If the
+   feed says one thing and the page says another, it is the cache. */
+const APP_BUILD = '2026-10-05.queue';
 let bomByTmpl={}, prodToTmpl={};  // BoM graph — module-level so the wheel/MTB helpers can read it
 let variantsOfTmpl={};            // template -> [Set(attribute value ids)] per variant
 let variantSetOf={};              // product id -> Set(attribute value ids)
@@ -803,7 +810,7 @@ async function publishPartsDeadlines(){
         rate:Math.round(rate*100)/100});
       for(const mv of moves) items.push({type:'move', id:'move:'+pid+':'+wks[mv.wi].monday, pid, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[mv.wi].monday, qty:mv.qty});
     }
-    await kvSetStore('parts_deadlines', { updated:new Date().toISOString(), transferLeadDays:3,
+    await kvSetStore('parts_deadlines', { updated:new Date().toISOString(), build:APP_BUILD, transferLeadDays:3,
       safetyWeeks:ORDER_SAFETY_WEEKS, coverWeeks:ORDER_COVER_WEEKS,
       packsOnFile:Object.keys(packByPart).length,
       packsFromOdoo:packFromOdoo, packsFromStore:packFromStore,
@@ -992,7 +999,7 @@ async function publishWheelDeadlines(){
   try{
     if(!rows.length || !productionPlan || !productionPlan.weeks || !productionPlan.weeks.length) return;
     const wks=productionPlan.weeks, byFam=productionPlan.byFam||{};
-    const out={ updated:new Date().toISOString(), transferLeadDays:3, tier:'MTB', weeks:wks.map(w=>w.monday), items:[] };
+    const out={ updated:new Date().toISOString(), build:APP_BUILD, transferLeadDays:3, tier:'MTB', weeks:wks.map(w=>w.monday), items:[] };
     if(!mtbWheelTmpls.size){ await kvSetStore('wheel_deadlines', out); return; }
     // wheel products that bikes use, and each wheel's exploded component usage
     const isWheelPid=(pid)=> mtbWheelTmpls.has(prodToTmpl[pid]);
