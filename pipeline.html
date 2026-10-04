@@ -203,16 +203,32 @@ function eur(n){ try{ return "\u20ac"+Math.round(Number(n)||0).toLocaleString("e
 function kpi(n,l,c){ return '<div class="kpi '+(c||'')+'"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
 function th(k,t){ return '<th data-s="'+k+'">'+t+(SORT===k?(DIR>0?" ↑":" ↓"):"")+'</th>'; }
 function dt(v){ return v?'<span class="d">'+esc(v)+'</span>':'<span class="d miss">—</span>'; }
+/* How the arrival sits against the day the line runs out. This is the whole
+   question for anything already shipped, and it was nowhere on the screen. */
+function slackNote(r){
+  if(r.slack===null||r.slack===undefined||!r.needBy) return '';
+  var d=r.slack;
+  var txt = d<0 ? Math.abs(d)+' days too late'
+          : d<14 ? 'only '+d+' days spare'
+          : Math.round(d/7)+' weeks spare';
+  var col = d<0 ? 'var(--warn)' : d<14 ? 'var(--amber)' : 'var(--muted)';
+  return '<div class="po" style="color:'+col+(d<14?';font-weight:700':'')+'">'+txt+'</div>';
+}
 
 function row(r){
   /* risk is empty when no run-out date is on file for any part in the box.
      That is not the same as the supplier being silent, and saying "no date
      yet" to a shipment that has an ETD would be a plain lie on the screen. */
+  /* Once a box has left, the only question is whether it lands in time.
+     Say which, rather than a neutral "on its way" that reads as fine. */
   var tag = r.leg==="transit"
             ? (r.overdue ? '<span class="tag t-late">arrival overdue</span>'
              : r.risk==="late" ? '<span class="tag t-late">lands too late</span>'
+             : r.risk==="ok" ? '<span class="tag t-go">lands in time</span>'
              : '<span class="tag t-go">on the water</span>')
-          : r.atd ? '<span class="tag t-go">on its way</span>'
+          : r.atd ? (r.risk==="late" ? '<span class="tag t-late">lands too late</span>'
+             : r.risk==="ok" ? '<span class="tag t-go">lands in time</span>'
+             : '<span class="tag t-go">on its way</span>')
           : r.risk==="late" ? '<span class="tag t-late">will be late</span>'
           : r.risk==="ok" ? '<span class="tag t-ok">on time</span>'
           : r.etd ? '<span class="tag t-ok">date given</span>'
@@ -226,7 +242,7 @@ function row(r){
       (r.needBy?'<div class="po" style="opacity:.7">out '+esc(r.needBy)+'</div>':'')+'</td>'+
     '<td>'+dt(r.etd)+(r.mode?'<div class="po" style="opacity:.7">'+esc(r.mode)+'</div>':'')+'</td>'+
     '<td>'+(r.leg==="transit"?'<span class="d">shipped</span>':dt(r.atd))+'</td>'+
-    '<td>'+dt(r.eta)+'</td>'+
+    '<td>'+dt(r.eta)+slackNote(r)+'</td>'+
     '<td>'+tag+'</td></tr>';
 }
 </script>

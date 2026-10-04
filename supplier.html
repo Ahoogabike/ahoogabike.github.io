@@ -30,12 +30,12 @@ tr:last-child td{border-bottom:none}
 tr.dirty{background:#fffdf4}
 tr.gone{background:#fafaf6}
 tr.gone .ord,tr.gone .pn{opacity:.78}
-.gonebox{display:flex;flex-wrap:wrap;gap:6px 22px;align-items:baseline;font-size:13.5px}
-.gonebox b{font-weight:800}
-.gonebox .sm{flex-basis:100%;color:var(--muted);font-size:11.5px}
+.gonebox{font-size:14px;line-height:1.45}
+.gonebox b{font-weight:800;white-space:nowrap}
+.gonebox .sm{display:block;color:var(--muted);font-size:11.5px}
 .ord{font-weight:800;font-size:15px;white-space:nowrap}
 .ref{color:var(--muted);font-size:11.5px;white-space:nowrap}
-.parts{line-height:1.45;min-width:190px;max-width:290px;font-size:13px}
+.parts{line-height:1.45;min-width:180px;max-width:255px;font-size:13px}
 .parts .more{display:block;margin-top:4px;color:var(--accent);font-weight:700;font-size:12px;cursor:pointer}
 .parts .rest{display:none}
 .parts.open .rest{display:block}
@@ -69,6 +69,10 @@ button.ghost:hover{border-color:var(--accent);color:var(--ink)}
 button[disabled]{opacity:.35;cursor:default}
 .note{display:block;font-size:11.5px;margin-top:5px;max-width:150px;line-height:1.35}
 .act{white-space:nowrap}
+/* .act is nowrap so Split and Save sit side by side; this note must not
+   inherit that, or one sentence drags the whole sheet 200px wider. */
+.gonenote{display:block;white-space:normal;max-width:118px;font-size:11px;
+  line-height:1.35;color:var(--muted)}
 .act button{padding:8px 14px}
 .act .row2{display:flex;gap:7px}
 /* macOS hides scrollbars, so a table that runs off the right edge looks
@@ -260,13 +264,16 @@ function transitRow(sh){
         '<div style="margin-top:5px"><span class="state s-go">on its way</span></div></td>'+
     '<td class="parts">'+parts+'</td>'+
     '<td><div class="need"><span class="sm">already shipped</span></div></td>'+
-    '<td colspan="4"><div class="gonebox">'+
-      '<span><b>Left</b> '+(sh.atd?esc(sh.atd):'date not recorded')+'</span>'+
-      '<span><b>Arrives</b> '+(sh.eta?esc(sh.eta):'—')+'</span>'+
-      lateArrival+
-      '<span class="sm">Nothing to fill in. If a date is wrong, reply to our email.</span>'+
-    '</div></td>'+
-    '<td class="act"></td>'+
+    /* Each value under its own heading. The old version spanned four
+       columns, so "Left 16 Sep" floated somewhere under "Preparation
+       started" and read as the wrong thing entirely. */
+    '<td><span class="sm">\u2014</span></td>'+
+    '<td><span class="sm">\u2014</span></td>'+
+    '<td><div class="gonebox"><b>'+(sh.atd?esc(sh.atd):'not recorded')+'</b>'+
+      (sh.eta?'<span class="sm">arrives '+esc(sh.eta)+'</span>':'')+
+      lateArrival+'</div></td>'+
+    '<td><span class="sm">\u2014</span></td>'+
+    '<td class="act"><span class="gonenote">Nothing to fill in \u2014 if a date is wrong, reply to our email.</span></td>'+
   '</tr>';
 }
 
