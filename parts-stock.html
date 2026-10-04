@@ -864,6 +864,34 @@ function mergeProductionPlans(a,b){
   return { merged:true, year:a.year, updated:b.updated||a.updated, deadline:b.deadline||a.deadline,
            weeks, byFam, cutover:cut, my26Updated:a.updated, my27Updated:b.updated };
 }
+
+/* A plan can only be acted on forwards. Both PO Builders publish a week list
+   anchored to whenever they were last opened, and a plan that has sat for a
+   few weeks still carries weeks that have already ended. Counting those is
+   not conservative, it is wrong twice over: the bikes were built, so their
+   parts are already gone from the on-hand figure, and subtracting the plan
+   again takes them out a second time. Every run-out date then lands earlier
+   than the truth. The PO Builders now anchor themselves to the current week;
+   this is the seatbelt, because Parts Stock must not depend on somebody
+   having reopened another app recently. */
+function dropPastWeeks(plan){
+  if(!plan || !plan.weeks || !plan.weeks.length) return plan;
+  const mon=new Date(); const off=(mon.getDay()+6)%7;
+  mon.setDate(mon.getDate()-off); mon.setHours(0,0,0,0);
+  const cut=mon.getFullYear()+'-'+String(mon.getMonth()+1).padStart(2,'0')+'-'+String(mon.getDate()).padStart(2,'0');
+  const keep=plan.weeks.map((w,i)=>({w,i})).filter(x=> (''+x.w.monday) >= cut);
+  if(keep.length===plan.weeks.length) return plan;
+  if(!keep.length){
+    console.warn('[PartStock] the whole published plan is in the past — using it as published rather than nothing. Reopen the PO Builders.');
+    return plan;
+  }
+  const dropped=plan.weeks.length-keep.length;
+  console.warn('[PartStock] dropped '+dropped+' plan week(s) already past (plan started '+
+               plan.weeks[0].monday+', this week is '+cut+'). Reopen PO Builder \u2014 MY27 to refresh it.');
+  const byFam={};
+  for(const f in (plan.byFam||{})) byFam[f]=keep.map(x=>(plan.byFam[f]||[])[x.i]||0);
+  return Object.assign({}, plan, { weeks:keep.map(x=>x.w), byFam, droppedPastWeeks:dropped, planStartedAt:plan.weeks[0].monday });
+}
 // Publish wheels already on hand (real VV count + finished wheels at MTB) so the PO Builder's wheel
 // tab nets demand against existing stock and doesn't rebuild wheels we already have.
 async function publishWheelStock(){
@@ -1682,7 +1710,7 @@ async function loadData(){
     // Forward stock is driven by BOTH PO Builders: MY26 up to the MY27 start, then MY27 onward.
     const plan26 = await kvGetStore('production_plan');         // PO Builder — MY26 (current bikes)
     const plan27 = await kvGetStore('production_plan_my27');    // PO Builder — MY27 (new model year)
-    productionPlan = mergeProductionPlans(plan26, plan27);
+    productionPlan = dropPastWeeks(mergeProductionPlans(plan26, plan27));
     const sd = await kvGetStore('spares_demand');           // after-sales/repair demand per component (Spares app)
     repairRateByPid = (sd && sd.ratePerWeek) ? sd.ratePerWeek : {};
     productionBasis = await kvGetStore('production_basis'); // published by the Max Planner (running Okazi POs etc.)

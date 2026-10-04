@@ -98,7 +98,8 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   <div class="header-right">
     <span class="pill" id="conn-pill">Not connected</span>
     <span class="pill" id="fc-pill" title="Sales Forecast published to the shared store">Forecast: —</span>
-    <span class="pill" id="basis-pill" title="Stock & unmatched orders published by the Production Planner">Planner basis: —</span>
+    <span class="pill" id="basis-pill" title="Stock &amp; unmatched orders published by the Production Planner">Planner basis: —</span>
+    <span class="pill" id="my27stock-pill" title="Finished MY27 bikes already on hand, free of customer reservations. The plan is net of these.">MY27 bikes in stock: —</span>
     <button class="btn btn-secondary" onclick="toggleConn()">⚙ Connection</button>
     <button class="btn btn-secondary" onclick="exportCSV()">⬇ Year plan CSV</button>
     <button class="btn btn-primary" onclick="loadData()">↻ Refresh</button>
@@ -292,7 +293,15 @@ let invoicedBySku={}, invoicedYear=null;   // this-year (2026) invoiced bikes pe
 let preorderBySku={}, preorderTotal=0, preorderUpdated=null;   // MY27 pre-orders still in quotation (draft/sent)
 let customProgramme2026=0, invoicedTotal2026=0;                // 2026 custom-colour volume, for the fallback
 let my27OnOrderBySku={}, my27OnOrderTotal=0;                   // MY27 bikes on confirmed, not-yet-received POs
-let unmatchedBySku={}, freeStockBySku={}, incomingBySku={}, inprodBySku={}, basisUpdated=null;  // from the Production Planner (KV)
+let unmatchedBySku={}, freeStockBySku={}, incomingBySku={}, inprodBySku={}, basisUpdated=null;
+/* MY27 bikes that already exist. Read straight from Odoo rather than from the
+   Production Planner's basis, because that basis is keyed
+   model|transmission|colour|rack with no model year in it — an E-MAX Alfine
+   black with rack built in 2026 and one built for 2027 are the same key and
+   are NOT the same bike. Netting MY27 production against MY26 units would
+   under-build the new year. MY27 products carry "MY27" in the product name,
+   which is how every other app here tells them apart. */
+let my27StockBySku={}, my27StockDetail={}, my27StockUnits=0;  // from the Production Planner (KV)
 // Incoming over-production already on issued POs (beyond committed in-prod orders) → becomes free stock
 function incomingFree(sku){ return Math.max(0, (incomingBySku[sku]||0) - (inprodBySku[sku]||0)); }
 // Bikes still to produce per SKU:
@@ -371,15 +380,42 @@ function customMix(){
 // What is left of the target for the three stock colours.
 function stockBudget(){ return Math.max(0, myTarget()-btoTotal()-customTotal()); }
 function toProduce(sku){
+  /* Whatever the mode decides we NEED of this SKU, bikes of that exact SKU
+     already sitting finished in the warehouse cover part of it. Ten E-MAX
+     Alfine MY27 (Bordeaux Red, with rack) on the shelf are ten we do not
+     order again. Only MY27 stock counts here — see my27StockBySku. */
+  const have = my27StockBySku[sku] || 0;
   if(targetMode()){
     const s=SKUS.find(x=>x.key===sku);
-    if(s && isBTO(s.co)) return preorderBySku[sku]||0;
-    if(s && isCustom(s.co)) return Math.max(customTotal()*(customMix()[sku]||0), preorderBySku[sku]||0);
-    return stockBudget() * (currentMix()[sku]||0);
+    let need;
+    if(s && isBTO(s.co)) need = preorderBySku[sku]||0;
+    else if(s && isCustom(s.co)) need = Math.max(customTotal()*(customMix()[sku]||0), preorderBySku[sku]||0);
+    else need = stockBudget() * (currentMix()[sku]||0);
+    return Math.max(0, need - have);
   }
   const demand = (unmatchedBySku[sku]||0) + (forwardBySku[sku]||0);
-  const supply = (freeStockBySku[sku]||0) + incomingFree(sku);
-  return Math.max(0, demand - supply);
+  /* Bikes on open POs to the assembler are MY26-keyed in the Planner basis
+     and are deliberately NOT counted here. Only finished MY27 units are. */
+  return Math.max(0, demand - have);
+}
+/* What the netting is worth, for the screen: bikes the plan no longer orders
+   because they already exist. Capped per SKU at what that SKU actually needed,
+   so stock of something nobody wants cannot flatter the number. */
+function nettedOffTotal(){
+  let n=0;
+  for(const s of SKUS){
+    const have=my27StockBySku[s.key]||0; if(!have) continue;
+    let need;
+    if(targetMode()){
+      if(isBTO(s.co)) need=preorderBySku[s.key]||0;
+      else if(isCustom(s.co)) need=Math.max(customTotal()*(customMix()[s.key]||0), preorderBySku[s.key]||0);
+      else need=stockBudget()*(currentMix()[s.key]||0);
+    } else {
+      need=(unmatchedBySku[s.key]||0)+(forwardBySku[s.key]||0);
+    }
+    n+=Math.min(have,need);
+  }
+  return n;
 }
 function totalToProduce(){ return SKUS.reduce((a,s)=>a+toProduce(s.key),0); }
 
@@ -518,6 +554,50 @@ function skuKeyForName(name){
   return `${bt}|${tr}|${detectColor(name)}|${detectRack(name)}`;
 }
 
+/* Finished MY27 bikes on the shelf, per SKU, free of what is already promised.
+   `quantity - reserved_quantity` is the honest number: a bike reserved for a
+   customer's delivery is not available to cover the plan, and counting it
+   would quietly under-produce by exactly the number of orders we have won. */
+async function loadMy27Stock(){
+  my27StockBySku={}; my27StockDetail={}; my27StockUnits=0;
+  try{
+    let q=await odoo('stock.quant','search_read',
+      [[['product_id.name','ilike','MY27'],
+        ['product_id.categ_id.complete_name','ilike','Bikes'],
+        ['location_id.usage','=','internal'],
+        ['quantity','!=',0]]],
+      {fields:['product_id','quantity','reserved_quantity','location_id'],limit:4000});
+    q=Array.isArray(q)?q:(q?[q]:[]);
+    for(const r of q){
+      const nm=(Array.isArray(r.product_id)?r.product_id[1]:'')||'';
+      const free=(parseFloat(r.quantity)||0)-(parseFloat(r.reserved_quantity)||0);
+      if(free<=0) continue;
+      const k=skuKeyForName(nm);
+      if(!k){ continue; }                       /* not a shape this builder plans */
+      my27StockBySku[k]=(my27StockBySku[k]||0)+free;
+      (my27StockDetail[k]=my27StockDetail[k]||[]).push({name:nm,qty:free});
+      my27StockUnits+=free;
+    }
+    const el=document.getElementById('my27stock-pill');
+    if(el){
+      el.textContent='MY27 bikes in stock: '+Math.round(my27StockUnits);
+      el.className='pill '+(my27StockUnits>0?'ok':'');
+      el.title=my27StockUnits>0
+        ? Object.entries(my27StockBySku).map(([k,v])=>k+' — '+Math.round(v)).join('\n')
+        : 'No finished MY27 bikes on hand yet — nothing to net against.';
+    }
+    console.log('[MY27] finished MY27 bikes on hand (free):',Math.round(my27StockUnits),my27StockBySku);
+  }catch(e){
+    /* Degraded, never wrong: with no reading, net against nothing and build
+       the full plan. Over-building is recoverable; silently skipping bikes
+       because a query failed is not. */
+    my27StockBySku={}; my27StockUnits=0;
+    const el=document.getElementById('my27stock-pill');
+    if(el){ el.textContent='MY27 stock: not read'; el.className='pill err'; el.title=e.message||String(e); }
+    console.warn('[MY27] could not read finished MY27 stock — planning without netting:',e.message);
+  }
+}
+
 // ── HELPERS ──────────────────────────────────────────────────
 function alert_(msg,type){document.getElementById('alert-box').innerHTML=`<div class="alert alert-${type}">${msg}</div>`;if(type==='success')setTimeout(()=>{const b=document.getElementById('alert-box');if(b&&b.querySelector('.alert-success'))b.innerHTML='';},5000);}
 function toggleConn(){document.getElementById('conn-panel').classList.toggle('open');}
@@ -556,12 +636,27 @@ function getDeadline(){
   return d;
 }
 function buildWeeks(){
-  const start = new Date(MY27_START);            // MY27 production always starts here
+  /* MY27_START is when the MY27 window OPENS, not where the plan begins.
+     The plan begins in the week we are actually in. Anchoring it to a fixed
+     Monday in September meant that by October the builder was still
+     proposing builds for W37, W38 and W39 — weeks that had already gone.
+     Nobody can build in a week that is over, and every app downstream reads
+     this plan: Parts Stock was subtracting three weeks of production that
+     had already happened from stock that already reflected it, making every
+     run-out date earlier than the truth. */
+  const open  = new Date(MY27_START);
+  const today = mondayOf(new Date());
+  let start = (today.getTime() > open.getTime()) ? today : open;
   const end=getDeadline();
+  /* If the whole window is behind us, fall back to its opening rather than
+     building an empty plan — the screen then plainly shows there is nothing
+     left to plan, instead of silently showing nothing at all. */
+  if(start.getTime() > end.getTime()) start = new Date(MY27_START);
   weeks=[];
   for(let d=new Date(start); d<=end; d=addDays(d,7)){
     weeks.push({ monday:new Date(d), iso:isoWeek(d), month:d.getMonth(), label:'W'+isoWeek(d), weight:SEASON_FWD[d.getMonth()] });
   }
+  console.log('[PO27] plan starts W'+isoWeek(start)+' ('+ymd(start)+') \u2014 window opened W'+isoWeek(open)+' ('+ymd(open)+')');
   if(!weeks.length) weeks.push({ monday:start, iso:isoWeek(start), month:start.getMonth(), label:'W'+isoWeek(start), weight:SEASON_FWD[start.getMonth()] });
 }
 function currentWeekIndex(){
@@ -672,6 +767,7 @@ async function loadData(){
     if(!componentSupply) console.warn('[MY27] no component_supply_my27 yet — open Parts Stock and refresh so it publishes the MY27 feed');
     wheelStock=await kvGet('wheel_stock');             // wheels already on hand — net the wheel plan against these
     wheelMap=await kvGet('wheel_map');                 // which wheel SKU each bike family uses (per-SKU)
+    await loadMy27Stock();
     const pb=await kvGet('production_basis');
     if(pb && (pb.unmatchedBySku || pb.freeStockBySku || pb.incomingBySku)){
       unmatchedBySku=pb.unmatchedBySku||{}; freeStockBySku=pb.freeStockBySku||{};
@@ -829,9 +925,16 @@ function recompute(){
     ? 'mix: MY27 forecast'
     : `colours: ${fmt(Math.round(preorderTotal))} MY27 pre-orders · models &amp; racks: ${invoicedYear||'2026'} invoiced`;
   const bto=Math.round(btoTotal());
+  /* Say out loud when the plan has been reduced by bikes we already own.
+     A total that is quietly smaller than the target is the kind of thing
+     somebody notices in a meeting and nobody can explain. */
+  const netted=Math.round(nettedOffTotal());
+  const nettedTxt = netted>0
+    ? ` · <b style="color:var(--teal)">−${fmt(netted)}</b> already in stock as finished MY27 bikes`
+    : '';
   const basisTxt = targetMode()
-    ? `Target: <b>${fmt(myTarget())}</b> MY27 bikes = <b>${fmt(Math.round(stockBudget()))}</b> stock build + <b>${fmt(Math.round(customTotal()))}</b> custom + <b>${fmt(bto)}</b> built to order · ${SITES.map(st=>`${st.label} <b>${fmt(Math.round(siteTotal(st.key,true)))}</b>${st.target>0?'/'+fmt(st.target):''}`).join(' · ')} · ${mixLbl}`
-    : `To produce: <b>${fmt(prod)}</b> bikes (unmatched + forecast − surplus stock − already on PO)`;
+    ? `Target: <b>${fmt(myTarget())}</b> MY27 bikes = <b>${fmt(Math.round(stockBudget()))}</b> stock build + <b>${fmt(Math.round(customTotal()))}</b> custom + <b>${fmt(bto)}</b> built to order${nettedTxt} · to produce <b>${fmt(prod)}</b> · ${SITES.map(st=>`${st.label} <b>${fmt(Math.round(siteTotal(st.key,true)))}</b>${st.target>0?'/'+fmt(st.target):''}`).join(' · ')} · ${mixLbl}`
+    : `To produce: <b>${fmt(prod)}</b> bikes (unmatched + forecast${nettedTxt?' − finished MY27 stock':''})`;
   document.getElementById('basis-line').innerHTML =
     `${basisTxt} · ${avail} weeks to ${dl}${blockedWeeks.size?` · ${blockedWeeks.size} blocked`:''}${tgt>0?` · max ${tgt}/wk`:''}`;
   saveCfg();
