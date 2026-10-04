@@ -28,6 +28,11 @@ th{text-align:left;font-size:11px;font-weight:800;letter-spacing:.06em;text-tran
 td{padding:10px 9px;border-bottom:1px solid var(--line2);vertical-align:top;font-size:13.5px}
 tr:last-child td{border-bottom:none}
 tr.dirty{background:#fffdf4}
+tr.gone{background:#fafaf6}
+tr.gone .ord,tr.gone .pn{opacity:.78}
+.gonebox{display:flex;flex-wrap:wrap;gap:6px 22px;align-items:baseline;font-size:13.5px}
+.gonebox b{font-weight:800}
+.gonebox .sm{flex-basis:100%;color:var(--muted);font-size:11.5px}
 .ord{font-weight:800;font-size:15px;white-space:nowrap}
 .ref{color:var(--muted);font-size:11.5px;white-space:nowrap}
 .parts{line-height:1.45;min-width:190px;max-width:290px;font-size:13px}
@@ -36,6 +41,12 @@ tr.dirty{background:#fffdf4}
 .parts.open .rest{display:block}
 .parts.open .more{display:none}
 .parts .q{color:var(--muted)}
+.parts .pl{margin-bottom:5px}
+.parts .pl:last-child{margin-bottom:0}
+.pby{display:inline-block;margin-left:0;font-size:11px;font-weight:700;color:var(--muted);
+  background:#f4f1e8;border-radius:5px;padding:1px 6px;white-space:nowrap}
+.pby.soon{color:var(--warn);background:#fbeee7}
+.pby.late{color:#fff;background:var(--warn)}
 input[type=date],select{padding:7px 7px;border:1.5px solid var(--line);border-radius:9px;
   background:#fff;color:var(--ink);font:inherit;font-size:13.5px;width:126px}
 select{width:88px}
@@ -112,11 +123,15 @@ label.lab{display:block;font-size:11px;font-weight:800;color:var(--muted);margin
   <p class="lede">Please tell us when each order will leave your factory, and update it
      whenever it changes — an early warning is always welcome. Ahooga books the transport
      from what you enter here. If an order will arrive in more than one shipment, use
-     <b>Split</b>.</p>
-  <p class="lede"><b>Please ship by</b> is the latest date goods can leave you and still
-     reach our assembly line before we run out of that part. It already allows for the
-     time in transit. If you cannot meet it, tell us early — we can often fly part of the
-     order instead, but only if we know in time.</p>
+     <b>Split</b>. Orders already on their way are listed first, greyed out, with nothing
+     to fill in.</p>
+  <p class="lede"><b>Ship by</b> is the latest date goods can leave you and still reach our
+     assembly line before we run out of that part. It already allows for the time in transit.
+     <b>Every part has its own date</b> — the one in the Ship by column is the earliest on the
+     order, and the dates beside each part are what actually matter. If some parts are urgent
+     and others are not, use <b>Split</b>: send the urgent ones now and the rest the cheaper
+     way. If you cannot meet a date, tell us early — we can often fly part of an order, but
+     only if we know in time.</p>
   <p class="lede" id="asof" style="margin-top:-8px;font-size:13px"></p>
   <p class="hint" id="hint">The sheet is wider than your window — scroll sideways inside it to reach <b>Split</b> and <b>Save</b>.</p>
   <div id="list"></div>
@@ -180,17 +195,95 @@ function signOut(){
   location.reload();
 }
 
+/* ---------- ship-by, per part ----------
+   A box can hold one part the line runs out of in October and another not
+   needed until July. One date for the whole shipment hides exactly the
+   decision a supplier can act on: which parts have to go now, and which can
+   wait for the cheap boat. Each part carries its own run-out date from our
+   production plan; the ship-by is that date minus the time this shipment
+   spends in transit. */
+function minusDays(ymd, n){
+  var t = Date.parse(ymd + "T00:00:00Z");
+  if(!isFinite(t)) return "";
+  return new Date(t - n*86400000).toISOString().slice(0,10);
+}
+function daysFromNow(ymd){
+  var t = Date.parse(ymd + "T00:00:00Z");
+  if(!isFinite(t)) return null;
+  return Math.round((t - Date.now())/86400000);
+}
+function urgencyClass(ymd){
+  var d = daysFromNow(ymd);
+  if(d === null) return "";
+  if(d < 0)  return "late";
+  if(d < 30) return "soon";
+  return "";
+}
+function whenWords(ymd){
+  var d = daysFromNow(ymd);
+  if(d === null) return "";
+  if(d < 0)   return Math.abs(d)+" days ago";
+  if(d < 14)  return "in "+d+" days";
+  return "in "+Math.round(d/7)+" weeks";
+}
+/* The parts of a shipment, each with its own ship-by, most urgent first. */
+function partLines(sh){
+  return sh.lines.map(function(l){
+    var by = l.needBy ? minusDays(l.needBy, sh.transitDays||0) : "";
+    return { part:l.part, qty:l.qty, needBy:l.needBy||"", by:by, cls:urgencyClass(by) };
+  }).sort(function(a,b){
+    if(!a.by && !b.by) return 0;
+    if(!a.by) return 1;          /* parts with no deadline sink to the bottom */
+    if(!b.by) return -1;
+    return a.by < b.by ? -1 : a.by > b.by ? 1 : 0;
+  });
+}
+
+/* A shipment that has already left. Nothing here is still a promise, so
+   there is nothing to type: it is shown so a supplier can see we have it,
+   and tell us if a date is wrong. Under the old process these orders read
+   "fully received" in our system the day they left the factory, which is
+   why they used to be invisible here. */
+function transitRow(sh){
+  var pl = partLines(sh).map(function(l){
+    return '<div class="pl"><span class="pn">'+esc(l.part)+'</span> <span class="q">× '+l.qty+'</span></div>'; });
+  var parts = pl.slice(0,3).join("");
+  if(pl.length > 3){
+    parts += '<span class="more" onclick="this.parentNode.classList.add(\'open\')">+ '+
+             (pl.length-3)+' more</span><span class="rest">'+pl.slice(3).join("")+'</span>';
+  }
+  var lateArrival = sh.overdue
+    ? '<div class="sm" style="color:var(--warn);font-weight:700">expected before now</div>' : '';
+  return '<tr class="gone">'+
+    '<td><div class="ord">'+esc(sh.order||sh.ref)+'</div>'+
+        '<div class="ref">'+esc(sh.ref)+'</div>'+
+        '<div style="margin-top:5px"><span class="state s-go">on its way</span></div></td>'+
+    '<td class="parts">'+parts+'</td>'+
+    '<td><div class="need"><span class="sm">already shipped</span></div></td>'+
+    '<td colspan="4"><div class="gonebox">'+
+      '<span><b>Left</b> '+(sh.atd?esc(sh.atd):'date not recorded')+'</span>'+
+      '<span><b>Arrives</b> '+(sh.eta?esc(sh.eta):'—')+'</span>'+
+      lateArrival+
+      '<span class="sm">Nothing to fill in. If a date is wrong, reply to our email.</span>'+
+    '</div></td>'+
+    '<td class="act"></td>'+
+  '</tr>';
+}
+
 /* ---------- the worksheet ---------- */
 function row(sh){
   var i = sh.id;
   /* An order of nine part numbers made the row four hundred pixels tall and
-     pushed everything else off the screen. Three lines, then a count. */
-  var pl = sh.lines.map(function(l){
-    return esc(l.part)+' <span class="q">× '+l.qty+'</span>'; });
-  var parts = pl.slice(0,3).join("<br>");
+     pushed everything else off the screen. Three lines, then a count —
+     and because the list is sorted by urgency, the three on show are the
+     three that matter. */
+  var pl = partLines(sh).map(function(l){
+    return '<div class="pl"><span class="pn">'+esc(l.part)+'</span> <span class="q">× '+l.qty+'</span>'+
+      (l.by ? '<span class="pby '+l.cls+'">ship by '+esc(l.by)+'</span>' : '')+'</div>'; });
+  var parts = pl.slice(0,3).join("");
   if(pl.length > 3){
     parts += '<span class="more" onclick="this.parentNode.classList.add(\'open\')">+ '+
-             (pl.length-3)+' more</span><span class="rest">'+pl.slice(3).join("<br>")+'</span>';
+             (pl.length-3)+' more</span><span class="rest">'+pl.slice(3).join("")+'</span>';
   }
   var state = sh.atd ? '<span class="state s-go">on its way</span>'
             : sh.prep ? '<span class="state s-prep">in preparation</span>' : "";
@@ -203,9 +296,12 @@ function row(sh){
     else if(days < 30){ cls="need soon"; extra='<div class="sm">in '+days+' days</div>'; }
     else extra='<div class="sm">in '+Math.round(days/7)+' weeks</div>';
   }
+  var nUrgent = partLines(sh).filter(function(l){ return l.by && l.by===sh.shipBy; }).length;
   var need = sh.shipBy
     ? '<div class="'+cls+'"><div class="by">'+esc(sh.shipBy)+'</div>'+extra+
-      '<div class="sm">we run out '+esc(sh.needBy)+'<br>'+sh.transitDays+' days in transit</div></div>'
+      '<div class="sm">earliest of '+sh.lines.length+' part'+(sh.lines.length>1?'s':'')+
+        (sh.lines.length>1 ? ' \u2014 see the dates per part' : '')+'<br>'+
+        sh.transitDays+' days in transit</div></div>'
     : '<div class="need"><span class="sm">\u2014</span></div>';
 
   return '<tr id="r'+i+'">'+
@@ -246,9 +342,11 @@ async function load(){
     d.shipments.forEach(function(sh){ SH[sh.id]=sh; });
     $("list").innerHTML =
       '<div class="tablewrap"><table><thead><tr>'+
-      '<th>Order</th><th>Parts</th><th>Please<br>ship by</th><th>Preparation<br>started</th>'+
+      '<th>Order</th><th>Parts &amp; when each is needed</th><th>Earliest<br>ship by</th><th>Preparation<br>started</th>'+
       '<th>Expected<br>to leave</th><th>Actually<br>left</th><th>How</th><th></th>'+
-      '</tr></thead><tbody>'+ d.shipments.map(row).join("") +'</tbody></table></div>';
+      '</tr></thead><tbody>'+
+      d.shipments.map(function(sh){ return sh.leg==="transit" ? transitRow(sh) : row(sh); }).join("") +
+      '</tbody></table></div>';
     if(d.planAsOf) $("asof").textContent = "Run-out dates from our production plan of "+d.planAsOf+".";
     var tw = document.querySelector(".tablewrap");
     var h  = $("hint");
@@ -302,9 +400,19 @@ function addBatch(){
   if(n>6) return; m.dataset.n=String(n);
   var sh=SH[SPLIT_ID], d=document.createElement("div");
   d.className="batch"; d.dataset.b=n;
+  /* Each part shows its own ship-by here, most urgent first. This window is
+     exactly where a supplier decides what flies and what sails, and that
+     decision is per part, not per order. */
+  var byMove={}; partLines(sh).forEach(function(x){ byMove[x.part]=x; });
   d.innerHTML='<h4>Shipment '+n+'</h4>'+
-    sh.lines.map(function(l){
-      return '<div class="bl"><span>'+esc(l.part)+'<small>'+l.qty+' on the order</small></span>'+
+    sh.lines.slice().sort(function(a,b){
+      var x=byMove[a.part], y=byMove[b.part];
+      if(!x||!x.by) return 1; if(!y||!y.by) return -1;
+      return x.by < y.by ? -1 : x.by > y.by ? 1 : 0;
+    }).map(function(l){
+      var u=byMove[l.part];
+      var tag = (u && u.by) ? ' <span class="pby '+u.cls+'">ship by '+esc(u.by)+'</span>' : '';
+      return '<div class="bl"><span>'+esc(l.part)+tag+'<small>'+l.qty+' on the order</small></span>'+
         '<input type="number" min="0" step="1" placeholder="0" data-move="'+l.move+'" oninput="tally()"></div>';
     }).join("")+
     '<div class="bm"><div><label class="lab">Leaves on</label>'+
