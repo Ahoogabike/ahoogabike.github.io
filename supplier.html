@@ -18,7 +18,7 @@ html,body{margin:0;background:var(--bg);color:var(--ink);
 header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
 h1{margin:0;font-size:24px;font-weight:800;letter-spacing:-.3px}
 h1 span{color:var(--accent)}
-.who{color:var(--muted);font-size:15px;margin-left:auto}
+.who{color:var(--muted);font-size:15px;margin-left:auto;display:flex;align-items:center}
 .lede{color:var(--muted);font-size:14.5px;line-height:1.5;margin:6px 0 18px;max-width:72ch}
 .tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:auto}
 table{border-collapse:collapse;width:100%;min-width:980px}
@@ -88,7 +88,7 @@ label.lab{display:block;font-size:11px;font-weight:800;color:var(--muted);margin
 <div class="wrap" id="app" style="display:none">
   <header>
     <h1>Ahooga · <span>Shipment dates</span></h1>
-    <div class="who" id="who"></div>
+    <div class="who"><span id="who"></span><button class="ghost" onclick="signOut()" style="margin-left:10px;padding:5px 13px;font-size:12.5px">Sign out</button></div>
   </header>
   <p class="lede">Please tell us when each order will leave your factory, and update it
      whenever it changes — an early warning is always welcome. Ahooga books the transport
@@ -145,6 +145,15 @@ document.addEventListener("DOMContentLoaded", async function(){
   }
   $("gk").focus();
 });
+
+/* Leaving. Without this the code is stuck on the device for ever, which
+   matters on a shared factory computer and matters to Ahooga staff who
+   open the page once to see what a supplier sees. */
+function signOut(){
+  if(!confirm("Sign out of this device? You will need the access code again.")) return;
+  try{ localStorage.removeItem(STORE); }catch(e){}
+  location.reload();
+}
 
 /* ---------- the worksheet ---------- */
 function row(sh){
