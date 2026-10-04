@@ -156,7 +156,7 @@ function flatten(rows){
   const out=[];
   for(const r of rows){
     const ps=(r.parts&&r.parts.length)?r.parts
-      :[{name:"(parts not listed)",code:"",qty:0,needBy:r.needBy||"",slack:r.slack,risk:r.risk||"unknown"}];
+      :[{name:"(parts not listed)",code:"",qty:0,needBy:r.needBy||"",coverUntil:"",slack:r.slack,risk:r.risk||"unknown"}];
     for(const p of ps) out.push({sh:r,p:p});
   }
   return out;
@@ -180,7 +180,7 @@ function keep(x){
 }
 function sortKey(x,k){
   if(k==="part")     return x.p.name||"";
-  if(k==="needBy")   return x.p.needBy||"￿";
+  if(k==="needBy")   return x.p.coverUntil||x.p.needBy||"￿";
   if(k==="slack")    return (x.p.slack===null||x.p.slack===undefined)?1e9:x.p.slack;
   if(k==="supplier") return x.sh.supplier||"";
   if(k==="po")       return x.sh.po||"";
@@ -197,7 +197,7 @@ function draw(){
   var onw=all.filter(function(x){return afloat(x.sh);}).length;
   $("kpis").innerHTML=
     kpi(all.length,"parts on order","")+
-    kpi(lateP,"arrive after we run out","bad")+
+    kpi(lateP,"arrive after the shelf runs dry","bad")+
     kpi(unkP,"no run-out date on file","amber")+
     kpi(onw,"already on their way","good")+
     (VALUE?'<div class="kpi"><div class="n">'+eur(VALUE.total)+'</div><div class="l">of goods we own, on the water<br><a href="#" id="mailval" style="color:var(--accent);font-weight:700">email it to the accountant</a></div></div>':"");
@@ -206,7 +206,7 @@ function draw(){
   $("list").innerHTML='<div class="tablewrap"><table><thead><tr>'+
     th("supplier","Supplier")+th("po","Order")+th("part","Part")+
     '<th style="text-align:right">Qty</th>'+
-    th("needBy","We run out")+th("eta","Arrives")+th("slack","Margin")+'<th>Status</th>'+
+    th("needBy","Stock lasts to")+th("eta","Arrives")+th("slack","Can slip by")+'<th>Status</th>'+
     '</tr></thead><tbody>'+rows.map(row).join("")+'</tbody></table></div>'+
     '<p class="po" style="margin:10px 2px;color:var(--muted)">'+rows.length+' part lines across '+shipCount+' shipments.</p>';
   wire();
@@ -247,7 +247,7 @@ function row(x){
   var margin=(p.slack===null||p.slack===undefined)
     ? '<span class="d miss">—</span>'
     : (p.slack<0 ? '<b style="color:var(--warn)">'+Math.abs(p.slack)+' days late</b>'
-       : p.slack<14 ? '<b style="color:var(--amber)">'+p.slack+' days</b>'
+       : p.slack<21 ? '<b style="color:var(--amber)">'+p.slack+' days</b>'
        : '<span class="d">'+Math.round(p.slack/7)+' weeks</span>');
   return '<tr'+(late?' class="late"':'')+'>'+
     '<td class="sup">'+esc(r.supplier)+'</td>'+
@@ -255,7 +255,11 @@ function row(x){
       '<div class="po" style="opacity:.6">'+stageOf(r)+'</div></td>'+
     '<td class="items">'+esc(p.name)+(p.code?'<div class="po" style="opacity:.6">'+esc(p.code)+'</div>':'')+'</td>'+
     '<td style="text-align:right">'+(p.qty||'')+'</td>'+
-    '<td>'+dt(p.needBy)+'</td>'+
+    /* What is on the shelf today, not a date that assumes this box landed.
+       The run-out-with-everything-on-order date sits underneath as context,
+       because that is the number you buy against. */
+    '<td>'+dt(p.coverUntil)+
+      (p.needBy?'<div class="po" style="opacity:.6">out '+esc(p.needBy)+' w/ orders</div>':'')+'</td>'+
     '<td>'+dt(r.eta)+'</td>'+
     '<td>'+margin+'</td>'+
     '<td>'+tag+'</td></tr>';

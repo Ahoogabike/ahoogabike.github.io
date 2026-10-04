@@ -717,6 +717,18 @@ async function publishPartsDeadlines(){
       let shortWi=-1, minLevel=vv+andP, minWi=0, totCons=0, levelAtShort=null;
       let outWi=-1, outLevel=0;   /* the first week the balance actually goes NEGATIVE */
       const moves=[];
+      /* ── HOW LONG WHAT IS ALREADY HERE LASTS ──────────────────────────
+         outDate answers "when do we run out if every order lands as
+         planned". That is the right question for buying, and the wrong one
+         for judging a shipment: a box measured against a date its own
+         arrival created always looks comfortable. The Mivice motor scored
+         34 weeks of margin while in truth the pool ran dry four days
+         before it landed.
+         coverUntil is the plain version: subtract consumption from what is
+         physically on the shelf TODAY and count nothing incoming at all.
+         "If nothing else arrives, we build until this date." A shipment's
+         real margin is that date minus its arrival. */
+      let coverLeft=vv+andP, coverWi=-1;
       for(let wi=0; wi<wks.length; wi++){
         const cons=consArr[wi]; totCons+=cons;
         let arrv=incForWeek(pid,wi); if(wi===0) arrv+=overdue;
@@ -731,6 +743,8 @@ async function publishPartsDeadlines(){
            at the far end of a 56-week plan simply because nothing is ordered that
            far ahead, so only the FIRST zero-crossing tells you anything. */
         if(combined<0 && outWi<0){ outWi=wi; outLevel=combined; }
+        coverLeft-=cons;
+        if(coverLeft<0 && coverWi<0) coverWi=wi;
       }
       if(totCons<=0.0001) continue;
       const nm=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
@@ -761,12 +775,20 @@ async function publishPartsDeadlines(){
              jobs and the email has to be able to tell them apart. */
           low:Math.round(minLevel), lowDate:wks[minWi] ? wks[minWi].monday : null,
           outDate: outWi >= 0 && wks[outWi] ? wks[outWi].monday : null,
+          /* null means today's stock carries the whole plan — nothing on
+             order is holding anything up. */
+          coverUntil: coverWi >= 0 && wks[coverWi] ? wks[coverWi].monday : null,
           outLevel: outWi >= 0 ? Math.round(outLevel) : null,
           stockout: minLevel < 0,
           floor:Math.round(floorQty),
           planTotal:Math.ceil(consArr.reduce((a,b)=>a+b,0)),   /* the year's whole need — the agreement number */
           safetyWeeks:ORDER_SAFETY_WEEKS, coverWeeks:ORDER_COVER_WEEKS});
       }
+      /* A part that never goes short publishes no order row, so its cover
+         date would be lost — and that is exactly the part a shipment might
+         still be holding up. Publish it on its own. */
+      if(shortWi<0 && coverWi>=0) items.push({type:'cover', id:'cover:'+pid, pid, name:nm,
+        partNo:r.partNo||'', coverUntil:wks[coverWi].monday, rate:Math.round(rate*100)/100});
       for(const mv of moves) items.push({type:'move', id:'move:'+pid+':'+wks[mv.wi].monday, pid, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[mv.wi].monday, qty:mv.qty});
     }
     await kvSetStore('parts_deadlines', { updated:new Date().toISOString(), transferLeadDays:3,
@@ -983,6 +1005,9 @@ async function publishWheelDeadlines(){
       let mtb=(r.mtbQty||0), andP=(r.andQty||0);
       const overdue=incBeforeFirst(r.id);
       let shortWi=-1, minLevel=mtb+andP; const moves=[];
+      /* Same question for the wheel pool: how far does what is at MTB
+         today carry us, counting nothing on its way. */
+      let coverLeft=mtb+andP, coverWi=-1;
       for(let wi=0; wi<wks.length; wi++){
         let arrv=incForWeek(r.id,wi); if(wi===0) arrv+=overdue;
         andP+=arrv; mtb-=cons[wi];
@@ -991,10 +1016,15 @@ async function publishWheelDeadlines(){
         const combined=mtb+andP;
         if(combined<minLevel) minLevel=combined;
         if(combined<0 && shortWi<0) shortWi=wi;
+        coverLeft-=cons[wi];
+        if(coverLeft<0 && coverWi<0) coverWi=wi;
       }
       const nm=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
       const wrate=cons.length?(cons.reduce((a,b)=>a+b,0)/cons.length):0;
-      if(shortWi>=0) out.items.push({type:'order', id:'worder:'+r.id, pid:r.id, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[shortWi].monday, qty:Math.max(1,Math.ceil(-minLevel)), tier:'MTB', rate:Math.round(wrate*100)/100});
+      if(shortWi>=0) out.items.push({type:'order', id:'worder:'+r.id, pid:r.id, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[shortWi].monday, qty:Math.max(1,Math.ceil(-minLevel)), tier:'MTB', rate:Math.round(wrate*100)/100,
+        coverUntil: coverWi >= 0 && wks[coverWi] ? wks[coverWi].monday : null});
+      else if(coverWi>=0) out.items.push({type:'cover', id:'wcover:'+r.id, pid:r.id, name:nm, partNo:r.partNo||'', tier:'MTB',
+        coverUntil:wks[coverWi].monday, rate:Math.round(wrate*100)/100});
       for(const mv of moves) out.items.push({type:'move', id:'wmove:'+r.id+':'+wks[mv.wi].monday, pid:r.id, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[mv.wi].monday, qty:mv.qty, tier:'MTB', moveTo:'MTB'});
     }
     await kvSetStore('wheel_deadlines', out);
