@@ -271,7 +271,7 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
   <!-- FORWARD STOCK TAB -->
   <div class="view" id="view-forecast">
     <div class="explain">
-      <strong>Forward component stock — week by week.</strong> Models the real two-stage flow: incoming component POs (from the <strong>PO Tracker</strong>) are received into the <strong>Anderlecht (AND)</strong> warehouse, then moved to <strong>Velovisie (VV)</strong> for assembly. Each cell is the <strong>combined available stock (Velovisie + Anderlecht)</strong> after that week's consumption — i.e. assuming the AND→VV move has been made — driven by the <strong>PO Builder — Bikes</strong> plan (bikes/week × per-bike BoM usage, averaged per family) — using the <strong>MY26 recipe up to the MY27 production start, then the MY27 recipe</strong> — <strong>plus</strong> the weekly <strong>after-sales / repair demand</strong> published by the <strong>Spares &amp; Accessories</strong> app, so parts used for repairs are ordered too. <code>(+n)</code> = a component PO arriving into AND that week; <code>⇄n</code> = the AND→VV transfer you still need to do (it also appears as a requested move in the <strong>Parts Agenda</strong>) — sized to cover ~8 weeks of build (or whatever AND holds), allow ~3 days for the move; <code>⚙n</code> in week 1 = parts consumed by bikes already in production at Okazi (running POs, not yet built — the future PO-Builder bikes are the weekly plan). A <strong style="color:#8b1f1f">red / negative</strong> cell means <strong>both</strong> AND and VV are exhausted — place or pull a PO forward. <strong>Finished wheels</strong> appear here too (badged <em>finished wheel</em>): they're assembled at MTB from the components on the “Forward stock at MTB” tab, then consumed at Velovisie when bikes are built — their start pool is <strong>VV + MTB</strong> on-hand, so a negative cell means you need to <strong>build more wheels</strong> (check the MTB tab for the components). POs already received (including those delivered straight to VV via subcontracting) drop out of the open-PO feed and are already reflected in current stock. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
+      <strong>Forward component stock — week by week.</strong> Models the real two-stage flow: incoming component POs (from the <strong>PO Tracker</strong>) are received into the <strong>Anderlecht (AND)</strong> warehouse, then moved to <strong>Velovisie (VV)</strong> for assembly. Each cell is the <strong>combined available stock (Velovisie + Anderlecht)</strong> after that week's consumption — i.e. assuming the AND→VV move has been made — driven by the <strong>PO Builder — Bikes</strong> plan (bikes/week × per-bike BoM usage, averaged per family) — using the <strong>MY26 recipe up to the MY27 production start, then the MY27 recipe</strong> — <strong>plus</strong> the weekly <strong>after-sales / repair demand</strong> published by the <strong>Spares &amp; Accessories</strong> app, so parts used for repairs are ordered too. <code>(+n)</code> = a component PO arriving into AND that week; <code>⇄n</code> = the AND→VV transfer you still need to do (it also appears as a requested move in the <strong>Parts Agenda</strong>) — sized to cover ~8 weeks of build (or whatever AND holds), allow ~3 days for the move; <code>⚙n</code> in week 1 = parts consumed by bikes already in production at Okazi (running POs, not yet built — the future PO-Builder bikes are the weekly plan). A <strong style="color:#8b1f1f">red / negative</strong> cell means <strong>both</strong> AND and VV are exhausted — place or pull a PO forward. <strong>Finished wheels</strong> appear here too (badged <em>finished wheel</em>): they're assembled at MTB from the components on the “Forward stock at MTB” tab, then consumed at Velovisie when bikes are built — their start pool is <strong>VV + MTB</strong> on-hand, so a negative cell means you need to <strong>build more wheels</strong> (check the MTB tab for the components). POs already received (including those delivered straight to VV via subcontracting) drop out of the open-PO feed and are already reflected in current stock. <strong>Goods on the water are not counted as stock.</strong> Odoo's two-step receipt puts them in <code>AND/In Transit</code> when they leave the supplier, not when they arrive; this app holds that pool out of Anderlecht on-hand and re-enters it as an arrival on the date of its <code>AND/STOR</code> putaway transfer (shown in the drill-down as <em>already shipped</em>). Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
     </div>
     <div class="kpis" id="fc-kpis"></div>
     <div class="toolbar">
@@ -388,6 +388,8 @@ let packByPart={};          // productId -> units per purchase carton (0 = none 
    which threw on every run and was swallowed by its own try/catch. */
 let packFromOdoo=0, packFromStore=0;
 let incomingByPart={};      // productId -> [{date:'YYYY-MM-DD'|null, qty}] — COUNTED supply
+let transitMap={};          // productId -> units sitting in AND/In Transit (on the water)
+let transitLocIdList=[];    // the location ids that pool belongs to
 let heldIncoming={};        // productId -> [{date,qty,ref}] — overdue or undated PO lines,
                             // deliberately NOT counted as supply (see the builder below)
 let productionPlan=null;    // {weeks:[{monday,label,iso}], byFam:{EMA:[],EMD:[],AMA:[],AMD:[]}, ...}
@@ -564,7 +566,9 @@ function fcInspect(pid){
       ? `${esc(d.date)} <span style="color:#b26a00">(before the plan starts → week 1)</span>`
       : esc(d.date||'');
     /* Say where the date came from, so nobody has to guess which record to correct. */
-    const from = d.src==='receipt'
+    const from = d.src==='in-transit'
+      ? `<span style="color:var(--text3)">already shipped \u2014 putaway ${esc(d.srcRef||'')}</span>`
+      : d.src==='receipt'
       ? `<span style="color:var(--text3)">transfer ${esc(d.srcRef||'')}</span>`
       : `<span style="color:var(--text3)">PO line</span>`;
     return `<tr><td style="padding:2px 6px">${esc(d.ref||'PO')}</td><td style="padding:2px 6px;text-align:right">${fmt(Math.round(d.qty))}</td><td style="padding:2px 6px">${when} ${from}</td></tr>`;
@@ -1244,11 +1248,26 @@ async function loadData(){
     const locs=await odoo('stock.location','search_read',
       [[['usage','=','internal']]],{fields:['id','complete_name'],limit:10000});
     const andLocIds=[], louiLocIds=[], andLocNames=[], louiLocNames=[];
+    /* AND/In Transit is NOT Anderlecht stock. Odoo's two-step receipt lands goods
+       there the moment they LEAVE the supplier — the real arrival is the second
+       step, the AND/STOR transfer into AND/Warehouse. The location is configured
+       usage=internal under warehouse Anderlecht, so a plain "every internal AND
+       location" sweep counted 58,862 units worth €463,200 as sitting on the shelf
+       while they were on a ship. The forecast therefore saw no shortage until long
+       after the real one, and every ship-by date derived from it was too late.
+       Those goods are not lost here: they are re-entered below as INCOMING, dated
+       by their own AND/STOR transfer. Same quantity, right week. */
+    const transitLocIds=[], transitLocNames=[];
     for(const l of locs){
-      const prefix=String(l.complete_name||'').split('/')[0].toUpperCase().trim();
-      if(LOUI_TOKENS.some(t=>prefix.includes(t))){louiLocIds.push(l.id);louiLocNames.push(l.complete_name);}
-      else if(AND_TOKENS.some(t=>prefix.includes(t))){andLocIds.push(l.id);andLocNames.push(l.complete_name);}
+      const full=String(l.complete_name||'');
+      const prefix=full.split('/')[0].toUpperCase().trim();
+      if(LOUI_TOKENS.some(t=>prefix.includes(t))){louiLocIds.push(l.id);louiLocNames.push(full);}
+      else if(AND_TOKENS.some(t=>prefix.includes(t))){
+        if(/in\s*transit/i.test(full)){ transitLocIds.push(l.id); transitLocNames.push(full); }
+        else { andLocIds.push(l.id); andLocNames.push(full); }
+      }
     }
+    console.log('[PartStock] IN-TRANSIT locations held OUT of on-hand:', transitLocNames);
 
     /* BRAIN LOG — the warehouse that takes over from Anderlecht. AND/Warehouse closes on
        31 October 2026; Brain Log holds components from 1 November.
@@ -1313,6 +1332,11 @@ async function loadData(){
     await fillLoc(louiLocIds,louiMap);
     await fillLoc(vvLocIds,vvRealMap);
     await fillLoc(mtbLocIds,mtbMap);
+    transitMap={}; transitLocIdList=transitLocIds.slice();
+    await fillLoc(transitLocIds,transitMap);
+    console.log('[PartStock] on the water (AND/In Transit):',
+                Object.keys(transitMap).length,'products,',
+                Math.round(Object.values(transitMap).reduce((a,b)=>a+b,0)),'units');
 
     // 6 ── INCOMING from open PURCHASE ORDER LINES (ordered − received).
     //      Sourced from purchase.order.line, NOT stock.move, so a receipt that Odoo split into
@@ -1422,6 +1446,63 @@ async function loadData(){
       if(!d || d < TODAY_YMD){ (heldIncoming[x.pid]=heldIncoming[x.pid]||[]).push(rec); continue; }
       (incomingByPart[x.pid]=incomingByPart[x.pid]||[]).push(rec);
       }
+    }
+
+    /* ── 6b ── GOODS ALREADY ON THE WATER (AND/In Transit → AND/Warehouse) ──
+       These dropped out of section 6 on purpose: validating step one of the
+       two-step receipt sets qty_received, so the PO line has nothing
+       outstanding and contributes no incoming. The goods are real, they are
+       simply not here yet, and the AND/STOR transfer carries the date they
+       land. Re-enter them as incoming on that date.
+
+       Rules, each one chosen because the alternative is a lie:
+         • Capped by what is physically in the transit pool. A STOR transfer
+           can demand more than is there (today: 5,200 headsets demanded,
+           2,600 on hand). Counting the demand would invent stock.
+         • A transfer dated in the PAST is treated as available NOW, not as
+           an overdue arrival. An assigned STOR whose date has gone by almost
+           always means the container landed and nobody clicked the putaway —
+           the goods are in Anderlecht. Holding them back would swing the
+           forecast from too optimistic to too pessimistic.
+         • Anything left in the pool that no open transfer covers also falls
+           back to available now, so stock can never silently disappear.
+       Today 57,591 of 58,862 units in that pool are future-dated, so this is
+       almost entirely genuine sea freight, not un-clicked putaway. */
+    try{
+      if(transitLocIdList.length && Object.keys(transitMap).length){
+        const left={}; for(const k in transitMap) left[k]=transitMap[k];
+        let mvs=await odoo('stock.move','search_read',
+          [[['location_id','in',transitLocIdList],['state','not in',['done','cancel']],
+            ['product_uom_qty','>',0]]],
+          {fields:['product_id','product_uom_qty','date','picking_id'],limit:4000});
+        mvs=Array.isArray(mvs)?mvs:(mvs?[mvs]:[]);
+        mvs.sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+        let future=0, now=0;
+        for(const m of mvs){
+          const pid=arr(m.product_id)[0]; if(!pid) continue;
+          const avail=left[pid]||0; if(avail<=0.0001) continue;
+          const take=Math.min(avail,parseFloat(m.product_uom_qty)||0);
+          if(take<=0.0001) continue;
+          left[pid]=avail-take;
+          const d=(m.date||'').split(' ')[0]||null;
+          const ref=arr(m.picking_id)[1]||'AND/STOR';
+          if(d && d>=TODAY_YMD){
+            (incomingByPart[pid]=incomingByPart[pid]||[]).push(
+              {date:d, qty:take, ref:ref, src:'in-transit', srcRef:ref, atVV:false});
+            future+=take;
+          } else { andMap[pid]=(andMap[pid]||0)+take; now+=take; }
+        }
+        let orphan=0;
+        for(const k in left){ if(left[k]>0.0001){ andMap[k]=(andMap[k]||0)+left[k]; orphan+=left[k]; } }
+        console.log('[PartStock] in-transit re-dated as incoming:',Math.round(future),
+                    '| past-dated putaway counted as on-hand:',Math.round(now),
+                    '| in transit with no open transfer:',Math.round(orphan));
+      }
+    }catch(e){
+      /* Degraded, never broken: if this lookup fails the transit pool is put
+         back on the shelf, which is exactly the old behaviour. */
+      console.warn('[PartStock] in-transit lookup failed — counting it as on-hand:',e.message);
+      for(const k in transitMap) andMap[k]=(andMap[k]||0)+transitMap[k];
     }
 
     /* ── PACK SIZES ──────────────────────────────────────────────────────
@@ -2010,8 +2091,10 @@ function collectOverduePOs(){
         po:d.ref||'PO', partNo:(r&&r.partNo)||'', part:(r&&r.partName)||('#'+pid),
         category:(r&&r.category)||'—', qty, date:hasDate?d.date:'(no date)',
         daysLate,
-        dateFrom: d.src==='receipt' ? 'Transfer scheduled date' : (d.src==='po-line' ? 'PO line planned date' : 'no date anywhere'),
-        fixOn: d.src==='receipt' ? (d.srcRef||'the transfer') : (d.ref||'the PO line')
+        dateFrom: d.src==='in-transit' ? 'Putaway transfer scheduled date (goods already shipped)'
+                : d.src==='receipt' ? 'Transfer scheduled date'
+                : (d.src==='po-line' ? 'PO line planned date' : 'no date anywhere'),
+        fixOn: (d.src==='receipt'||d.src==='in-transit') ? (d.srcRef||'the transfer') : (d.ref||'the PO line')
       });
     }
   }

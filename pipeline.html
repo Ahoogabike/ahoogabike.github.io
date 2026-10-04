@@ -129,11 +129,21 @@ async function load(){
   }catch(e){ $("list").innerHTML='<div class="msg">Could not load: '+esc(e.message||e)+'</div>'; }
 }
 
+/* "On the water" is two different records. A step-one receipt carrying an
+   ATD is the supplier telling us it left; an AND/STOR row is Odoo's own
+   record that it did, because validating step one is what creates it. They
+   are never the same box at the same time. */
+function afloat(r){ return r.leg==="transit" || !!r.atd; }
+/* A putaway transfer whose date went by months ago is not "fine" just
+   because no part on it has a run-out date on file. Something is wrong with
+   it either way, and the whole point of this screen is that such a thing
+   cannot sit quietly. */
+function atRisk(r){ return r.risk==="late" || !!r.overdue; }
 function keep(r){
-  if(FILTER==="late" && r.risk!=="late") return false;
-  if(FILTER==="transit" && !r.atd) return false;
-  if(FILTER==="prep" && r.atd) return false;
-  if(FILTER==="nodate" && (r.etd||r.atd)) return false;
+  if(FILTER==="late" && !atRisk(r)) return false;
+  if(FILTER==="transit" && !afloat(r)) return false;
+  if(FILTER==="prep" && afloat(r)) return false;
+  if(FILTER==="nodate" && (r.leg==="transit" || r.etd || r.atd)) return false;
   var q=($("q").value||"").trim().toLowerCase();
   if(q){
     var hay=(r.supplier+" "+r.po+" "+r.ref+" "+r.items.join(" ")).toLowerCase();
@@ -147,9 +157,9 @@ function draw(){
     var x=a[SORT]||"￿", y=b[SORT]||"￿";
     return (x<y?-1:x>y?1:0)*DIR; });
 
-  var late=ROWS.filter(function(r){return r.risk==="late";}).length;
-  var unk=ROWS.filter(function(r){return !r.etd&&!r.atd;}).length;
-  var onw=ROWS.filter(function(r){return !!r.atd;}).length;
+  var late=ROWS.filter(atRisk).length;
+  var unk=ROWS.filter(function(r){return r.leg!=="transit"&&!r.etd&&!r.atd;}).length;
+  var onw=ROWS.filter(afloat).length;
   $("kpis").innerHTML=
     kpi(ROWS.length,"open shipments","")+
     kpi(late,"at risk of being late","bad")+
@@ -175,19 +185,24 @@ function row(r){
   /* risk is empty when no run-out date is on file for any part in the box.
      That is not the same as the supplier being silent, and saying "no date
      yet" to a shipment that has an ETD would be a plain lie on the screen. */
-  var tag = r.atd ? '<span class="tag t-go">on its way</span>'
+  var tag = r.leg==="transit"
+            ? (r.overdue ? '<span class="tag t-late">arrival overdue</span>'
+             : r.risk==="late" ? '<span class="tag t-late">lands too late</span>'
+             : '<span class="tag t-go">on the water</span>')
+          : r.atd ? '<span class="tag t-go">on its way</span>'
           : r.risk==="late" ? '<span class="tag t-late">will be late</span>'
           : r.risk==="ok" ? '<span class="tag t-ok">on time</span>'
           : r.etd ? '<span class="tag t-ok">date given</span>'
           : '<span class="tag t-unk">no date yet</span>';
-  return '<tr'+(r.risk==="late"?' class="late"':'')+'>'+
+  return '<tr'+(atRisk(r)?' class="late"':'')+'>'+
     '<td class="sup">'+esc(r.supplier)+'</td>'+
     '<td><div class="po">'+esc(r.po)+'</div><div class="po" style="opacity:.6">'+esc(r.ref)+'</div></td>'+
     '<td class="items">'+esc(r.items.join(", "))+(r.more?' +'+r.more+' more':'')+'</td>'+
-    '<td>'+(r.shipBy?'<span class="d"><b>'+esc(r.shipBy)+'</b></span>':'<span class="d miss">—</span>')+
+    '<td>'+(r.shipBy?'<span class="d"><b>'+esc(r.shipBy)+'</b></span>'
+            :'<span class="d miss">'+(r.leg==="transit"?'already gone':'—')+'</span>')+
       (r.needBy?'<div class="po" style="opacity:.7">out '+esc(r.needBy)+'</div>':'')+'</td>'+
     '<td>'+dt(r.etd)+(r.mode?'<div class="po" style="opacity:.7">'+esc(r.mode)+'</div>':'')+'</td>'+
-    '<td>'+dt(r.atd)+'</td>'+
+    '<td>'+(r.leg==="transit"?'<span class="d">shipped</span>':dt(r.atd))+'</td>'+
     '<td>'+dt(r.eta)+'</td>'+
     '<td>'+tag+'</td></tr>';
 }
