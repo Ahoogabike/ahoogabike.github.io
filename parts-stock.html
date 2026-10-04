@@ -1247,6 +1247,28 @@ async function loadData(){
     const LOUI_TOKENS=['LOUI','LOUISE'];
     const locs=await odoo('stock.location','search_read',
       [[['usage','=','internal']]],{fields:['id','complete_name'],limit:10000});
+    /* WHICH LOCATIONS ARE "NOT HERE YET"
+       Ask Odoo rather than guessing from names. A warehouse set to "Receive in
+       2 steps" gets a rule whose SOURCE is the holding location goods land in
+       when they leave the supplier, and whose destination is the real shelf.
+       Today that finds two: AND/In Transit and Brain/Input — the Brain Log
+       warehouse is configured exactly the same way, so moving deliveries there
+       does not escape this, it repeats it. Reading the rules means the day
+       somebody adds a third warehouse it is handled without a code change.
+       Name matching stays as a fallback for the day the route is renamed. */
+    let holdIds=new Set();
+    try{
+      const rules=await odoo('stock.rule','search_read',
+        [[['route_id.name','ilike','2 steps'],['location_src_id','!=',false],
+          ['location_dest_id','!=',false]]],
+        {fields:['location_src_id','location_dest_id','route_id'],limit:200});
+      for(const r of (Array.isArray(rules)?rules:[])){
+        const src=arr(r.location_src_id), dst=arr(r.location_dest_id);
+        if(src[0] && dst[0] && src[0]!==dst[0]) holdIds.add(src[0]);
+      }
+    }catch(e){ console.warn('[PartStock] 2-step rule lookup failed, falling back to names:',e.message); }
+    const isHolding=(id,name)=> holdIds.has(id) || /in\s*transit|\/input(\/|$)/i.test(String(name||''));
+
     const andLocIds=[], louiLocIds=[], andLocNames=[], louiLocNames=[];
     /* AND/In Transit is NOT Anderlecht stock. Odoo's two-step receipt lands goods
        there the moment they LEAVE the supplier — the real arrival is the second
@@ -1263,7 +1285,7 @@ async function loadData(){
       const prefix=full.split('/')[0].toUpperCase().trim();
       if(LOUI_TOKENS.some(t=>prefix.includes(t))){louiLocIds.push(l.id);louiLocNames.push(full);}
       else if(AND_TOKENS.some(t=>prefix.includes(t))){
-        if(/in\s*transit/i.test(full)){ transitLocIds.push(l.id); transitLocNames.push(full); }
+        if(isHolding(l.id,full)){ transitLocIds.push(l.id); transitLocNames.push(full); }
         else { andLocIds.push(l.id); andLocNames.push(full); }
       }
     }
@@ -1283,6 +1305,14 @@ async function loadData(){
         [['|',['complete_name','ilike','brain'],['complete_name','ilike','brainlog']]],
         {fields:['id','complete_name'],limit:2000});
       for(const l of (Array.isArray(brainLocs)?brainLocs:(brainLocs?[brainLocs]:[]))){
+        /* Brain/Input is Brain Log's AND/In Transit. This pass deliberately
+           skips the internal-usage filter so the pool is found however it was
+           created, which also means it would happily have swallowed the
+           holding location. It does not. */
+        if(isHolding(l.id,l.complete_name)){
+          if(transitLocIds.indexOf(l.id)<0){ transitLocIds.push(l.id); transitLocNames.push(l.complete_name); }
+          continue;
+        }
         if(andLocIds.indexOf(l.id)<0){ andLocIds.push(l.id); andLocNames.push(l.complete_name); }
         brainLocNames.push(l.complete_name);
       }
