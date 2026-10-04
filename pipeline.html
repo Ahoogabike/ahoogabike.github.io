@@ -84,7 +84,7 @@ tr.late{background:#fdf1ec}
 <script>
 var API="https://vv-inbound.ahoogahouse-1050-be.workers.dev";
 var STORE="vv_office_key";
-var ROWS=[], FILTER="all", SORT="shipBy", DIR=1;
+var ROWS=[], FILTER="all", SORT="shipBy", DIR=1, VALUE=null;
 function key(){ try{ return localStorage.getItem(STORE)||""; }catch(e){ return ""; } }
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
@@ -122,6 +122,13 @@ async function load(){
     var d=await r.json();
     if(!r.ok) throw new Error(d.error||("Server said "+r.status));
     ROWS=(d.transit||[]).concat(d.preparing||[]);
+    /* What the goods on the water are worth. Separate call on purpose: if
+       the valuation read fails the dashboard still draws, it just does not
+       show the money. */
+    try{
+      var vr=await fetch(API+"/in-transit",{headers:{"x-device-key":key()}});
+      VALUE = vr.ok ? await vr.json() : null;
+    }catch(e){ VALUE=null; }
     $("stamp").textContent="updated "+new Date(d.at).toLocaleString("en-GB",
       {day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})+
       (d.planAsOf?" · run-out dates from the plan of "+d.planAsOf:" · no run-out dates on file");
@@ -164,7 +171,10 @@ function draw(){
     kpi(ROWS.length,"open shipments","")+
     kpi(late,"at risk of being late","bad")+
     kpi(unk,"with no date from the supplier","amber")+
-    kpi(onw,"already on their way","good");
+    kpi(onw,"already on their way","good")+
+    (VALUE ? '<div class="kpi"><div class="n">'+eur(VALUE.total)+'</div>'+
+       '<div class="l">of goods we own, on the water<br>'+
+       '<a href="#" id="mailval" style="color:var(--accent);font-weight:700">email it to the accountant</a></div></div>' : "");
 
   if(!rows.length){ $("list").innerHTML='<div class="msg">Nothing matches.</div>'; return; }
   $("list").innerHTML='<div class="tablewrap"><table><thead><tr>'+
@@ -172,11 +182,24 @@ function draw(){
     th("shipBy","Ship by")+th("etd","Supplier says")+th("atd","Left")+
     th("eta","Arrives")+'<th>Status</th>'+
     '</tr></thead><tbody>'+rows.map(row).join("")+'</tbody></table></div>';
+  var mv=$("mailval");
+  if(mv) mv.onclick=async function(ev){
+    ev.preventDefault();
+    if(!confirm("Send the goods-in-transit report by email now?\n\nIt goes to the address list in the worker settings, not to the accountant automatically \u2014 add them there once they have agreed it replaces the valuation-report line.")) return;
+    mv.textContent="sending\u2026";
+    try{
+      var r=await fetch(API+"/in-transit?mail=1",{headers:{"x-device-key":key()}});
+      var j=await r.json();
+      mv.textContent = (r.ok && j.sent) ? "sent to "+j.to : "could not send";
+    }catch(e){ mv.textContent="could not send"; }
+  };
   Array.prototype.forEach.call(document.querySelectorAll("th[data-s]"),function(h){
     h.onclick=function(){ var k=h.getAttribute("data-s");
       if(SORT===k) DIR=-DIR; else { SORT=k; DIR=1; } draw(); };
   });
 }
+function eur(n){ try{ return "\u20ac"+Math.round(Number(n)||0).toLocaleString("en-GB"); }
+                 catch(e){ return "\u20ac"+n; } }
 function kpi(n,l,c){ return '<div class="kpi '+(c||'')+'"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
 function th(k,t){ return '<th data-s="'+k+'">'+t+(SORT===k?(DIR>0?" ↑":" ↓"):"")+'</th>'; }
 function dt(v){ return v?'<span class="d">'+esc(v)+'</span>':'<span class="d miss">—</span>'; }
