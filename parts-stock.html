@@ -1380,6 +1380,17 @@ async function loadData(){
     //      Whichever it used is recorded as `src` on every entry, so supply knows exactly which
     //      field to correct: the transfer, or the PO line.
     alert_('<span class="spinner"></span> Incoming component deliveries (open purchase orders)…','info');
+    /* BUILD LOCAL, ASSIGN ONCE.
+       incomingByPart and heldIncoming are module-level, and this loader can
+       run twice over one page — an automatic refresh landing on top of a
+       click. Clearing a shared object at the start of each run does not make
+       that safe: run B clears it, then run A, still mid-flight, keeps pushing
+       into the same object, and every arrival is counted twice. The published
+       component_supply showed exactly that — AND/STOR/00395 twice at 500,
+       P02273 twice at 750 — which inflates supply and pushes every run-out
+       date LATER. Building into a local and swapping it in at the very end
+       makes a second run harmless: last one to finish wins, whole. */
+    const incLocal={}, heldLocal={};
     incomingByPart={}; heldIncoming={};
     const TODAY_YMD=(()=>{ const t=new Date();
       return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; })();
@@ -1473,8 +1484,8 @@ async function loadData(){
          Until somebody agrees a new date and writes it on the transfer or the PO line in
          Odoo, these sit in heldIncoming and show in the overdue list. Before this change
          they were folded into week 1, so the forward stock showed goods nobody had. */
-      if(!d || d < TODAY_YMD){ (heldIncoming[x.pid]=heldIncoming[x.pid]||[]).push(rec); continue; }
-      (incomingByPart[x.pid]=incomingByPart[x.pid]||[]).push(rec);
+      if(!d || d < TODAY_YMD){ (heldLocal[x.pid]=heldLocal[x.pid]||[]).push(rec); continue; }
+      (incLocal[x.pid]=incLocal[x.pid]||[]).push(rec);
       }
     }
 
@@ -1517,7 +1528,7 @@ async function loadData(){
           const d=(m.date||'').split(' ')[0]||null;
           const ref=arr(m.picking_id)[1]||'AND/STOR';
           if(d && d>=TODAY_YMD){
-            (incomingByPart[pid]=incomingByPart[pid]||[]).push(
+            (incLocal[pid]=incLocal[pid]||[]).push(
               {date:d, qty:take, ref:ref, src:'in-transit', srcRef:ref, atVV:false});
             future+=take;
           } else { andMap[pid]=(andMap[pid]||0)+take; now+=take; }
@@ -1534,6 +1545,9 @@ async function loadData(){
       console.warn('[PartStock] in-transit lookup failed — counting it as on-hand:',e.message);
       for(const k in transitMap) andMap[k]=(andMap[k]||0)+transitMap[k];
     }
+
+    /* The swap. Nothing above this line is visible to the rest of the app. */
+    incomingByPart=incLocal; heldIncoming=heldLocal;
 
     /* ── PACK SIZES ──────────────────────────────────────────────────────
        Odoo's own home for this is Inventory → Products → Packagings. Where a
