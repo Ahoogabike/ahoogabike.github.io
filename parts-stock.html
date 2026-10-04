@@ -390,6 +390,7 @@ let variantSetOf={};              // product id -> Set(attribute value ids)
    and every bike appeared to eat an unpainted frame. Variant BoMs therefore
    live here, and only the variant they belong to can reach them. */
 let bomByProduct={};              // product id -> {productQty, lines} for a variant-specific BoM
+let mtbWheelPids=new Set();       // the wheel PRODUCTS built at MTB (variant level)
 let bikeRefs=[];            // the exact bike references the PO Builder builds {id,code,name,tmplId,fam}
 let tmplParts={};           // bike template id -> Set(component productId) — for the per-reference filter
 let packByPart={};          // productId -> units per purchase carton (0 = none on file)
@@ -447,7 +448,7 @@ function computeExcludedSubtrees(){
     const hay=((r.partNo||'')+' '+(r.partName||'')).toLowerCase();
     if(!toks.some(t=>hay.includes(t))) continue;          // this row IS a matched pre-assembly
     const tmpl=prodToTmpl[r.id]; if(tmpl==null||!bomByTmpl[tmpl]) continue;
-    const sub=explodeUsage(tmpl,bomByTmpl,prodToTmpl,true); // all components below it
+    const sub=explodeUsageOf(r.id,bomByTmpl,prodToTmpl,true); // all components below it
     for(const pid in sub) excludedSubParts.add(Number(pid));
   }
 }
@@ -498,7 +499,7 @@ function renderMtbForecast(){
   const wheelPids=new Set();
   for(const fam in usagePerBikeByFam){ for(const pid in usagePerBikeByFam[fam]){ if(isWheelPid(Number(pid))) wheelPids.add(Number(pid)); } }
   for(const fam in usagePerBikeByFamMY27){ for(const pid in usagePerBikeByFamMY27[fam]){ if(isWheelPid(Number(pid))) wheelPids.add(Number(pid)); } }
-  const wheelBom={}; for(const wp of wheelPids){ const t=prodToTmpl[wp]; wheelBom[wp]=(t!=null)?explodeUsage(t,bomByTmpl,prodToTmpl,true):{}; }
+  const wheelBom={}; for(const wp of wheelPids){ wheelBom[wp]=explodeUsageOf(wp,bomByTmpl,prodToTmpl,true); }
   const mtbCons={}; const ensure=(pid)=>{ if(!mtbCons[pid]) mtbCons[pid]=Array(wks.length).fill(0); return mtbCons[pid]; };
   for(const fam in byFam){
     for(const wp of wheelPids){ const bom=wheelBom[wp]||{}; if(!Object.keys(bom).length) continue;
@@ -944,7 +945,7 @@ async function publishWheelMap(){
 async function publishWheelComponentSupply(){
   try{
     const usageByWheel={}, stock={}, incoming={}, names={};
-    for(const r of rows){ if(!r.isWheel) continue; const t=prodToTmpl[r.id]; if(t==null) continue; const code=r.partNo||('#'+r.id); usageByWheel[code]=explodeUsage(t,bomByTmpl,prodToTmpl,true); }
+    for(const r of rows){ if(!r.isWheel) continue; const code=r.partNo||('#'+r.id); usageByWheel[code]=explodeUsageOf(r.id,bomByTmpl,prodToTmpl,true); }
     for(const r of rows){ if(!wheelComponentIds.has(r.id)) continue; if(skipForecast(r)) continue; stock[r.id]=(r.mtbQty||0)+(r.andQty||0); names[r.id]=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`; const inc=incomingByPart[r.id]; if(inc&&inc.length) incoming[r.id]=inc.map(d=>({date:d.date||null, qty:d.qty})); }
     await kvSetStore('wheel_component_supply', {updated:new Date().toISOString(), usageByWheel, stock, incoming, names});
     console.log('[PartStock] wheel_component_supply published — wheels', Object.keys(usageByWheel).length, '· components', Object.keys(stock).length);
@@ -964,7 +965,7 @@ async function publishWheelDeadlines(){
     const wheelPids=new Set();
     for(const fam in usagePerBikeByFam){ for(const pid in usagePerBikeByFam[fam]){ if(isWheelPid(Number(pid))) wheelPids.add(Number(pid)); } }
     for(const fam in usagePerBikeByFamMY27){ for(const pid in usagePerBikeByFamMY27[fam]){ if(isWheelPid(Number(pid))) wheelPids.add(Number(pid)); } }
-    const wheelBom={}; for(const wp of wheelPids){ const t=prodToTmpl[wp]; wheelBom[wp]=(t!=null)?explodeUsage(t,bomByTmpl,prodToTmpl,true):{}; }
+    const wheelBom={}; for(const wp of wheelPids){ wheelBom[wp]=explodeUsageOf(wp,bomByTmpl,prodToTmpl,true); }
     // MTB component consumption per week, shifted WHEEL_LEAD_WEEKS earlier than the bike week
     const mtbCons={};
     const ensure=(pid)=>{ if(!mtbCons[pid]) mtbCons[pid]=Array(wks.length).fill(0); return mtbCons[pid]; };
@@ -1267,12 +1268,36 @@ function explodeUsage(tmplId,bomByTmpl,prodToTmpl,fullExplode){
         rec(sub,perUnit,depth+1,new Set(seen).add(key));
       }
     }
-  /* Always a TEMPLATE at the top — every caller passes one. Template ids and
-     product ids are different records that can share a number, so looking the
-     entry point up in the per-product map would occasionally explode a
-     stranger's BoM. */
+  /* A TEMPLATE at the top. Template ids and product ids are different
+     records that can share a number, so the entry point is never looked up
+     in the per-product map — see explodeUsageOf for the product version. */
   })(bomByTmpl[tmplId],1,0,new Set(['t'+tmplId]));
   return acc;
+}
+
+/* The same explosion, entered at a PRODUCT rather than a template.
+   Needed wherever the thing being exploded is one specific variant, which
+   is every wheel: the Mivice front wheel's BoM (272) is tied to product
+   6967, not to its template, so entering by template finds nothing at all.
+
+   That is not hypothetical — it is a bug this file shipped this afternoon.
+   Moving variant BoMs out of the by-template map fixed the frames and
+   silently emptied the Mivice wheel: motor, brake rotor, rim, tyre, inner
+   tube, spokes and nipples all vanished from the MTB tier, so none of them
+   had a run-out date and the dashboard could not say whether the motors on
+   P01936 would arrive in time. Entering by product fixes both at once. */
+function explodeUsageOf(pid,bomByTmpl,prodToTmpl,fullExplode){
+  const t=prodToTmpl[pid];
+  if(bomByProduct[pid]){
+    /* Enter the variant's own BoM by borrowing the template path: stash it
+       under a key nothing else uses, so the shared recursion is untouched. */
+    const save=bomByTmpl['__entry__'];
+    bomByTmpl['__entry__']=bomByProduct[pid];
+    const out=explodeUsage('__entry__',bomByTmpl,prodToTmpl,fullExplode);
+    if(save===undefined) delete bomByTmpl['__entry__']; else bomByTmpl['__entry__']=save;
+    return out;
+  }
+  return (t!=null && bomByTmpl[t]) ? explodeUsage(t,bomByTmpl,prodToTmpl,fullExplode) : {};
 }
 
 // Count bikes produced per product template, from serial lots in Bikes categories.
@@ -1333,7 +1358,12 @@ async function loadData(){
     }catch(e){ console.warn('[PartStock] MTB wheel detection failed:', e.message); }
     // parts that go into wheels at MTB → not present as themselves at Velovisie
     wheelComponentIds=new Set();
-    for(const t of mtbWheelTmpls){ const wu=explodeUsage(t,bomByTmpl,prodToTmpl,true); for(const pid in wu) wheelComponentIds.add(Number(pid)); }
+    /* By product, for the same reason: a wheel whose BoM is variant-tied
+       contributes nothing when entered by template, and its components then
+       exist in neither tier. */
+    mtbWheelPids=new Set([...subIds].filter(pid=>mtbWheelTmpls.has(prodToTmpl[pid])));
+    for(const wp of mtbWheelPids){ const wu=explodeUsageOf(wp,bomByTmpl,prodToTmpl,true); for(const pid in wu) wheelComponentIds.add(Number(pid)); }
+    console.log('[PartStock] MTB wheel products:',mtbWheelPids.size,'· components below them:',wheelComponentIds.size);
     console.log('[PartStock] wheel-component parts (VV theoretical forced to 0):', wheelComponentIds.size);
     const ids=[...partIds];
     if(!ids.length){
