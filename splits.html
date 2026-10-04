@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ahooga · Splits to approve</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap">
+<style>
+:root{ --bg:#f7f4ec; --panel:#fff; --line:#e4ddcd; --ink:#1d1c16; --muted:#6b6557;
+       --accent:#ea1d5e; --ok:#0f7a52; --warn:#c0451f; }
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:'Archivo',system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+.wrap{max-width:960px;margin:0 auto;padding:24px 18px 70px}
+h1{margin:0 0 4px;font-size:24px;font-weight:800}
+h1 span{color:var(--accent)}
+.lede{color:var(--muted);font-size:14.5px;line-height:1.5;margin:0 0 20px;max-width:70ch}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:14px}
+.hd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:3px}
+.po{font-size:19px;font-weight:800}
+.by{color:var(--muted);font-size:14px}
+.when{margin-left:auto;color:var(--muted);font-size:12.5px}
+.sh{border-left:3px solid var(--line);padding:4px 0 4px 13px;margin:12px 0}
+.sh b{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.sh .d{font-size:14px;margin:3px 0 5px}
+.sh ul{margin:0;padding-left:18px;font-size:14px;line-height:1.6}
+.left{color:var(--warn);font-weight:700;font-size:13.5px;margin-top:8px}
+.row{display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap}
+button{font:inherit;font-weight:800;font-size:14px;border:none;border-radius:999px;
+  padding:10px 20px;cursor:pointer;background:var(--accent);color:#fff}
+button.ghost{background:transparent;color:var(--muted);border:1.5px solid var(--line);font-weight:700}
+button[disabled]{opacity:.4;cursor:default}
+.note{font-size:13.5px}
+.note.ok{color:var(--ok);font-weight:700}
+.note.err{color:var(--warn);font-weight:700}
+.plan{background:#fbf9f3;border:1px solid var(--line);border-radius:10px;padding:13px 15px;
+  margin-top:13px;font-size:14px;line-height:1.6;display:none}
+.plan h4{margin:0 0 7px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.msg{padding:16px 18px;border-radius:12px;background:var(--panel);border:1px solid var(--line);color:var(--muted)}
+#gate{position:fixed;inset:0;z-index:99;background:var(--bg);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px}
+#gate input{width:330px;max-width:84vw;text-align:center;font-size:16px;padding:11px 12px;
+  border:1.5px solid var(--line);border-radius:10px}
+</style></head><body>
+
+<div id="gate">
+  <h1>Ahooga · <span>Splits to approve</span></h1>
+  <p class="lede" style="text-align:center">Paste your office key.</p>
+  <input type="password" id="gk" autocomplete="off" placeholder="Office key"/>
+  <button id="ggo">Open</button>
+  <div id="gmsg" class="note err" style="min-height:20px"></div>
+</div>
+
+<div class="wrap" id="app" style="display:none">
+  <h1>Ahooga · <span>Splits to approve</span></h1>
+  <p class="lede">When a supplier says an order will arrive in more than one shipment, it
+    lands here. <b>Check the plan first</b> — it shows exactly what will change before
+    anything is written. Accepting turns one receipt into several in Odoo, each still
+    linked to the purchase order.</p>
+  <div id="list"></div>
+</div>
+
+<script>
+var API="https://vv-inbound.ahoogahouse-1050-be.workers.dev";
+var STORE="vv_office_key";
+var P=[];
+function key(){ try{ return localStorage.getItem(STORE)||""; }catch(e){ return ""; } }
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]; }); }
+async function api(p,b){
+  var o={headers:{"x-device-key":key()}};
+  if(b){o.method="POST";o.headers["Content-Type"]="application/json";o.body=JSON.stringify(b);}
+  var r=await fetch(API+p,o), j=await r.json().catch(function(){return {};});
+  if(!r.ok) throw new Error(j.error||("Server said "+r.status));
+  return j;
+}
+async function open_(k){
+  var r=await fetch(API+"/whoami",{headers:{"x-device-key":k}});
+  var me=await r.json().catch(function(){return {};});
+  if(!r.ok) throw new Error(me.error||("Server said "+r.status));
+  if(me.role!=="office"&&me.role!=="full") throw new Error("That key is not an office key.");
+  try{ localStorage.setItem(STORE,k); }catch(e){}
+  $("gate").style.display="none"; $("app").style.display=""; load();
+}
+document.addEventListener("DOMContentLoaded",async function(){
+  $("ggo").onclick=async function(){
+    var k=($("gk").value||"").trim();
+    if(k.length<24){ $("gmsg").textContent="That key looks too short."; return; }
+    try{ await open_(k); }catch(e){ $("gmsg").textContent=e.message||String(e); }
+  };
+  $("gk").addEventListener("keydown",function(e){ if(e.key==="Enter") $("ggo").click(); });
+  if(key()){ try{ await open_(key()); return; }catch(e){ $("gmsg").textContent=e.message||String(e); } }
+  $("gk").focus();
+});
+
+function card(p,i){
+  return '<div class="card" id="c'+i+'">'+
+    '<div class="hd"><span class="po">'+esc(p.order||p.ref)+'</span>'+
+      '<span class="by">'+esc(p.by)+'</span>'+
+      '<span class="when">'+esc((p.at||"").slice(0,10))+'</span></div>'+
+    '<div class="by">Receipt '+esc(p.ref)+'</div>'+
+    p.batches.map(function(b,n){
+      return '<div class="sh"><b>Shipment '+(n+1)+'</b>'+
+        '<div class="d">'+(b.etd?'leaves '+esc(b.etd):'<span style="color:#c0451f">no date given</span>')+
+          (b.mode?' &middot; by '+esc(b.mode):'')+'</div>'+
+        '<ul>'+b.lines.map(function(l){ return '<li>'+esc(l.part)+' × '+l.qty+'</li>'; }).join("")+'</ul></div>';
+    }).join("")+
+    (p.unassigned&&p.unassigned.length
+      ? '<div class="left">Not in any shipment: '+p.unassigned.map(function(l){
+          return esc(l.name)+' × '+l.qty; }).join(", ")+' — this stays on shipment 1.</div>' : '')+
+    '<div class="plan" id="pl'+i+'"></div>'+
+    '<div class="row">'+
+      '<button class="ghost" onclick="preview('+i+')">Show me what will change</button>'+
+      '<button onclick="accept('+i+')" id="ac'+i+'" disabled>Accept and split</button>'+
+      '<span class="note" id="nt'+i+'"></span>'+
+    '</div></div>';
+}
+
+async function load(){
+  $("list").innerHTML='<div class="msg">Loading…</div>';
+  try{
+    var d=await api("/splits"); P=d.proposals||[];
+    $("list").innerHTML = P.length ? P.map(card).join("")
+      : '<div class="msg">No splits waiting. When a supplier proposes one it appears here.</div>';
+  }catch(e){ $("list").innerHTML='<div class="msg">Could not load: '+esc(e.message||e)+'</div>'; }
+}
+
+/* Nothing can be accepted until the plan has been shown. */
+async function preview(i){
+  var p=P[i], el=$("pl"+i), nt=$("nt"+i);
+  nt.className="note"; nt.textContent="Checking…";
+  try{
+    var r=await api("/split-accept",{ picking:p.picking, batches:p.batches, dry:true });
+    el.style.display="block";
+    el.innerHTML='<h4>What will change</h4>'+
+      '<div><b>'+esc(r.plan.keep.ref)+'</b> keeps: '+
+        r.plan.keep.lines.map(function(l){ return esc(l.part)+' × '+l.qty; }).join(", ")+
+        (r.plan.keep.etd?' &middot; leaves '+esc(r.plan.keep.etd):'')+'</div>'+
+      r.plan.create.map(function(b,n){
+        return '<div style="margin-top:6px"><b>New receipt '+(n+1)+'</b>: '+
+          b.lines.map(function(l){ return esc(l.part)+' × '+l.qty; }).join(", ")+
+          (b.etd?' &middot; leaves '+esc(b.etd):'')+(b.mode?' by '+esc(b.mode):'')+'</div>'; }).join("")+
+      '<div style="margin-top:9px;color:var(--muted);font-size:13px">'+
+        'Every line keeps its link to the purchase order, so the order still closes normally.</div>';
+    nt.textContent=""; $("ac"+i).disabled=false;
+  }catch(e){ nt.className="note err"; nt.textContent=e.message||String(e); }
+}
+
+async function accept(i){
+  var p=P[i], nt=$("nt"+i);
+  if(!confirm("Split "+(p.order||p.ref)+" into "+p.batches.length+" receipts in Odoo?")) return;
+  $("ac"+i).disabled=true; nt.className="note"; nt.textContent="Splitting…";
+  try{
+    var r=await api("/split-accept",{ picking:p.picking, batches:p.batches });
+    nt.className="note ok";
+    nt.textContent="✓ "+r.kept+" kept, created "+r.created.join(", ");
+  }catch(e){ nt.className="note err"; nt.textContent=e.message||String(e); $("ac"+i).disabled=false; }
+}
+</script>
+</body></html>
