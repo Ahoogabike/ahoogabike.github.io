@@ -36,6 +36,14 @@ input[type=date],select{padding:8px 9px;border:1.5px solid var(--line);border-ra
   background:#fff;color:var(--ink);font:inherit;font-size:14px;width:150px}
 select{width:108px}
 input:focus,select:focus{outline:none;border-color:var(--accent)}
+/* The need-by column. This is the one piece of information that might
+   actually change what a supplier does, so it is allowed to shout a
+   little when it is close. */
+.need{white-space:nowrap;line-height:1.45}
+.need .by{font-weight:800;font-size:15px}
+.need .sm{color:var(--muted);font-size:11.5px}
+.need.soon .by{color:var(--warn)}
+.need.late .by{color:#fff;background:var(--warn);padding:1px 7px;border-radius:6px;display:inline-block}
 .state{display:inline-block;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap}
 .s-prep{background:#f4efe0;color:#8a6d1f}
 .s-go{background:#e7f3ec;color:var(--ok)}
@@ -94,6 +102,10 @@ label.lab{display:block;font-size:11px;font-weight:800;color:var(--muted);margin
      whenever it changes — an early warning is always welcome. Ahooga books the transport
      from what you enter here. If an order will arrive in more than one shipment, use
      <b>Split</b>.</p>
+  <p class="lede"><b>Please ship by</b> is the latest date goods can leave you and still
+     reach our assembly line before we run out of that part. It already allows for the
+     time in transit. If you cannot meet it, tell us early — we can often fly part of the
+     order instead, but only if we know in time.</p>
   <div id="list"></div>
 </div>
 
@@ -163,11 +175,25 @@ function row(sh){
   var state = sh.atd ? '<span class="state s-go">on its way</span>'
             : sh.prep ? '<span class="state s-prep">in preparation</span>' : "";
   function d(id,v){ return '<input type="date" id="'+id+i+'" value="'+esc(v||"")+'" oninput="touch('+i+')">'; }
+  /* How urgent: compare the ship-by date with today. */
+  var cls="need", extra="";
+  if(sh.shipBy){
+    var days = Math.round((Date.parse(sh.shipBy+"T00:00:00Z") - Date.now())/86400000);
+    if(days < 0){ cls="need late"; extra='<div class="sm">'+Math.abs(days)+' days ago</div>'; }
+    else if(days < 30){ cls="need soon"; extra='<div class="sm">in '+days+' days</div>'; }
+    else extra='<div class="sm">in '+Math.round(days/7)+' weeks</div>';
+  }
+  var need = sh.shipBy
+    ? '<div class="'+cls+'"><div class="by">'+esc(sh.shipBy)+'</div>'+extra+
+      '<div class="sm">we run out '+esc(sh.needBy)+'<br>'+sh.transitDays+' days in transit</div></div>'
+    : '<div class="need"><span class="sm">\u2014</span></div>';
+
   return '<tr id="r'+i+'">'+
     '<td><div class="ord">'+esc(sh.order||sh.ref)+'</div>'+
         '<div class="ref">'+esc(sh.ref)+'</div>'+
         (state?'<div style="margin-top:5px">'+state+'</div>':'')+'</td>'+
     '<td class="parts">'+parts+'</td>'+
+    '<td>'+need+'</td>'+
     '<td>'+d("p",sh.prep)+'</td>'+
     '<td>'+d("e",sh.etd)+'</td>'+
     '<td>'+d("a",sh.atd)+'</td>'+
@@ -199,8 +225,8 @@ async function load(){
     d.shipments.forEach(function(sh){ SH[sh.id]=sh; });
     $("list").innerHTML =
       '<div class="tablewrap"><table><thead><tr>'+
-      '<th>Order</th><th>Parts</th><th>Preparation started</th><th>Expected to leave</th>'+
-      '<th>Actually left</th><th>How</th><th></th><th></th>'+
+      '<th>Order</th><th>Parts</th><th>Please ship by</th><th>Preparation started</th>'+
+      '<th>Expected to leave</th><th>Actually left</th><th>How</th><th></th><th></th>'+
       '</tr></thead><tbody>'+ d.shipments.map(row).join("") +'</tbody></table></div>';
   }catch(e){
     $("list").innerHTML = '<div class="msg bad">Could not load your orders: '+esc(e.message||e)+'</div>';
