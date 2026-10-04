@@ -303,12 +303,17 @@ function row(sh){
     else if(days < 30){ cls="need soon"; extra='<div class="sm">in '+days+' days</div>'; }
     else extra='<div class="sm">in '+Math.round(days/7)+' weeks</div>';
   }
-  var nUrgent = partLines(sh).filter(function(l){ return l.by && l.by===sh.shipBy; }).length;
+  var nUndated = partLines(sh).filter(function(l){ return !l.by; }).length;
   var need = sh.shipBy
     ? '<div class="'+cls+'"><div class="by">'+esc(sh.shipBy)+'</div>'+extra+
       '<div class="sm">earliest of '+sh.lines.length+' part'+(sh.lines.length>1?'s':'')+
         (sh.lines.length>1 ? ' \u2014 see the dates per part' : '')+'<br>'+
-        sh.transitDays+' days in transit</div></div>'
+        sh.transitDays+' days in transit'+
+        /* Parts with no run-out date on file are shown without one. Saying
+           how many there are stops the earliest date reading as a verdict
+           on the whole order. */
+        (nUndated>0 ? '<br><b style="color:var(--warn)">'+nUndated+' part'+(nUndated>1?'s have':' has')+
+           ' no date yet</b>' : '')+'</div></div>'
     : '<div class="need"><span class="sm">\u2014</span></div>';
 
   return '<tr id="r'+i+'">'+

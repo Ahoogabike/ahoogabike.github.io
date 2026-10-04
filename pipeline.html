@@ -29,7 +29,7 @@ h1 span{color:var(--accent)}
 .bar input{margin-left:auto;padding:8px 12px;border:1.5px solid var(--line);border-radius:10px;
   font:inherit;font-size:14px;width:230px;background:var(--panel)}
 .tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:auto}
-table{border-collapse:collapse;width:100%;min-width:1180px}
+table{border-collapse:collapse;width:100%;min-width:1120px}
 th{text-align:left;font-size:11px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;
   color:var(--muted);padding:12px 12px 9px;border-bottom:1px solid var(--line);white-space:nowrap;
   background:var(--panel);position:sticky;top:0;z-index:2;cursor:pointer;user-select:none}
@@ -76,6 +76,7 @@ tr.late{background:#fdf1ec}
     <span class="chip" data-f="transit">On the water</span>
     <span class="chip" data-f="prep">Being prepared</span>
     <span class="chip" data-f="nodate">No date given</span>
+    <span class="chip" data-f="nodate2">No deadline on file</span>
     <input id="q" placeholder="Filter by supplier, order or part…"/>
   </div>
   <div id="list"></div>
@@ -84,7 +85,7 @@ tr.late{background:#fdf1ec}
 <script>
 var API="https://vv-inbound.ahoogahouse-1050-be.workers.dev";
 var STORE="vv_office_key";
-var ROWS=[], FILTER="all", SORT="shipBy", DIR=1, VALUE=null;
+var ROWS=[], FILTER="all", SORT="slack", DIR=1, VALUE=null;
 function key(){ try{ return localStorage.getItem(STORE)||""; }catch(e){ return ""; } }
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
@@ -138,59 +139,86 @@ async function load(){
 
 /* "On the water" is two different records. A step-one receipt carrying an
    ATD is the supplier telling us it left; an AND/STOR row is Odoo's own
-   record that it did, because validating step one is what creates it. They
-   are never the same box at the same time. */
+   record that it did, because validating step one is what creates it. */
 function afloat(r){ return r.leg==="transit" || !!r.atd; }
-/* A putaway transfer whose date went by months ago is not "fine" just
-   because no part on it has a run-out date on file. Something is wrong with
-   it either way, and the whole point of this screen is that such a thing
-   cannot sit quietly. */
-function atRisk(r){ return r.risk==="late" || !!r.overdue; }
-function keep(r){
-  if(FILTER==="late" && !atRisk(r)) return false;
+
+/* ── ONE ROW PER PART ────────────────────────────────────────────────
+   A shipment is not the unit of a decision. The same box can be months
+   early for its cables and three weeks late for its motor, and a row per
+   shipment can only tell one of those stories — it picks the most urgent
+   part, prints one verdict, and says nothing about the other eight. That
+   is how P01936 read "lands in time" while nobody could answer a plain
+   question about its motors.
+   So the table is flattened: every part of every open shipment gets its
+   own line and its own answer. The shipment is still named on each line,
+   because the thing you act on is still a box. */
+function flatten(rows){
+  const out=[];
+  for(const r of rows){
+    const ps=(r.parts&&r.parts.length)?r.parts
+      :[{name:"(parts not listed)",code:"",qty:0,needBy:r.needBy||"",slack:r.slack,risk:r.risk||"unknown"}];
+    for(const p of ps) out.push({sh:r,p:p});
+  }
+  return out;
+}
+function atRisk(x){ return x.p.risk==="late" || (!!x.sh.overdue && x.p.risk!=="unknown"); }
+function undated(x){ return x.p.risk==="unknown"; }
+
+function keep(x){
+  const r=x.sh;
+  if(FILTER==="late"    && !atRisk(x)) return false;
+  if(FILTER==="nodate2" && !undated(x)) return false;
   if(FILTER==="transit" && !afloat(r)) return false;
-  if(FILTER==="prep" && afloat(r)) return false;
-  if(FILTER==="nodate" && (r.leg==="transit" || r.etd || r.atd)) return false;
+  if(FILTER==="prep"    &&  afloat(r)) return false;
+  if(FILTER==="nodate"  && (r.leg==="transit"||r.etd||r.atd)) return false;
   var q=($("q").value||"").trim().toLowerCase();
   if(q){
-    var hay=(r.supplier+" "+r.po+" "+r.ref+" "+r.items.join(" ")).toLowerCase();
+    var hay=(r.supplier+" "+r.po+" "+r.ref+" "+x.p.name+" "+(x.p.code||"")).toLowerCase();
     if(hay.indexOf(q)<0) return false;
   }
   return true;
 }
-
+function sortKey(x,k){
+  if(k==="part")     return x.p.name||"";
+  if(k==="needBy")   return x.p.needBy||"￿";
+  if(k==="slack")    return (x.p.slack===null||x.p.slack===undefined)?1e9:x.p.slack;
+  if(k==="supplier") return x.sh.supplier||"";
+  if(k==="po")       return x.sh.po||"";
+  if(k==="eta")      return x.sh.eta||"￿";
+  return "";
+}
 function draw(){
-  var rows=ROWS.filter(keep).slice().sort(function(a,b){
-    var x=a[SORT]||"￿", y=b[SORT]||"￿";
+  var all=flatten(ROWS);
+  var rows=all.filter(keep).slice().sort(function(a,b){
+    var x=sortKey(a,SORT), y=sortKey(b,SORT);
+    if(typeof x==="number"||typeof y==="number") return ((x||0)-(y||0))*DIR;
     return (x<y?-1:x>y?1:0)*DIR; });
-
-  var late=ROWS.filter(atRisk).length;
-  var unk=ROWS.filter(function(r){return r.leg!=="transit"&&!r.etd&&!r.atd;}).length;
-  var onw=ROWS.filter(afloat).length;
+  var lateP=all.filter(atRisk).length, unkP=all.filter(undated).length;
+  var onw=all.filter(function(x){return afloat(x.sh);}).length;
   $("kpis").innerHTML=
-    kpi(ROWS.length,"open shipments","")+
-    kpi(late,"at risk of being late","bad")+
-    kpi(unk,"with no date from the supplier","amber")+
+    kpi(all.length,"parts on order","")+
+    kpi(lateP,"arrive after we run out","bad")+
+    kpi(unkP,"no run-out date on file","amber")+
     kpi(onw,"already on their way","good")+
-    (VALUE ? '<div class="kpi"><div class="n">'+eur(VALUE.total)+'</div>'+
-       '<div class="l">of goods we own, on the water<br>'+
-       '<a href="#" id="mailval" style="color:var(--accent);font-weight:700">email it to the accountant</a></div></div>' : "");
-
-  if(!rows.length){ $("list").innerHTML='<div class="msg">Nothing matches.</div>'; return; }
+    (VALUE?'<div class="kpi"><div class="n">'+eur(VALUE.total)+'</div><div class="l">of goods we own, on the water<br><a href="#" id="mailval" style="color:var(--accent);font-weight:700">email it to the accountant</a></div></div>':"");
+  if(!rows.length){ $("list").innerHTML='<div class="msg">Nothing matches.</div>'; wire(); return; }
+  var shipCount=(function(){var s={};rows.forEach(function(x){s[x.sh.id]=1;});return Object.keys(s).length;})();
   $("list").innerHTML='<div class="tablewrap"><table><thead><tr>'+
-    th("supplier","Supplier")+th("po","Order")+'<th>Parts</th>'+
-    th("shipBy","Ship by")+th("etd","Supplier says")+th("atd","Left")+
-    th("eta","Arrives")+'<th>Status</th>'+
-    '</tr></thead><tbody>'+rows.map(row).join("")+'</tbody></table></div>';
+    th("supplier","Supplier")+th("po","Order")+th("part","Part")+
+    '<th style="text-align:right">Qty</th>'+
+    th("needBy","We run out")+th("eta","Arrives")+th("slack","Margin")+'<th>Status</th>'+
+    '</tr></thead><tbody>'+rows.map(row).join("")+'</tbody></table></div>'+
+    '<p class="po" style="margin:10px 2px;color:var(--muted)">'+rows.length+' part lines across '+shipCount+' shipments.</p>';
+  wire();
+}
+function wire(){
   var mv=$("mailval");
   if(mv) mv.onclick=async function(ev){
     ev.preventDefault();
-    if(!confirm("Send the goods-in-transit report by email now?\n\nIt goes to the address list in the worker settings, not to the accountant automatically \u2014 add them there once they have agreed it replaces the valuation-report line.")) return;
-    mv.textContent="sending\u2026";
-    try{
-      var r=await fetch(API+"/in-transit?mail=1",{headers:{"x-device-key":key()}});
-      var j=await r.json();
-      mv.textContent = (r.ok && j.sent) ? "sent to "+j.to : "could not send";
+    if(!confirm("Send the goods-in-transit report by email now?")) return;
+    mv.textContent="sending…";
+    try{ var r=await fetch(API+"/in-transit?mail=1",{headers:{"x-device-key":key()}});
+      var j=await r.json(); mv.textContent=(r.ok&&j.sent)?"sent to "+j.to:"could not send";
     }catch(e){ mv.textContent="could not send"; }
   };
   Array.prototype.forEach.call(document.querySelectorAll("th[data-s]"),function(h){
@@ -198,51 +226,38 @@ function draw(){
       if(SORT===k) DIR=-DIR; else { SORT=k; DIR=1; } draw(); };
   });
 }
-function eur(n){ try{ return "\u20ac"+Math.round(Number(n)||0).toLocaleString("en-GB"); }
-                 catch(e){ return "\u20ac"+n; } }
 function kpi(n,l,c){ return '<div class="kpi '+(c||'')+'"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>'; }
+function eur(n){ try{ return "€"+Math.round(Number(n)||0).toLocaleString("en-GB"); }catch(e){ return "€"+n; } }
 function th(k,t){ return '<th data-s="'+k+'">'+t+(SORT===k?(DIR>0?" ↑":" ↓"):"")+'</th>'; }
 function dt(v){ return v?'<span class="d">'+esc(v)+'</span>':'<span class="d miss">—</span>'; }
-/* How the arrival sits against the day the line runs out. This is the whole
-   question for anything already shipped, and it was nowhere on the screen. */
-function slackNote(r){
-  if(r.slack===null||r.slack===undefined||!r.needBy) return '';
-  var d=r.slack;
-  var txt = d<0 ? Math.abs(d)+' days too late'
-          : d<14 ? 'only '+d+' days spare'
-          : Math.round(d/7)+' weeks spare';
-  var col = d<0 ? 'var(--warn)' : d<14 ? 'var(--amber)' : 'var(--muted)';
-  return '<div class="po" style="color:'+col+(d<14?';font-weight:700':'')+'">'+txt+'</div>';
+/* Where the box has got to — the same for every part in it. */
+function stageOf(r){
+  if(r.leg==="transit") return r.overdue?"arrival overdue":"on the water";
+  if(r.atd) return "left "+esc(r.atd);
+  if(r.etd) return "leaves "+esc(r.etd);
+  if(r.prep) return "in preparation";
+  return "no date from the supplier";
 }
-
-function row(r){
-  /* risk is empty when no run-out date is on file for any part in the box.
-     That is not the same as the supplier being silent, and saying "no date
-     yet" to a shipment that has an ETD would be a plain lie on the screen. */
-  /* Once a box has left, the only question is whether it lands in time.
-     Say which, rather than a neutral "on its way" that reads as fine. */
-  var tag = r.leg==="transit"
-            ? (r.overdue ? '<span class="tag t-late">arrival overdue</span>'
-             : r.risk==="late" ? '<span class="tag t-late">lands too late</span>'
-             : r.risk==="ok" ? '<span class="tag t-go">lands in time</span>'
-             : '<span class="tag t-go">on the water</span>')
-          : r.atd ? (r.risk==="late" ? '<span class="tag t-late">lands too late</span>'
-             : r.risk==="ok" ? '<span class="tag t-go">lands in time</span>'
-             : '<span class="tag t-go">on its way</span>')
-          : r.risk==="late" ? '<span class="tag t-late">will be late</span>'
-          : r.risk==="ok" ? '<span class="tag t-ok">on time</span>'
-          : r.etd ? '<span class="tag t-ok">date given</span>'
-          : '<span class="tag t-unk">no date yet</span>';
-  return '<tr'+(atRisk(r)?' class="late"':'')+'>'+
+function row(x){
+  var r=x.sh, p=x.p;
+  var late=p.risk==="late";
+  var tag = p.risk==="unknown" ? '<span class="tag t-unk">no deadline on file</span>'
+          : late ? '<span class="tag t-late">arrives too late</span>'
+          : '<span class="tag t-ok">in time</span>';
+  var margin=(p.slack===null||p.slack===undefined)
+    ? '<span class="d miss">—</span>'
+    : (p.slack<0 ? '<b style="color:var(--warn)">'+Math.abs(p.slack)+' days late</b>'
+       : p.slack<14 ? '<b style="color:var(--amber)">'+p.slack+' days</b>'
+       : '<span class="d">'+Math.round(p.slack/7)+' weeks</span>');
+  return '<tr'+(late?' class="late"':'')+'>'+
     '<td class="sup">'+esc(r.supplier)+'</td>'+
-    '<td><div class="po">'+esc(r.po)+'</div><div class="po" style="opacity:.6">'+esc(r.ref)+'</div></td>'+
-    '<td class="items">'+esc(r.items.join(", "))+(r.more?' +'+r.more+' more':'')+'</td>'+
-    '<td>'+(r.shipBy?'<span class="d"><b>'+esc(r.shipBy)+'</b></span>'
-            :'<span class="d miss">'+(r.leg==="transit"?'already gone':'—')+'</span>')+
-      (r.needBy?'<div class="po" style="opacity:.7">out '+esc(r.needBy)+'</div>':'')+'</td>'+
-    '<td>'+dt(r.etd)+(r.mode?'<div class="po" style="opacity:.7">'+esc(r.mode)+'</div>':'')+'</td>'+
-    '<td>'+(r.leg==="transit"?'<span class="d">shipped</span>':dt(r.atd))+'</td>'+
-    '<td>'+dt(r.eta)+slackNote(r)+'</td>'+
+    '<td><div class="po">'+esc(r.po)+'</div><div class="po" style="opacity:.6">'+esc(r.ref)+'</div>'+
+      '<div class="po" style="opacity:.6">'+stageOf(r)+'</div></td>'+
+    '<td class="items">'+esc(p.name)+(p.code?'<div class="po" style="opacity:.6">'+esc(p.code)+'</div>':'')+'</td>'+
+    '<td style="text-align:right">'+(p.qty||'')+'</td>'+
+    '<td>'+dt(p.needBy)+'</td>'+
+    '<td>'+dt(r.eta)+'</td>'+
+    '<td>'+margin+'</td>'+
     '<td>'+tag+'</td></tr>';
 }
 </script>
