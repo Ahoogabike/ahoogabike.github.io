@@ -5,53 +5,75 @@
 <title>Ahooga · Shipment dates</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&display=swap">
 <style>
-/* Written for someone in a factory office in Taiwan who did not ask for
-   another system to log into. Big targets, no jargon, no Odoo words, and
-   it must work on a phone. Nothing on this page is Ahooga-internal: a
-   supplier sees their own orders and nothing else, enforced by the server
-   and not by this file. */
-:root{ --bg:#f7f4ec; --panel:#fff; --line:#e4ddcd; --ink:#1d1c16; --muted:#6b6557;
-       --accent:#ea1d5e; --ok:#0f7a52; --warn:#c0451f; }
+/* A worksheet, not an app. Someone in a factory office opens this, scans
+   down the orders, types dates, saves. One row per shipment. Splitting is
+   the exception, so it is a button that opens a window rather than
+   something taking up space on every row. */
+:root{ --bg:#f7f4ec; --panel:#fff; --line:#e4ddcd; --line2:#f0ebe0; --ink:#1d1c16;
+       --muted:#6b6557; --accent:#ea1d5e; --ok:#0f7a52; --warn:#c0451f; }
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);
   font-family:'Archivo',system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
-.wrap{max-width:860px;margin:0 auto;padding:22px 16px 64px}
-header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
-h1{margin:0;font-size:25px;font-weight:800;letter-spacing:-.3px}
+.wrap{max-width:1240px;margin:0 auto;padding:22px 18px 70px}
+header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:24px;font-weight:800;letter-spacing:-.3px}
 h1 span{color:var(--accent)}
 .who{color:var(--muted);font-size:15px;margin-left:auto}
-.lede{color:var(--muted);font-size:15px;line-height:1.5;margin:4px 0 20px;max-width:60ch}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
-  padding:16px 18px;margin-bottom:14px}
-.po{font-size:19px;font-weight:800}
-.ref{color:var(--muted);font-size:13px}
-.parts{margin:9px 0 14px;font-size:15px;line-height:1.55}
-.parts b{font-weight:700}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px}
-label{display:block;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:5px}
-input[type=date],select{width:100%;padding:11px 12px;border:1.5px solid var(--line);
-  border-radius:10px;background:#fff;color:var(--ink);font:inherit;font-size:16px}
-input[type=date]:focus,select:focus{outline:none;border-color:var(--accent)}
-.hint{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.4}
-.row{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
-button{font:inherit;font-weight:800;font-size:15px;border:none;border-radius:999px;
-  padding:11px 24px;cursor:pointer;background:var(--accent);color:#fff}
-button.ghost{background:transparent;color:var(--muted);border:1.5px solid var(--line)}
-button[disabled]{opacity:.45;cursor:default}
-.saved{color:var(--ok);font-weight:700;font-size:14px}
-.err{color:var(--warn);font-weight:700;font-size:14px}
-.state{display:inline-block;font-size:12px;font-weight:800;padding:3px 10px;
-  border-radius:999px;margin-left:8px;vertical-align:middle}
+.lede{color:var(--muted);font-size:14.5px;line-height:1.5;margin:6px 0 18px;max-width:72ch}
+.tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:auto}
+table{border-collapse:collapse;width:100%;min-width:980px}
+th{text-align:left;font-size:11.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;
+   color:var(--muted);padding:12px 12px 9px;border-bottom:1px solid var(--line);white-space:nowrap;
+   background:var(--panel);position:sticky;top:0;z-index:2}
+td{padding:11px 12px;border-bottom:1px solid var(--line2);vertical-align:top;font-size:14px}
+tr:last-child td{border-bottom:none}
+tr.dirty{background:#fffdf4}
+.ord{font-weight:800;font-size:15px;white-space:nowrap}
+.ref{color:var(--muted);font-size:11.5px;white-space:nowrap}
+.parts{line-height:1.5;min-width:230px}
+.parts .q{color:var(--muted)}
+input[type=date],select{padding:8px 9px;border:1.5px solid var(--line);border-radius:9px;
+  background:#fff;color:var(--ink);font:inherit;font-size:14px;width:150px}
+select{width:108px}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+.state{display:inline-block;font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap}
 .s-prep{background:#f4efe0;color:#8a6d1f}
 .s-go{background:#e7f3ec;color:var(--ok)}
-.msg{padding:14px 16px;border-radius:12px;margin-bottom:16px;font-size:15px}
-.msg.info{background:#fff;border:1px solid var(--line);color:var(--muted)}
-.msg.bad{background:#fdece7;border:1px solid #e8b9a6;color:var(--warn)}
-#gate{position:fixed;inset:0;z-index:99;background:var(--bg);display:flex;
-  flex-direction:column;align-items:center;justify-content:center;gap:15px;
-  text-align:center;padding:24px}
-#gate input{width:330px;max-width:84vw;text-align:center}
-@media(max-width:560px){ .who{margin-left:0;width:100%} h1{font-size:22px} }
+button{font:inherit;font-weight:800;font-size:13.5px;border:none;border-radius:999px;
+  padding:8px 16px;cursor:pointer;background:var(--accent);color:#fff;white-space:nowrap}
+button.ghost{background:transparent;color:var(--muted);border:1.5px solid var(--line);font-weight:700}
+button.ghost:hover{border-color:var(--accent);color:var(--ink)}
+button[disabled]{opacity:.35;cursor:default}
+.note{display:block;font-size:11.5px;margin-top:5px;max-width:130px;line-height:1.35}
+.note.saved{color:var(--ok);font-weight:700}
+.note.err{color:var(--warn);font-weight:700}
+.msg{padding:16px 18px;border-radius:12px;font-size:15px;background:var(--panel);
+  border:1px solid var(--line);color:var(--muted)}
+.msg.bad{background:#fdece7;border-color:#e8b9a6;color:var(--warn)}
+/* ── the split window ── */
+#ov{position:fixed;inset:0;background:rgba(29,28,22,.45);z-index:50;display:none;
+  align-items:flex-start;justify-content:center;padding:28px 16px;overflow:auto}
+#ov.on{display:flex}
+.modal{background:var(--panel);border-radius:16px;max-width:760px;width:100%;padding:22px 24px 20px;
+  box-shadow:0 24px 60px -20px rgba(0,0,0,.4)}
+.modal h2{margin:0 0 4px;font-size:19px;font-weight:800}
+.modal .sub{color:var(--muted);font-size:13.5px;margin-bottom:16px;line-height:1.5}
+.batch{border:1.5px dashed var(--line);border-radius:12px;padding:13px 15px;margin-bottom:10px}
+.batch h4{margin:0 0 9px;font-size:13px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.bl{display:flex;gap:10px;align-items:center;margin-bottom:6px;font-size:13.5px}
+.bl span{flex:1}
+.bl small{color:var(--muted);display:block;font-size:11.5px}
+.bl input{width:88px;padding:6px 8px;border:1.5px solid var(--line);border-radius:8px;font:inherit;font-size:14px}
+.bm{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap}
+.tally{font-size:13px;margin:10px 0 2px}
+.tally.bad{color:var(--warn);font-weight:700}
+.tally.ok{color:var(--ok);font-weight:700}
+.mrow{display:flex;gap:10px;align-items:center;margin-top:14px;flex-wrap:wrap}
+label.lab{display:block;font-size:11px;font-weight:800;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em}
+#gate{position:fixed;inset:0;z-index:99;background:var(--bg);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:15px;text-align:center;padding:24px}
+#gate input{width:330px;max-width:84vw;text-align:center;font-size:16px;padding:11px 12px}
+@media(max-width:700px){ .who{margin-left:0;width:100%} }
 </style></head><body>
 
 <div id="gate">
@@ -60,7 +82,7 @@ button[disabled]{opacity:.45;cursor:default}
      It is stored on this device only, and you will not be asked again.</p>
   <input type="password" id="gk" autocomplete="off" placeholder="Access code"/>
   <button id="ggo">Open</button>
-  <div id="gmsg" class="err" style="min-height:20px"></div>
+  <div id="gmsg" class="note err" style="min-height:20px;max-width:none"></div>
 </div>
 
 <div class="wrap" id="app" style="display:none">
@@ -68,15 +90,19 @@ button[disabled]{opacity:.45;cursor:default}
     <h1>Ahooga · <span>Shipment dates</span></h1>
     <div class="who" id="who"></div>
   </header>
-  <p class="lede">Please tell us when each order will leave your factory. Update it
-     whenever it changes — an early warning is always welcome, and a date that moves
-     is normal. Ahooga books the transport from what you enter here.</p>
+  <p class="lede">Please tell us when each order will leave your factory, and update it
+     whenever it changes — an early warning is always welcome. Ahooga books the transport
+     from what you enter here. If an order will arrive in more than one shipment, use
+     <b>Split</b>.</p>
   <div id="list"></div>
 </div>
+
+<div id="ov"><div class="modal" id="modal"></div></div>
 
 <script>
 var API = "https://vv-inbound.ahoogahouse-1050-be.workers.dev";
 var STORE = "ahooga_supplier_key";
+var SH = {};
 function key(){ try{ return localStorage.getItem(STORE)||""; }catch(e){ return ""; } }
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
@@ -84,8 +110,7 @@ function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){
 
 async function api(path, body){
   var o = { headers:{ "x-device-key": key() } };
-  if(body){ o.method="POST"; o.headers["Content-Type"]="application/json";
-            o.body=JSON.stringify(body); }
+  if(body){ o.method="POST"; o.headers["Content-Type"]="application/json"; o.body=JSON.stringify(body); }
   var r = await fetch(API+path, o);
   var j = await r.json().catch(function(){ return {}; });
   if(!r.ok) throw new Error(j.error || ("Server said "+r.status));
@@ -94,12 +119,9 @@ async function api(path, body){
 
 /* ---------- gate ---------- */
 async function open_(k){
-  var me = await (async function(){
-    var r = await fetch(API+"/whoami", { headers:{ "x-device-key": k } });
-    var j = await r.json().catch(function(){ return {}; });
-    if(!r.ok) throw new Error(j.error || ("Server said "+r.status));
-    return j;
-  })();
+  var r = await fetch(API+"/whoami", { headers:{ "x-device-key": k } });
+  var me = await r.json().catch(function(){ return {}; });
+  if(!r.ok) throw new Error(me.error || ("Server said "+r.status));
   if(me.role !== "supplier") throw new Error("That code is not for this page.");
   try{ localStorage.setItem(STORE, k); }catch(e){}
   $("who").textContent = me.device || "";
@@ -115,6 +137,8 @@ document.addEventListener("DOMContentLoaded", async function(){
     catch(e){ $("gmsg").textContent = e.message||String(e); }
   };
   $("gk").addEventListener("keydown", function(e){ if(e.key==="Enter") $("ggo").click(); });
+  $("ov").addEventListener("click", function(e){ if(e.target===$("ov")) closeSplit(); });
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape") closeSplit(); });
   if(key()){
     try{ await open_(key()); return; }
     catch(e){ try{ localStorage.removeItem(STORE); }catch(e2){} $("gmsg").textContent=e.message||String(e); }
@@ -122,72 +146,149 @@ document.addEventListener("DOMContentLoaded", async function(){
   $("gk").focus();
 });
 
-/* ---------- the orders ---------- */
-function card(sh){
+/* ---------- the worksheet ---------- */
+function row(sh){
+  var i = sh.id;
   var parts = sh.lines.map(function(l){
-    return "<b>"+esc(l.part)+"</b> × "+l.qty; }).join("<br>");
+    return esc(l.part)+' <span class="q">× '+l.qty+'</span>'; }).join("<br>");
   var state = sh.atd ? '<span class="state s-go">on its way</span>'
             : sh.prep ? '<span class="state s-prep">in preparation</span>' : "";
-  function dateField(id, lab, val, hint){
-    return '<div><label for="'+id+'">'+lab+'</label>'+
-           '<input type="date" id="'+id+'" value="'+esc(val||"")+'">'+
-           '<div class="hint">'+hint+'</div></div>';
-  }
-  var i = sh.id;
-  return '<div class="card" data-id="'+i+'">'+
-    '<div class="po">'+esc(sh.order||sh.ref)+state+'</div>'+
-    '<div class="ref">Ahooga reference '+esc(sh.ref)+'</div>'+
-    '<div class="parts">'+parts+'</div>'+
-    '<div class="grid">'+
-      dateField("p"+i,"Preparation started", sh.prep, "The day you began making these parts.") +
-      dateField("e"+i,"Expected to leave",  sh.etd,  "Your best estimate. Change it whenever it changes.") +
-      dateField("a"+i,"Actually left",      sh.atd,  "Fill this in once the goods have gone.") +
-      '<div><label for="m'+i+'">How it travels</label>'+
-       '<select id="m'+i+'">'+
-        ['','air','sea','train','road','courier'].map(function(m){
-          return '<option value="'+m+'"'+(sh.mode===m?' selected':'')+'>'+
-                 (m? m.charAt(0).toUpperCase()+m.slice(1) : "—")+'</option>'; }).join("")+
-       '</select><div class="hint">Leave blank if not decided.</div></div>'+
-    '</div>'+
-    '<div class="row"><button class="save" data-id="'+i+'">Save</button>'+
-      '<span class="note" id="n'+i+'"></span></div>'+
-  '</div>';
+  function d(id,v){ return '<input type="date" id="'+id+i+'" value="'+esc(v||"")+'" oninput="touch('+i+')">'; }
+  return '<tr id="r'+i+'">'+
+    '<td><div class="ord">'+esc(sh.order||sh.ref)+'</div>'+
+        '<div class="ref">'+esc(sh.ref)+'</div>'+
+        (state?'<div style="margin-top:5px">'+state+'</div>':'')+'</td>'+
+    '<td class="parts">'+parts+'</td>'+
+    '<td>'+d("p",sh.prep)+'</td>'+
+    '<td>'+d("e",sh.etd)+'</td>'+
+    '<td>'+d("a",sh.atd)+'</td>'+
+    '<td><select id="m'+i+'" onchange="touch('+i+')">'+
+      ['','air','sea','train','road','courier'].map(function(m){
+        return '<option value="'+m+'"'+(sh.mode===m?' selected':'')+'>'+
+          (m?m.charAt(0).toUpperCase()+m.slice(1):"—")+'</option>'; }).join("")+
+      '</select></td>'+
+    '<td><button class="ghost" onclick="openSplit('+i+')">Split</button></td>'+
+    '<td><button id="b'+i+'" onclick="save('+i+')" disabled>Save</button>'+
+        '<span class="note" id="n'+i+'"></span></td>'+
+  '</tr>';
+}
+
+function touch(id){
+  $("r"+id).classList.add("dirty");
+  $("b"+id).disabled = false;
+  var n=$("n"+id); n.className="note"; n.textContent="";
 }
 
 async function load(){
-  $("list").innerHTML = '<div class="msg info">Loading your orders…</div>';
+  $("list").innerHTML = '<div class="msg">Loading your orders…</div>';
   try{
     var d = await api("/supplier/orders");
     if(!d.shipments.length){
-      $("list").innerHTML = '<div class="msg info">You have no open orders with us at the moment.</div>';
+      $("list").innerHTML = '<div class="msg">You have no open orders with us at the moment.</div>';
       return;
     }
-    $("list").innerHTML = d.shipments.map(card).join("");
-    Array.prototype.forEach.call(document.querySelectorAll("button.save"), function(b){
-      b.onclick = function(){ save(b.getAttribute("data-id"), b); };
-    });
+    d.shipments.forEach(function(sh){ SH[sh.id]=sh; });
+    $("list").innerHTML =
+      '<div class="tablewrap"><table><thead><tr>'+
+      '<th>Order</th><th>Parts</th><th>Preparation started</th><th>Expected to leave</th>'+
+      '<th>Actually left</th><th>How</th><th></th><th></th>'+
+      '</tr></thead><tbody>'+ d.shipments.map(row).join("") +'</tbody></table></div>';
   }catch(e){
     $("list").innerHTML = '<div class="msg bad">Could not load your orders: '+esc(e.message||e)+'</div>';
   }
 }
 
-async function save(id, btn){
-  var note = $("n"+id);
-  btn.disabled = true; note.className="note"; note.textContent="Saving…";
+async function save(id){
+  var n=$("n"+id), b=$("b"+id);
+  b.disabled=true; n.className="note"; n.textContent="Saving…";
   try{
-    await api("/supplier/update", {
-      id: Number(id),
-      prep: $("p"+id).value || "",
-      etd:  $("e"+id).value || "",
-      atd:  $("a"+id).value || "",
-      mode: $("m"+id).value || ""
-    });
-    note.className="saved"; note.textContent="✓ Saved — thank you";
-    setTimeout(function(){ note.textContent=""; }, 4000);
-  }catch(e){
-    note.className="err"; note.textContent = e.message||String(e);
-  }
-  btn.disabled = false;
+    await api("/supplier/update", { id:Number(id),
+      prep:$("p"+id).value||"", etd:$("e"+id).value||"",
+      atd:$("a"+id).value||"", mode:$("m"+id).value||"" });
+    n.className="note saved"; n.textContent="✓ Saved";
+    $("r"+id).classList.remove("dirty");
+    setTimeout(function(){ n.textContent=""; }, 4000);
+  }catch(e){ n.className="note err"; n.textContent=e.message||String(e); b.disabled=false; }
+}
+
+/* ---------- split window ---------- */
+var SPLIT_ID=null;
+function closeSplit(){ $("ov").classList.remove("on"); SPLIT_ID=null; }
+
+function openSplit(id){
+  SPLIT_ID=id;
+  var sh=SH[id];
+  $("modal").innerHTML =
+    '<h2>Split '+esc(sh.order||sh.ref)+'</h2>'+
+    '<p class="sub">Put the quantity of each part into the shipment it travels in. '+
+      'Leave a box empty if that part is not in that shipment. Ahooga will set it up '+
+      'and the shipments will appear in your list.</p>'+
+    '<div id="bs"></div>'+
+    '<div class="tally" id="tl"></div>'+
+    '<div class="mrow">'+
+      '<button class="ghost" onclick="addBatch()">+ Add a shipment</button>'+
+      '<button onclick="sendSplit()" id="sb">Send to Ahooga</button>'+
+      '<button class="ghost" onclick="closeSplit()">Cancel</button>'+
+      '<span class="note" id="sn" style="max-width:none"></span>'+
+    '</div>';
+  $("modal").dataset.n="0";
+  addBatch(); addBatch();
+  $("ov").classList.add("on");
+}
+
+function addBatch(){
+  var m=$("modal"), n=Number(m.dataset.n||"0")+1;
+  if(n>6) return; m.dataset.n=String(n);
+  var sh=SH[SPLIT_ID], d=document.createElement("div");
+  d.className="batch"; d.dataset.b=n;
+  d.innerHTML='<h4>Shipment '+n+'</h4>'+
+    sh.lines.map(function(l){
+      return '<div class="bl"><span>'+esc(l.part)+'<small>'+l.qty+' on the order</small></span>'+
+        '<input type="number" min="0" step="1" placeholder="0" data-move="'+l.move+'" oninput="tally()"></div>';
+    }).join("")+
+    '<div class="bm"><div><label class="lab">Leaves on</label>'+
+      '<input type="date" class="betd"></div>'+
+      '<div><label class="lab">How</label><select class="bmode">'+
+        ['','air','sea','train','road','courier'].map(function(x){
+          return '<option value="'+x+'">'+(x?x.charAt(0).toUpperCase()+x.slice(1):"—")+'</option>';
+        }).join("")+'</select></div></div>';
+  $("bs").appendChild(d); tally();
+}
+
+function tally(){
+  var sh=SH[SPLIT_ID], used={};
+  Array.prototype.forEach.call($("modal").querySelectorAll("input[data-move]"), function(inp){
+    var k=inp.getAttribute("data-move"); used[k]=(used[k]||0)+(parseFloat(inp.value||"0")||0); });
+  var over=[], left=[];
+  sh.lines.forEach(function(l){
+    var u=used[String(l.move)]||0;
+    if(u>l.qty+0.001) over.push(esc(l.part));
+    else if(l.qty-u>0.001) left.push(esc(l.part)+" × "+Math.round((l.qty-u)*100)/100);
+  });
+  var el=$("tl");
+  if(over.length){ el.className="tally bad"; el.textContent="More than the order has: "+over.join(", "); }
+  else if(left.length){ el.className="tally"; el.innerHTML="Not yet in any shipment: "+left.join(", "); }
+  else { el.className="tally ok"; el.textContent="✓ Everything is accounted for"; }
+}
+
+async function sendSplit(){
+  var id=SPLIT_ID, note=$("sn"), batches=[];
+  Array.prototype.forEach.call($("modal").querySelectorAll(".batch"), function(b){
+    var lines=[];
+    Array.prototype.forEach.call(b.querySelectorAll("input[data-move]"), function(inp){
+      var v=parseFloat(inp.value||"0")||0;
+      if(v>0) lines.push({ move:Number(inp.getAttribute("data-move")), qty:v }); });
+    if(lines.length) batches.push({ lines:lines,
+      etd:(b.querySelector(".betd").value||""), mode:(b.querySelector(".bmode").value||"") });
+  });
+  if(!batches.length){ note.className="note err"; note.textContent="Put a quantity in at least one shipment."; return; }
+  $("sb").disabled=true; note.className="note"; note.textContent="Sending…";
+  try{
+    var r=await api("/supplier/split", { id:Number(id), batches:batches });
+    note.className="note saved";
+    note.textContent="✓ Sent — "+r.shipments+" shipments. Ahooga will set it up.";
+    setTimeout(closeSplit, 1800);
+  }catch(e){ note.className="note err"; note.textContent=e.message||String(e); $("sb").disabled=false; }
 }
 </script>
 </body></html>
