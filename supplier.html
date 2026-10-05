@@ -233,13 +233,15 @@ function whenWords(ymd){
 /* The parts of a shipment, each with its own ship-by, most urgent first. */
 function partLines(sh){
   return sh.lines.map(function(l){
-    /* A line whose transfer date has already passed gets no ship-by. We do not
-       know when it is coming, and printing a computed date would assert
-       something nobody has told us. Ask for the date instead. */
-    if(l.stale) return { part:l.part, qty:l.qty, needBy:l.needBy||"", by:"",
-                         stale:true, cls:"late" };
+    /* Two different things, wrongly treated as one: WHEN WE NEED IT is known
+       from the production plan, WHEN IT WILL ARRIVE is not. A stale transfer
+       date clouds only the second. Suppressing the ship-by deleted the one
+       instruction the supplier actually needs and replaced it with a complaint
+       about a date they never saw and did not set. The ship-by stays; the
+       request for a date is made once, on the row, beside the date fields. */
     var by = l.needBy ? minusDays(l.needBy, sh.transitDays||0) : "";
-    return { part:l.part, qty:l.qty, needBy:l.needBy||"", by:by, cls:urgencyClass(by) };
+    return { part:l.part, qty:l.qty, needBy:l.needBy||"", by:by,
+             stale:!!l.stale, cls:urgencyClass(by) };
   }).sort(function(a,b){
     if(!a.by && !b.by) return 0;
     if(!a.by) return 1;          /* parts with no deadline sink to the bottom */
@@ -291,9 +293,8 @@ function row(sh){
      three that matter. */
   var pl = partLines(sh).map(function(l){
     return '<div class="pl"><span class="pn">'+esc(l.part)+'</span> <span class="q">× '+l.qty+'</span>'+
-      (l.by ? '<span class="pby '+l.cls+'">ship by '+esc(l.by)+'</span>'
-            : l.stale ? '<span class="pby late">date passed &mdash; please confirm</span>'
-            : '')+'</div>'; });
+      (l.by ? ' <span class="pby '+l.cls+'">ship by '+esc(l.by)+'</span>' : '')+
+      '</div>'; });
   var parts = pl.slice(0,3).join("");
   if(pl.length > 3){
     parts += '<span class="more" onclick="this.parentNode.classList.add(\'open\')">+ '+
@@ -323,10 +324,17 @@ function row(sh){
            ' no date yet</b>' : '')+'</div></div>'
     : '<div class="need"><span class="sm">\u2014</span></div>';
 
+  /* Our own expected date for this order has gone by with nothing shipped, so
+     we no longer know when it lands. The ship-by dates are unaffected — those
+     come from the production plan. This asks for the one thing missing, next
+     to the boxes where it gets typed. */
+  var confirm = sh.stale
+    ? '<div class="sm" style="margin-top:5px;color:var(--warn);font-weight:700">'+
+      'our expected date has passed &mdash; please fill in the dates &rarr;</div>' : '';
   return '<tr id="r'+i+'">'+
     '<td><div class="ord">'+esc(sh.order||sh.ref)+'</div>'+
         '<div class="ref">'+esc(sh.ref)+'</div>'+
-        (state?'<div style="margin-top:5px">'+state+'</div>':'')+'</td>'+
+        (state?'<div style="margin-top:5px">'+state+'</div>':'')+confirm+'</td>'+
     '<td class="parts">'+parts+'</td>'+
     '<td>'+need+'</td>'+
     '<td>'+d("p",sh.prep)+'</td>'+
