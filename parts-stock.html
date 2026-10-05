@@ -207,7 +207,7 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
             <th onclick="setSort('partNo')"   id="sh-partNo">Part #</th>
             <th onclick="setSort('partName')" id="sh-partName">Part Name</th>
             <th onclick="setSort('category')" id="sh-category">Category</th>
-            <th class="num col-recv" onclick="setSort('received')" id="sh-received" title="Effective received = PO received + manual adjustment. Feeds the theoretical stock.">Received</th>
+            <th class="num col-recv" onclick="setSort('received')" id="sh-received" title="Units that have ARRIVED at a warehouse = PO received, less anything still in a holding location (on the water), plus manual adjustment. Goods in transit are not counted here; they appear as incoming on their receipt&#39;s scheduled date.">Received</th>
             <th class="num col-recv" onclick="setSort('recvAdj')" id="sh-recvAdj" title="Manual adjustment: units received that Odoo POs miss (no PO, or pre-Odoo receipts). Added to PO received. Saved in this browser.">± Adj</th>
             <th class="num" onclick="setSort('consumed')" id="sh-consumed" title="Components consumed by completed Manufacturing Orders (actual moves)">Consumed<br><span style="font-weight:400;font-size:9px">production</span></th>
             <th class="num col-type" onclick="setSort('AMN')" id="sh-AMN" title="Estimated units of this part used per A-MAX Nexus produced (full BoM explosion) × A-MAX Nexus bikes produced">A-MAX<br>Nexus</th>
@@ -271,7 +271,7 @@ table.fcg tr.fc-grp td.fc-part{background:#efe9da}
   <!-- FORWARD STOCK TAB -->
   <div class="view" id="view-forecast">
     <div class="explain">
-      <strong>Forward component stock — week by week.</strong> Models the real two-stage flow: incoming component POs (from the <strong>PO Tracker</strong>) are received into the <strong>Anderlecht (AND)</strong> warehouse, then moved to <strong>Velovisie (VV)</strong> for assembly. Each cell is the <strong>combined available stock (Velovisie + Anderlecht)</strong> after that week's consumption — i.e. assuming the AND→VV move has been made — driven by the <strong>PO Builder — Bikes</strong> plan (bikes/week × per-bike BoM usage, averaged per family) — using the <strong>MY26 recipe up to the MY27 production start, then the MY27 recipe</strong> — <strong>plus</strong> the weekly <strong>after-sales / repair demand</strong> published by the <strong>Spares &amp; Accessories</strong> app, so parts used for repairs are ordered too. <code>(+n)</code> = a component PO arriving into AND that week; <code>⇄n</code> = the AND→VV transfer you still need to do (it also appears as a requested move in the <strong>Parts Agenda</strong>) — sized to cover ~8 weeks of build (or whatever AND holds), allow ~3 days for the move; <code>⚙n</code> in week 1 = parts consumed by bikes already in production at Okazi (running POs, not yet built — the future PO-Builder bikes are the weekly plan). A <strong style="color:#8b1f1f">red / negative</strong> cell means <strong>both</strong> AND and VV are exhausted — place or pull a PO forward. <strong>Finished wheels</strong> appear here too (badged <em>finished wheel</em>): they're assembled at MTB from the components on the “Forward stock at MTB” tab, then consumed at Velovisie when bikes are built — their start pool is <strong>VV + MTB</strong> on-hand, so a negative cell means you need to <strong>build more wheels</strong> (check the MTB tab for the components). POs already received (including those delivered straight to VV via subcontracting) drop out of the open-PO feed and are already reflected in current stock. Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
+      <strong>Forward component stock — week by week.</strong> Models the real two-stage flow: incoming component POs (from the <strong>PO Tracker</strong>) are received into the <strong>Anderlecht (AND)</strong> warehouse, then moved to <strong>Velovisie (VV)</strong> for assembly. Each cell is the <strong>combined available stock (Velovisie + Anderlecht)</strong> after that week's consumption — i.e. assuming the AND→VV move has been made — driven by the <strong>PO Builder — Bikes</strong> plan (bikes/week × per-bike BoM usage, averaged per family) — using the <strong>MY26 recipe up to the MY27 production start, then the MY27 recipe</strong> — <strong>plus</strong> the weekly <strong>after-sales / repair demand</strong> published by the <strong>Spares &amp; Accessories</strong> app, so parts used for repairs are ordered too. <code>(+n)</code> = a component PO arriving into AND that week; <code>⇄n</code> = the AND→VV transfer you still need to do (it also appears as a requested move in the <strong>Parts Agenda</strong>) — sized to cover ~8 weeks of build (or whatever AND holds), allow ~3 days for the move; <code>⚙n</code> in week 1 = parts consumed by bikes already in production at Okazi (running POs, not yet built — the future PO-Builder bikes are the weekly plan). A <strong style="color:#8b1f1f">red / negative</strong> cell means <strong>both</strong> AND and VV are exhausted — place or pull a PO forward. <strong>Finished wheels</strong> appear here too (badged <em>finished wheel</em>): they're assembled at MTB from the components on the “Forward stock at MTB” tab, then consumed at Velovisie when bikes are built — their start pool is <strong>VV + MTB</strong> on-hand, so a negative cell means you need to <strong>build more wheels</strong> (check the MTB tab for the components). POs already received (including those delivered straight to VV via subcontracting) drop out of the open-PO feed and are already reflected in current stock. <strong>Goods on the water are not counted as stock.</strong> Odoo's two-step receipt puts them in <code>AND/In Transit</code> when they leave the supplier, not when they arrive; this app holds that pool out of Anderlecht on-hand and re-enters it as an arrival on the date of its <code>AND/STOR</code> putaway transfer (shown in the drill-down as <em>already shipped</em>). Per-bike usage is averaged across each family's bikes, so colour/rack-specific parts (paint, racks) are approximate.
     </div>
     <div class="kpis" id="fc-kpis"></div>
     <div class="toolbar">
@@ -379,7 +379,25 @@ function isMY27Name(nm){ return /my\s*-?\s*27/i.test(nm||''); }
 // Added on top of production consumption so each component is ordered once for production + repair.
 let repairRateByPid={};
 function repairOf(pid){ return repairRateByPid[pid]||0; }
+/* WHICH VERSION WROTE THIS FEED.
+   Three times today a run was read as "the fix did not work" when the
+   browser was simply still running yesterday's file. Guessing from byte
+   counts is no way to settle it, so every published payload now carries
+   the build that produced it, and the header shows it on screen. If the
+   feed says one thing and the page says another, it is the cache. */
+const APP_BUILD = '2026-10-05.recvarrived';
 let bomByTmpl={}, prodToTmpl={};  // BoM graph — module-level so the wheel/MTB helpers can read it
+let variantsOfTmpl={};            // template -> [Set(attribute value ids)] per variant
+let variantSetOf={};              // product id -> Set(attribute value ids)
+/* An Odoo BoM can be tied to ONE VARIANT rather than to the whole template.
+   Ahooga uses that for frames: BoM 405 builds the Custom AOFV2E frame out of
+   an unpainted frame, because custom colours are painted at Deco Coat. The
+   six standard colours have no BoM at all — they are bought already painted.
+   Keyed by template alone, that single BoM was applied to all seven colours
+   and every bike appeared to eat an unpainted frame. Variant BoMs therefore
+   live here, and only the variant they belong to can reach them. */
+let bomByProduct={};              // product id -> {productQty, lines} for a variant-specific BoM
+let mtbWheelPids=new Set();       // the wheel PRODUCTS built at MTB (variant level)
 let bikeRefs=[];            // the exact bike references the PO Builder builds {id,code,name,tmplId,fam}
 let tmplParts={};           // bike template id -> Set(component productId) — for the per-reference filter
 let packByPart={};          // productId -> units per purchase carton (0 = none on file)
@@ -388,20 +406,14 @@ let packByPart={};          // productId -> units per purchase carton (0 = none 
    which threw on every run and was swallowed by its own try/catch. */
 let packFromOdoo=0, packFromStore=0;
 let incomingByPart={};      // productId -> [{date:'YYYY-MM-DD'|null, qty}] — COUNTED supply
+let transitMap={};          // productId -> units sitting in AND/In Transit (on the water)
+let transitHeldOut=false;   // true once that pool has been taken out of on-hand
+let transitLocIdList=[];    // the location ids that pool belongs to
 let heldIncoming={};        // productId -> [{date,qty,ref}] — overdue or undated PO lines,
                             // deliberately NOT counted as supply (see the builder below)
 let productionPlan=null;    // {weeks:[{monday,label,iso}], byFam:{EMA:[],EMD:[],AMA:[],AMD:[]}, ...}
 let productionBasis=null;   // {inprodBySku, unmatchedBySku, ...} published by Max Planner
-let inprodByFam={};         // famKey -> count of bikes in running Okazi POs (not yet built/consumed) — MY26
-let inprodByFamMY27={};     // famKey -> MY27 bikes on open bike POs (not yet received) — burned with the MY27 recipe
-// Components committed to bikes on already-released bike POs (MY26 + MY27), consumed up-front in week 1.
-function inprodUse(pid){
-  let c=0;
-  for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) c+=u*(inprodByFam[fam]||0); }
-  for(const fam in inprodByFamMY27){ const u=(usagePerBikeByFamMY27[fam]||{})[pid]||0; if(u) c+=u*(inprodByFamMY27[fam]||0); }
-  return c;
-}
-function inprodBikesTotal(){ let t=0; for(const f in inprodByFam) t+=inprodByFam[f]||0; for(const f in inprodByFamMY27) t+=inprodByFamMY27[f]||0; return t; }
+let inprodByFam={};         // famKey -> count of bikes in running Okazi POs (not yet built/consumed)
 let mtbWheelTmpls=new Set();// template ids of wheel assemblies built at MTB (consumed as finished wheels at VV)
 let wheelComponentIds=new Set();// parts consumed into wheels at MTB → their VV theoretical is 0 (they live at MTB, not VV)
 let fcCollapsed={};         // group name -> true if collapsed in the Forward stock tab
@@ -444,7 +456,7 @@ function computeExcludedSubtrees(){
     const hay=((r.partNo||'')+' '+(r.partName||'')).toLowerCase();
     if(!toks.some(t=>hay.includes(t))) continue;          // this row IS a matched pre-assembly
     const tmpl=prodToTmpl[r.id]; if(tmpl==null||!bomByTmpl[tmpl]) continue;
-    const sub=explodeUsage(tmpl,bomByTmpl,prodToTmpl,true); // all components below it
+    const sub=explodeUsageOf(r.id,bomByTmpl,prodToTmpl,true); // all components below it
     for(const pid in sub) excludedSubParts.add(Number(pid));
   }
 }
@@ -495,7 +507,7 @@ function renderMtbForecast(){
   const wheelPids=new Set();
   for(const fam in usagePerBikeByFam){ for(const pid in usagePerBikeByFam[fam]){ if(isWheelPid(Number(pid))) wheelPids.add(Number(pid)); } }
   for(const fam in usagePerBikeByFamMY27){ for(const pid in usagePerBikeByFamMY27[fam]){ if(isWheelPid(Number(pid))) wheelPids.add(Number(pid)); } }
-  const wheelBom={}; for(const wp of wheelPids){ const t=prodToTmpl[wp]; wheelBom[wp]=(t!=null)?explodeUsage(t,bomByTmpl,prodToTmpl,true):{}; }
+  const wheelBom={}; for(const wp of wheelPids){ wheelBom[wp]=explodeUsageOf(wp,bomByTmpl,prodToTmpl,true); }
   const mtbCons={}; const ensure=(pid)=>{ if(!mtbCons[pid]) mtbCons[pid]=Array(wks.length).fill(0); return mtbCons[pid]; };
   for(const fam in byFam){
     for(const wp of wheelPids){ const bom=wheelBom[wp]||{}; if(!Object.keys(bom).length) continue;
@@ -573,7 +585,9 @@ function fcInspect(pid){
       ? `${esc(d.date)} <span style="color:#b26a00">(before the plan starts → week 1)</span>`
       : esc(d.date||'');
     /* Say where the date came from, so nobody has to guess which record to correct. */
-    const from = d.src==='receipt'
+    const from = d.src==='in-transit'
+      ? `<span style="color:var(--text3)">already shipped \u2014 putaway ${esc(d.srcRef||'')}</span>`
+      : d.src==='receipt'
       ? `<span style="color:var(--text3)">transfer ${esc(d.srcRef||'')}</span>`
       : `<span style="color:var(--text3)">PO line</span>`;
     return `<tr><td style="padding:2px 6px">${esc(d.ref||'PO')}</td><td style="padding:2px 6px;text-align:right">${fmt(Math.round(d.qty))}</td><td style="padding:2px 6px">${when} ${from}</td></tr>`;
@@ -594,7 +608,8 @@ function fcInspect(pid){
   }
   let cons=0;
   if(productionPlan){ const byFam=productionPlan.byFam||{}; for(let wi=0;wi<productionPlan.weeks.length;wi++){ const um=usageForWeekMonday(productionPlan.weeks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) cons+=u*(byFam[fam][wi]||0); } } }
-  const inprodC=inprodUse(pid);
+  let inprodC=0;
+  for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodC+=u*(inprodByFam[fam]||0); }
   document.getElementById('fc-modal-body').innerHTML=
     `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
        <div><b>${esc(r.partName)}</b><div style="font-size:12px;color:var(--text3)">${r.partNo?('['+esc(r.partNo)+'] '):''}${esc(r.category||'')}</div></div>
@@ -699,7 +714,7 @@ async function publishPartsDeadlines(){
       if(wheelComponentIds.has(r.id)) continue;   // wheel parts are consumed at MTB → handled by the wheel agenda (AND→MTB), not the Velovisie flow
       if(skipForecast(r)) continue;   // no order/move tasks for uncounted fasteners
       const pid=r.id;
-      const inprodCons=inprodUse(pid);
+      let inprodCons=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
       const consArr=wks.map((_,wi)=>{ let c=0; const um=usageForWeekMonday(wks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; c+=repairOf(pid); return c; });
       let vv=(r.vvReal||0), andP=(r.andQty||0);
       const overdue=incBeforeFirst(pid);
@@ -710,6 +725,26 @@ async function publishPartsDeadlines(){
       let shortWi=-1, minLevel=vv+andP, minWi=0, totCons=0, levelAtShort=null;
       let outWi=-1, outLevel=0;   /* the first week the balance actually goes NEGATIVE */
       const moves=[];
+      /* ── HOW LONG WHAT IS ALREADY HERE LASTS ──────────────────────────
+         outDate answers "when do we run out if every order lands as
+         planned". That is the right question for buying, and the wrong one
+         for judging a shipment: a box measured against a date its own
+         arrival created always looks comfortable. The Mivice motor scored
+         34 weeks of margin while in truth the pool ran dry four days
+         before it landed.
+         coverUntil is the plain version: subtract consumption from what is
+         physically on the shelf TODAY and count nothing incoming at all.
+         "If nothing else arrives, we build until this date." A shipment's
+         real margin is that date minus its arrival. */
+      let coverLeft=vv+andP, coverWi=-1;
+      /* ONE DATE IS NOT ENOUGH when a part arrives in several shipments.
+         Measuring every box against "the day today's stock runs dry" makes
+         all three Mivice motor deliveries late on the same morning, when in
+         truth the first one covers the gap and the second only has to beat
+         the day the pool empties AFTER the first has landed. That is a
+         queue, and a queue needs the consumption curve — so publish it and
+         let the consumer walk the arrivals in date order. */
+      const onHand0=vv+andP;
       for(let wi=0; wi<wks.length; wi++){
         const cons=consArr[wi]; totCons+=cons;
         let arrv=incForWeek(pid,wi); if(wi===0) arrv+=overdue;
@@ -724,6 +759,8 @@ async function publishPartsDeadlines(){
            at the far end of a 56-week plan simply because nothing is ordered that
            far ahead, so only the FIRST zero-crossing tells you anything. */
         if(combined<0 && outWi<0){ outWi=wi; outLevel=combined; }
+        coverLeft-=cons;
+        if(coverLeft<0 && coverWi<0) coverWi=wi;
       }
       if(totCons<=0.0001) continue;
       const nm=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
@@ -754,15 +791,27 @@ async function publishPartsDeadlines(){
              jobs and the email has to be able to tell them apart. */
           low:Math.round(minLevel), lowDate:wks[minWi] ? wks[minWi].monday : null,
           outDate: outWi >= 0 && wks[outWi] ? wks[outWi].monday : null,
+          /* null means today's stock carries the whole plan — nothing on
+             order is holding anything up. */
+          coverUntil: coverWi >= 0 && wks[coverWi] ? wks[coverWi].monday : null,
+          onHand: Math.round(onHand0),
+          cons: consArr.map(c=>Math.round(c*100)/100),
           outLevel: outWi >= 0 ? Math.round(outLevel) : null,
           stockout: minLevel < 0,
           floor:Math.round(floorQty),
           planTotal:Math.ceil(consArr.reduce((a,b)=>a+b,0)),   /* the year's whole need — the agreement number */
           safetyWeeks:ORDER_SAFETY_WEEKS, coverWeeks:ORDER_COVER_WEEKS});
       }
+      /* A part that never goes short publishes no order row, so its cover
+         date would be lost — and that is exactly the part a shipment might
+         still be holding up. Publish it on its own. */
+      if(shortWi<0) items.push({type:'cover', id:'cover:'+pid, pid, name:nm,
+        partNo:r.partNo||'', coverUntil: coverWi>=0 ? wks[coverWi].monday : null,
+        onHand:Math.round(onHand0), cons:consArr.map(c=>Math.round(c*100)/100),
+        rate:Math.round(rate*100)/100});
       for(const mv of moves) items.push({type:'move', id:'move:'+pid+':'+wks[mv.wi].monday, pid, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[mv.wi].monday, qty:mv.qty});
     }
-    await kvSetStore('parts_deadlines', { updated:new Date().toISOString(), transferLeadDays:3,
+    await kvSetStore('parts_deadlines', { updated:new Date().toISOString(), build:APP_BUILD, transferLeadDays:3,
       safetyWeeks:ORDER_SAFETY_WEEKS, coverWeeks:ORDER_COVER_WEEKS,
       packsOnFile:Object.keys(packByPart).length,
       packsFromOdoo:packFromOdoo, packsFromStore:packFromStore,
@@ -791,7 +840,6 @@ async function publishComponentSupply(){
     // parts already committed to bikes in running Okazi POs (consumed up-front)
     const inprodCons={};
     for(const fam in inprodByFam){ const u=usagePerBikeByFam[fam]||{}; const n=inprodByFam[fam]||0; for(const pid in u) inprodCons[pid]=(inprodCons[pid]||0)+u[pid]*n; }
-    for(const fam in inprodByFamMY27){ const u=usagePerBikeByFamMY27[fam]||{}; const n=inprodByFamMY27[fam]||0; for(const pid in u) inprodCons[pid]=(inprodCons[pid]||0)+u[pid]*n; }
     const stock={}, stockDetail={}, incoming={}, names={}, cats={}, partNos={};
     for(const r of rows){
       const pid=r.id; if(!used.has(Number(pid))) continue;
@@ -816,7 +864,7 @@ async function publishComponentSupply(){
       for(const r of rows){
         const pid=r.id; if(!used.has(Number(pid))) continue;
         if(skipForecast(r)) continue;
-        const inprodC=inprodUse(pid);
+        let inprodC=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodC+=u*(inprodByFam[fam]||0); }
         const consArr=wks.map((_,wi)=>{ let c=0; const um=usageForWeekMonday(wks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodC; c+=repairOf(pid); return c; });
         let vv=(r.vvReal||0), andP=(r.andQty||0); const overdue=incBeforeFirst(pid);
         for(let wi=0; wi<wks.length; wi++){
@@ -869,6 +917,34 @@ function mergeProductionPlans(a,b){
   return { merged:true, year:a.year, updated:b.updated||a.updated, deadline:b.deadline||a.deadline,
            weeks, byFam, cutover:cut, my26Updated:a.updated, my27Updated:b.updated };
 }
+
+/* A plan can only be acted on forwards. Both PO Builders publish a week list
+   anchored to whenever they were last opened, and a plan that has sat for a
+   few weeks still carries weeks that have already ended. Counting those is
+   not conservative, it is wrong twice over: the bikes were built, so their
+   parts are already gone from the on-hand figure, and subtracting the plan
+   again takes them out a second time. Every run-out date then lands earlier
+   than the truth. The PO Builders now anchor themselves to the current week;
+   this is the seatbelt, because Parts Stock must not depend on somebody
+   having reopened another app recently. */
+function dropPastWeeks(plan){
+  if(!plan || !plan.weeks || !plan.weeks.length) return plan;
+  const mon=new Date(); const off=(mon.getDay()+6)%7;
+  mon.setDate(mon.getDate()-off); mon.setHours(0,0,0,0);
+  const cut=mon.getFullYear()+'-'+String(mon.getMonth()+1).padStart(2,'0')+'-'+String(mon.getDate()).padStart(2,'0');
+  const keep=plan.weeks.map((w,i)=>({w,i})).filter(x=> (''+x.w.monday) >= cut);
+  if(keep.length===plan.weeks.length) return plan;
+  if(!keep.length){
+    console.warn('[PartStock] the whole published plan is in the past — using it as published rather than nothing. Reopen the PO Builders.');
+    return plan;
+  }
+  const dropped=plan.weeks.length-keep.length;
+  console.warn('[PartStock] dropped '+dropped+' plan week(s) already past (plan started '+
+               plan.weeks[0].monday+', this week is '+cut+'). Reopen PO Builder \u2014 MY27 to refresh it.');
+  const byFam={};
+  for(const f in (plan.byFam||{})) byFam[f]=keep.map(x=>(plan.byFam[f]||[])[x.i]||0);
+  return Object.assign({}, plan, { weeks:keep.map(x=>x.w), byFam, droppedPastWeeks:dropped, planStartedAt:plan.weeks[0].monday });
+}
 // Publish wheels already on hand (real VV count + finished wheels at MTB) so the PO Builder's wheel
 // tab nets demand against existing stock and doesn't rebuild wheels we already have.
 async function publishWheelStock(){
@@ -911,7 +987,7 @@ async function publishWheelMap(){
 async function publishWheelComponentSupply(){
   try{
     const usageByWheel={}, stock={}, incoming={}, names={};
-    for(const r of rows){ if(!r.isWheel) continue; const t=prodToTmpl[r.id]; if(t==null) continue; const code=r.partNo||('#'+r.id); usageByWheel[code]=explodeUsage(t,bomByTmpl,prodToTmpl,true); }
+    for(const r of rows){ if(!r.isWheel) continue; const code=r.partNo||('#'+r.id); usageByWheel[code]=explodeUsageOf(r.id,bomByTmpl,prodToTmpl,true); }
     for(const r of rows){ if(!wheelComponentIds.has(r.id)) continue; if(skipForecast(r)) continue; stock[r.id]=(r.mtbQty||0)+(r.andQty||0); names[r.id]=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`; const inc=incomingByPart[r.id]; if(inc&&inc.length) incoming[r.id]=inc.map(d=>({date:d.date||null, qty:d.qty})); }
     await kvSetStore('wheel_component_supply', {updated:new Date().toISOString(), usageByWheel, stock, incoming, names});
     console.log('[PartStock] wheel_component_supply published — wheels', Object.keys(usageByWheel).length, '· components', Object.keys(stock).length);
@@ -924,14 +1000,14 @@ async function publishWheelDeadlines(){
   try{
     if(!rows.length || !productionPlan || !productionPlan.weeks || !productionPlan.weeks.length) return;
     const wks=productionPlan.weeks, byFam=productionPlan.byFam||{};
-    const out={ updated:new Date().toISOString(), transferLeadDays:3, tier:'MTB', weeks:wks.map(w=>w.monday), items:[] };
+    const out={ updated:new Date().toISOString(), build:APP_BUILD, transferLeadDays:3, tier:'MTB', weeks:wks.map(w=>w.monday), items:[] };
     if(!mtbWheelTmpls.size){ await kvSetStore('wheel_deadlines', out); return; }
     // wheel products that bikes use, and each wheel's exploded component usage
     const isWheelPid=(pid)=> mtbWheelTmpls.has(prodToTmpl[pid]);
     const wheelPids=new Set();
     for(const fam in usagePerBikeByFam){ for(const pid in usagePerBikeByFam[fam]){ if(isWheelPid(Number(pid))) wheelPids.add(Number(pid)); } }
     for(const fam in usagePerBikeByFamMY27){ for(const pid in usagePerBikeByFamMY27[fam]){ if(isWheelPid(Number(pid))) wheelPids.add(Number(pid)); } }
-    const wheelBom={}; for(const wp of wheelPids){ const t=prodToTmpl[wp]; wheelBom[wp]=(t!=null)?explodeUsage(t,bomByTmpl,prodToTmpl,true):{}; }
+    const wheelBom={}; for(const wp of wheelPids){ wheelBom[wp]=explodeUsageOf(wp,bomByTmpl,prodToTmpl,true); }
     // MTB component consumption per week, shifted WHEEL_LEAD_WEEKS earlier than the bike week
     const mtbCons={};
     const ensure=(pid)=>{ if(!mtbCons[pid]) mtbCons[pid]=Array(wks.length).fill(0); return mtbCons[pid]; };
@@ -949,6 +1025,10 @@ async function publishWheelDeadlines(){
       let mtb=(r.mtbQty||0), andP=(r.andQty||0);
       const overdue=incBeforeFirst(r.id);
       let shortWi=-1, minLevel=mtb+andP; const moves=[];
+      /* Same question for the wheel pool: how far does what is at MTB
+         today carry us, counting nothing on its way. */
+      let coverLeft=mtb+andP, coverWi=-1;
+      const onHand0=mtb+andP;   /* see the line tier: the curve, not just a date */
       for(let wi=0; wi<wks.length; wi++){
         let arrv=incForWeek(r.id,wi); if(wi===0) arrv+=overdue;
         andP+=arrv; mtb-=cons[wi];
@@ -957,10 +1037,18 @@ async function publishWheelDeadlines(){
         const combined=mtb+andP;
         if(combined<minLevel) minLevel=combined;
         if(combined<0 && shortWi<0) shortWi=wi;
+        coverLeft-=cons[wi];
+        if(coverLeft<0 && coverWi<0) coverWi=wi;
       }
       const nm=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
       const wrate=cons.length?(cons.reduce((a,b)=>a+b,0)/cons.length):0;
-      if(shortWi>=0) out.items.push({type:'order', id:'worder:'+r.id, pid:r.id, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[shortWi].monday, qty:Math.max(1,Math.ceil(-minLevel)), tier:'MTB', rate:Math.round(wrate*100)/100});
+      if(shortWi>=0) out.items.push({type:'order', id:'worder:'+r.id, pid:r.id, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[shortWi].monday, qty:Math.max(1,Math.ceil(-minLevel)), tier:'MTB', rate:Math.round(wrate*100)/100,
+        coverUntil: coverWi >= 0 && wks[coverWi] ? wks[coverWi].monday : null,
+        onHand:Math.round(onHand0), cons:cons.map(c=>Math.round(c*100)/100)});
+      else out.items.push({type:'cover', id:'wcover:'+r.id, pid:r.id, name:nm, partNo:r.partNo||'', tier:'MTB',
+        coverUntil: coverWi>=0 ? wks[coverWi].monday : null,
+        onHand:Math.round(onHand0), cons:cons.map(c=>Math.round(c*100)/100),
+        rate:Math.round(wrate*100)/100});
       for(const mv of moves) out.items.push({type:'move', id:'wmove:'+r.id+':'+wks[mv.wi].monday, pid:r.id, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[mv.wi].monday, qty:mv.qty, tier:'MTB', moveTo:'MTB'});
     }
     await kvSetStore('wheel_deadlines', out);
@@ -1034,7 +1122,7 @@ function bikeFamilyKey(name){
 const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o;};
 
 async function collectBomGraph(){
-  bomByTmpl={}; prodToTmpl={};
+  bomByTmpl={}; prodToTmpl={}; variantsOfTmpl={}; variantSetOf={}; bomByProduct={};
   // Anchor to EXACTLY the bikes the PO Builder builds: AHFAM… (A-MAX) / AHFMC… (E-MAX) variants,
   // Current model year (no "MYxx" tag) PLUS MY27, in Alfine or Derailleur (no Nexus). Old
   // model-year tags (MY25 etc.) and Nexus still leak-proofed; MY27 is allowed through explicitly.
@@ -1055,20 +1143,24 @@ async function collectBomGraph(){
   if(!bikeTmplIds.length) return {partIds:new Set(),subIds:new Set(),bomByTmpl:{},prodToTmpl:{},bikeBoms:[],bikeBomCount:0};
   const bikeBomsRaw=await odoo('mrp.bom','search_read',
     [[['product_tmpl_id','in',bikeTmplIds]]],
-    {fields:['id','product_tmpl_id','product_qty','bom_line_ids'],limit:2000});
+    {fields:['id','product_tmpl_id','product_id','product_qty','bom_line_ids'],limit:2000,order:'sequence,id'});
 
   const partIds=new Set();
   const bikeBoms=[];    // [{tmplId,name}]
   const seenTmpl=new Set();
 
+  const seenBom=new Set();
   let queue=[];
   for(const b of bikeBomsRaw){
     const t=arr(b.product_tmpl_id);
     if(!seenTmpl.has(t[0])){
       bikeBoms.push({tmplId:t[0],name:t[1]||tmplName[t[0]]||''});
-      queue.push({tmplId:t[0],productQty:b.product_qty||1,lineIds:b.bom_line_ids||[]});
       seenTmpl.add(t[0]);
     }
+    if(seenBom.has(b.id)) continue;
+    seenBom.add(b.id);
+    queue.push({bomId:b.id, tmplId:t[0], productId:arr(b.product_id)[0]||null,
+                productQty:b.product_qty||1, lineIds:b.bom_line_ids||[]});
   }
 
   let level=0;
@@ -1080,15 +1172,29 @@ async function collectBomGraph(){
     const allLineIds=queue.flatMap(q=>q.lineIds);
     const lineById={};
     for(const c of chunk(allLineIds,1000)){
-      const ls=await odoo('mrp.bom.line','read',[c],{fields:['product_id','product_qty']});
+      const ls=await odoo('mrp.bom.line','read',[c],
+        {fields:['product_id','product_qty','bom_product_template_attribute_value_ids']});
       for(const l of ls) lineById[l.id]=l;
     }
     // attach lines to their template; collect component product ids
     const nextProductIds=new Set();
     for(const q of queue){
       const lns=q.lineIds.map(id=>lineById[id]).filter(Boolean)
-        .map(l=>({pid:arr(l.product_id)[0],qty:l.product_qty||0})).filter(x=>x.pid);
-      bomByTmpl[q.tmplId]={productQty:q.productQty,lines:lns};
+        .map(l=>({pid:arr(l.product_id)[0], qty:l.product_qty||0,
+                  ptav:(l.bom_product_template_attribute_value_ids||[]).slice().sort().join(',')}))
+        .filter(x=>x.pid);
+      const node={productQty:q.productQty,lines:lns};
+      /* Odoo's _bom_find takes the FIRST BoM in (sequence, id) order, and both
+         searches above now ask for exactly that order. This used to overwrite,
+         so the LAST one won - the oldest recipe. That is why the forecast kept
+         buying the obsolete Shimano rotor BRFDA00010 and double-butted spokes
+         while production had moved to the Mivice rotor and steel spokes.
+         A superseded BoM is not Odoo's choice, so its lines are not parts. */
+      let winner=false;
+      if(q.productId){ if(!bomByProduct[q.productId]){ bomByProduct[q.productId]=node; winner=true; } }
+      else           { if(!bomByTmpl[q.tmplId]){      bomByTmpl[q.tmplId]=node;      winner=true; } }
+      if(!winner) continue;
+      q._node=node;
       for(const ln of lns){partIds.add(ln.pid);nextProductIds.add(ln.pid);}
     }
     // resolve templates for new products
@@ -1096,39 +1202,164 @@ async function collectBomGraph(){
     const prods=[];
     for(const c of chunk(newPids,300)) prods.push(...await odoo('product.product','read',[c],{fields:['product_tmpl_id']}));
     for(const p of prods) prodToTmpl[p.id]=arr(p.product_tmpl_id)[0];
+    /* Only now is it known which component template each line builds, and the
+       weighting groups variant-filtered lines BY that template — seven colours
+       of one frame are one choice, not seven parts. Running it any earlier
+       silently gave every line a weight of 1 and changed nothing, which is
+       exactly the kind of fix that looks applied and is not. */
+    /* The variants of each product these BoMs build, so a filtered line can
+       be weighted by how much of the range it actually covers. Inactive
+       variants are included: a BoM line pointing at one is still a line, and
+       excluding them would quietly change every fraction. */
+    const needVar=queue.map(q=>q.tmplId).filter(t=>t&&!(t in variantsOfTmpl));
+    for(const c of chunk(needVar,200)){
+      try{
+        const vs=await odoo('product.product','search_read',
+          [[['product_tmpl_id','in',c],['active','in',[true,false]]]],
+          {fields:['product_tmpl_id','product_template_attribute_value_ids'],limit:5000});
+        for(const t of c) variantsOfTmpl[t]=variantsOfTmpl[t]||[];
+        for(const v of (Array.isArray(vs)?vs:[])){
+          const t=arr(v.product_tmpl_id)[0]; if(!t) continue;
+          const set=new Set(v.product_template_attribute_value_ids||[]);
+          variantSetOf[v.id]=set;
+          (variantsOfTmpl[t]=variantsOfTmpl[t]||[]).push(set);
+        }
+      }catch(e){ console.warn('[PartStock] variant lookup failed for a BoM wave:',e.message); }
+    }
+    for(const q of queue){
+      if(!q._node) continue;
+      /* A BoM tied to one variant has exactly one variant to satisfy, so its
+         own line filters are measured against that variant alone. */
+      const vs = q.productId
+        ? (variantSetOf[q.productId] ? [variantSetOf[q.productId]] : null)
+        : variantsOfTmpl[q.tmplId];
+      applyVariantWeights(q._node.lines, vs);
+    }
     // find sub-assembly BoMs for new templates
+    /* Every BoM of these templates, not one per template. A template can
+       carry several — the MY26 frame has four, one per colour — and taking
+       only the first silently applied one colour's recipe to all of them. */
     const tmplIds=[...new Set(prods.map(p=>arr(p.product_tmpl_id)[0]).filter(Boolean))].filter(t=>!seenTmpl.has(t));
     const subBoms=[];
-    for(const c of chunk(tmplIds,200)) subBoms.push(...await odoo('mrp.bom','search_read',[[['product_tmpl_id','in',c]]],{fields:['id','product_tmpl_id','product_qty','bom_line_ids'],limit:5000}));
+    for(const c of chunk(tmplIds,200)) subBoms.push(...await odoo('mrp.bom','search_read',[[['product_tmpl_id','in',c]]],{fields:['id','product_tmpl_id','product_id','product_qty','bom_line_ids'],limit:5000,order:'sequence,id'}));
+    for(const t of tmplIds) seenTmpl.add(t);
     const nextQueue=[];
     for(const sb of subBoms){
       const t=arr(sb.product_tmpl_id)[0];
-      if(t&&!seenTmpl.has(t)){seenTmpl.add(t);nextQueue.push({tmplId:t,productQty:sb.product_qty||1,lineIds:sb.bom_line_ids||[]});}
+      if(!t || seenBom.has(sb.id)) continue;
+      seenBom.add(sb.id);
+      nextQueue.push({bomId:sb.id, tmplId:t, productId:arr(sb.product_id)[0]||null,
+                      productQty:sb.product_qty||1, lineIds:sb.bom_line_ids||[]});
     }
     queue=nextQueue;
   }
   const subIds=new Set();
-  for(const pid of partIds){const t=prodToTmpl[pid];if(t&&bomByTmpl[t])subIds.add(pid);}
+  for(const pid of partIds){const t=prodToTmpl[pid];if(bomByProduct[pid]||(t&&bomByTmpl[t]))subIds.add(pid);}
   return {partIds,subIds,bomByTmpl,prodToTmpl,bikeBoms,bikeBomCount:bikeBoms.length};
 }
 
 // Per-bike usage of every part for one finished unit of `tmplId` (full explosion,
 // counting sub-assemblies AND their children). Returns { productId: qtyPerBike }.
+/* ── VARIANT-SPECIFIC BoM LINES ───────────────────────────────────────
+   An Odoo BoM line can be restricted to certain variants of the product it
+   builds, through bom_product_template_attribute_value_ids. The MY27 bike
+   BoMs lean on this heavily, in two different shapes, and a naive explosion
+   gets both wrong in the same direction — upwards.
+
+     ONE CHOICE SPREAD OVER MANY LINES. EMA-002 carries SEVEN frame lines,
+     one per colour, each qty 1. Odoo applies exactly one. Summing them asks
+     for seven frames per bike — which is precisely how [FRNAA00281] Frame
+     pre-assy AOFV2E unpainted came to show a plan of 42,630 against 6,090
+     bikes (exactly 7.0 each) and a burn-down 42,508 units under water.
+
+     ONE OPTION, ONE LINE. The Rear Rack and the three rear mudguard stays
+     each appear once, filtered to a single option. Only the bikes carrying
+     that option consume them, so counting one per bike is roughly double.
+
+   Both are answered by the same question: of all the variants this BoM can
+   build, what fraction does this line actually apply to? Seven colours → a
+   seventh. Rack-only → however many variants have a rack. A line with no
+   filter applies to all of them and keeps its full quantity.
+
+   74 of the 308 lines in the four MY27 bike BoMs carry a filter, so this was
+   inflating roughly a quarter of all component demand.
+
+   HONEST LIMIT: the fraction treats every variant as equally likely, so it
+   is an average over an even colour and rack mix, not the planned mix. The
+   PO Builder does publish a per-SKU plan and this could be weighted by it —
+   worth doing, and noted rather than quietly assumed. It is the difference
+   between approximate and sevenfold. */
+function applyVariantWeights(lns, variants){
+  /* variants: array of Sets of product_template_attribute_value ids, one per
+     variant of the product this BoM builds. */
+  const total = variants ? variants.length : 0;
+  for(const ln of lns){
+    if(!ln.ptav){ ln.w=1; continue; }                 /* applies to every variant */
+    if(!total){ ln.w=1; continue; }                   /* no variant data → do not shrink demand */
+    const want = ln.ptav.split(',').map(Number);
+    let hit=0;
+    for(const v of variants){ if(want.every(x=>v.has(x))) hit++; }
+    if(!hit){
+      /* The line matches no variant at all — a leftover from an option that
+         no longer exists. Odoo would never consume it. Say so rather than
+         carrying it silently either way. */
+      console.warn('[PartStock] BoM line for product '+ln.pid+' matches no variant — not counted');
+      ln.w=0; continue;
+    }
+    ln.w = hit/total;
+  }
+}
+
 function explodeUsage(tmplId,bomByTmpl,prodToTmpl,fullExplode){
   const acc={};
-  (function rec(tid,factor,depth,seen){
-    const bom=bomByTmpl[tid];
+  (function rec(node,factor,depth,seen){
+    const bom=(typeof node==='object'&&node)?node:bomByTmpl[node];
     if(!bom||depth>15) return;
     const base=bom.productQty||1;
     for(const ln of bom.lines){
-      const perUnit=(ln.qty/base)*factor;
+      const perUnit=(ln.qty/base)*factor*(ln.w===undefined?1:ln.w);
       acc[ln.pid]=(acc[ln.pid]||0)+perUnit;
       const ct=prodToTmpl[ln.pid];
+      /* The variant's own BoM wins; a template-level BoM applies only when
+         the variant has none of its own. A component with neither is bought
+         as it is — which is the whole answer for a Bumblebee frame. */
+      const sub=bomByProduct[ln.pid] || (ct ? bomByTmpl[ct] : null);
+      const key=bomByProduct[ln.pid] ? ('p'+ln.pid) : ('t'+ct);
       // Stop at MTB wheel assemblies: at Velovisie the bike consumes the finished wheel, not its parts.
-      if(ct&&bomByTmpl[ct]&&!seen.has(ct) && (fullExplode || !mtbWheelTmpls.has(ct))) rec(ct,perUnit,depth+1,new Set(seen).add(ct));
+      if(sub && !seen.has(key) && (fullExplode || !ct || !mtbWheelTmpls.has(ct))){
+        rec(sub,perUnit,depth+1,new Set(seen).add(key));
+      }
     }
-  })(tmplId,1,0,new Set([tmplId]));
+  /* A TEMPLATE at the top. Template ids and product ids are different
+     records that can share a number, so the entry point is never looked up
+     in the per-product map — see explodeUsageOf for the product version. */
+  })(bomByTmpl[tmplId],1,0,new Set(['t'+tmplId]));
   return acc;
+}
+
+/* The same explosion, entered at a PRODUCT rather than a template.
+   Needed wherever the thing being exploded is one specific variant, which
+   is every wheel: the Mivice front wheel's BoM (272) is tied to product
+   6967, not to its template, so entering by template finds nothing at all.
+
+   That is not hypothetical — it is a bug this file shipped this afternoon.
+   Moving variant BoMs out of the by-template map fixed the frames and
+   silently emptied the Mivice wheel: motor, brake rotor, rim, tyre, inner
+   tube, spokes and nipples all vanished from the MTB tier, so none of them
+   had a run-out date and the dashboard could not say whether the motors on
+   P01936 would arrive in time. Entering by product fixes both at once. */
+function explodeUsageOf(pid,bomByTmpl,prodToTmpl,fullExplode){
+  const t=prodToTmpl[pid];
+  if(bomByProduct[pid]){
+    /* Enter the variant's own BoM by borrowing the template path: stash it
+       under a key nothing else uses, so the shared recursion is untouched. */
+    const save=bomByTmpl['__entry__'];
+    bomByTmpl['__entry__']=bomByProduct[pid];
+    const out=explodeUsage('__entry__',bomByTmpl,prodToTmpl,fullExplode);
+    if(save===undefined) delete bomByTmpl['__entry__']; else bomByTmpl['__entry__']=save;
+    return out;
+  }
+  return (t!=null && bomByTmpl[t]) ? explodeUsage(t,bomByTmpl,prodToTmpl,fullExplode) : {};
 }
 
 // Count bikes produced per product template, from serial lots in Bikes categories.
@@ -1189,7 +1420,12 @@ async function loadData(){
     }catch(e){ console.warn('[PartStock] MTB wheel detection failed:', e.message); }
     // parts that go into wheels at MTB → not present as themselves at Velovisie
     wheelComponentIds=new Set();
-    for(const t of mtbWheelTmpls){ const wu=explodeUsage(t,bomByTmpl,prodToTmpl,true); for(const pid in wu) wheelComponentIds.add(Number(pid)); }
+    /* By product, for the same reason: a wheel whose BoM is variant-tied
+       contributes nothing when entered by template, and its components then
+       exist in neither tier. */
+    mtbWheelPids=new Set([...subIds].filter(pid=>mtbWheelTmpls.has(prodToTmpl[pid])));
+    for(const wp of mtbWheelPids){ const wu=explodeUsageOf(wp,bomByTmpl,prodToTmpl,true); for(const pid in wu) wheelComponentIds.add(Number(pid)); }
+    console.log('[PartStock] MTB wheel products:',mtbWheelPids.size,'· components below them:',wheelComponentIds.size);
     console.log('[PartStock] wheel-component parts (VV theoretical forced to 0):', wheelComponentIds.size);
     const ids=[...partIds];
     if(!ids.length){
@@ -1252,12 +1488,49 @@ async function loadData(){
     const LOUI_TOKENS=['LOUI','LOUISE'];
     const locs=await odoo('stock.location','search_read',
       [[['usage','=','internal']]],{fields:['id','complete_name'],limit:10000});
+    /* WHICH LOCATIONS ARE "NOT HERE YET"
+       Ask Odoo rather than guessing from names. A warehouse set to "Receive in
+       2 steps" gets a rule whose SOURCE is the holding location goods land in
+       when they leave the supplier, and whose destination is the real shelf.
+       Today that finds two: AND/In Transit and Brain/Input — the Brain Log
+       warehouse is configured exactly the same way, so moving deliveries there
+       does not escape this, it repeats it. Reading the rules means the day
+       somebody adds a third warehouse it is handled without a code change.
+       Name matching stays as a fallback for the day the route is renamed. */
+    let holdIds=new Set();
+    try{
+      const rules=await odoo('stock.rule','search_read',
+        [[['route_id.name','ilike','2 steps'],['location_src_id','!=',false],
+          ['location_dest_id','!=',false]]],
+        {fields:['location_src_id','location_dest_id','route_id'],limit:200});
+      for(const r of (Array.isArray(rules)?rules:[])){
+        const src=arr(r.location_src_id), dst=arr(r.location_dest_id);
+        if(src[0] && dst[0] && src[0]!==dst[0]) holdIds.add(src[0]);
+      }
+    }catch(e){ console.warn('[PartStock] 2-step rule lookup failed, falling back to names:',e.message); }
+    const isHolding=(id,name)=> holdIds.has(id) || /in\s*transit|\/input(\/|$)/i.test(String(name||''));
+
     const andLocIds=[], louiLocIds=[], andLocNames=[], louiLocNames=[];
+    /* AND/In Transit is NOT Anderlecht stock. Odoo's two-step receipt lands goods
+       there the moment they LEAVE the supplier — the real arrival is the second
+       step, the AND/STOR transfer into AND/Warehouse. The location is configured
+       usage=internal under warehouse Anderlecht, so a plain "every internal AND
+       location" sweep counted 58,862 units worth €463,200 as sitting on the shelf
+       while they were on a ship. The forecast therefore saw no shortage until long
+       after the real one, and every ship-by date derived from it was too late.
+       Those goods are not lost here: they are re-entered below as INCOMING, dated
+       by their own AND/STOR transfer. Same quantity, right week. */
+    const transitLocIds=[], transitLocNames=[];
     for(const l of locs){
-      const prefix=String(l.complete_name||'').split('/')[0].toUpperCase().trim();
-      if(LOUI_TOKENS.some(t=>prefix.includes(t))){louiLocIds.push(l.id);louiLocNames.push(l.complete_name);}
-      else if(AND_TOKENS.some(t=>prefix.includes(t))){andLocIds.push(l.id);andLocNames.push(l.complete_name);}
+      const full=String(l.complete_name||'');
+      const prefix=full.split('/')[0].toUpperCase().trim();
+      if(LOUI_TOKENS.some(t=>prefix.includes(t))){louiLocIds.push(l.id);louiLocNames.push(full);}
+      else if(AND_TOKENS.some(t=>prefix.includes(t))){
+        if(isHolding(l.id,full)){ transitLocIds.push(l.id); transitLocNames.push(full); }
+        else { andLocIds.push(l.id); andLocNames.push(full); }
+      }
     }
+    console.log('[PartStock] IN-TRANSIT locations held OUT of on-hand:', transitLocNames);
 
     /* BRAIN LOG — the warehouse that takes over from Anderlecht. AND/Warehouse closes on
        31 October 2026; Brain Log holds components from 1 November.
@@ -1273,6 +1546,14 @@ async function loadData(){
         [['|',['complete_name','ilike','brain'],['complete_name','ilike','brainlog']]],
         {fields:['id','complete_name'],limit:2000});
       for(const l of (Array.isArray(brainLocs)?brainLocs:(brainLocs?[brainLocs]:[]))){
+        /* Brain/Input is Brain Log's AND/In Transit. This pass deliberately
+           skips the internal-usage filter so the pool is found however it was
+           created, which also means it would happily have swallowed the
+           holding location. It does not. */
+        if(isHolding(l.id,l.complete_name)){
+          if(transitLocIds.indexOf(l.id)<0){ transitLocIds.push(l.id); transitLocNames.push(l.complete_name); }
+          continue;
+        }
         if(andLocIds.indexOf(l.id)<0){ andLocIds.push(l.id); andLocNames.push(l.complete_name); }
         brainLocNames.push(l.complete_name);
       }
@@ -1322,6 +1603,11 @@ async function loadData(){
     await fillLoc(louiLocIds,louiMap);
     await fillLoc(vvLocIds,vvRealMap);
     await fillLoc(mtbLocIds,mtbMap);
+    transitMap={}; transitLocIdList=transitLocIds.slice();
+    await fillLoc(transitLocIds,transitMap);
+    console.log('[PartStock] on the water (AND/In Transit):',
+                Object.keys(transitMap).length,'products,',
+                Math.round(Object.values(transitMap).reduce((a,b)=>a+b,0)),'units');
 
     // 6 ── INCOMING from open PURCHASE ORDER LINES (ordered − received).
     //      Sourced from purchase.order.line, NOT stock.move, so a receipt that Odoo split into
@@ -1335,6 +1621,17 @@ async function loadData(){
     //      Whichever it used is recorded as `src` on every entry, so supply knows exactly which
     //      field to correct: the transfer, or the PO line.
     alert_('<span class="spinner"></span> Incoming component deliveries (open purchase orders)…','info');
+    /* BUILD LOCAL, ASSIGN ONCE.
+       incomingByPart and heldIncoming are module-level, and this loader can
+       run twice over one page — an automatic refresh landing on top of a
+       click. Clearing a shared object at the start of each run does not make
+       that safe: run B clears it, then run A, still mid-flight, keeps pushing
+       into the same object, and every arrival is counted twice. The published
+       component_supply showed exactly that — AND/STOR/00395 twice at 500,
+       P02273 twice at 750 — which inflates supply and pushes every run-out
+       date LATER. Building into a local and swapping it in at the very end
+       makes a second run harmless: last one to finish wins, whole. */
+    const incLocal={}, heldLocal={};
     incomingByPart={}; heldIncoming={};
     const TODAY_YMD=(()=>{ const t=new Date();
       return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; })();
@@ -1428,10 +1725,72 @@ async function loadData(){
          Until somebody agrees a new date and writes it on the transfer or the PO line in
          Odoo, these sit in heldIncoming and show in the overdue list. Before this change
          they were folded into week 1, so the forward stock showed goods nobody had. */
-      if(!d || d < TODAY_YMD){ (heldIncoming[x.pid]=heldIncoming[x.pid]||[]).push(rec); continue; }
-      (incomingByPart[x.pid]=incomingByPart[x.pid]||[]).push(rec);
+      if(!d || d < TODAY_YMD){ (heldLocal[x.pid]=heldLocal[x.pid]||[]).push(rec); continue; }
+      (incLocal[x.pid]=incLocal[x.pid]||[]).push(rec);
       }
     }
+
+    /* ── 6b ── GOODS ALREADY ON THE WATER (AND/In Transit → AND/Warehouse) ──
+       These dropped out of section 6 on purpose: validating step one of the
+       two-step receipt sets qty_received, so the PO line has nothing
+       outstanding and contributes no incoming. The goods are real, they are
+       simply not here yet, and the AND/STOR transfer carries the date they
+       land. Re-enter them as incoming on that date.
+
+       Rules, each one chosen because the alternative is a lie:
+         • Capped by what is physically in the transit pool. A STOR transfer
+           can demand more than is there (today: 5,200 headsets demanded,
+           2,600 on hand). Counting the demand would invent stock.
+         • A transfer dated in the PAST is treated as available NOW, not as
+           an overdue arrival. An assigned STOR whose date has gone by almost
+           always means the container landed and nobody clicked the putaway —
+           the goods are in Anderlecht. Holding them back would swing the
+           forecast from too optimistic to too pessimistic.
+         • Anything left in the pool that no open transfer covers also falls
+           back to available now, so stock can never silently disappear.
+       Today 57,591 of 58,862 units in that pool are future-dated, so this is
+       almost entirely genuine sea freight, not un-clicked putaway. */
+    try{
+      if(transitLocIdList.length && Object.keys(transitMap).length){
+        const left={}; for(const k in transitMap) left[k]=transitMap[k];
+        let mvs=await odoo('stock.move','search_read',
+          [[['location_id','in',transitLocIdList],['state','not in',['done','cancel']],
+            ['product_uom_qty','>',0]]],
+          {fields:['product_id','product_uom_qty','date','picking_id'],limit:4000});
+        mvs=Array.isArray(mvs)?mvs:(mvs?[mvs]:[]);
+        mvs.sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
+        let future=0, now=0;
+        for(const m of mvs){
+          const pid=arr(m.product_id)[0]; if(!pid) continue;
+          const avail=left[pid]||0; if(avail<=0.0001) continue;
+          const take=Math.min(avail,parseFloat(m.product_uom_qty)||0);
+          if(take<=0.0001) continue;
+          left[pid]=avail-take;
+          const d=(m.date||'').split(' ')[0]||null;
+          const ref=arr(m.picking_id)[1]||'AND/STOR';
+          if(d && d>=TODAY_YMD){
+            (incLocal[pid]=incLocal[pid]||[]).push(
+              {date:d, qty:take, ref:ref, src:'in-transit', srcRef:ref, atVV:false});
+            future+=take;
+          } else { andMap[pid]=(andMap[pid]||0)+take; now+=take; }
+        }
+        let orphan=0;
+        for(const k in left){ if(left[k]>0.0001){ andMap[k]=(andMap[k]||0)+left[k]; orphan+=left[k]; } }
+        transitHeldOut=true;
+        console.log('[PartStock] in-transit re-dated as incoming:',Math.round(future),
+                    '| past-dated putaway counted as on-hand:',Math.round(now),
+                    '| in transit with no open transfer:',Math.round(orphan));
+      }
+    }catch(e){
+      /* Degraded, never broken: if this lookup fails the transit pool is put
+         back on the shelf, which is exactly the old behaviour. */
+      console.warn('[PartStock] in-transit lookup failed — counting it as on-hand:',e.message);
+      for(const k in transitMap) andMap[k]=(andMap[k]||0)+transitMap[k];
+      transitHeldOut=false;   /* it IS on the shelf now, so Received may keep it */
+    }
+
+    /* The swap. Nothing above this line is visible to the rest of the app. */
+    incomingByPart=incLocal; heldIncoming=heldLocal;
 
     /* ── PACK SIZES ──────────────────────────────────────────────────────
        Odoo's own home for this is Inventory → Products → Packagings. Where a
@@ -1513,7 +1872,21 @@ async function loadData(){
       const display=pi.display_name||nameMap[id]||('#'+id);
       const partNo=pi.default_code||(display.match(/^\[([^\]]+)\]/)?.[1])||'';
       const partName=display.replace(/^\[[^\]]+\]\s*/,'');
-      const receivedPO=recvMap[id]?recvMap[id].received:0;
+      /* Odoo sets qty_received when step ONE of the two-step receipt is
+         validated — the moment the goods leave the supplier. So the PO's own
+         "received" counts a container at sea as received, and Theoretical
+         (Received − Consumed − After-sales) then sat ~1,900 displays above a
+         shelf holding 78, next to location columns that correctly excluded
+         the same goods. Two numbers side by side, one counting the ocean.
+
+         Received now means ARRIVED AT A WAREHOUSE: the PO figure less whatever
+         is still in a holding location. Those units are not lost — they are
+         listed as incoming on their AND/STOR transfer's own scheduled date.
+         Only subtracted when the pool really was held out of on-hand; if that
+         lookup failed the goods are counted as on the shelf and Received
+         should keep them, or they would vanish twice over. */
+      const inTransit=transitHeldOut?(transitMap[id]||0):0;
+      const receivedPO=Math.max(0,(recvMap[id]?recvMap[id].received:0)-inTransit);
       const adj=Number(recvAdj[id])||0;
       const received=receivedPO+adj;
       const consumed=consMap[id]||0;
@@ -1566,7 +1939,7 @@ async function loadData(){
     // Forward stock is driven by BOTH PO Builders: MY26 up to the MY27 start, then MY27 onward.
     const plan26 = await kvGetStore('production_plan');         // PO Builder — MY26 (current bikes)
     const plan27 = await kvGetStore('production_plan_my27');    // PO Builder — MY27 (new model year)
-    productionPlan = mergeProductionPlans(plan26, plan27);
+    productionPlan = dropPastWeeks(mergeProductionPlans(plan26, plan27));
     const sd = await kvGetStore('spares_demand');           // after-sales/repair demand per component (Spares app)
     repairRateByPid = (sd && sd.ratePerWeek) ? sd.ratePerWeek : {};
     productionBasis = await kvGetStore('production_basis'); // published by the Max Planner (running Okazi POs etc.)
@@ -1584,24 +1957,6 @@ async function loadData(){
     const addInprod=(sku,n)=>{ const p=sku.split('|'); const fk=SKU_FAM[p[0]+'|'+p[1]]; if(fk && n) inprodByFam[fk]=(inprodByFam[fk]||0)+n; };
     for(const sku in ipBySku)  addInprod(sku, ipBySku[sku]||0);
     for(const sku in incBySku) addInprod(sku, incBySku[sku]||0);
-    // MY27: production_basis is MY26-only, so read the open MY27 bike POs straight from Odoo
-    // (same scope + "won't arrive" exclusions as Bikes Coming Next). Their parts are burned
-    // up-front with the MY27 recipe; the MY27 PO Builder nets these bikes out of its plan.
-    inprodByFamMY27={};
-    try{
-      let excl={};
-      try{ const r=await fetch(`${CF_WORKER}/kv/${encodeURIComponent('bikes_coming_excluded')}`); if(r.ok){ const t=(await r.text()||'').trim(); if(t){ const o=JSON.parse(t); if(o&&typeof o==='object') excl=o; } } }catch(e){}
-      const pl=await odoo('purchase.order.line','search_read',
-        [[['order_id.state','in',['purchase','done']],['product_id.categ_id.complete_name','ilike','Bikes'],['product_id.name','ilike','MY27']]],
-        {fields:['id','product_id','product_qty','qty_received'],limit:20000});
-      for(const l of (Array.isArray(pl)?pl:(pl?[pl]:[]))){
-        let open=Math.max(0,Math.round((parseFloat(l.product_qty)||0)-(parseFloat(l.qty_received)||0)));
-        open-=Math.min(open, excl[l.id]||excl[String(l.id)]||0); if(open<=0) continue;
-        const fk=bikeFamilyKey(arr(l.product_id)[1]||''); if(!fk) continue;
-        inprodByFamMY27[fk]=(inprodByFamMY27[fk]||0)+open;
-      }
-      console.log('[PartStock] MY27 bikes on released POs:', JSON.stringify(inprodByFamMY27));
-    }catch(e){ console.warn('[PartStock] MY27 open bike POs read failed:', e.message); }
 
     publishComponentSupply();   // close the loop: tell the PO Builder what's buildable at VV
     publishPartsDeadlines();    // feed the Parts Agenda: order-by + AND→VV move-by dates
@@ -1923,7 +2278,8 @@ function renderForecast(){
     let vv=(r.vvReal||0);                   // Velovisie pool — REAL counted on-hand at Velovisie (stock.quant)
     let andP=r.isWheel?(r.mtbQty||0):(r.andQty||0); // upstream pool feeding VV: Anderlecht for components, MTB for finished wheels
     const overdue=incBeforeFirst(pid);      // component POs already past their date → arrive (into AND) in week 1
-    const inprodCons=inprodUse(pid);        // parts burned by bikes on released bike POs (MY26 + MY27, not yet built)
+    let inprodCons=0;                       // parts burned by bikes in running Okazi POs (not yet built)
+    for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
     // per-week VV consumption (running Okazi POs folded into week 0) — precomputed for transfer look-ahead
     const consArr=wks.map((_,wi)=>{ let c=0; const um=usageForWeekMonday(wks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; c+=repairOf(pid); return c; });
     const cells=[]; let firstNeg=-1, minLevel=vv+andP, totCons=0;
@@ -1967,7 +2323,7 @@ function renderForecast(){
   if(kpis) kpis.innerHTML=
     k('Components short', negCount, negCount?'var(--danger)':'var(--teal)')+
     k('Earliest shortage', earliest<1e9?esc(wks[earliest].label):'none', earliest<1e9?'var(--danger)':'var(--teal)')+
-    k('Released POs (wk 1)', fmt(Math.round(inprodBikesTotal()))+' bikes', 'var(--warn)')+
+    k('Okazi in-prod (wk 1)', fmt(Math.round(Object.values(inprodByFam).reduce((a,b)=>a+(b||0),0)))+' bikes', 'var(--warn)')+
     k('Plan weeks', wks.length, 'var(--accent)')+
     k('Plan updated', productionPlan.updated?new Date(productionPlan.updated).toLocaleDateString():'—', 'var(--purple)');
 
@@ -2036,8 +2392,10 @@ function collectOverduePOs(){
         po:d.ref||'PO', partNo:(r&&r.partNo)||'', part:(r&&r.partName)||('#'+pid),
         category:(r&&r.category)||'—', qty, date:hasDate?d.date:'(no date)',
         daysLate,
-        dateFrom: d.src==='receipt' ? 'Transfer scheduled date' : (d.src==='po-line' ? 'PO line planned date' : 'no date anywhere'),
-        fixOn: d.src==='receipt' ? (d.srcRef||'the transfer') : (d.ref||'the PO line')
+        dateFrom: d.src==='in-transit' ? 'Putaway transfer scheduled date (goods already shipped)'
+                : d.src==='receipt' ? 'Transfer scheduled date'
+                : (d.src==='po-line' ? 'PO line planned date' : 'no date anywhere'),
+        fixOn: (d.src==='receipt'||d.src==='in-transit') ? (d.srcRef||'the transfer') : (d.ref||'the PO line')
       });
     }
   }
