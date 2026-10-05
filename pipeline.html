@@ -132,7 +132,15 @@ async function load(){
     }catch(e){ VALUE=null; }
     $("stamp").textContent="updated "+new Date(d.at).toLocaleString("en-GB",
       {day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})+
-      (d.planAsOf?" · run-out dates from the plan of "+d.planAsOf:" · no run-out dates on file");
+      (d.planAsOf?" · run-out dates from the plan of "+d.planAsOf:" · no run-out dates on file")+
+      /* Said out loud rather than quietly dropped: a shipment that SHOULD be
+         in the plan then shows up here as a surprise, instead of as nothing. */
+      ((d.offPlan&&d.offPlan.count)
+        ? " · "+d.offPlan.count+" shipment"+(d.offPlan.count>1?"s":"")+
+          " not in the MY27 plan, hidden ("+
+          (d.offPlan.suppliers||[]).slice(0,4).join(", ")+
+          ((d.offPlan.suppliers||[]).length>4?", …":"")+")"
+        : "");
     draw();
   }catch(e){ $("list").innerHTML='<div class="msg">Could not load: '+esc(e.message||e)+'</div>'; }
 }
