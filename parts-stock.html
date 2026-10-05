@@ -385,7 +385,7 @@ function repairOf(pid){ return repairRateByPid[pid]||0; }
    counts is no way to settle it, so every published payload now carries
    the build that produced it, and the header shows it on screen. If the
    feed says one thing and the page says another, it is the cache. */
-const APP_BUILD = '2026-10-05.queue';
+const APP_BUILD = '2026-10-05.bomorder';
 let bomByTmpl={}, prodToTmpl={};  // BoM graph — module-level so the wheel/MTB helpers can read it
 let variantsOfTmpl={};            // template -> [Set(attribute value ids)] per variant
 let variantSetOf={};              // product id -> Set(attribute value ids)
@@ -1142,7 +1142,7 @@ async function collectBomGraph(){
   if(!bikeTmplIds.length) return {partIds:new Set(),subIds:new Set(),bomByTmpl:{},prodToTmpl:{},bikeBoms:[],bikeBomCount:0};
   const bikeBomsRaw=await odoo('mrp.bom','search_read',
     [[['product_tmpl_id','in',bikeTmplIds]]],
-    {fields:['id','product_tmpl_id','product_id','product_qty','bom_line_ids'],limit:2000});
+    {fields:['id','product_tmpl_id','product_id','product_qty','bom_line_ids'],limit:2000,order:'sequence,id'});
 
   const partIds=new Set();
   const bikeBoms=[];    // [{tmplId,name}]
@@ -1183,8 +1183,16 @@ async function collectBomGraph(){
                   ptav:(l.bom_product_template_attribute_value_ids||[]).slice().sort().join(',')}))
         .filter(x=>x.pid);
       const node={productQty:q.productQty,lines:lns};
-      if(q.productId) bomByProduct[q.productId]=node;   /* this variant only */
-      else            bomByTmpl[q.tmplId]=node;         /* every variant */
+      /* Odoo's _bom_find takes the FIRST BoM in (sequence, id) order, and both
+         searches above now ask for exactly that order. This used to overwrite,
+         so the LAST one won - the oldest recipe. That is why the forecast kept
+         buying the obsolete Shimano rotor BRFDA00010 and double-butted spokes
+         while production had moved to the Mivice rotor and steel spokes.
+         A superseded BoM is not Odoo's choice, so its lines are not parts. */
+      let winner=false;
+      if(q.productId){ if(!bomByProduct[q.productId]){ bomByProduct[q.productId]=node; winner=true; } }
+      else           { if(!bomByTmpl[q.tmplId]){      bomByTmpl[q.tmplId]=node;      winner=true; } }
+      if(!winner) continue;
       q._node=node;
       for(const ln of lns){partIds.add(ln.pid);nextProductIds.add(ln.pid);}
     }
@@ -1232,7 +1240,7 @@ async function collectBomGraph(){
        only the first silently applied one colour's recipe to all of them. */
     const tmplIds=[...new Set(prods.map(p=>arr(p.product_tmpl_id)[0]).filter(Boolean))].filter(t=>!seenTmpl.has(t));
     const subBoms=[];
-    for(const c of chunk(tmplIds,200)) subBoms.push(...await odoo('mrp.bom','search_read',[[['product_tmpl_id','in',c]]],{fields:['id','product_tmpl_id','product_id','product_qty','bom_line_ids'],limit:5000}));
+    for(const c of chunk(tmplIds,200)) subBoms.push(...await odoo('mrp.bom','search_read',[[['product_tmpl_id','in',c]]],{fields:['id','product_tmpl_id','product_id','product_qty','bom_line_ids'],limit:5000,order:'sequence,id'}));
     for(const t of tmplIds) seenTmpl.add(t);
     const nextQueue=[];
     for(const sb of subBoms){
