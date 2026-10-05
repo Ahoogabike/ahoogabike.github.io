@@ -233,6 +233,11 @@ function whenWords(ymd){
 /* The parts of a shipment, each with its own ship-by, most urgent first. */
 function partLines(sh){
   return sh.lines.map(function(l){
+    /* A line whose transfer date has already passed gets no ship-by. We do not
+       know when it is coming, and printing a computed date would assert
+       something nobody has told us. Ask for the date instead. */
+    if(l.stale) return { part:l.part, qty:l.qty, needBy:l.needBy||"", by:"",
+                         stale:true, cls:"late" };
     var by = l.needBy ? minusDays(l.needBy, sh.transitDays||0) : "";
     return { part:l.part, qty:l.qty, needBy:l.needBy||"", by:by, cls:urgencyClass(by) };
   }).sort(function(a,b){
@@ -286,7 +291,9 @@ function row(sh){
      three that matter. */
   var pl = partLines(sh).map(function(l){
     return '<div class="pl"><span class="pn">'+esc(l.part)+'</span> <span class="q">× '+l.qty+'</span>'+
-      (l.by ? '<span class="pby '+l.cls+'">ship by '+esc(l.by)+'</span>' : '')+'</div>'; });
+      (l.by ? '<span class="pby '+l.cls+'">ship by '+esc(l.by)+'</span>'
+            : l.stale ? '<span class="pby late">date passed &mdash; please confirm</span>'
+            : '')+'</div>'; });
   var parts = pl.slice(0,3).join("");
   if(pl.length > 3){
     parts += '<span class="more" onclick="this.parentNode.classList.add(\'open\')">+ '+
