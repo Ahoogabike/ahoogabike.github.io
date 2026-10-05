@@ -141,6 +141,14 @@ async function load(){
           (d.offPlan.suppliers||[]).slice(0,4).join(", ")+
           ((d.offPlan.suppliers||[]).length>4?", …":"")+")"
         : "");
+    /* Loud, not buried in the stamp line: a dateless dashboard looks healthy. */
+    var warnEl=$("feedwarn");
+    if(!warnEl){ warnEl=document.createElement("div"); warnEl.id="feedwarn";
+      warnEl.style.cssText="margin:10px 0;padding:10px 12px;border-radius:8px;"+
+        "background:#fbeee7;color:#9a3412;font-weight:700;font-size:13px";
+      $("list").parentNode.insertBefore(warnEl,$("list")); }
+    warnEl.textContent = d.feedWarning || "";
+    warnEl.style.display = d.feedWarning ? "block" : "none";
     draw();
   }catch(e){ $("list").innerHTML='<div class="msg">Could not load: '+esc(e.message||e)+'</div>'; }
 }
