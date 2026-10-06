@@ -1583,7 +1583,23 @@ function renderYear(){
 // its OWN recipe, read straight from the MY27 BoMs including the lines Odoo restricts to one
 // colour or to the rack. A bike whose parts are not there is held back, not proposed.
 const NT_WEEKS=3;
-const NT_SKIP_LOC=/mtb|maastricht|loui|quarantin|transit|repair|scrap|deco|customer|vendor|production|inventory/i;
+const COMPANY_IDS=[1];    // Ahooga SRL only — Ahooga Paris is closed and must never feed a plan
+/* Which shelves feed the Velovisie line — an allow-list, not a block-list, and the same
+   four pools Parts Stock counts, so the two apps cannot drift apart:
+     Physical Locations/Subcontracting Location/Velovisie   (MOs consume from here)
+     VV/Stock                                               (goods delivered direct to Velovisie)
+     AND/…                                                  (Anderlecht, closing 31 Oct 2026)
+     Brain/…                                                (Brain Log, taking over)
+   Holding locations — AND/In Transit, Brain/Input, AND/Z Transit — are goods that have left
+   the supplier and arrived nowhere; they are counted as incoming, on their own date, not as
+   stock. Everything else (MTB, Louise, Deco, Kenstone, Korel, EXT, UK, Paris, UBW) is real
+   stock somewhere, but not somewhere a bike can be built from this week. */
+const NT_HOLD_LOC=/in\s*transit|\/input(\/|$)/i;
+const ntOnLine=(loc)=>{
+  const t=String(loc||'');
+  if(NT_HOLD_LOC.test(t)) return false;
+  return /velovisie/i.test(t) || /^VV\//i.test(t) || /^AND\//i.test(t) || /^Brain\//i.test(t);
+};
 const LS_IGNORE='ahooga_pobuilder_my27_ignored_parts';
 let ntRecipe=null;        // skuKey -> {pid: qty per bike} — exact, colour- and rack-specific
 let ntParts={};           // pid -> {name, code}
@@ -1690,7 +1706,7 @@ async function ntLoadStock(pids){
       {fields:['product_id','location_id','quantity','reserved_quantity'],limit:20000});
     for(const r of (Array.isArray(q)?q:[])){
       const pid=arr(r.product_id)[0], loc=(arr(r.location_id)[1])||'';
-      if(!pid || NT_SKIP_LOC.test(loc)) continue;
+      if(!pid || !ntOnLine(loc)) continue;
       const qty=parseFloat(r.quantity)||0, res=parseFloat(r.reserved_quantity)||0;
       ntOnHand[pid]=(ntOnHand[pid]||0)+qty;
       ntFree[pid]=(ntFree[pid]||0)+Math.max(0, qty-res);
@@ -1699,21 +1715,31 @@ async function ntLoadStock(pids){
   }
 }
 
-/* Open arrivals — receipts and inbound transfers not yet done. A part landing in week 2
-   lets week 3 be built, which is the whole reason the window is three weeks and not one. */
+/* Open arrivals — anything still to land ON the line. A part arriving in week 2 lets week 3
+   be built, which is the whole reason the window is three weeks and not one.
+   NOT filtered by picking type. The second step of a two-step receipt is an INTERNAL transfer
+   (Ahooga Anderlecht: Storage, In Transit → Velovisie), so an "incoming only" filter missed
+   exactly the goods that are closest to arriving — 241 Cosmic Black frames on AND/STOR/00811,
+   due at Velovisie tomorrow, were invisible. The honest test is geographic: it counts if it
+   ends somewhere the line can build from and starts somewhere it cannot. That also drops the
+   AND→Velovisie moves of stock already counted, and the Velovisie→Production consumption. */
 async function ntLoadArrivals(pids){
   ntArrive={};
   const chunks=[]; for(let i=0;i<pids.length;i+=200) chunks.push(pids.slice(i,i+200));
   for(const c of chunks){
     const mv=await odoo('stock.move','search_read',
       [[['product_id','in',c],['state','not in',['done','cancel','draft']],
-        ['picking_id.picking_type_id.code','=','incoming'],['company_id','in',[1]]]],
-      {fields:['product_id','product_uom_qty','date','picking_id','location_dest_id'],limit:6000});
+        ['product_uom_qty','>',0],['company_id','in',COMPANY_IDS]]],
+      {fields:['product_id','product_uom_qty','date','picking_id','location_id','location_dest_id','reference'],limit:8000});
     for(const m of (Array.isArray(mv)?mv:[])){
       const pid=arr(m.product_id)[0]; if(!pid) continue;
-      if(NT_SKIP_LOC.test((arr(m.location_dest_id)[1])||'')) continue;   // landing at MTB or Louise is not landing on the line
+      const dest=(arr(m.location_dest_id)[1])||'', src=(arr(m.location_id)[1])||'';
+      if(!ntOnLine(dest)) continue;      // does not end on the line
+      if(ntOnLine(src)) continue;        // already counted as stock where it stands
       const qty=parseFloat(m.product_uom_qty)||0; if(qty<=0) continue;
-      (ntArrive[pid]=ntArrive[pid]||[]).push({date:(m.date||'').split(' ')[0]||null, qty, ref:(arr(m.picking_id)[1])||''});
+      (ntArrive[pid]=ntArrive[pid]||[]).push({
+        date:(m.date||'').split(' ')[0]||null, qty,
+        ref:(arr(m.picking_id)[1]) || m.reference || '' });
     }
   }
 }

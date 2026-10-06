@@ -385,7 +385,7 @@ function repairOf(pid){ return repairRateByPid[pid]||0; }
    counts is no way to settle it, so every published payload now carries
    the build that produced it, and the header shows it on screen. If the
    feed says one thing and the page says another, it is the cache. */
-const APP_BUILD = '2026-10-06.xeta';
+const APP_BUILD = '2026-10-06.vvstock';
 let bomByTmpl={}, prodToTmpl={};  // BoM graph — module-level so the wheel/MTB helpers can read it
 let variantsOfTmpl={};            // template -> [Set(attribute value ids)] per variant
 let variantSetOf={};              // product id -> Set(attribute value ids)
@@ -1528,14 +1528,22 @@ async function loadData(){
        Those goods are not lost here: they are re-entered below as INCOMING, dated
        by their own AND/STOR transfer. Same quantity, right week. */
     const transitLocIds=[], transitLocNames=[];
+    /* HOLDING FIRST, PREFIX SECOND. This used to ask "does the name start with AND?" before
+       it asked "is this a holding location?", so a holding location that is not called AND
+       fell through both tests and landed in no pool at all.
+       That is not hypothetical: the in-transit location was converted to usage=transit,
+       renamed "In Transit" and reparented under Physical Locations. Its complete_name became
+       "Physical Locations/In Transit" — prefix "Physical Locations" — and from that moment
+       transitLocIds was empty, so the whole re-entry block below never ran. Goods whose first
+       step had been validated were dropped by the open-PO feed (qty_received is already full)
+       and never re-entered as incoming. 241 Cosmic Black frames landing at Velovisie on
+       AND/STOR/00811 were in neither place. Ask what a location IS, first, and from any name. */
     for(const l of locs){
       const full=String(l.complete_name||'');
+      if(isHolding(l.id,full)){ transitLocIds.push(l.id); transitLocNames.push(full); continue; }
       const prefix=full.split('/')[0].toUpperCase().trim();
       if(LOUI_TOKENS.some(t=>prefix.includes(t))){louiLocIds.push(l.id);louiLocNames.push(full);}
-      else if(AND_TOKENS.some(t=>prefix.includes(t))){
-        if(isHolding(l.id,full)){ transitLocIds.push(l.id); transitLocNames.push(full); }
-        else { andLocIds.push(l.id); andLocNames.push(full); }
-      }
+      else if(AND_TOKENS.some(t=>prefix.includes(t))){ andLocIds.push(l.id); andLocNames.push(full); }
     }
     console.log('[PartStock] IN-TRANSIT locations held OUT of on-hand:', transitLocNames);
 
@@ -1571,10 +1579,24 @@ async function loadData(){
     console.log('[PartStock] Brain Log locations:', brainLocNames.length?brainLocNames:'none found yet');
     console.log('[PartStock] LOUI locations:',louiLocNames);
 
-    // Velovisie subcontracting location — real on-hand Odoo records at the subcontractor
-    const VV_TOKENS=['VELOVISIE'];
-    const vvLocsAll=await odoo('stock.location','search_read',
-      [[['complete_name','ilike','velovisie']]],{fields:['id','complete_name'],limit:2000});
+    /* VELOVISIE — the subcontracting location AND the VV warehouse.
+       There are two of them and only one says "Velovisie":
+         166  Physical Locations/Subcontracting Location/Velovisie   ← MOs consume from here
+         187  VV/Stock                                               ← direct deliveries land here
+       Matching on the name "velovisie" alone finds 166 and nothing else, and VV/Stock is
+       not swept up by the Anderlecht pass either — its prefix is "VV", not "AND" or "LOUI".
+       So anything in VV/Stock was counted in NO pool at all: invisible to this app's
+       Velovisie column, to the forward projection, and to the component_supply feed the
+       PO Builder reads. It never showed because VV/Stock has been empty while every
+       delivery still routed through Anderlecht. The first direct receipts land there from
+       19 Oct 2026 (VV/IN/00010, 41 Cosmic Black frames) — after which the frames would
+       have been received by the PO and on no shelf this app can see. */
+    const vvLocsRaw=await odoo('stock.location','search_read',
+      [['&',['usage','=','internal'],
+        '|',['complete_name','ilike','velovisie'],['complete_name','=like','VV/%']]],
+      {fields:['id','complete_name'],limit:2000});
+    const vvLocsAll=(Array.isArray(vvLocsRaw)?vvLocsRaw:(vvLocsRaw?[vvLocsRaw]:[]))
+      .filter(l=>!isHolding(l.id,l.complete_name));   // a VV input/transit location is not the shelf
     const vvLocIds=vvLocsAll.map(l=>l.id);
     const vvLocNames=vvLocsAll.map(l=>l.complete_name);
     console.log('[PartStock] Velovisie locations:',vvLocNames);
@@ -1775,7 +1797,7 @@ async function loadData(){
         let mvs=await odoo('stock.move','search_read',
           [[['location_id','in',transitLocIdList],['state','not in',['done','cancel']],
             ['product_uom_qty','>',0]]],
-          {fields:['product_id','product_uom_qty','date','picking_id'],limit:4000});
+          {fields:['product_id','product_uom_qty','date','picking_id','location_dest_id'],limit:4000});
         mvs=Array.isArray(mvs)?mvs:(mvs?[mvs]:[]);
         mvs.sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
         let future=0, now=0;
@@ -1787,9 +1809,13 @@ async function loadData(){
           left[pid]=avail-take;
           const d=(m.date||'').split(' ')[0]||null;
           const ref=arr(m.picking_id)[1]||'AND/STOR';
+          /* Where the putaway LANDS decides the lead. A second step into Anderlecht still
+             needs the AND→Velovisie move; one that goes straight to Velovisie is already there. */
+          const mdest=(arr(m.location_dest_id)[1])||'';
+          const landsAtVV=/velovisie|(^|\/)VV\//i.test(mdest);
           if(d && d>=TODAY_YMD){
             (incLocal[pid]=incLocal[pid]||[]).push(
-              {date:d, qty:take, ref:ref, src:'in-transit', srcRef:ref, atVV:false});
+              {date:d, qty:take, ref:ref, src:'in-transit', srcRef:ref, atVV:landsAtVV});
             future+=take;
           } else { andMap[pid]=(andMap[pid]||0)+take; now+=take; }
         }
