@@ -385,7 +385,7 @@ function repairOf(pid){ return repairRateByPid[pid]||0; }
    counts is no way to settle it, so every published payload now carries
    the build that produced it, and the header shows it on screen. If the
    feed says one thing and the page says another, it is the cache. */
-const APP_BUILD = '2026-10-05.recvarrived';
+const APP_BUILD = '2026-10-06.xeta';
 let bomByTmpl={}, prodToTmpl={};  // BoM graph — module-level so the wheel/MTB helpers can read it
 let variantsOfTmpl={};            // template -> [Set(attribute value ids)] per variant
 let variantSetOf={};              // product id -> Set(attribute value ids)
@@ -1486,8 +1486,15 @@ async function loadData(){
     // Edit these tokens if your locations are named differently.
     const AND_TOKENS=['AND'];
     const LOUI_TOKENS=['LOUI','LOUISE'];
+    /* internal AND transit. If AND/In Transit is ever switched to usage
+       'transit' — which is what it actually is, and what stops Odoo counting
+       it as warehouse stock — an 'internal' sweep stops seeing it at all.
+       The location would then be in neither pool, transitMap would be empty,
+       and the 60,000-odd units on the water would show as NO incoming at all,
+       because their PO lines already read fully received. Silent, and in the
+       dangerous direction. */
     const locs=await odoo('stock.location','search_read',
-      [[['usage','=','internal']]],{fields:['id','complete_name'],limit:10000});
+      [[['usage','in',['internal','transit']]]],{fields:['id','complete_name'],limit:10000});
     /* WHICH LOCATIONS ARE "NOT HERE YET"
        Ask Odoo rather than guessing from names. A warehouse set to "Receive in
        2 steps" gets a rule whose SOURCE is the holding location goods land in
@@ -1682,14 +1689,26 @@ async function loadData(){
       const allPick=[...pickIds]; const pickInfo={};
       for(let i=0;i<allPick.length;i+=200){
         let pk=await odoo('stock.picking','search_read',
-          [[['id','in',allPick.slice(i,i+200)]]],{fields:['name','scheduled_date','state','location_dest_id']});
+          [[['id','in',allPick.slice(i,i+200)]]],
+          {fields:['name','scheduled_date','state','location_dest_id','x_eta']});
         pk=Array.isArray(pk)?pk:(pk?[pk]:[]);
         for(const q of pk){
           /* Where it lands decides whether the Velovisie transfer lead applies.
              53 of today's open receipts come into Anderlecht and do need the
              extra days; 21 are delivered straight to Velovisie and do not. */
           const dest=(Array.isArray(q.location_dest_id)?q.location_dest_id[1]:'')||'';
-          pickInfo[q.id]={ name:q.name, date:(q.scheduled_date||'').split(' ')[0]||null,
+          /* x_eta — "Expected arrival at line" — beats the transfer's own
+             scheduled date, because on a TWO-STEP receipt that scheduled date
+             is step one: the day the goods leave the supplier, not the day they
+             reach the line. Reading it as an arrival promised a container six
+             weeks early. x_eta is the one field that means the same thing on
+             both steps, so the forecast no longer changes its mind at despatch.
+             Empty x_eta falls back to the old behaviour, which is right for a
+             one-step receipt where the only transfer IS the arrival. */
+          const eta=(q.x_eta||'').split(' ')[0]||null;
+          pickInfo[q.id]={ name:q.name,
+                           date: eta || ((q.scheduled_date||'').split(' ')[0]||null),
+                           etaUsed: !!eta,
                            atVV:/velovisie|(^|\/)VV\//i.test(dest), dest };
         }
       }
