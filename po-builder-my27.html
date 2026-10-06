@@ -176,6 +176,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
         <button class="btn btn-secondary" onclick="clearCaps()">Reset all</button>
         <span class="hint" style="margin-left:4px">…or edit any week's box in the Capacity row below. Blank = default.</span>
       </div>
+      <div id="year-short" style="margin-bottom:10px"></div>
       <div id="year-warn"></div>
       <div class="table-wrap"><div id="year-grid"></div></div>
     </div>
@@ -472,6 +473,7 @@ let wheelGrid={}, wheelSiteGrid={};                  // what capacity allows —
 function sitePlan(site, wi, demand){ const g=(demand?siteGridDemand:siteGrid)[site]; if(!g) return 0; return SKUS.reduce((a,s)=>a+(g[s.key][wi]||0),0); }
 function siteTotal(site, demand){ const g=(demand?siteGridDemand:siteGrid)[site]; if(!g) return 0; return SKUS.reduce((a,s)=>a+g[s.key].reduce((x,y)=>x+y,0),0); }
 let unbuildableByFam={};                             // fam -> {qty, binding} that no components allow in horizon
+let planSupply=null;                                 // the component feed the last year plan actually used
 
 // ── PROXY / XML-RPC (same as the other apps) ─────────────────
 function proxyUrl(path){
@@ -919,6 +921,7 @@ function recompute(){
   syncCapsForYear();
   buildWeeks();
   buildYearPlan();
+  ntLast=ntBuildProposal();     // both tabs read the same proposal, so both show the same ticks
   renderYear();
   renderWeek();
   renderWheels();
@@ -1035,7 +1038,8 @@ function buildYearPlan(){
   const fams=FAMILIES.map(f=>f.key);
 
   // ── component static data (from Parts Stock 'component_supply') ──
-  const CS=componentSupply;
+  const CS=activeSupply();
+  planSupply=CS;
   const compOn=!!(CS && CS.usageByFam && Object.keys(CS.usageByFam).length && CS.stock);
   const wkMon=weeks.map(w=>ymd(w.monday));
   const arrivalWeek=(d)=>{ if(!d||d<wkMon[0]) return 0; for(let x=weeks.length-1;x>=0;x--){ if(d>=wkMon[x]) return x; } return 0; };
@@ -1506,16 +1510,20 @@ function renderYear(){
     k('Last production', getDeadline().toLocaleDateString('en-GB'),'everything done by','var(--success)');
 
   const compMsg = (function(){
-    if(!componentSupply) return '';
-    const nm=componentSupply.names||{};
+    const CS=planSupply;
+    if(!CS) return `<div class="alert alert-warn">⚠ No component check on this plan — nothing has told it what is on the shelf. <button class="btn btn-secondary" onclick="ntRefresh()">↻ Read component stock</button></div>`;
+    const nm=CS.names||{};
     const ub=Object.entries(unbuildableByFam);
     const capW=Object.keys(compLimitByWeek).length;
-    const leadTxt = componentSupply.transferLeadDays ? ` (assumes ~${componentSupply.transferLeadDays}-day AND→Velovisie transfer)` : '';
-    if(!ub.length && !capW) return `<div class="alert" style="background:var(--success-bg,#eaf3de);color:var(--success,#2d6e2d);border:1px solid rgba(45,110,45,0.25)">✓ Component check on — every proposed bike is buildable from stock + incoming POs at Velovisie${leadTxt}.</div>`;
+    const leadTxt = CS.transferLeadDays ? ` (assumes ~${CS.transferLeadDays}-day AND→Velovisie transfer)` : '';
+    const srcTxt = CS.live
+      ? ` Source: the live MY27 BoMs and free stock, read ${ntUpdated?ntUpdated.toLocaleTimeString():'this session'}; the cap is a per-family average of the SKU recipes, so the colour-by-colour truth is on the <b>Next 3 weeks</b> tab.`
+      : ` Source: the stored <code>component_supply_my27</code> feed of ${CS.updated?new Date(CS.updated).toLocaleDateString('en-GB'):'unknown date'} — <b>nothing refreshes it any more</b>; press ↻ Re-read stock above for live figures.`;
+    if(!ub.length && !capW) return `<div class="alert" style="background:var(--success-bg,#eaf3de);color:var(--success,#2d6e2d);border:1px solid rgba(45,110,45,0.25)">✓ Component check on — no week in the near-term window is capped by a missing part${leadTxt}.${srcTxt}</div>`;
     const parts=[];
     if(capW) parts.push(`${capW} week${capW>1?'s':''} capped to available components (bikes shifted to later weeks).`);
     if(ub.length){ const lines=ub.map(([fk,o])=>`<b>${fk}</b> ${fmt(o.qty)}${o.binding&&nm[o.binding]?(' — short on '+nm[o.binding]):''}`).join('; '); parts.push(`Blocked this horizon (no component arrival in time): ${lines}. Place a component PO to unblock.`); }
-    return `<div class="alert alert-warn">🔧 Component availability${leadTxt}: ${parts.join(' ')}</div>`;
+    return `<div class="alert alert-warn">🔧 Component availability${leadTxt}: ${parts.join(' ')}${srcTxt}</div>`;
   })();
   const famLbl=(fk)=>{ const f=FAMILIES.find(x=>x.key===fk); return f?f.label:fk; };
   const fitMsg = unplacedTotal>0
@@ -1524,6 +1532,11 @@ function renderYear(){
   const overMsg = overWeeks
     ? `<div class="alert alert-warn">⚠ ${overWeeks} week${overWeeks>1?'s are':' is'} above the capacity set for ${overWeeks>1?'them':'it'} — check the red totals.</div>`
     : '';
+  const ys=document.getElementById('year-short');
+  if(ys){
+    const panel=ntShortPanelHtml();
+    ys.innerHTML = panel ? `<div style="font-weight:600;font-size:13px;color:var(--text2);margin-bottom:6px">Parts holding bikes back <span class="tag">${esc(ntShortTag())}</span></div>`+panel : '';
+  }
   document.getElementById('year-warn').innerHTML = fitMsg + overMsg + compMsg;
 }
 
@@ -1805,38 +1818,59 @@ function ntBuildProposal(){
            built:out.reduce((a,w)=>a+w.built,0), held:out.reduce((a,w)=>a+w.held,0), wIdx };
 }
 
+/* component_supply_my27 in the shared store is a snapshot from 15 Sep 2026 whose
+   usageByFam is keyed by SHORT codes (AMD / AMA / EMD / EMA) while the year plan looks
+   up long keys ('amax|derailleur'). Every lookup missed, every cap was Infinity, and the
+   year tab printed a green "every proposed bike is buildable" box having checked nothing.
+   It also summed the with-rack and without-rack lines instead of choosing between them
+   (6 support wheels per bike, 12 bearings), so even a fixed key would have over-consumed.
+   This builds the same shape from the live MY27 BoMs instead: each family's recipe is the
+   average of its SKUs' exact recipes, weighted by how many of each the plan actually wants. */
+function ntSyntheticSupply(){
+  if(!ntLoaded || !ntRecipe) return null;
+  const usageByFam={};
+  for(const f of FAMILIES){
+    const skus=SKUS.filter(x=>x.fam===f.key); if(!skus.length) continue;
+    const w={}; let tot=0;
+    for(const x of skus){ const q=Math.max(0, toProduce(x.key)||0); w[x.key]=q; tot+=q; }
+    const per={};
+    for(const x of skus){
+      const share = tot>0 ? (w[x.key]/tot) : (1/skus.length);
+      if(share<=0) continue;
+      const u=ntRecipe[x.key]||{};
+      for(const pid in u) per[pid]=(per[pid]||0)+u[pid]*share;
+    }
+    if(Object.keys(per).length) usageByFam[f.key]=per;
+  }
+  if(!Object.keys(usageByFam).length) return null;
+  const incoming={};
+  for(const pid in ntArrive) incoming[pid]=ntArrive[pid].map(a=>({date:a.date, qty:a.qty, ref:a.ref}));
+  const names={};
+  for(const pid in ntParts) names[pid]=(ntParts[pid].code?('['+ntParts[pid].code+'] '):'')+ntParts[pid].name;
+  return { live:true, updated:(ntUpdated||new Date()).toISOString(), basis:'live MY27 BoMs + free stock',
+           usageByFam, stock:Object.assign({}, ntFree), incoming, names, transferLeadDays:0 };
+}
+/* The feed the plan should believe: the live one when we have it, the old store feed only
+   as a last resort — and the renderer says which, because a component check nobody can
+   see the source of is worse than no check at all. */
+function activeSupply(){ return ntSyntheticSupply() || componentSupply; }
+
 function ntPartLabel(r){ return (r.code?`<span style="color:var(--text3);font-size:11px">[${esc(r.code)}]</span> `:'')+esc(r.name); }
 
-function renderWeek(){
-  const box=document.getElementById('week-content'), kp=document.getElementById('week-kpis');
-  const sec=document.getElementById('nt-short-section'), list=document.getElementById('nt-short-list'), tag=document.getElementById('nt-short-tag');
-  const k=(l,vv,sub,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${vv}</div>${sub?`<div class="kpi-label" style="margin-top:4px">${sub}</div>`:''}</div>`;
-  const ci=Math.max(0, currentWeekIndex());
-  const arrival=addDays(new Date(), arrivalDays());
-
-  const p=ntBuildProposal(); ntLast=p;
-  const ignoredCount=ntIgnored.size;
-
-  kp.innerHTML =
-    k('Bikes to order', fmt(p.built), `next ${NT_WEEKS} weeks · components allow it`,'var(--purple)')+
-    k('Held back', fmt(p.held), p.held?'short of components':'nothing blocked', p.held?'var(--danger)':'var(--success)')+
-    k('Committed (urgent)', fmt(p.urgentTotal), `due ≤ ${arrivalDays()} days`,'var(--success)')+
-    k('Parts short', ntLoaded?fmt(p.short.length):'—', ignoredCount?`${ignoredCount} ticked as available`:'tick one to build anyway', p.short.length?'var(--warn)':'var(--success)')+
-    k('Expected arrival', arrival.toLocaleDateString('en-GB'), `+${arrivalDays()} days from a PO today`,null);
-
-  // ── the tick boxes ──
-  if(!ntLoaded){
-    sec.style.display='';
-    if(tag) tag.textContent='not checked';
-    list.innerHTML=`<div class="alert alert-warn">Component availability has not been read${ntError?(' — '+esc(ntError)):''}. The proposal below is pure demand: it does not know what is on the shelf. <button class="btn btn-secondary" onclick="ntRefresh()">↻ Check components now</button></div>`;
-  } else if(!p.short.length){
-    sec.style.display='';
-    if(tag) tag.textContent='nothing short';
-    list.innerHTML=`<div class="alert alert-success">✓ Every bike proposed below can be built from what is free at Velovisie and Anderlecht, plus what lands inside the window.${ignoredCount?` <b>${ignoredCount}</b> part${ignoredCount>1?'s are':' is'} ticked as available — <a href="#" onclick="ntIgnoreAll('none');return false">untick them</a>.`:''}</div>`;
-  } else {
-    sec.style.display='';
-    if(tag) tag.textContent=`${p.short.length} part${p.short.length>1?'s':''} · ${fmt(p.held)} bikes`;
-    const rows=p.short.map(r=>{
+function ntShortTag(){
+  if(!ntLoaded) return 'not checked';
+  const p=ntLast; if(!p) return '';
+  if(!p.short.length) return 'nothing short';
+  return `${p.short.length} part${p.short.length>1?'s':''} · ${fmt(p.held)} bikes`;
+}
+/* One panel, drawn on both tabs. A tick is a decision about the whole plan, so it has to be
+   visible wherever the plan is read — not only on the tab it was invented on. */
+function ntShortPanelHtml(){
+  const p=ntLast, ignoredCount=ntIgnored.size;
+  if(!ntLoaded) return `<div class="alert alert-warn">Component availability has not been read${ntError?(' — '+esc(ntError)):''}. The plan is pure demand: it does not know what is on the shelf. <button class="btn btn-secondary" onclick="ntRefresh()">↻ Check components now</button></div>`;
+  if(!p) return '';
+  if(!p.short.length) return `<div class="alert alert-success">✓ Every bike proposed for the next ${NT_WEEKS} weeks can be built from what is free at Velovisie and Anderlecht, plus what lands inside the window.${ignoredCount?` <b>${ignoredCount}</b> part${ignoredCount>1?'s are':' is'} ticked as available — <a href="#" onclick="ntIgnoreAll('none');return false">untick them</a>.`:''}</div>`;
+  const rows=p.short.map(r=>{
       const on=ntIgnored.has(String(r.pid));
       return `<tr${on?' style="opacity:.55"':''}>
         <td style="width:28px"><input type="checkbox" ${on?'checked':''} onchange="ntToggleIgnore('${r.pid}')" title="Build as if this part were there"/></td>
@@ -1847,7 +1881,7 @@ function renderWeek(){
         <td style="text-align:right;color:${on?'var(--text3)':'var(--danger)'};font-weight:600">${fmt(r.blocks)}</td>
       </tr>`;
     }).join('');
-    list.innerHTML=`
+    return `
       <table class="bk-table"><thead><tr>
         <th title="Tick to plan as if the part were available">Have&nbsp;it</th><th>Part</th><th style="text-align:right">Needed</th>
         <th style="text-align:right" title="On hand less what Odoo has already reserved for bikes on order">Free</th>
@@ -1861,7 +1895,29 @@ function renderWeek(){
         <button class="btn btn-secondary" onclick="ntRefresh()">↻ Re-read stock</button>
         <span class="hint" style="margin-left:6px">Free = on hand at Velovisie + Anderlecht less what Odoo has already reserved for bikes on order${ntUpdated?(' · read '+ntUpdated.toLocaleTimeString()):''}</span>
       </div>`;
-  }
+}
+
+function renderWeek(){
+  const box=document.getElementById('week-content'), kp=document.getElementById('week-kpis');
+  const sec=document.getElementById('nt-short-section'), list=document.getElementById('nt-short-list'), tag=document.getElementById('nt-short-tag');
+  const k=(l,vv,sub,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${vv}</div>${sub?`<div class="kpi-label" style="margin-top:4px">${sub}</div>`:''}</div>`;
+  const ci=Math.max(0, currentWeekIndex());
+  const arrival=addDays(new Date(), arrivalDays());
+
+  const p=ntLast||ntBuildProposal();
+  const ignoredCount=ntIgnored.size;
+
+  kp.innerHTML =
+    k('Bikes to order', fmt(p.built), `next ${NT_WEEKS} weeks · components allow it`,'var(--purple)')+
+    k('Held back', fmt(p.held), p.held?'short of components':'nothing blocked', p.held?'var(--danger)':'var(--success)')+
+    k('Committed (urgent)', fmt(p.urgentTotal), `due ≤ ${arrivalDays()} days`,'var(--success)')+
+    k('Parts short', ntLoaded?fmt(p.short.length):'—', ignoredCount?`${ignoredCount} ticked as available`:'tick one to build anyway', p.short.length?'var(--warn)':'var(--success)')+
+    k('Expected arrival', arrival.toLocaleDateString('en-GB'), `+${arrivalDays()} days from a PO today`,null);
+
+  // ── the tick boxes ──
+  sec.style.display='';
+  if(tag) tag.textContent=ntShortTag();
+  list.innerHTML=ntShortPanelHtml();
 
   // ── the weekly proposal ──
   const blockMsg = (ci>=0 && isBlocked(ci)) ? `<div class="alert alert-warn">⚠ The current week is blocked (assembler off). Nothing should start now — cover the orders below in the next open week.</div>` : '';
