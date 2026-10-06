@@ -1558,6 +1558,7 @@ let ntArrive={};          // pid -> [{date, qty, ref}] open arrivals
 let ntLoaded=false, ntError=null, ntUpdated=null;
 let ntIgnored=new Set();  // pids ticked "build anyway"
 let ntLast=null;          // last computed proposal — the renderer and the tick boxes read this
+let ntQuery='';           // look up any part in the MY27 recipes, short or not
 
 const ntColKey=(s)=>String(s||'').trim().toLowerCase().replace(/\s+/g,'_');
 const ntRackKey=(s)=>/without|w\/o|no\s*rack/i.test(String(s||''))?'no rack':'rack';
@@ -1745,11 +1746,11 @@ function ntBuildProposal(){
     const u=usageOfSku(sk); if(!u) return {cap:Infinity, bind:null, shortOf:[]};
     let cap=Infinity, bind=null; const shortOf=[];
     for(const pid in u){
-      if(ntIgnored.has(String(pid))) continue;
       const per=u[pid]; if(per<=1e-9) continue;
       const c=Math.floor(((pool[pid]||0)/per)+1e-9);
-      if(c<cap){ cap=c; bind=pid; }
-      if(c<want) shortOf.push({pid, missing:want-Math.max(0,c)});
+      const ign=ntIgnored.has(String(pid));
+      if(!ign && c<cap){ cap=c; bind=pid; }        // a ticked part stops capping…
+      if(c<want) shortOf.push({pid, missing:want-Math.max(0,c), ignored:ign});   // …but is still reported
     }
     return {cap:Math.max(0,cap), bind, shortOf};
   };
@@ -1802,6 +1803,7 @@ function ntBuildProposal(){
               built:fams.reduce((a,f)=>a+f.built,0), held:fams.reduce((a,f)=>a+f.held,0)});
   }
 
+  for(const pid of ntIgnored) if(!(pid in blockedBy) && ntRecipe && Object.values(ntRecipe).some(u=>u[pid])) blockedBy[pid]=0;
   const lastWi=wIdx.length?wIdx[wIdx.length-1]:0;
   const winEnd=ymd(weeks[lastWi+1] ? weeks[lastWi+1].monday : addDays(weeks[lastWi].monday,7));
   const short=Object.keys(blockedBy).map(pid=>{
@@ -1809,10 +1811,10 @@ function ntBuildProposal(){
     const nextIn=(ntArrive[pid]||[]).filter(a=>a.date).sort((a,b)=>a.date<b.date?-1:1)[0]||null;
     return { pid, name:(ntParts[pid]||{}).name||('#'+pid), code:(ntParts[pid]||{}).code||'',
              need:Math.ceil(needBy[pid]||0), free:Math.round(ntFree[pid]||0), onHand:Math.round(ntOnHand[pid]||0),
-             arriving:Math.round(inWin), blocks:Math.round(blockedBy[pid]),
+             arriving:Math.round(inWin), blocks:Math.round(blockedBy[pid]), ignored:ntIgnored.has(String(pid)),
              where:(ntWhere[pid]||[]).map(w=>`${w.loc}: ${Math.round(w.qty)}${w.res>0?` (${Math.round(w.res)} already reserved)`:''}`).join('\n')||'nothing on hand at Velovisie or Anderlecht',
              next: nextIn ? `${Math.round(nextIn.qty)} on ${nextIn.date}${nextIn.ref?(' · '+nextIn.ref):''}` : '' };
-  }).sort((a,b)=>b.blocks-a.blocks);
+  }).sort((a,b)=>(a.ignored?1:0)-(b.ignored?1:0) || b.blocks-a.blocks);   // ticked parts drop to the bottom, never off the list
 
   return { weeks:out, short, urgentTotal:Math.round(urgentTotal),
            built:out.reduce((a,w)=>a+w.built,0), held:out.reduce((a,w)=>a+w.held,0), wIdx };
@@ -1857,6 +1859,38 @@ function activeSupply(){ return ntSyntheticSupply() || componentSupply; }
 
 function ntPartLabel(r){ return (r.code?`<span style="color:var(--text3);font-size:11px">[${esc(r.code)}]</span> `:'')+esc(r.name); }
 
+/* A part only reaches the list above when it is actually short. That is right, but it
+   leaves no way to answer "where did the stem go?" — so every component in the MY27
+   recipes is searchable here with its real free stock, and can be ticked before it bites. */
+function ntSearchRows(){
+  if(!ntLoaded || !ntRecipe) return '';
+  const q=(ntQuery||'').trim().toLowerCase();
+  if(q.length<2) return `<div class="hint" style="padding:6px 2px">Type two letters to look up any part in the MY27 recipes — use it when a part you expected is <b>not</b> on the list above, which means it is not short.</div>`;
+  const pids=new Set(); for(const sk in ntRecipe) for(const pid in ntRecipe[sk]) pids.add(pid);
+  const hits=[...pids].map(pid=>{
+    const pa=ntParts[pid]||{};
+    if(!((pa.code||'')+' '+(pa.name||'')).toLowerCase().includes(q)) return null;
+    const nx=((ntArrive[pid]||[]).filter(a=>a.date).sort((a,b)=>a.date<b.date?-1:1))[0]||null;
+    return { pid, name:pa.name||('#'+pid), code:pa.code||'', free:Math.round(ntFree[pid]||0),
+             onHand:Math.round(ntOnHand[pid]||0), on:ntIgnored.has(String(pid)),
+             where:(ntWhere[pid]||[]).map(w=>`${w.loc}: ${Math.round(w.qty)}${w.res>0?` (${Math.round(w.res)} already reserved)`:''}`).join('\n')||'nothing on hand at Velovisie or Anderlecht',
+             next: nx ? `${Math.round(nx.qty)} on ${nx.date}${nx.ref?(' · '+nx.ref):''}` : '' };
+  }).filter(Boolean).sort((a,b)=>a.free-b.free).slice(0,40);
+  if(!hits.length) return `<div class="hint" style="padding:6px 2px">No part in the MY27 recipes matches that.</div>`;
+  return `<table class="bk-table"><thead><tr><th style="width:28px">Have&nbsp;it</th><th>Part</th><th style="text-align:right">Free</th><th style="text-align:right">Next in</th></tr></thead><tbody>`
+    + hits.map(r=>`<tr${r.on?' style="opacity:.55"':''}>
+        <td><input type="checkbox" ${r.on?'checked':''} onchange="ntToggleIgnore('${r.pid}')"/></td>
+        <td title="${esc(r.where)}">${ntPartLabel(r)}</td>
+        <td style="text-align:right;color:${r.free<=0?'var(--danger)':'inherit'}" title="${esc(r.where)}">${r.free>0?fmt(r.free):'0'}${r.onHand>r.free?`<span style="color:var(--text3);font-size:11px"> of ${fmt(r.onHand)}</span>`:''}</td>
+        <td style="text-align:right;font-size:11px;color:var(--text3)">${r.next?esc(r.next):'—'}</td>
+      </tr>`).join('')
+    + `</tbody></table>`;
+}
+function ntSetQuery(v){
+  ntQuery=v;
+  document.querySelectorAll('.nt-qres').forEach(el=>{ el.innerHTML=ntSearchRows(); });
+  document.querySelectorAll('.nt-q').forEach(el=>{ if(el.value!==v) el.value=v; });
+}
 function ntShortTag(){
   if(!ntLoaded) return 'not checked';
   const p=ntLast; if(!p) return '';
@@ -1869,7 +1903,7 @@ function ntShortPanelHtml(){
   const p=ntLast, ignoredCount=ntIgnored.size;
   if(!ntLoaded) return `<div class="alert alert-warn">Component availability has not been read${ntError?(' — '+esc(ntError)):''}. The plan is pure demand: it does not know what is on the shelf. <button class="btn btn-secondary" onclick="ntRefresh()">↻ Check components now</button></div>`;
   if(!p) return '';
-  if(!p.short.length) return `<div class="alert alert-success">✓ Every bike proposed for the next ${NT_WEEKS} weeks can be built from what is free at Velovisie and Anderlecht, plus what lands inside the window.${ignoredCount?` <b>${ignoredCount}</b> part${ignoredCount>1?'s are':' is'} ticked as available — <a href="#" onclick="ntIgnoreAll('none');return false">untick them</a>.`:''}</div>`;
+  if(!p.short.length) return `<div class="alert alert-success">✓ Every bike proposed for the next ${NT_WEEKS} weeks can be built from what is free at Velovisie and Anderlecht, plus what lands inside the window.${ignoredCount?` <b>${ignoredCount}</b> part${ignoredCount>1?'s are':' is'} ticked as available — <a href="#" onclick="ntIgnoreAll('none');return false">untick them</a>.`:''}</div>`+ntLookupHtml();
   const rows=p.short.map(r=>{
       const on=ntIgnored.has(String(r.pid));
       return `<tr${on?' style="opacity:.55"':''}>
@@ -1878,7 +1912,7 @@ function ntShortPanelHtml(){
         <td style="text-align:right">${fmt(r.need)}</td>
         <td style="text-align:right" title="${esc(r.where)}">${fmt(r.free)}${r.onHand>r.free?`<span style="color:var(--text3);font-size:11px"> of ${fmt(r.onHand)}</span>`:''}</td>
         <td style="text-align:right" title="${r.next?('next: '+esc(r.next)):'no open receipt'}">${r.arriving?fmt(r.arriving):(r.next?'<span style="color:var(--text3)">later</span>':'·')}</td>
-        <td style="text-align:right;color:${on?'var(--text3)':'var(--danger)'};font-weight:600">${fmt(r.blocks)}</td>
+        <td style="text-align:right;color:${on?'var(--text3)':'var(--danger)'};font-weight:600">${r.blocks>0?fmt(r.blocks):(on?'ticked':'·')}</td>
       </tr>`;
     }).join('');
     return `
@@ -1889,12 +1923,20 @@ function ntShortPanelHtml(){
         <th style="text-align:right" title="Bikes this part alone cannot cover over the three weeks. Two parts can hold back the same bike, so these do not add up to the total held back.">Bikes short</th>
       </tr></thead><tbody>${rows}</tbody></table>
       <div style="margin-top:8px;font-size:12px">
-        <button class="btn btn-secondary" onclick="ntIgnoreAll('minor')" title="Screws, plugs, tape, packaging — the parts whose shelf count is never reliable">Tick packaging &amp; fasteners</button>
+        ${p.short.some(ntIsMinor)?`<button class="btn btn-secondary" onclick="ntIgnoreAll('minor')" title="Screws, plugs, tape, packaging — the parts whose shelf count is never reliable">Tick packaging &amp; fasteners</button>`:''}
         <button class="btn btn-secondary" onclick="ntIgnoreAll('all')">Tick all</button>
         <button class="btn btn-secondary" onclick="ntIgnoreAll('none')">Clear all</button>
         <button class="btn btn-secondary" onclick="ntRefresh()">↻ Re-read stock</button>
         <span class="hint" style="margin-left:6px">Free = on hand at Velovisie + Anderlecht less what Odoo has already reserved for bikes on order${ntUpdated?(' · read '+ntUpdated.toLocaleTimeString()):''}</span>
-      </div>`;
+      </div>`+ntLookupHtml();
+}
+function ntLookupHtml(){
+  if(!ntLoaded) return '';
+  return `<div style="margin-top:12px;border-top:1px solid var(--border2);padding-top:10px">
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px">Look up any part</div>
+      <input type="text" class="nt-q" value="${esc(ntQuery)}" placeholder="part name or reference…" oninput="ntSetQuery(this.value)" style="padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;width:260px"/>
+      <div class="nt-qres" style="margin-top:8px">${ntSearchRows()}</div>
+    </div>`;
 }
 
 function renderWeek(){
