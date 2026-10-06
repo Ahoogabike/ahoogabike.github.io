@@ -1060,7 +1060,25 @@ function buildYearPlan(){
     // weekly model mix — and therefore the Alfine / cassette wheel streams — proportional.
     const doneFrac=(fk)=> famTotal[fk]>0 ? 1-(remaining[fk]/famTotal[fk]) : 1;
     const earliestDue=(fk)=>{ for(const p of queue[fk]) if(p.qty>1e-9) return p.due; return Infinity; };
-    const consume=(fk,n,wi,site)=>{ let need=n; for(const p of queue[fk]){ if(need<=1e-9)break; if(p.qty<=1e-9)continue; const t=Math.min(need,p.qty); grid[p.sku][wi]+=t; sg[site][p.sku][wi]+=t; p.qty-=t; need-=t; } };
+    /* gate=true: each piece is checked against ITS OWN colour- and rack-specific recipe as it
+       is taken off the queue, and the parts are drawn there and then. A family average cannot
+       tell a Midnight Blue frame from a Bumblebee one — four Midnight frames all reserved to
+       running MOs read as "0.05 frames per E-MAX" and never stopped anything. */
+    const consume=(fk,n,wi,site,gate)=>{
+      let need=n, placedHere=0;
+      for(const p of queue[fk]){
+        if(need<=1e-9) break; if(p.qty<=1e-9) continue;
+        let t=Math.min(need,p.qty);
+        if(gate){
+          const c=Math.floor(skuCap(p.sku)+1e-9);
+          if(c<t) t=Math.max(0,c);
+          if(t<=1e-9){ const b=skuBind(p.sku); if(b) (limitByWeek[wi]=limitByWeek[wi]||{})[fk]=b; continue; }
+        }
+        grid[p.sku][wi]+=t; sg[site][p.sku][wi]+=t; p.qty-=t; need-=t; placedHere+=t;
+        if(gate) skuDraw(p.sku,t);
+      }
+      return placedHere;
+    };
     const useComp=applyComp && compOn;
     // Cap ONLY the near-term window (next 3 weeks); beyond it, plan the full forecast demand so the
     // Parts Stock depletion goes negative and flags the component POs to place.
@@ -1068,6 +1086,18 @@ function buildYearPlan(){
     const compAvail={}; if(useComp){ for(const cid in CS.stock) compAvail[cid]=CS.stock[cid]; }
     const buildCap=(fk)=>{ const u=usageOf(fk); if(!u) return {m:Infinity,bind:null}; let m=Infinity,bind=null; for(const cid in u){ if(ntIgnored.has(String(cid))) continue; const per=u[cid]; if(per<=1e-9) continue; const cap=(compAvail[cid]||0)/per; if(cap<m){ m=cap; bind=cid; } } return {m,bind}; };
     const drawComp=(fk,n)=>{ const u=usageOf(fk); if(!u) return; for(const cid in u){ if(ntIgnored.has(String(cid))) continue; compAvail[cid]=(compAvail[cid]||0)-u[cid]*n; } };
+    /* The exact recipe for one SKU, when the live MY27 BoMs have been read. Without them we
+       fall back to the family average, which is better than nothing but colour-blind. */
+    const skuUse=(sku)=> (ntLoaded && ntRecipe) ? (ntRecipe[sku]||null) : null;
+    const skuCap=(sku)=>{ const u=skuUse(sku); if(!u) return Infinity; let m=Infinity;
+      for(const pid in u){ if(ntIgnored.has(String(pid))) continue; const per=u[pid]; if(per<=1e-9) continue; const c=(compAvail[pid]||0)/per; if(c<m) m=c; } return m; };
+    const skuBind=(sku)=>{ const u=skuUse(sku); if(!u) return null; let m=Infinity,b=null;
+      for(const pid in u){ if(ntIgnored.has(String(pid))) continue; const per=u[pid]; if(per<=1e-9) continue; const c=(compAvail[pid]||0)/per; if(c<m){ m=c; b=pid; } } return b; };
+    const skuDraw=(sku,n)=>{ const u=skuUse(sku); if(!u) return; for(const pid in u){ if(ntIgnored.has(String(pid))) continue; compAvail[pid]=(compAvail[pid]||0)-u[pid]*n; } };
+    const skuGate = useComp && ntLoaded && !!ntRecipe;
+    // A family is eligible if ANY piece still queued for it can be built — not if its average can.
+    const famBuildable=(fk)=>{ if(!skuGate) return buildCap(fk).m; let best=0;
+      for(const p of queue[fk]) if(p.qty>1e-9){ const c=skuCap(p.sku); if(c>best) best=c; if(best>=1) break; } return best; };
     const limitByWeek={}, unbuild={};
     let lastW=-1;
     for(let i=0;i<av.length;i++){
@@ -1083,7 +1113,7 @@ function buildYearPlan(){
       const elig=[];
       for(const fk of fams){
         if(remaining[fk]<=1e-9) continue;
-        if(useCompNow && buildCap(fk).m<1) continue;
+        if(useCompNow && famBuildable(fk)<1) continue;   // some colour of this family must be buildable
         elig.push({fk, due:earliestDue(fk), rem:remaining[fk]});
       }
       if(!elig.length) continue;
@@ -1110,10 +1140,12 @@ function buildYearPlan(){
       const give=(e,want)=>{
         let take=Math.min(want, remaining[e.fk], budget-placed);
         if(take<=1e-9) return;
-        if(useCompNow){ const bc=buildCap(e.fk); if(isFinite(bc.m)){ const cap=Math.floor(bc.m+1e-9); if(cap<take){ take=cap; (limitByWeek[wi]=limitByWeek[wi]||{})[e.fk]=bc.bind; } } }
+        if(useCompNow && !skuGate){ const bc=buildCap(e.fk); if(isFinite(bc.m)){ const cap=Math.floor(bc.m+1e-9); if(cap<take){ take=cap; (limitByWeek[wi]=limitByWeek[wi]||{})[e.fk]=bc.bind; } } }
         if(take<=1e-9) return;
-        consume(e.fk, take, wi, site); remaining[e.fk]-=take; placed+=take;
-        if(useCompNow) drawComp(e.fk, take);
+        const got=consume(e.fk, take, wi, site, useCompNow && skuGate);
+        if(got<=1e-9) return;                       // every colour still queued is short of a part
+        remaining[e.fk]-=got; placed+=got;
+        if(useCompNow && !skuGate) drawComp(e.fk, got);
       };
       const shareTot=pick.reduce((a,e)=>a+famTotal[e.fk],0)||1;
       for(const e of pick) give(e, Math.round(budget*(famTotal[e.fk]/shareTot)));
@@ -1130,7 +1162,11 @@ function buildYearPlan(){
     for(const fk of fams){ if(remaining[fk]>1e-9){ unplaced[fk]=Math.round(remaining[fk]); unplacedTot+=remaining[fk]; } }
     for(const fk of fams) for(const p of queue[fk]) if(p.qty>1e-9) leftover.push({sku:p.sku, qty:p.qty, due:p.due});
     // Only blame components when there was enough capacity to have built it.
-    if(useComp && capTotal>=T-1e-9){ for(const fk of fams){ if(remaining[fk]>1e-9) unbuild[fk]={qty:Math.round(remaining[fk]), binding:buildCap(fk).bind}; } }
+    if(useComp && capTotal>=T-1e-9){ for(const fk of fams){ if(remaining[fk]>1e-9){
+      let bind=null;
+      if(skuGate){ for(const p of queue[fk]) if(p.qty>1e-9){ bind=skuBind(p.sku); if(bind) break; } }
+      unbuild[fk]={qty:Math.round(remaining[fk]), binding: bind || buildCap(fk).bind};
+    } } }
     // Round to whole bikes per WEEK, not per cell. Rounding 32 SKUs independently added up to
     // three phantom bikes a week and pushed weeks over the capacity that had been set for them.
     // The week's placed total is already an integer, so share the rounding out by largest remainder.
@@ -1517,7 +1553,7 @@ function renderYear(){
     const capW=Object.keys(compLimitByWeek).length;
     const leadTxt = CS.transferLeadDays ? ` (assumes ~${CS.transferLeadDays}-day AND→Velovisie transfer)` : '';
     const srcTxt = CS.live
-      ? ` Source: the live MY27 BoMs and free stock, read ${ntUpdated?ntUpdated.toLocaleTimeString():'this session'}; the cap is a per-family average of the SKU recipes, so the colour-by-colour truth is on the <b>Next 3 weeks</b> tab.`
+      ? ` Source: the live MY27 BoMs and free stock, read ${ntUpdated?ntUpdated.toLocaleTimeString():'this session'}. Inside the first ${NT_WEEKS} weeks each bike is checked against <b>its own</b> colour- and rack-specific recipe, against stock net of what is already reserved for bikes in production; beyond that window the full forecast is planned so the component POs still show up.`
       : ` Source: the stored <code>component_supply_my27</code> feed of ${CS.updated?new Date(CS.updated).toLocaleDateString('en-GB'):'unknown date'} — <b>nothing refreshes it any more</b>; press ↻ Re-read stock above for live figures.`;
     if(!ub.length && !capW) return `<div class="alert" style="background:var(--success-bg,#eaf3de);color:var(--success,#2d6e2d);border:1px solid rgba(45,110,45,0.25)">✓ Component check on — no week in the near-term window is capped by a missing part${leadTxt}.${srcTxt}</div>`;
     const parts=[];
