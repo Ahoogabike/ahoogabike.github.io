@@ -51,6 +51,8 @@ table.grid td.cur{box-shadow:inset 3px 0 0 var(--accent)}
 table.grid thead th.cur{box-shadow:inset 0 -2px 0 var(--accent)}
 table.grid tfoot td,table.grid tfoot th{background:var(--surface2);font-weight:700;border-top:2px solid var(--border2)}
 table.grid td.total,table.grid th.total{font-weight:700;border-left:2px solid var(--border2);background:rgba(26,79,160,0.05)}
+table.grid td.oo,table.grid th.oo{border-right:2px solid var(--border2);background:rgba(20,37,155,0.045);color:var(--text2)}
+table.grid td.oo.has{color:#14259b;font-weight:700}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px;border:1px solid rgba(0,0,0,0.15)}
 .alert{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:12px}
 .alert-info{background:var(--accent-bg);color:var(--accent)}
@@ -1457,7 +1459,7 @@ function renderYear(){
   const demandTotal=Math.round(SKUS.reduce((a,s)=>a+((yearGridDemand[s.key]||[]).reduce((x,y)=>x+y,0)),0));
   const buildTotal=Math.round(SKUS.reduce((a,s)=>a+((yearGrid[s.key]||[]).reduce((x,y)=>x+y,0)),0));
   const compGap=Math.max(0, demandTotal-buildTotal);
-  const colTot=Array(weeks.length).fill(0); let grand=0;
+  const colTot=Array(weeks.length).fill(0); let grand=0, ooTot=0;
   const body=SKUS.map(s=>{
     let rt=0;
     const cells=weeks.map((wk,wi)=>{ const val=grid[s.key][wi]||0; rt+=val; colTot[wi]+=val;
@@ -1465,14 +1467,17 @@ function renderYear(){
       return `<td class="${cls}" title="${wk.monday.toLocaleDateString('en-GB')} · ${wk.label}">${fmt(val)}</td>`;
     }).join('');
     grand+=rt;
-    return `<tr><td class="sku"><span class="dot" style="background:${COLOR_HEX[s.color]}"></span>${s.label} · ${s.col} · ${s.rkl}</td>${cells}<td class="total">${fmt(rt)}</td></tr>`;
+    const oo=Math.round(my27OnOrderBySku[s.key]||0); ooTot+=oo;
+    return `<tr><td class="sku"><span class="dot" style="background:${COLOR_HEX[s.color]}"></span>${s.label} · ${s.col} · ${s.rkl}</td>`+
+           `<td class="oo ${oo?'has':'zero'}" title="${oo?(oo+' on confirmed POs, not yet received'):'nothing on order'}">${fmt(oo)}</td>`+
+           `${cells}<td class="total">${fmt(rt)}</td></tr>`;
   }).join('');
-  const head=`<tr><th class="sku">SKU (${SKUS.length})</th>${weeks.map((wk,wi)=>`<th class="wk ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}" onclick="toggleBlock(${wi})" title="${wk.monday.toLocaleDateString('en-GB')}${isBlocked(wi)?' · blocked — click to unblock':' · click to block (assembler off)'}">${wk.label}</th>`).join('')}<th class="total">Year</th></tr>`;
+  const head=`<tr><th class="sku">SKU (${SKUS.length})</th><th class="oo" title="Bikes already on a confirmed purchase order and not yet received — ordered, not yet here. Not part of the weekly plan: these are coming whatever the plan says.">On order</th>${weeks.map((wk,wi)=>`<th class="wk ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}" onclick="toggleBlock(${wi})" title="${wk.monday.toLocaleDateString('en-GB')}${isBlocked(wi)?' · blocked — click to unblock':' · click to block (assembler off)'}">${wk.label}</th>`).join('')}<th class="total">Year</th></tr>`;
   // Per-week capacity, one editable row per assembly site. The scheduler's own capOf is reused
   // so the boxes always show exactly the numbers the plan was built against.
   const effCapSite=(site,wi)=> window._capOf ? window._capOf(site,wi) : 0;
   const effCap=(wi)=> window._capWeek ? window._capWeek(wi) : 0;
-  const capRow=SITES.map(st=>`<tr class="caprow"><th class="sku" style="font-size:11px;color:var(--text2)"><span class="dot" style="background:${SITE_HEX[st.key]}"></span>${st.label} cap / wk →</th>${weeks.map((wk,wi)=>{
+  const capRow=SITES.map(st=>`<tr class="caprow"><th class="sku" style="font-size:11px;color:var(--text2)"><span class="dot" style="background:${SITE_HEX[st.key]}"></span>${st.label} cap / wk →</th><td class="oo"></td>${weeks.map((wk,wi)=>{
       if(isBlocked(wi)) return `<td class="blocked" style="text-align:center;color:var(--text3)">—</td>`;
       if(!siteOpen(st.key,wi)) return `<td style="text-align:center;color:var(--text3);background:rgba(0,0,0,.03)" title="${st.label} opens ${st.start}">–</td>`;
       const set=(weekCaps[st.key]||{})[weekKey(wi)]!=null;
@@ -1484,12 +1489,12 @@ function renderYear(){
     const cells=weeks.map((wk,wi)=>{ const v=Math.round(sitePlan(st.key,wi,showDemandPlan)); rt+=v;
       return `<td class="${v?'has':'zero'} ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}">${fmt(v)}</td>`; }).join('');
     const tgt=st.target>0?` <span class="hint" style="font-weight:400">/ ${fmt(st.target)} target</span>`:'';
-    return `<tr><th class="sku" style="font-size:11px"><span class="dot" style="background:${SITE_HEX[st.key]}"></span>${st.label} builds${tgt}</th>${cells}<td class="total">${fmt(rt)}</td></tr>`;
+    return `<tr><th class="sku" style="font-size:11px"><span class="dot" style="background:${SITE_HEX[st.key]}"></span>${st.label} builds${tgt}</th><td class="oo"></td>${cells}<td class="total">${fmt(rt)}</td></tr>`;
   }).join('');
   // Models per week, counted PER SITE — two sites running two models each is fine; one site
   // running four is not, and that is what this row is watching for.
   const sgv=showDemandPlan?siteGridDemand:siteGrid;
-  const modelsRow=`<tr><th class="sku" style="font-size:11px;color:var(--text2)">Models / wk · per site</th>${weeks.map((wk,wi)=>{
+  const modelsRow=`<tr><th class="sku" style="font-size:11px;color:var(--text2)">Models / wk · per site</th><td class="oo"></td>${weeks.map((wk,wi)=>{
       if(isBlocked(wi)) return `<td class="blocked"></td>`;
       const per=SITE_KEYS.map(k=>{ const g=sgv[k]; if(!g) return 0; return FAMILIES.filter(f=>SKUS.filter(s=>s.fam===f.key).reduce((a,s)=>a+(g[s.key][wi]||0),0)>0).length; });
       const worst=Math.max(...per), shown=per.filter(x=>x>0).join('+');
@@ -1502,8 +1507,8 @@ function renderYear(){
       const tip = (!showDemandPlan && worst>2) ? ` title="${worst} models at one site this week — a tail-week top-up so the last bikes of a third family still fit"` : '';
       return `<td${tip} style="text-align:center;font-size:11px;color:${col}">${shown||''}</td>`;
     }).join('')}<td class="total"></td></tr>`;
-  const foot=`<tr><th class="sku">Total</th>${colTot.map((c,wi)=>`<td class="total ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''} ${(!isBlocked(wi)&&c>effCap(wi)+0.5)?'over':''}">${fmt(c)}</td>`).join('')}<td class="total">${fmt(grand)}</td></tr>`;
-  const issueRow= SITES.map(st=>`<tr><th class="sku" style="font-size:11px;color:var(--text2)">Issue ${st.label} PO →</th>${weeks.map((wk,wi)=>(!isBlocked(wi)&&sitePlan(st.key,wi,false)>0.5)?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue ${st.label} bike PO for ${wk.label}" onclick="issueBikePO(${wi},'${st.key}')">⇩ PO</button></td>`:'<td></td>').join('')}<td class="total"></td></tr>`).join('');
+  const foot=`<tr><th class="sku">Total</th><td class="oo ${ooTot?'has':'zero'}">${fmt(Math.round(ooTot))}</td>${colTot.map((c,wi)=>`<td class="total ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''} ${(!isBlocked(wi)&&c>effCap(wi)+0.5)?'over':''}">${fmt(c)}</td>`).join('')}<td class="total">${fmt(grand)}</td></tr>`;
+  const issueRow= SITES.map(st=>`<tr><th class="sku" style="font-size:11px;color:var(--text2)">Issue ${st.label} PO →</th><td class="oo"></td>${weeks.map((wk,wi)=>(!isBlocked(wi)&&sitePlan(st.key,wi,false)>0.5)?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue ${st.label} bike PO for ${wk.label}" onclick="issueBikePO(${wi},'${st.key}')">⇩ PO</button></td>`:'<td></td>').join('')}<td class="total"></td></tr>`).join('');
   const toggleBar=`<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap"><span style="font-size:11px;color:var(--text2);font-weight:600">VIEW:</span><button class="btn ${showDemandPlan?'btn-secondary':'btn-primary'}" style="padding:3px 10px" onclick="setPlanView(false)">📦 What we can build</button><button class="btn ${showDemandPlan?'btn-primary':'btn-secondary'}" style="padding:3px 10px" onclick="setPlanView(true)">🎯 What we should build</button>${showDemandPlan?`<span class="hint" style="color:var(--warn)">demand view — shows the full target, including anything capacity or components can't take. The ⇩ PO buttons always order the <b>buildable</b> quantity.</span>`:(compGap>0?`<span class="hint" style="color:var(--warn)">${fmt(compGap)} bikes can't be built yet (components) — see “what we should build”</span>`:'')}</div>`;
   document.getElementById('year-grid').innerHTML=toggleBar+`<table class="grid"><thead>${head}</thead><tbody>${capRow}${siteRows}${body}</tbody><tfoot>${modelsRow}${foot}${issueRow}</tfoot></table>`;
 
