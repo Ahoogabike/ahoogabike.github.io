@@ -251,7 +251,24 @@ const SITES=[
 const SITE_KEYS=SITES.map(x=>x.key);
 const siteOf=(k)=>SITES.find(x=>x.key===k);
 const SITE_HEX={okazi:'#14259b', bikefun:'#0f7a52'};
-const NEAR_TERM_WEEKS=3;      // component availability is only checked this far out
+/* How many weeks ahead the plan is held to the parts that actually exist.
+   Beyond it the full forecast is planned on purpose: that is what drives component
+   stock negative in Parts Stock and turns a shortage into a purchase order. Pushing
+   this out makes the plan smoother and the shortages quieter — which is why it is a
+   deliberate choice someone makes, and now a box in the app rather than a constant. */
+let NEAR_TERM_WEEKS=5;        // component availability is only checked this far out
+const LS_NEARTERM='ahooga_pobuilder_my27_nearterm';
+function loadNearTerm(){
+  try{ const v=parseInt(localStorage.getItem(LS_NEARTERM)); if(v>=1&&v<=52) NEAR_TERM_WEEKS=v; }catch(e){}
+}
+function setNearTerm(v){
+  const n=Math.max(1, Math.min(52, parseInt(v)||NEAR_TERM_WEEKS));
+  if(n===NEAR_TERM_WEEKS){ renderYear(); return; }
+  NEAR_TERM_WEEKS=n;
+  try{ localStorage.setItem(LS_NEARTERM, String(n)); }catch(e){}
+  kvSet('po_my27_nearterm_weeks', n);     // so the same number follows you to another machine
+  recompute();
+}
 const MAX_MODELS_PER_WEEK=2;  // the assembler changes over at most once a week
 const DUE_BAND_WEEKS=4;       // deadlines within this many weeks count as equally urgent
 const PLATFORM_PAIR_TOL=0.05; // pair two transmissions of one platform unless that costs >5% of pacing
@@ -802,6 +819,8 @@ async function loadData(){
     try{
       const ig=await kvGet('po_my27_ignored_parts');
       if(Array.isArray(ig)){ ntIgnored=new Set(ig.map(String)); try{ localStorage.setItem(LS_IGNORE, JSON.stringify(ig)); }catch(e2){} }
+      const nw=parseInt(await kvGet('po_my27_nearterm_weeks'));
+      if(nw>=1 && nw<=52){ NEAR_TERM_WEEKS=nw; try{ localStorage.setItem(LS_NEARTERM, String(nw)); }catch(e2){} }
     }catch(e){ console.warn('ignored-parts load failed:', e.message); }
     alert_('<span class="spinner"></span> Reading the MY27 recipes and component stock (next 3 weeks)…','info');
     await ntLoad();
@@ -1509,7 +1528,12 @@ function renderYear(){
     }).join('')}<td class="total"></td></tr>`;
   const foot=`<tr><th class="sku">Total</th><td class="oo ${ooTot?'has':'zero'}">${fmt(Math.round(ooTot))}</td>${colTot.map((c,wi)=>`<td class="total ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''} ${(!isBlocked(wi)&&c>effCap(wi)+0.5)?'over':''}">${fmt(c)}</td>`).join('')}<td class="total">${fmt(grand)}</td></tr>`;
   const issueRow= SITES.map(st=>`<tr><th class="sku" style="font-size:11px;color:var(--text2)">Issue ${st.label} PO →</th><td class="oo"></td>${weeks.map((wk,wi)=>(!isBlocked(wi)&&sitePlan(st.key,wi,false)>0.5)?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue ${st.label} bike PO for ${wk.label}" onclick="issueBikePO(${wi},'${st.key}')">⇩ PO</button></td>`:'<td></td>').join('')}<td class="total"></td></tr>`).join('');
-  const toggleBar=`<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap"><span style="font-size:11px;color:var(--text2);font-weight:600">VIEW:</span><button class="btn ${showDemandPlan?'btn-secondary':'btn-primary'}" style="padding:3px 10px" onclick="setPlanView(false)">📦 What we can build</button><button class="btn ${showDemandPlan?'btn-primary':'btn-secondary'}" style="padding:3px 10px" onclick="setPlanView(true)">🎯 What we should build</button>${showDemandPlan?`<span class="hint" style="color:var(--warn)">demand view — shows the full target, including anything capacity or components can't take. The ⇩ PO buttons always order the <b>buildable</b> quantity.</span>`:(compGap>0?`<span class="hint" style="color:var(--warn)">${fmt(compGap)} bikes can't be built yet (components) — see “what we should build”</span>`:'')}</div>`;
+  const toggleBar=`<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap"><span style="font-size:11px;color:var(--text2);font-weight:600">VIEW:</span><button class="btn ${showDemandPlan?'btn-secondary':'btn-primary'}" style="padding:3px 10px" onclick="setPlanView(false)">📦 What we can build</button><button class="btn ${showDemandPlan?'btn-primary':'btn-secondary'}" style="padding:3px 10px" onclick="setPlanView(true)">🎯 What we should build</button>${showDemandPlan?`<span class="hint" style="color:var(--warn)">demand view — shows the full target, including anything capacity or components can't take. The ⇩ PO buttons always order the <b>buildable</b> quantity.</span>`:(compGap>0?`<span class="hint" style="color:var(--warn)">${fmt(compGap)} bikes can't be built yet (components) — see “what we should build”</span>`:'')}`+
+    `<label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);margin-left:auto;white-space:nowrap"`+
+    ` title="How many weeks ahead this plan is held to the parts actually available — stock free at Velovisie and Anderlecht plus what lands in the window.&#10;&#10;Beyond it the full forecast is planned deliberately, so shortages still go negative in Parts Stock and get ordered. Pushing this out gives a smoother plan and quieter shortages: it does not create parts.&#10;&#10;Only affects “what we can build”.">`+
+    `component check <input type="number" min="1" max="52" value="${NEAR_TERM_WEEKS}" onchange="setNearTerm(this.value)"`+
+    ` style="width:48px;text-align:center;font-size:11px;padding:3px;border:1px solid var(--border2);border-radius:4px;font-family:inherit;${showDemandPlan?'opacity:.5':'font-weight:700;color:var(--accent)'}"/> wks`+
+    `${showDemandPlan?'<span class="hint" style="margin-left:2px">(buildable view only)</span>':''}</label></div>`;
   document.getElementById('year-grid').innerHTML=toggleBar+`<table class="grid"><thead>${head}</thead><tbody>${capRow}${siteRows}${body}</tbody><tfoot>${modelsRow}${foot}${issueRow}</tfoot></table>`;
 
   // blocked-week chips + deadline note
@@ -1558,7 +1582,7 @@ function renderYear(){
     const capW=Object.keys(compLimitByWeek).length;
     const leadTxt = CS.transferLeadDays ? ` (assumes ~${CS.transferLeadDays}-day AND→Velovisie transfer)` : '';
     const srcTxt = CS.live
-      ? ` Source: the live MY27 BoMs and free stock, read ${ntUpdated?ntUpdated.toLocaleTimeString():'this session'}. Inside the first ${NT_WEEKS} weeks each bike is checked against <b>its own</b> colour- and rack-specific recipe, against stock net of what is already reserved for bikes in production; beyond that window the full forecast is planned so the component POs still show up.`
+      ? ` Source: the live MY27 BoMs and free stock, read ${ntUpdated?ntUpdated.toLocaleTimeString():'this session'}. Inside the first ${NEAR_TERM_WEEKS} weeks each bike is checked against <b>its own</b> colour- and rack-specific recipe, against stock net of what is already reserved for bikes in production; beyond that window the full forecast is planned so the component POs still show up.`
       : ` Source: the stored <code>component_supply_my27</code> feed of ${CS.updated?new Date(CS.updated).toLocaleDateString('en-GB'):'unknown date'} — <b>nothing refreshes it any more</b>; press ↻ Re-read stock above for live figures.`;
     if(!ub.length && !capW) return `<div class="alert" style="background:var(--success-bg,#eaf3de);color:var(--success,#2d6e2d);border:1px solid rgba(45,110,45,0.25)">✓ Component check on — no week in the near-term window is capped by a missing part${leadTxt}.${srcTxt}</div>`;
     const parts=[];
@@ -2352,6 +2376,7 @@ function loadCfg(){
 // ── INIT ─────────────────────────────────────────────────────
 loadCfg();
 ntIgnoredLoad();
+loadNearTerm();
 buildWeeks();
 recompute();
 if(document.getElementById('cfg-user').value && document.getElementById('cfg-key').value){
