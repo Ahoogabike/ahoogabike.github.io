@@ -1305,18 +1305,33 @@ async function issueWheelPO(wi){
    PO now says out loud where the goods are going, and the planner can see
    and change it before the draft is created.
 
-   284  Velovisie: Receipts      Subcontracting/Velovisie -> VV/Stock
-                                 finished bikes coming off the Okazi line
+   284  Bike Receipts (Okazi)    Vendors -> VV/Stock
+                                 finished bikes coming off the Okazi line.
+                                 NOT Subcontracting/Velovisie -> VV/Stock: the
+                                 source is the VENDOR location, which is what
+                                 makes Odoo raise the subcontract MOs. An earlier
+                                 note here said otherwise, and that wrong note is
+                                 why someone hand-set a receipt source to 166 on
+                                 P02311, turning a subcontract receipt into a plain
+                                 internal move: 26 bikes received, nothing built,
+                                 nothing consumed. Do not edit a confirmed receipt.
+   302  Velovisie: Component Receipts
+                                 Vendors -> In Transit Velovisie -> Subcontracting/Velovisie
+                                 components shipping from outside the EU. Two steps:
+                                 validate step one when the goods LEAVE the supplier
+                                 and fill x_eta (expected arrival at line), or the
+                                 forecast dates the container at its departure day.
    300  Vendor -> Velovisie line Vendors -> Subcontracting/Velovisie
-                                 components delivered straight to assembly
+                                 EU components delivered straight to assembly
    268  MTB -> Velovisie         Vendors -> Subcontracting/Velovisie (wheels)
    267  Deco Coat -> Velovisie   Vendors -> Subcontracting/Velovisie (painted frames)
-    46  BrainLog: Receipts       Vendors -> Brain/Input
+    46  BrainLog: Receipts       Vendors -> Brain/Stock
      1  Anderlecht Receipts      Vendors -> AND/In Transit   (closing — do not use)   */
 const RECEIVE_OPTIONS = [
   { id: 46,  label: 'Brain Log — Receipts  (Vendors → Brain/Input)' },
   { id: 300, label: 'Velovisie line — components  (Vendors → Subcontracting/Velovisie)' },
-  { id: 284, label: 'Velovisie stock — finished bikes  (→ VV/Stock)' },
+  { id: 302, label: 'Velovisie line — components, 2-step via transit  (outside the EU)' },
+  { id: 284, label: 'Velovisie stock — finished bikes from Okazi  (→ VV/Stock)' },
   { id: 268, label: 'MTB → Velovisie — wheels' },
   { id: 267, label: 'Deco Coat → Velovisie — painted frames' },
   { id: 1,   label: 'Anderlecht Receipts  ⚠ warehouse closing — avoid' }
