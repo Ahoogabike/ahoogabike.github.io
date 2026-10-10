@@ -1443,10 +1443,26 @@ function renderWheels(){
     const arr=demand[c]; grossW+=arr.reduce((a,b)=>a+b,0);
     const s0=stk; for(let i=0;i<N;i++){ const cc=Math.min(arr[i],stk); arr[i]-=cc; stk-=cc; } coveredW+=(s0-stk);
   }
+  /* What we SHOULD build, before any component cap — kept so the grid can show it
+     next to what we CAN build. Without it a capped row just reads zero and looks
+     like no demand, which is how both rear wheels sat empty for a year. */
+  const wantGrid={}; for(const c of codes) wantGrid[c]=demand[c].slice();
   // 2) cap wheel assembly by MTB wheel-component availability (shared component pools); defer component-short wheels
   let compUnbuildable=0; const wcs=wheelComponentSupply;
   if(wcs && wcs.usageByWheel){
     const compAvail={}; for(const cc in (wcs.stock||{})) compAvail[cc]=wcs.stock[cc];
+    /* A part MISSING from the feed means "no figure published", not "none in stock".
+       Parts Stock drops fasteners on purpose, because their counts are unreliable and
+       would invent shortages — and its name filter also catches parts that merely have
+       the word "bolt" in them, such as [BRFDA00040] Brake Rotor Mivice 6 bolt and
+       [BRRCE00010] Centrelock Adapter to 6 bolt. Both are ordinary components in the
+       Brakes category, both sit in the two rear wheels and in WHFWA00060/00110, and
+       reading their absence as zero capped every one of those wheels to nothing, for
+       every week of the year. Only WHFWA00090 survived, because its rotor is called
+       "for Mivice Motor" and has no "bolt" in the name. The exclusion exists to avoid
+       false shortages; treating it as a shortage inverted it. Unknown = unconstrained. */
+    const stockKeys=new Set(Object.keys(wcs.stock||{}));
+    const hasStock=(comp)=>stockKeys.has(String(comp));
     const wkMon=weeks.map(w=>ymd(w.monday));
     const aw=(d)=>{ if(!d||d<wkMon[0])return 0; for(let x=N-1;x>=0;x--) if(d>=wkMon[x])return x; return 0; };
     const incByWeek={}; for(const comp in (wcs.incoming||{})){ for(const e of wcs.incoming[comp]){ const w=aw(e.date); (incByWeek[w]=incByWeek[w]||{}); incByWeek[w][comp]=(incByWeek[w][comp]||0)+(e.qty||0); } }
@@ -1468,7 +1484,7 @@ function renderWheels(){
       for(const c of codes){
         const w=demand[c][awi]; if(w<=1e-9) continue;
         const u=wcs.usageByWheel[c]; if(!u || !Object.keys(u).length) continue;
-        for(const comp in u){ const per=u[comp]; if(per>1e-9) need[comp]=(need[comp]||0)+per*w; }
+        for(const comp in u){ const per=u[comp]; if(per<=1e-9) continue; if(!hasStock(comp)) continue; need[comp]=(need[comp]||0)+per*w; }
       }
       /* Size every slice against the pool as it stood at the START of the week.
          Measured against the running balance instead, each wheel would be sized on
@@ -1484,12 +1500,13 @@ function renderWheels(){
            which is pool × want ÷ need once the per-unit usage cancels out */
         let maxB=Infinity;
         for(const comp in u){ const per=u[comp]; if(per<=1e-9) continue;
+          if(!hasStock(comp)) continue;                     // no figure published → unknown, not zero
           const tot=need[comp]||0; if(tot<=1e-9) continue;
           const capv=(pool0[comp]||0)*want/tot; if(capv<maxB) maxB=capv; }
         const build=Math.max(0, Math.min(want, Math.floor(maxB+1e-9)));
         const deferred=want-build; demand[c][awi]=build;
         if(deferred>1e-9){ if(awi+1<N) demand[c][awi+1]+=deferred; else compUnbuildable+=deferred; }
-        for(const comp in u) compAvail[comp]=(compAvail[comp]||0)-u[comp]*build;
+        for(const comp in u){ if(hasStock(comp)) compAvail[comp]=(compAvail[comp]||0)-u[comp]*build; }
       }
     }
   }
@@ -1500,9 +1517,22 @@ function renderWheels(){
   }
   lastWheelDemand=demand; lastWheelProducts=prod;
   const head=`<tr><th class="sku">Wheel (assemble at MTB)</th>${weeks.map((w,wi)=>`<th class="wk ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}" title="${w.monday.toLocaleDateString('en-GB')}">${w.label}</th>`).join('')}<th class="total">Total</th></tr>`;
-  const body=codes.map(c=>{ const arr=demand[c], tot=arr.reduce((a,b)=>a+b,0), p=prod[c]||{}, side=WHEEL_SIDE_OF(c), col=side==='front'?'var(--accent)':'var(--purple)';
+  /* Each cell shows what we CAN build. Where the component cap has cut it, the number
+     we SHOULD build is shown underneath in red, so a capped row reads as a shortfall
+     instead of silently reading zero. */
+  const body=codes.map(c=>{ const arr=demand[c], wantArr=wantGrid[c]||arr, p=prod[c]||{}, side=WHEEL_SIDE_OF(c), col=side==='front'?'var(--accent)':'var(--purple)';
+    const tot=arr.reduce((a,b)=>a+b,0), wtot=wantArr.reduce((a,b)=>a+b,0);
     const nm=(p.name||'').replace(/^\[[^\]]*\]\s*/,'').slice(0,46);
-    return `<tr><td class="sku"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${col};margin-right:5px"></span>${c} <span style="font-size:10px;color:var(--text3)">${side}</span>${nm?`<div style="font-size:10px;color:var(--text3);font-weight:400">${nm}</div>`:''}</td>${arr.map((v,wi)=>`<td class="${v?'has':'zero'} ${wi===ci?'cur':''}">${v?fmt(Math.round(v)):''}</td>`).join('')}<td class="total">${fmt(Math.round(tot))}</td></tr>`;
+    const cells=arr.map((v,wi)=>{
+      const w=wantArr[wi]||0, short=w-v;
+      const main=v?fmt(Math.round(v)):'';
+      const sub=(short>0.5)?`<div style="font-size:10px;color:var(--danger);font-weight:600" title="should build ${fmt(Math.round(w))} — ${fmt(Math.round(short))} short on components">${fmt(Math.round(w))}</div>`:'';
+      return `<td class="${(v||short>0.5)?'has':'zero'} ${wi===ci?'cur':''}">${main}${sub}</td>`;
+    }).join('');
+    const totCell=(wtot-tot>0.5)
+      ? `<td class="total">${fmt(Math.round(tot))}<div style="font-size:10px;color:var(--danger);font-weight:600" title="should build ${fmt(Math.round(wtot))}">${fmt(Math.round(wtot))}</div></td>`
+      : `<td class="total">${fmt(Math.round(tot))}</td>`;
+    return `<tr><td class="sku"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${col};margin-right:5px"></span>${c} <span style="font-size:10px;color:var(--text3)">${side}</span>${nm?`<div style="font-size:10px;color:var(--text3);font-weight:400">${nm}</div>`:''}</td>${cells}${totCell}</tr>`;
   }).join('');
   const onSiteBody = onSiteTotal>0 ? codes.map(c=>{ const arr=onSite[c], tot=arr.reduce((a,b)=>a+b,0); if(tot<=0) return '';
       const side=WHEEL_SIDE_OF(c);
@@ -1513,8 +1543,10 @@ function renderWheels(){
   const wheelHas=Array(N).fill(false); for(const c of codes){ for(let wi=0;wi<N;wi++) if(demand[c][wi]>0.5) wheelHas[wi]=true; }
   const issueRow=`<tr><td class="sku" style="font-size:11px;color:var(--text2)">Issue PO →</td>${weeks.map((wk,wi)=>wheelHas[wi]?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue one PO for all wheels due through ${wk.label} (cumulative · net of stock &amp; open POs)" onclick="issueWheelPO(${wi})">⇩ PO</button></td>`:'<td></td>').join('')}<td class="total"></td></tr>`;
   const note = codes.some(c=>!prod[c]) ? `<div class="hint" style="padding:6px 4px;color:var(--warn)">Connect to Odoo (⚙) and reopen this tab to enable the ⇩ PO buttons — wheel products not resolved yet.</div>` : '';
+  const capNote = codes.some(c=>((wantGrid[c]||[]).reduce((a,b)=>a+b,0) - demand[c].reduce((a,b)=>a+b,0))>0.5)
+    ? `<div class="hint" style="padding:6px 4px;color:var(--text2)">Black = what MTB <b>can</b> build with the components available. <span style="color:var(--danger);font-weight:600">Red</span> = what the bike plan says we <b>should</b> build. A gap is a component shortage, not a drop in demand.</div>` : '';
   const onSiteNote = onSiteTotal>0 ? `<div class="hint" style="padding:6px 4px;color:var(--text2)">The faded rows are wheels <b>BikeFun assembles itself</b>, in the same week as the bike — they are not ordered from MTB and carry no 3-week lead. They still consume wheel components, so they belong in the component plan.</div>` : '';
-  grid.innerHTML=`${note}<table class="grid"><thead>${head}</thead><tbody>${body}${onSiteBody}${poRow}${issueRow}</tbody></table>${onSiteNote}`;
+  grid.innerHTML=`${note}<table class="grid"><thead>${head}</thead><tbody>${body}${onSiteBody}${poRow}${issueRow}</tbody></table>${capNote}${onSiteNote}`;
   const k=(l,v,sub,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${v}</div>${sub?`<div class="kpi-label" style="margin-top:4px">${sub}</div>`:''}</div>`;
   if(kpis) kpis.innerHTML=
     k('Wheels to assemble', fmt(Math.round(grossW-coveredW)), codes.length+' wheel types · net of stock','var(--teal)')+
