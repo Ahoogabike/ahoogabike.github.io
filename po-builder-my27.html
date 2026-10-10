@@ -274,7 +274,19 @@ const DUE_BAND_WEEKS=4;       // deadlines within this many weeks count as equal
 const PLATFORM_PAIR_TOL=0.05; // pair two transmissions of one platform unless that costs >5% of pacing
 const WHEEL_LEAD_WEEKS=3;     // MTB wheels: 2 wk build + 1 wk ship → assemble this many weeks before the bike week
 const WHEEL_PO_FRONT=150, WHEEL_PO_REAR=150;   // one wheel PO = 150 front + 150 rear (300 wheels)
-const WHEEL_FRONT={amax:'WHFWA00060', emax:'WHFWA00090'};   // front wheel SKU by platform
+/* Front wheel SKU by FAMILY, not by platform. A-MAX splits: the Alfine takes the
+   DYNAMO front wheel (WHFWA00110), the derailleur takes the plain one. Keyed on
+   platform alone, every A-MAX bike was loaded onto WHFWA00060 — roughly doubling
+   its demand and generating front-wheel POs that were not needed — while
+   WHFWA00110 appeared nowhere in this tab at all: no row, no netting against the
+   99 already at Velovisie, and no PO ever proposed for a wheel MY27 genuinely
+   needs. Verified against the MY27 BoMs 401-404 on 10 Oct 2026. */
+const WHEEL_FRONT={
+  'amax|derailleur':'WHFWA00060',   // BoM 401 AMD-002
+  'amax|alfine'    :'WHFWA00110',   // BoM 402 AMA-002 — dynamo
+  'emax|derailleur':'WHFWA00090',   // BoM 403 EMD-002
+  'emax|alfine'    :'WHFWA00090'    // BoM 404 EMA-002
+};
 const WHEEL_REAR ={alfine:'WHRWA00110', derailleur:'WHRWA00140'};   // rear wheel SKU by transmission
 const WHEEL_SIDE_OF=(c)=> /^WHF/i.test(c)?'front':'rear';
 
@@ -1415,7 +1427,7 @@ function renderWheels(){
   const onSite={}; for(const c of codes) onSite[c]=Array(N).fill(0);   // wheels BikeFun builds itself
   let overdue=0, onSiteTotal=0;
   for(const sku of SKUS){
-    const fc=WHEEL_FRONT[sku.bt], rc=WHEEL_REAR[sku.tr]; if(!fc&&!rc) continue;
+    const fc=WHEEL_FRONT[sku.fam], rc=WHEEL_REAR[sku.tr]; if(!fc&&!rc) continue;
     for(let wi=0;wi<N;wi++){
       const q=mtbQty(sku.key,wi);
       if(q){ let awi=wi-leadW; if(awi<0){ awi=0; overdue+=q*((fc?1:0)+(rc?1:0)); } if(fc) demand[fc][awi]+=q; if(rc) demand[rc][awi]+=q; }
