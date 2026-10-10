@@ -1452,10 +1452,40 @@ function renderWheels(){
     const incByWeek={}; for(const comp in (wcs.incoming||{})){ for(const e of wcs.incoming[comp]){ const w=aw(e.date); (incByWeek[w]=incByWeek[w]||{}); incByWeek[w][comp]=(incByWeek[w][comp]||0)+(e.qty||0); } }
     for(let awi=0; awi<N; awi++){
       const inc=incByWeek[awi]; if(inc) for(const comp in inc) compAvail[comp]=(compAvail[comp]||0)+inc[comp];
+      /* FAIR SHARE, NOT FIRST COME. All five wheels draw on the same pool — rim, tyre,
+         inner tube and nipples sit in every BoM. Served one wheel at a time, whichever
+         code came first in the list swallowed the whole pool and every wheel after it
+         capped to zero. That is what emptied both rear rows for an entire year while
+         WHFWA00090 showed a healthy 100/wk and "comp-limited" read 5,628: the rims and
+         tyres were spent on fronts before the rears were ever considered. Building
+         1,800 front wheels and no rear wheels is worth nothing — a bike needs one of
+         each — so every wheel now takes a slice of each shared component in proportion
+         to what it is asking for, and front and rear get cut together.
+         A component only one wheel uses is unaffected: its "share" is the whole pool,
+         so a motor shortage still caps that wheel alone and cannot starve the others.
+         The slices sum to exactly the pool, so nothing is over-allocated. */
+      const need={}, pool0={};
+      for(const c of codes){
+        const w=demand[c][awi]; if(w<=1e-9) continue;
+        const u=wcs.usageByWheel[c]; if(!u || !Object.keys(u).length) continue;
+        for(const comp in u){ const per=u[comp]; if(per>1e-9) need[comp]=(need[comp]||0)+per*w; }
+      }
+      /* Size every slice against the pool as it stood at the START of the week.
+         Measured against the running balance instead, each wheel would be sized on
+         what the one before it had already taken — the second wheel getting half its
+         due, the third a third — which is the same first-come unfairness in slower
+         motion. compAvail is still decremented below, so what is genuinely consumed
+         carries into next week. */
+      for(const comp in need) pool0[comp]=compAvail[comp]||0;
       for(const c of codes){
         const want=demand[c][awi]; if(want<=1e-9) continue;
         const u=wcs.usageByWheel[c]; if(!u || !Object.keys(u).length) continue;   // no BoM → leave unconstrained
-        let maxB=Infinity; for(const comp in u){ const per=u[comp]; if(per<=1e-9) continue; const capv=(compAvail[comp]||0)/per; if(capv<maxB) maxB=capv; }
+        /* this wheel's slice of a component = pool × (its pull ÷ everyone's pull),
+           which is pool × want ÷ need once the per-unit usage cancels out */
+        let maxB=Infinity;
+        for(const comp in u){ const per=u[comp]; if(per<=1e-9) continue;
+          const tot=need[comp]||0; if(tot<=1e-9) continue;
+          const capv=(pool0[comp]||0)*want/tot; if(capv<maxB) maxB=capv; }
         const build=Math.max(0, Math.min(want, Math.floor(maxB+1e-9)));
         const deferred=want-build; demand[c][awi]=build;
         if(deferred>1e-9){ if(awi+1<N) demand[c][awi+1]+=deferred; else compUnbuildable+=deferred; }
