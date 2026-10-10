@@ -1516,32 +1516,58 @@ function renderWheels(){
     let cum=0,cap=0; for(let awi=0;awi<N;awi++){ cum+=demand[c][awi]; let g=0; while(cap<cum-1e-9 && g++<5000){ pos.push({code:c, wi:awi, overdue:(awi<leadW && overdue>0)}); cap+=BATCH; } }
   }
   lastWheelDemand=demand; lastWheelProducts=prod;
-  const head=`<tr><th class="sku">Wheel (assemble at MTB)</th>${weeks.map((w,wi)=>`<th class="wk ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}" title="${w.monday.toLocaleDateString('en-GB')}">${w.label}</th>`).join('')}<th class="total">Total</th></tr>`;
+  /* PAST WEEKS DROP OFF. Wheels for a bike are assembled three weeks ahead, so the
+     early columns fill with work whose date has already gone by — nothing can be
+     ordered into last week. Columns before the current week are hidden and their
+     quantity folded into the current one, where it belongs: it is overdue, not lost.
+     Week indices behind the PO buttons stay the real ones, so issuing still targets
+     the right week. */
+  const visFrom=Math.max(0,ci), vis=[]; for(let i=visFrom;i<N;i++) vis.push(i);
+  const fold=(arr)=>vis.map((wi,k)=> k===0 ? (arr||[]).slice(0,visFrom+1).reduce((a,b)=>a+(b||0),0) : ((arr||[])[wi]||0));
+
+  const head=`<tr><th class="sku">Wheel (assemble at MTB)</th>`+
+    `<th class="oo" title="Wheels on confirmed purchase orders to MTB that have not been received yet — being built or in transit.">In production</th>`+
+    `<th class="oo" title="Wheels counted at Velovisie right now, ready for the assembly line. Wheels still at MTB are not included.">At Velovisie</th>`+
+    `${vis.map(wi=>{const w=weeks[wi];return `<th class="wk ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}" title="${w.monday.toLocaleDateString('en-GB')}">${w.label}</th>`;}).join('')}<th class="total">Total</th></tr>`;
   /* Each cell shows what we CAN build. Where the component cap has cut it, the number
      we SHOULD build is shown underneath in red, so a capped row reads as a shortfall
      instead of silently reading zero. */
   const body=codes.map(c=>{ const arr=demand[c], wantArr=wantGrid[c]||arr, p=prod[c]||{}, side=WHEEL_SIDE_OF(c), col=side==='front'?'var(--accent)':'var(--purple)';
     const tot=arr.reduce((a,b)=>a+b,0), wtot=wantArr.reduce((a,b)=>a+b,0);
     const nm=(p.name||'').replace(/^\[[^\]]*\]\s*/,'').slice(0,46);
-    const cells=arr.map((v,wi)=>{
-      const w=wantArr[wi]||0, short=w-v;
+    const canV=fold(arr), wantV=fold(wantArr);
+    const cells=canV.map((v,k)=>{
+      const wi=vis[k], w=wantV[k]||0, short=w-v;
       const main=v?fmt(Math.round(v)):'';
       const sub=(short>0.5)?`<div style="font-size:10px;color:var(--danger);font-weight:600" title="should build ${fmt(Math.round(w))} — ${fmt(Math.round(short))} short on components">${fmt(Math.round(w))}</div>`:'';
       return `<td class="${(v||short>0.5)?'has':'zero'} ${wi===ci?'cur':''}">${main}${sub}</td>`;
     }).join('');
+    const bw=(p.id&&byWheel[p.id])||{};
+    const inProd=Math.round(bw.onorder||0);
+    /* Older Parts Stock builds publish only the combined figure. Showing a blank there
+       would read as "none at Velovisie" — the same unknown-as-zero mistake that hid the
+       rear wheels — so fall back to the combined number and say so in the tooltip. */
+    const vvSplit=(bw.vv!=null);
+    const atVV=Math.round(vvSplit?bw.vv:(bw.onhand||0)), atMtb=Math.round(bw.mtb||0);
+    const vvTitle=!atVV ? (vvSplit?'none at Velovisie':'no stock figure published yet')
+      : (vvSplit ? (atVV+' counted at Velovisie now'+(atMtb?(' · '+atMtb+' more finished at MTB, not yet shipped'):''))
+                 : (atVV+' on hand — Velovisie and MTB combined. Reopen Parts Stock to split them.'));
+    const leadCells=`<td class="oo ${inProd?'has':'zero'}" title="${inProd?(inProd+' on open POs to MTB — being built or shipping'):'nothing on order'}">${inProd?fmt(inProd):''}</td>`+
+      `<td class="oo ${atVV?'has':'zero'}" title="${vvTitle}">${atVV?fmt(atVV)+(vvSplit?'':'*'):''}</td>`;
     const totCell=(wtot-tot>0.5)
       ? `<td class="total">${fmt(Math.round(tot))}<div style="font-size:10px;color:var(--danger);font-weight:600" title="should build ${fmt(Math.round(wtot))}">${fmt(Math.round(wtot))}</div></td>`
       : `<td class="total">${fmt(Math.round(tot))}</td>`;
-    return `<tr><td class="sku"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${col};margin-right:5px"></span>${c} <span style="font-size:10px;color:var(--text3)">${side}</span>${nm?`<div style="font-size:10px;color:var(--text3);font-weight:400">${nm}</div>`:''}</td>${cells}${totCell}</tr>`;
+    return `<tr><td class="sku"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${col};margin-right:5px"></span>${c} <span style="font-size:10px;color:var(--text3)">${side}</span>${nm?`<div style="font-size:10px;color:var(--text3);font-weight:400">${nm}</div>`:''}</td>${leadCells}${cells}${totCell}</tr>`;
   }).join('');
   const onSiteBody = onSiteTotal>0 ? codes.map(c=>{ const arr=onSite[c], tot=arr.reduce((a,b)=>a+b,0); if(tot<=0) return '';
       const side=WHEEL_SIDE_OF(c);
-      return `<tr><td class="sku" style="opacity:.85"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${SITE_HEX.bikefun};margin-right:5px"></span>${c} <span style="font-size:10px;color:var(--text3)">${side} · built at BikeFun</span></td>${arr.map((v,wi)=>`<td class="${v?'has':'zero'} ${wi===ci?'cur':''}" style="${v?'opacity:.7':''}">${v?fmt(Math.round(v)):''}</td>`).join('')}<td class="total">${fmt(Math.round(tot))}</td></tr>`;
+      return `<tr><td class="sku" style="opacity:.85"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${SITE_HEX.bikefun};margin-right:5px"></span>${c} <span style="font-size:10px;color:var(--text3)">${side} · built at BikeFun</span></td><td class="oo"></td><td class="oo"></td>${fold(arr).map((v,k)=>`<td class="${v?'has':'zero'} ${vis[k]===ci?'cur':''}" style="${v?'opacity:.7':''}">${v?fmt(Math.round(v)):''}</td>`).join('')}<td class="total">${fmt(Math.round(tot))}</td></tr>`;
     }).join('') : '';
   const poPerWeek=Array(N).fill(0); for(const p of pos) poPerWeek[p.wi]++;
-  const poRow=`<tr><td class="sku" style="font-size:11px;color:var(--text2)">Wheel POs (×${BATCH}/type)</td>${poPerWeek.map((c,wi)=>`<td class="${c?'has':'zero'} ${wi===ci?'cur':''}" style="text-align:center;font-weight:700;color:var(--accent)">${c||''}</td>`).join('')}<td class="total">${pos.length}</td></tr>`;
+  const poRow=`<tr><td class="sku" style="font-size:11px;color:var(--text2)">Wheel POs (×${BATCH}/type)</td><td class="oo"></td><td class="oo"></td>${fold(poPerWeek).map((c,k)=>`<td class="${c?'has':'zero'} ${vis[k]===ci?'cur':''}" style="text-align:center;font-weight:700;color:var(--accent)">${c||''}</td>`).join('')}<td class="total">${pos.length}</td></tr>`;
   const wheelHas=Array(N).fill(false); for(const c of codes){ for(let wi=0;wi<N;wi++) if(demand[c][wi]>0.5) wheelHas[wi]=true; }
-  const issueRow=`<tr><td class="sku" style="font-size:11px;color:var(--text2)">Issue PO →</td>${weeks.map((wk,wi)=>wheelHas[wi]?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue one PO for all wheels due through ${wk.label} (cumulative · net of stock &amp; open POs)" onclick="issueWheelPO(${wi})">⇩ PO</button></td>`:'<td></td>').join('')}<td class="total"></td></tr>`;
+  const issueRow=`<tr><td class="sku" style="font-size:11px;color:var(--text2)">Issue PO →</td><td class="oo"></td><td class="oo"></td>${vis.map(wi=>{const wk=weeks[wi]; const any=(wi===visFrom)?wheelHas.slice(0,visFrom+1).some(Boolean):wheelHas[wi];
+    return any?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue one PO for all wheels due through ${wk.label} (cumulative · net of stock &amp; open POs)" onclick="issueWheelPO(${wi})">⇩ PO</button></td>`:'<td></td>';}).join('')}<td class="total"></td></tr>`;
   const note = codes.some(c=>!prod[c]) ? `<div class="hint" style="padding:6px 4px;color:var(--warn)">Connect to Odoo (⚙) and reopen this tab to enable the ⇩ PO buttons — wheel products not resolved yet.</div>` : '';
   const capNote = codes.some(c=>((wantGrid[c]||[]).reduce((a,b)=>a+b,0) - demand[c].reduce((a,b)=>a+b,0))>0.5)
     ? `<div class="hint" style="padding:6px 4px;color:var(--text2)">Black = what MTB <b>can</b> build with the components available. <span style="color:var(--danger);font-weight:600">Red</span> = what the bike plan says we <b>should</b> build. A gap is a component shortage, not a drop in demand.</div>` : '';
@@ -1557,7 +1583,7 @@ function renderWheels(){
     (compUnbuildable>0 ? k('Comp-limited', fmt(Math.round(compUnbuildable)), 'wheels MTB can\'t build — short on components','var(--danger)') : k('Components','✓ ok','MTB can build the plan','var(--success)'))+
     (overdue>0 ? k('Start now', fmt(Math.round(overdue)), 'wheels for near-term bikes','var(--danger)') : k('Schedule','✓ ahead','wheels lead bikes','var(--success)'));
   if(poList) poList.innerHTML = pos.length
-    ? '<div style="display:flex;flex-wrap:wrap;gap:8px">'+pos.map(p=>`<div class="kpi" style="min-width:150px"><div class="kpi-label">${p.code}${p.overdue?' · ⚠ ASAP':''}</div><div style="font-weight:700">${weeks[p.wi].label}</div><div class="hint">${BATCH} units · ${WHEEL_SIDE_OF(p.code)}</div></div>`).join('')+'</div>'
+    ? '<div style="display:flex;flex-wrap:wrap;gap:8px">'+pos.map(p=>`<div class="kpi" style="min-width:150px"><div class="kpi-label">${p.code}${p.overdue?' · ⚠ ASAP':''}</div><div style="font-weight:700">${weeks[Math.max(p.wi,visFrom)].label}</div><div class="hint">${BATCH} units · ${WHEEL_SIDE_OF(p.code)}</div></div>`).join('')+'</div>'
     : '<div class="hint">No wheels needed — bikes covered by existing wheel stock.</div>';
 }
 

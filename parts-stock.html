@@ -958,7 +958,10 @@ async function publishWheelStock(){
       const isFront=/^WHF/i.test(code)||/front/i.test(nm);
       const isRear =/^WHR/i.test(code)||/rear/i.test(nm);
       if(isFront){ front+=onhand; frontInc+=onorder; } else if(isRear){ rear+=onhand; rearInc+=onorder; }
-      byWheel[r.id]={name:`${code?('['+code+'] '):''}${nm}`, onhand, onorder, side:isFront?'front':(isRear?'rear':'?')};
+      /* vv and mtb kept apart as well as summed: the PO Builder's wheel tab shows
+         "at Velovisie now" on its own, because a wheel finished but still sitting at
+         MTB is not yet available to the assembly line. onhand stays for compatibility. */
+      byWheel[r.id]={name:`${code?('['+code+'] '):''}${nm}`, onhand, onorder, vv:(r.vvReal||0), mtb:(r.mtbQty||0), side:isFront?'front':(isRear?'rear':'?')};
     }
     await kvSetStore('wheel_stock', {updated:new Date().toISOString(), front, rear, frontIncoming:frontInc, rearIncoming:rearInc, byWheel});
     console.log('[PartStock] wheel_stock published — front',front,'(+'+frontInc+' on order) rear',rear,'(+'+rearInc+' on order)');

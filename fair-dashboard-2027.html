@@ -20,6 +20,20 @@ header{background:var(--ink);color:#fff;padding:18px 24px}
 nav{display:flex;gap:4px;background:var(--panel);padding:0 24px;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30;flex-wrap:wrap}
 nav button{background:none;border:none;padding:14px 18px;font-size:14px;font-weight:600;color:var(--dim);cursor:pointer;border-bottom:3px solid transparent}
 nav button.on{color:var(--ink);border-bottom-color:var(--gold)}
+.navtools{margin-left:auto;align-self:center;display:flex;gap:8px;align-items:center;position:relative}
+.cofilter{position:relative}
+.cofilter>summary{list-style:none;display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--ink);padding:6px 12px;border:1px solid var(--line);border-radius:20px;background:#fff;cursor:pointer;white-space:nowrap}
+.cofilter>summary::-webkit-details-marker{display:none}
+.cofilter.active>summary{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}
+.copanel{position:absolute;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px -10px rgba(0,0,0,.25);padding:8px;min-width:230px;z-index:50}
+.copanel label{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:6px;font-size:13px;cursor:pointer}
+.copanel label:hover{background:#f5f6f8}
+.copanel label small{margin-left:auto;color:var(--dim);font-variant-numeric:tabular-nums}
+.copanel .coacts{display:flex;gap:6px;border-top:1px solid var(--line);margin-top:6px;padding-top:8px}
+.copanel .coacts button{flex:1;font-size:12px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer}
+.pasttoggle{align-self:center;display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--dim);padding:6px 10px;border:1px solid var(--line);border-radius:20px;background:#fff;cursor:pointer;white-space:nowrap}
+.pasttoggle input{margin:0;cursor:pointer}
+.pasttoggle[hidden]{display:none}
 main{padding:22px 24px;max-width:1500px;margin:0 auto}
 .tab{display:none}.tab.on{display:block}
 h2{font-size:17px;margin:0 0 4px}
@@ -222,6 +236,8 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
   <button data-tab="emp">👤 Employees</button>
   <button data-tab="staff">🗂️ Staffing grid</button>
   <button data-tab="vanmap">🚚 Van routes</button>
+  <div class="navtools"><details class="cofilter" id="coFilter"><summary><span id="coFilterTxt">🌍 All countries</span> ▾</summary><div class="copanel" id="coPanel"></div></details>
+  <label class="pasttoggle" id="pastToggleWrap" title="Fairs that have already ended are hidden from planning views. They stay visible in Fair Tracker, Budget, Results and Feedback &amp; photos."><input type="checkbox" id="showPast"> <span id="pastToggleTxt">Show past fairs</span></label></div>
 </nav>
 <main>
 
@@ -457,9 +473,7 @@ footer{color:var(--dim);font-size:11.5px;text-align:center;padding:24px}
     <button class="btn gold" id="staffAddEmp">➕ Add employee</button>
     <span class="hint" style="margin:0">Click ✕ on a person's column header to remove them.</span>
     <span style="flex:1"></span>
-    <label style="font-weight:600;font-size:13px">Country:</label>
-    <select id="staffCo" style="min-width:190px"></select>
-    <label style="font-size:13px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="staffOnlyUsed"> Only people assigned in this country</label>
+    <label style="font-size:13px;display:flex;align-items:center;gap:5px"><input type="checkbox" id="staffOnlyUsed"> Only people assigned in the selected countries</label>
   </div>
   <div class="cards" id="staffStats"></div>
   <div id="staffGrid"></div>
@@ -749,6 +763,18 @@ function defISO(f){const m=f.date.match(/^(\d{1,2})\/(\d{1,2})/);let mo,dy;if(m)
 function getStart(f){const r=rec(f);return r.startDate||defISO(f);}
 function effMonth(f){const s=getStart(f);return +s.slice(5,7)||f.month;}
 function getEnd(f){return rec(f).endDate||'';}
+// past fairs: ended before today → hidden from planning views unless the viewer toggles them on (per-viewer, not synced)
+function isPast(f){const e=getEnd(f)||getStart(f);return !!e&&e<new Date().toISOString().slice(0,10);}
+function showPastOn(){try{return localStorage.getItem('ahfd2_showPast')==='1';}catch(e){return false;}}
+function pastOk(f){return showPastOn()||!isPast(f);}
+// country filter: multi-select, per-viewer (not synced). Empty list = all countries.
+function coSelList(){try{const v=JSON.parse(localStorage.getItem('ahfd2_coSel')||'[]');return Array.isArray(v)?v:[];}catch(e){return [];}}
+function coSetList(a){try{localStorage.setItem('ahfd2_coSel',JSON.stringify(a));}catch(e){}}
+function coActive(){return coSelList().length>0;}
+function coOne(){return coSelList().length===1;}
+function inCo(f){const l=coSelList();return !l.length||(!!f&&l.includes(f.ct));}
+function coLabel(){const l=coSelList();if(!l.length)return 'All countries';return l.map(c=>(CO_NAME[c]||c).replace(/^[^ ]+ /,'')).join(', ');}
+function live(f){return pastOk(f)&&inCo(f);}
 function nightsOf(f){const s=getStart(f),e=getEnd(f);if(!s||!e)return null;const n=Math.round((new Date(e)-new Date(s))/86400000)+1;return n>0?n:null;}
 function shortD(iso){if(!iso)return'';const p=iso.split('-');return p[2]+'/'+p[1];}
 function getDays(f){const s=getStart(f),e=getEnd(f);return e?shortD(s)+'–'+shortD(e):shortD(s);}
@@ -789,7 +815,7 @@ function fmtVis(v){return v==null||v===''?'—':(+v).toLocaleString('en-US');}
 function renderFairs(){
   const q=$('#q').value.trim().toLowerCase(),ft=$('#fType').value,fy=$('#fYear').value,fcity=$('#fCity').value,ffrom=+$('#fFrom').value||1,fto=+$('#fTo').value||12,sort=$('#fSort').value,showHidden=$('#showHidden').checked;
   const cont=$('#fairContainer');cont.innerHTML='';
-  let list=FAIRS.map(f=>({f,s:score(f)})).filter(o=>(!ft||o.f.type===ft)&&(!fy||(''+o.f.year)===fy)&&(!fcity||fairCity(o.f)===fcity)&&(effMonth(o.f)>=ffrom&&effMonth(o.f)<=fto)&&(!q||o.f.name.toLowerCase().includes(q)||(rec(o.f).city||'').toLowerCase().includes(q)||fairCity(o.f).toLowerCase().includes(q)));
+  let list=FAIRS.map(f=>({f,s:score(f)})).filter(o=>inCo(o.f)&&(!ft||o.f.type===ft)&&(!fy||(''+o.f.year)===fy)&&(!fcity||fairCity(o.f)===fcity)&&(effMonth(o.f)>=ffrom&&effMonth(o.f)<=fto)&&(!q||o.f.name.toLowerCase().includes(q)||(rec(o.f).city||'').toLowerCase().includes(q)||fairCity(o.f).toLowerCase().includes(q)));
   const cmp={priority:(a,b)=>b.s-a.s,date:(a,b)=>getStart(a.f).localeCompare(getStart(b.f))||a.f.name.localeCompare(b.f.name),visitors:(a,b)=>(getVis(b.f)||0)-(getVis(a.f)||0),name:(a,b)=>a.f.name.localeCompare(b.f.name)}[sort];
   CO_ORDER.forEach(ct=>{
     let rows=list.filter(o=>o.f.ct===ct); if(!rows.length)return;
@@ -922,7 +948,7 @@ function rec2(id){if(!recs[id])recs[id]={};return recs[id];}
 function byId(id){return FAIRS.find(f=>f.id===id);}
 
 function renderStats(){
-  const active=FAIRS.filter(f=>ticked[f.id]);
+  const active=FAIRS.filter(f=>ticked[f.id]&&inCo(f));
   const vis=active.reduce((a,f)=>a+(getVis(f)||0),0);
   const booked=active.filter(f=>getStatus(f,'spaceBooked')==='yes').length;
   const big=active.filter(f=>vanFor(f)==='big').length,small=active.filter(f=>vanFor(f)==='small').length;
@@ -960,7 +986,7 @@ function dl(txt,name){const b=new Blob([txt],{type:'text/csv'});const a=document
 // ---------- VAN TAB ----------
 function renderLoad(el,idx){let h='';for(const g in LOADOUT){const items=LOADOUT[g].map(p=>p[idx]).filter(x=>x&&x!=='—');if(!items.length)continue;h+=`<div class="grp">${g}</div><ul class="loadlist">`;items.forEach(it=>h+=`<li><input type="checkbox"><span>${it}</span></li>`);h+='</ul>';}el.innerHTML=h;}
 function renderVanTab(){
-  const active=FAIRS.filter(f=>ticked[f.id]);
+  const active=FAIRS.filter(f=>ticked[f.id]&&live(f));
   const big=active.filter(f=>vanFor(f)==='big'),small=active.filter(f=>vanFor(f)==='small');
   $('#vanStats').innerHTML=`<div class="card"><div class="n" style="color:var(--big)">${big.length}</div><div class="l">Big-van trips · 20 bikes</div></div>
     <div class="card"><div class="n" style="color:var(--small)">${small.length}</div><div class="l">Small-van trips · 6 bikes</div></div>
@@ -974,11 +1000,11 @@ function renderVanTab(){
 // ---------- PM TAB ----------
 function populateCityFilter(){const sel=$('#fCity');if(!sel)return;const cur=sel.value;const cities=[...new Set(FAIRS.map(f=>fairCity(f)).filter(Boolean))].sort((a,b)=>a.localeCompare(b));sel.innerHTML='<option value="">All cities</option>'+cities.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');sel.value=cur;}
 function refreshFairSelects(){
-  const opts='<option value="">— General —</option>'+FAIRS.filter(f=>ticked[f.id]).sort((a,b)=>a.month-b.month).map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
+  const opts='<option value="">— General —</option>'+FAIRS.filter(f=>ticked[f.id]&&live(f)).sort((a,b)=>a.month-b.month).map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
   $('#tFair').innerHTML=opts;
-  $('#seedFair').innerHTML=FAIRS.filter(f=>ticked[f.id]).sort((a,b)=>a.month-b.month).map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
-  $('#pmFilterFair').innerHTML='<option value="">All fairs</option><option value="__none">General (no fair)</option>'+FAIRS.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
-  $('#planFair').innerHTML='<option value="__template">⭐ Master template</option>'+FAIRS.filter(f=>ticked[f.id]).sort((a,b)=>a.month-b.month).map(f=>`<option value="${f.id}">${esc(f.name)} · ${esc(getDays(f))}</option>`).join('');
+  $('#seedFair').innerHTML=FAIRS.filter(f=>ticked[f.id]&&live(f)).sort((a,b)=>a.month-b.month).map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
+  $('#pmFilterFair').innerHTML='<option value="">All fairs</option><option value="__none">General (no fair)</option>'+FAIRS.filter(inCo).map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
+  $('#planFair').innerHTML='<option value="__template">⭐ Master template</option>'+FAIRS.filter(f=>ticked[f.id]&&live(f)).sort((a,b)=>a.month-b.month).map(f=>`<option value="${f.id}">${esc(f.name)} · ${esc(getDays(f))}</option>`).join('');
 }
 function fairName(id){const f=byId(id);return f?f.name:'—';}
 function todayStr(){return new Date().toISOString().slice(0,10);}
@@ -986,7 +1012,7 @@ function renderTasks(){
   const fw=$('#pmFilterWho').value,fs=$('#pmFilterStatus').value,ff=$('#pmFilterFair').value;
   const body=$('#taskBody');body.innerHTML='';
   let shown=tasks.map((t,i)=>({t,i}))
-    .filter(({t})=>(!fw||t.who===fw)&&(!fs||t.status===fs)&&(!ff||(ff==='__none'?!t.fair:t.fair===ff)));
+    .filter(({t})=>(!t.fair||!byId(t.fair)||inCo(byId(t.fair)))&&(!fw||t.who===fw)&&(!fs||t.status===fs)&&(!ff||(ff==='__none'?!t.fair:t.fair===ff)));
   shown.sort((a,b)=>(a.t.date||'9999').localeCompare(b.t.date||'9999'));
   if(!shown.length)body.innerHTML='<tr><td colspan="7" style="color:var(--dim);padding:18px">No tasks yet. Add one above, or seed the A–Z list for a fair.</td></tr>';
   shown.forEach(({t,i})=>{
@@ -1069,7 +1095,7 @@ function dayOfYear(f){const iso=getStart(f);const mon=+iso.slice(5,7)||f.month||
 function weekOf(f){return Math.floor(dayOfYear(f)/7);}
 function renderRoadmap(){
   const fy=$('#fYear')?$('#fYear').value:'';
-  const active=FAIRS.filter(f=>ticked[f.id]&&(!fy||(''+f.year)===fy));
+  const active=FAIRS.filter(f=>ticked[f.id]&&live(f)&&(!fy||(''+f.year)===fy));
   let YEARS=fy?[+fy]:[...new Set(active.map(f=>f.year))].sort((a,b)=>a-b);
   if(!YEARS.length)YEARS=[2027];
   const yi=y=>Math.max(0,YEARS.indexOf(y));
@@ -1132,7 +1158,7 @@ function budgetYearSel(all){let y=store.get('budgetYear',null);const ys=[...new 
   if(y===null){const now=new Date().getFullYear();y=ys.includes(now)?String(now):(ys.length?String(Math.min(...ys)):'');}
   if(y&&!ys.includes(+y))y='';return y;}
 function renderBudget(){
-  const allTicked=FAIRS.filter(f=>ticked[f.id]);
+  const allTicked=FAIRS.filter(f=>ticked[f.id]&&inCo(f));
   const by=budgetYearSel(allTicked);
   const active=by?allTicked.filter(f=>String(fairYear(f))===by):allTicked;
   {const ys=[...new Set(allTicked.map(fairYear))].sort((a,b)=>a-b);
@@ -1193,7 +1219,7 @@ const EMP_LIST=[...new Set([...EMP_PRESENCE.filter(p=>p!=='Dealer'),...PEOPLE])]
 function populateEmpPicker(){const sel=$('#empPick');if(!sel)return;const saved=store.get('empPick','');const list=[...new Set([...EMP_PRESENCE.filter(p=>p!=='Dealer'),...PEOPLE])].sort((a,b)=>a.localeCompare(b));sel.innerHTML='<option value="">— select your name —</option>'+list.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');sel.value=saved;}
 function _hav(la1,lo1,la2,lo2){const R=6371,r=Math.PI/180;const dLa=(la2-la1)*r,dLo=(lo2-lo1)*r;const a=Math.sin(dLa/2)**2+Math.cos(la1*r)*Math.cos(la2*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(a));}
 function _dayN(iso){return Math.round(new Date(iso).getTime()/86400000);}
-function vanFairs(van){return FAIRS.filter(f=>ticked[f.id]&&van.cts.includes(f.ct)&&FAIR_CITY[f.name]&&CITY_GEO[FAIR_CITY[f.name]]).sort((a,b)=>getStart(a).localeCompare(getStart(b)));}
+function vanFairs(van){return FAIRS.filter(f=>ticked[f.id]&&live(f)&&van.cts.includes(f.ct)&&FAIR_CITY[f.name]&&CITY_GEO[FAIR_CITY[f.name]]).sort((a,b)=>getStart(a).localeCompare(getStart(b)));}
 function nearestBase(van,lat,lon){let best=van.bases[0],bd=Infinity;van.bases.forEach(b=>{const g=CITY_GEO[b];const d=_hav(lat,lon,g[0],g[1]);if(d<bd){bd=d;best=b;}});return best;}
 function buildRoute(van){
   const fs=vanFairs(van);
@@ -1250,14 +1276,12 @@ function renderVanMap(){
 }
 function renderStaff(){
   const allEmps=EMP_PRESENCE.filter(p=>p!=='Dealer');
-  const allFairs=FAIRS.filter(f=>ticked[f.id]).sort((a,b)=>getStart(a).localeCompare(getStart(b)));
+  const allFairs=FAIRS.filter(f=>ticked[f.id]&&pastOk(f)).sort((a,b)=>getStart(a).localeCompare(getStart(b)));
   const grid=$('#staffGrid'),warn=$('#staffWarn'),st=$('#staffStats');
   // country filter (per-viewer preference, not shared)
-  const coSel=$('#staffCo');let co=store.get('staffCo','');
-  if(co&&!allFairs.some(f=>f.ct===co))co='';
-  if(coSel){coSel.innerHTML=`<option value="">🌍 All countries (${allFairs.length})</option>`+CO_ORDER.concat([...new Set(allFairs.map(f=>f.ct))].filter(c=>!CO_ORDER.includes(c))).map(c=>{const n=allFairs.filter(f=>f.ct===c).length;return n?`<option value="${c}" ${c===co?'selected':''}>${CO_NAME[c]||c} (${n})</option>`:'';}).join('');coSel.value=co;}
+  const co=coActive()?'sel':'';
   const onlyUsed=!!store.get('staffOnlyUsed',false);if($('#staffOnlyUsed'))$('#staffOnlyUsed').checked=onlyUsed;
-  const fairs=co?allFairs.filter(f=>f.ct===co):allFairs;
+  const fairs=allFairs.filter(inCo);
   if(!fairs.length){grid.innerHTML='<p class="hint">No fairs selected yet — tick fairs on the Fair Tracker and they will appear here.</p>';warn.innerHTML='';if(st)st.innerHTML='';return;}
   const isYes=(f,p)=>rec(f).presence&&rec(f).presence[p]==='Yes';
   const dayNum=f=>Math.round(new Date(getStart(f)).getTime()/86400000);
@@ -1273,7 +1297,7 @@ function renderStaff(){
     const cells=emps.map(p=>{const on=isYes(f,p);const t=tight[f.id+'|'+p]||'';
       return `<td class="cell ${on?'on':''} ${on?t:''}" data-cell="${f.id}|${p}" title="${esc(p)} — ${esc(f.name)}${on&&t==='red'?' ⚠ within a week of another fair':on&&t==='amber'?' · within 2 weeks of another fair':''}">${on?(t==='red'?'⚠':'●'):''}</td>`;}).join('');
     const cnt=allEmps.filter(p=>isYes(f,p)).length;
-    return `<tr><td class="sticky-l dt">${esc(getDays(f))}</td><td class="sticky-l2 name">${co?'':`<span class="flag" style="background:var(--${f.ct});display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px"></span>`}${esc(f.name)}${f.year!==2027?` <span class="yrtag">${f.year}</span>`:''}<small>${esc(fairCity(f))} · ${cnt} assigned</small></td>${cells}</tr>`;
+    return `<tr><td class="sticky-l dt">${esc(getDays(f))}</td><td class="sticky-l2 name">${coOne()?'':`<span class="flag" style="background:var(--${f.ct});display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px"></span>`}${esc(f.name)}${f.year!==2027?` <span class="yrtag">${f.year}</span>`:''}<small>${esc(fairCity(f))} · ${cnt} assigned</small></td>${cells}</tr>`;
   }).join('');
   grid.innerHTML=`<div class="staff-scroll"><table class="staff"><thead>${head}</thead><tbody>${rows}</tbody></table></div>`;
   grid.querySelectorAll('[data-cell]').forEach(td=>td.onclick=()=>{const sc=document.querySelector('.staff-scroll');const sx=sc?sc.scrollLeft:0,sy=sc?sc.scrollTop:0;const wy=window.scrollY;const[id,p]=td.dataset.cell.split('|');const r=rec2(id);r.presence=r.presence||{};r.presence[p]=r.presence[p]==='Yes'?'No':'Yes';saveRecs();renderStaff();const s2=document.querySelector('.staff-scroll');if(s2){s2.scrollLeft=sx;s2.scrollTop=sy;}window.scrollTo(0,wy);});
@@ -1281,16 +1305,16 @@ function renderStaff(){
   const pairs=[];
   allEmps.forEach(p=>{const list=empAll[p];for(let i=1;i<list.length;i++){const gap=dayNum(list[i])-dayNum(list[i-1]);if(gap<=7&&(shown.has(list[i].id)||shown.has(list[i-1].id)))pairs.push({p,a:list[i-1],b:list[i],gap});}});
   const busiest=allEmps.map(p=>[p,empFairs[p].length]).sort((a,b)=>b[1]-a[1])[0];
-  const coTxt=co?' in '+(CO_NAME[co]||co).replace(/^[^ ]+ /,''):'';
+  const coTxt=co?' in '+coLabel():'';
   if(st)st.innerHTML=`<div class="card"><div class="n">${fairs.length}</div><div class="l">Fairs to staff${coTxt}</div></div>
     <div class="card"><div class="n" style="color:var(--red)">${pairs.length}</div><div class="l">Back-to-back conflicts${coTxt}</div></div>
     <div class="card"><div class="n">${busiest&&busiest[1]?esc(busiest[0]):'—'}</div><div class="l">Busiest person${coTxt}${busiest&&busiest[1]?' ('+busiest[1]+' fairs)':''}</div></div>`;
-  warn.innerHTML=pairs.length?('<h3 style="font-size:14px;margin:14px 0 8px">⚠ Back-to-back assignments (≤ 1 week apart)'+(co?' <span style="font-weight:400;color:var(--dim)">— involving a fair in this country; the other fair may be elsewhere</span>':'')+'</h3>'+pairs.sort((x,y)=>x.p.localeCompare(y.p)||x.gap-y.gap).map(x=>`<div class="clash-card"><b>${esc(x.p)}:</b> ${esc(x.a.name)} (${esc(getDays(x.a))}) → ${esc(x.b.name)} (${esc(getDays(x.b))}) — only <b>${x.gap} day${x.gap===1?'':'s'}</b> apart</div>`).join('')):'<div class="clash-card" style="background:#e8f6f0;border-color:#a7d8c4;color:#166;margin-top:14px">✓ No one is assigned to two fairs within a week of each other'+coTxt+'.</div>';
+  warn.innerHTML=pairs.length?('<h3 style="font-size:14px;margin:14px 0 8px">⚠ Back-to-back assignments (≤ 1 week apart)'+(co?' <span style="font-weight:400;color:var(--dim)">— involving a fair in the selected countries; the other fair may be elsewhere</span>':'')+'</h3>'+pairs.sort((x,y)=>x.p.localeCompare(y.p)||x.gap-y.gap).map(x=>`<div class="clash-card"><b>${esc(x.p)}:</b> ${esc(x.a.name)} (${esc(getDays(x.a))}) → ${esc(x.b.name)} (${esc(getDays(x.b))}) — only <b>${x.gap} day${x.gap===1?'':'s'}</b> apart</div>`).join('')):'<div class="clash-card" style="background:#e8f6f0;border-color:#a7d8c4;color:#166;margin-top:14px">✓ No one is assigned to two fairs within a week of each other'+coTxt+'.</div>';
 }
 function renderEmp(){const sel=$('#empPick');if(!sel)return;if(sel.options.length<=1)populateEmpPicker();const name=sel.value;
   const fb=$('#empFairs'),tb=$('#empTasks'),st=$('#empStats');
   if(!name){st.innerHTML='';fb.innerHTML='<tr><td colspan="6" style="color:var(--dim);padding:16px">Select your name above to see your fairs and tasks.</td></tr>';tb.innerHTML='';return;}
-  const mine=FAIRS.filter(f=>ticked[f.id]&&rec(f).presence&&rec(f).presence[name]==='Yes').sort((a,b)=>getStart(a).localeCompare(getStart(b)));
+  const mine=FAIRS.filter(f=>ticked[f.id]&&live(f)&&rec(f).presence&&rec(f).presence[name]==='Yes').sort((a,b)=>getStart(a).localeCompare(getStart(b)));
   let nights=0;mine.forEach(f=>{const n=nightsOf(f);if(n)nights+=n;});
   const myTasks=tasks.filter(t=>t.who===name);
   const openT=myTasks.filter(t=>t.status!=='done').length;
@@ -1396,7 +1420,7 @@ function addRoster(){const v=$('#rosterNew').value.trim();if(!v)return;if(!EMP_P
 
 // ---------- RESULTS / KPI ----------
 function renderResults(){
-  const active=FAIRS.filter(f=>ticked[f.id]).slice().sort((a,b)=>(a.year-b.year)||(effMonth(a)-effMonth(b)));
+  const active=FAIRS.filter(f=>ticked[f.id]&&inCo(f)).slice().sort((a,b)=>(a.year-b.year)||(effMonth(a)-effMonth(b)));
   let leads=0,rev=0,cost=0,rep=0,withRes=0;
   active.forEach(f=>{const r=rec(f);const b2r=+r.b2rLeads||0,b2c=+r.b2cLeads||0;leads+=b2r+b2c;rev+=+r.revenue||0;const c=fairCost(f)-fairIncome(f);cost+=c;if(r.repeat==='Yes')rep++;if((+r.revenue)||(+r.orders)||b2r||b2c||r.feedback||r.repeat)withRes++;});
   $('#resStats').innerHTML=`
@@ -1465,7 +1489,7 @@ async function compressPhoto(file){const{im,u}=await loadImg(file);try{
 function slug(s){return(''+s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40)||'fair';}
 function phFileName(f,i){return `ahooga_${slug(f.name)}_${f.year||2027}_${String(i+1).padStart(2,'0')}.jpg`;}
 function fbFairList(){const today=new Date().toISOString().slice(0,10);const past=$('#fbPastOnly')&&$('#fbPastOnly').checked;
-  return FAIRS.filter(f=>ticked[f.id]||hasFeedback(recs[f.id])||photoCount(f.id)).filter(f=>!past||getStart(f)<=today).sort((a,b)=>getStart(b).localeCompare(getStart(a)));}
+  return FAIRS.filter(f=>inCo(f)&&(ticked[f.id]||hasFeedback(recs[f.id])||photoCount(f.id))).filter(f=>!past||getStart(f)<=today).sort((a,b)=>getStart(b).localeCompare(getStart(a)));}
 function openFeedbackTab(fid){const f=byId(fid);if(!f)return;const today=new Date().toISOString().slice(0,10);if(getStart(f)>today)$('#fbPastOnly').checked=false;store.set('fbFair',fid);const b=document.querySelector('nav button[data-tab="fb"]');if(b)b.click();window.scrollTo(0,0);}
 function renderFeedback(){
   const sel=$('#fbFair');const list=fbFairList();let fid=store.get('fbFair','');
@@ -1558,8 +1582,25 @@ function wireFeedback(){
   document.addEventListener('keydown',e=>{if($('#phBox').style.display==='none')return;if(e.key==='Escape')closeLightbox();if(e.key==='ArrowLeft')$('#phPrev').click();if(e.key==='ArrowRight')$('#phNext').click();});
 }
 
+// ---------- PAST-FAIR TOGGLE ----------
+const PAST_TABS=['roadmap','vans','pm','plan','emp','staff','vanmap'];
+function syncPastToggle(){const w=$('#pastToggleWrap');if(!w)return;const at=document.querySelector('nav button.on');w.hidden=!(at&&PAST_TABS.includes(at.dataset.tab));const n=FAIRS.filter(f=>ticked[f.id]&&isPast(f)&&inCo(f)).length;$('#showPast').checked=showPastOn();$('#pastToggleTxt').textContent='Show past fairs'+(n?' ('+n+')':'');}
+function refilterAll(){
+  const pf=$('#planFair')?$('#planFair').value:'',tf=$('#tFair')?$('#tFair').value:'';refreshFairSelects();if(pf&&[...$('#planFair').options].some(o=>o.value===pf))$('#planFair').value=pf;if(tf&&[...$('#tFair').options].some(o=>o.value===tf))$('#tFair').value=tf;
+  const pff=$('#pmFilterFair')?$('#pmFilterFair').value:'';if(pff&&[...$('#pmFilterFair').options].some(o=>o.value===pff))$('#pmFilterFair').value=pff;
+  renderFairs();const at=document.querySelector('nav button.on');if(at)at.click();}
+$('#showPast').onchange=e=>{try{localStorage.setItem('ahfd2_showPast',e.target.checked?'1':'0');}catch(_){}refilterAll();};
+function renderCoFilter(){const p=$('#coPanel');if(!p)return;const sel=coSelList();const cts=CO_ORDER.concat([...new Set(FAIRS.map(f=>f.ct))].filter(c=>!CO_ORDER.includes(c)));
+  p.innerHTML=cts.map(c=>{const n=FAIRS.filter(f=>f.ct===c&&ticked[f.id]).length;return `<label><input type="checkbox" data-co="${c}" ${sel.includes(c)?'checked':''}> ${esc(CO_NAME[c]||c)} <small>${n}</small></label>`;}).join('')+'<div class="coacts"><button type="button" id="coAll">All countries</button><button type="button" id="coDone">Done</button></div>';
+  const txt=$('#coFilterTxt');if(txt)txt.textContent='🌍 '+(sel.length>2?sel.length+' countries':coLabel());$('#coFilter').classList.toggle('active',sel.length>0);
+  p.querySelectorAll('[data-co]').forEach(cb=>cb.onchange=()=>{let l=[...p.querySelectorAll('[data-co]:checked')].map(x=>x.dataset.co);if(l.length===cts.length)l=[];coSetList(l);renderCoFilter();refilterAll();});
+  $('#coAll').onclick=()=>{coSetList([]);renderCoFilter();refilterAll();};
+  $('#coDone').onclick=()=>{$('#coFilter').open=false;};}
+document.addEventListener('click',e=>{const d=$('#coFilter');if(e.isTrusted&&d&&d.open&&e.target.isConnected&&!d.contains(e.target))d.open=false;});
+renderCoFilter();
+
 // ---------- TABS ----------
-$$('nav button').forEach(b=>b.onclick=()=>{$$('nav button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+$$('nav button').forEach(b=>b.onclick=()=>{$$('nav button').forEach(x=>x.classList.remove('on'));b.classList.add('on');syncPastToggle();
   $$('.tab').forEach(t=>t.classList.remove('on'));$('#'+b.dataset.tab).classList.add('on');
   if(b.dataset.tab==='vans')renderVanTab();
   if(b.dataset.tab==='roadmap')renderRoadmap();
@@ -1571,6 +1612,7 @@ $$('nav button').forEach(b=>b.onclick=()=>{$$('nav button').forEach(x=>x.classLi
   if(b.dataset.tab==='emp')renderEmp();
   if(b.dataset.tab==='staff')renderStaff();
   if(b.dataset.tab==='vanmap')renderVanMap();});
+syncPastToggle();
 
 // ---------- WIRE ----------
 ['q','fYear','fType','fCity','fFrom','fTo','fSort','showHidden'].forEach(id=>$('#'+id).oninput=renderFairs);
@@ -1608,7 +1650,6 @@ $('#rosterNew').addEventListener('keydown',e=>{if(e.key==='Enter')addRoster();})
 $('#carryBtn').onclick=carryToNextYear;
 $('#staffAddEmp').onclick=()=>{const el=$('#staffNewEmp');const v=el.value.trim();if(!v)return;if(!EMP_PRESENCE.includes(v))EMP_PRESENCE.push(v);store.set('empRoster',EMP_PRESENCE);el.value='';renderStaff();renderFairs();populateEmpPicker();if($('#rosterList'))renderRoster();};
 $('#staffNewEmp').addEventListener('keydown',e=>{if(e.key==='Enter')$('#staffAddEmp').click();});
-$('#staffCo').onchange=e=>{store.set('staffCo',e.target.value);renderStaff();};
 $('#staffOnlyUsed').onchange=e=>{store.set('staffOnlyUsed',e.target.checked);renderStaff();};
 wireFeedback();
 syncW();rebuildYearOptions();populateCityFilter();populateEmpPicker();refreshFairSelects();renderFairs();loadCloud();
