@@ -801,8 +801,8 @@ async function loadData(){
       document.getElementById('fc-pill').className='pill err';
     }
 
-    componentSupply=await kvGet('component_supply_my27');   // MY27 (2027 BoM) feed from Parts Stock — the stock left after the 2026 plan
-    if(!componentSupply) console.warn('[MY27] no component_supply_my27 yet — open Parts Stock and refresh so it publishes the MY27 feed');
+    componentSupply=adoptSupply(await kvGet('component_supply'));   // Parts Stock's live feed; MY27 recipe swapped in by adoptSupply
+    if(!componentSupply) console.warn('[MY27] no component_supply yet — open Parts Stock and refresh so it publishes the feed');
     wheelStock=await kvGet('wheel_stock');             // wheels already on hand — net the wheel plan against these
     wheelMap=await kvGet('wheel_map');                 // which wheel SKU each bike family uses (per-SKU)
     await loadMy27Stock();
@@ -1698,7 +1698,7 @@ function renderYear(){
     const leadTxt = CS.transferLeadDays ? ` (assumes ~${CS.transferLeadDays}-day AND→Velovisie transfer)` : '';
     const srcTxt = CS.live
       ? ` Source: the live MY27 BoMs and free stock, read ${ntUpdated?ntUpdated.toLocaleTimeString():'this session'}. Inside the first ${NEAR_TERM_WEEKS} weeks each bike is checked against <b>its own</b> colour- and rack-specific recipe, against stock net of what is already reserved for bikes in production; beyond that window the full forecast is planned so the component POs still show up.`
-      : ` Source: the stored <code>component_supply_my27</code> feed of ${CS.updated?new Date(CS.updated).toLocaleDateString('en-GB'):'unknown date'} — <b>nothing refreshes it any more</b>; press ↻ Re-read stock above for live figures.`;
+      : ` Source: the stored <code>component_supply</code> feed of ${CS.updated?new Date(CS.updated).toLocaleDateString('en-GB'):'unknown date'}${CS.recipe==='MY27'?' (MY27 recipe)':' — <b>MY26 recipe, no MY27 one in the feed</b>'}; press ↻ Re-read stock above for live figures.`;
     if(!ub.length && !capW) return `<div class="alert" style="background:var(--success-bg,#eaf3de);color:var(--success,#2d6e2d);border:1px solid rgba(45,110,45,0.25)">✓ Component check on — no week in the near-term window is capped by a missing part${leadTxt}.${srcTxt}</div>`;
     const parts=[];
     if(capW) parts.push(`${capW} week${capW>1?'s':''} capped to available components (bikes shifted to later weeks).`);
@@ -2061,6 +2061,33 @@ function ntSyntheticSupply(){
 /* The feed the plan should believe: the live one when we have it, the old store feed only
    as a last resort — and the renderer says which, because a component check nobody can
    see the source of is worse than no check at all. */
+/* The component feed is published by Parts Stock under ONE key, component_supply.
+   This app used to read component_supply_my27, which nothing has written since
+   15 Sep 2026 — so Forward Stock here showed a month-old snapshot while Parts Stock
+   showed live numbers, and the two never agreed. Same feed now; and because its
+   usageByFam is the MY26 recipe, the MY27 recipe that rides along is swapped in,
+   so MY27 bikes are costed against MY27 BoMs. */
+function adoptSupply(cs){
+  if(!cs) return cs;
+  const out=Object.assign({}, cs);
+  const my27=cs.usageByFamMY27;
+  if(my27 && Object.keys(my27).length){ out.usageByFam=my27; out.recipe='MY27'; }
+  /* START FROM WHAT IS ON THE SHELF TODAY.
+     The feed also carries endStock — the stock left at the end of Parts Stock's
+     production plan. That used to be the right starting point, back when the plan
+     was MY26 only and MY27 came after it. Parts Stock now stitches both plans into
+     one, so endStock is the stock left after MY26 AND the whole of MY27 — and this
+     tab then consumes MY27 again on top of it. Starting there would subtract the
+     MY27 year twice.
+     MY26 is finished and the handover is done, so there is no MY26 remainder left to
+     model: today's on-hand IS the MY27 starting point. Dropping endStock puts the tab
+     on its existing start-from-today path, which also dates undated and already-landed
+     arrivals into week 1 where they belong. */
+  delete out.endStock; delete out.endDetail;
+  out.startsFromToday=true;
+  return out;
+}
+
 function activeSupply(){ return ntSyntheticSupply() || componentSupply; }
 
 function ntPartLabel(r){ return (r.code?`<span style="color:var(--text3);font-size:11px">[${esc(r.code)}]</span> `:'')+esc(r.name); }
@@ -2268,7 +2295,7 @@ function planByFamCode(){
 }
 // Pull the freshest component_supply each time the tab opens (no full reload needed).
 async function refreshForwardData(){
-  try{ const cs=await kvGet('component_supply_my27'); if(cs) componentSupply=cs; }catch(e){}
+  try{ const cs=await kvGet('component_supply'); if(cs) componentSupply=adoptSupply(cs); }catch(e){}
   renderForward();
 }
 function renderForward(){
@@ -2286,7 +2313,7 @@ function renderForward(){
   const startLevel=(pid)=> usingEnd ? (endStock[pid]!=null?endStock[pid]:(stock[pid]||0)) : (stock[pid]||0);
   if(basisEl){ const src = usingEnd
       ? `Starting stock = projected stock at the <b>end of the current production plan</b>${componentSupply.planEnd?(' ('+componentSupply.planEnd+')'):''} — the last column of the Parts Stock → Forward stock tab.`
-      : `Starting stock = current on-hand (Velovisie + Anderlecht) — open Parts Stock and refresh to use the end-of-plan projection instead.`;
+      : `Starting stock = <b>what is on hand today</b> (Velovisie + the upstream pool, which is Anderlecht <i>and</i> Brain Log read together). MY26 is finished, so there is no earlier plan left to consume first.${componentSupply.recipe==='MY27'?' Consumption uses the MY27 recipe.':' <b>Consumption is using the MY26 recipe — no MY27 one in the feed; reopen Parts Stock.</b>'}`;
     basisEl.innerHTML = src + (componentSupply.updated ? (' · feed '+new Date(componentSupply.updated).toLocaleDateString('en-GB')) : ''); }
   const byFam=planByFamCode(), W=weeks.length, wkMon=weeks.map(w=>w.monday);
   function arrivalsFor(pid){

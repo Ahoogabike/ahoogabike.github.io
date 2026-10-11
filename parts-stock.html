@@ -877,8 +877,15 @@ async function publishComponentSupply(){
     }
     const usageByFam={};
     for(const f in usagePerBikeByFam){ const u=usagePerBikeByFam[f]; if(u && Object.keys(u).length) usageByFam[f]=u; }
+    /* The MY27 recipe travels with the feed too. usageByFam is the MY26 one, which is
+       right for the current plan but wrong for planning MY27 bikes — the BoMs differ.
+       The MY27 PO Builder was reading a separate key, component_supply_my27, that
+       nothing has published since 15 Sep: its Forward Stock tab has been showing a
+       frozen snapshot while this app showed live figures. Same feed, both recipes. */
+    const usageByFamMY27={};
+    for(const f in usagePerBikeByFamMY27){ const u=usagePerBikeByFamMY27[f]; if(u && Object.keys(u).length) usageByFamMY27[f]=u; }
     const planEnd=(productionPlan&&productionPlan.weeks&&productionPlan.weeks.length)?productionPlan.weeks[productionPlan.weeks.length-1].monday:null;
-    const payload={ updated:new Date().toISOString(), basis:'vv+and+incoming', transferLeadDays:TRANSFER_LEAD_DAYS, usageByFam, stock, stockDetail, endStock, endDetail, planEnd, incoming, names, cats, partNos };
+    const payload={ updated:new Date().toISOString(), basis:'vv+and+incoming', transferLeadDays:TRANSFER_LEAD_DAYS, usageByFam, usageByFamMY27, stock, stockDetail, endStock, endDetail, planEnd, incoming, names, cats, partNos };
     const ok=await kvSetStore('component_supply', payload);
     console.log('[PartStock] component_supply published:', Object.keys(stock).length, 'components ·', ok);
   }catch(e){ console.warn('[PartStock] publishComponentSupply failed:', e.message); }
