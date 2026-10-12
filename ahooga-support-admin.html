@@ -5,30 +5,54 @@
  :root{--ink:#16160f;--dim:#6f6d63;--line:#e6e3da;--gold:#f2b705;--gold-d:#caa006;--bg2:#f5f4f1}
  *{box-sizing:border-box}html,body{margin:0;height:100%}
  body{font-family:'Archivo',system-ui,sans-serif;color:var(--ink);background:#fff;height:100vh;display:flex;flex-direction:column}
- header{display:flex;align-items:center;gap:14px;padding:12px 18px;border-bottom:1px solid var(--line)}
+ button,select,input,textarea{font-family:inherit}
+ header{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap}
  header b{font-weight:900}.tag{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
  .spacer{flex:1}.muted{color:var(--dim);font-size:12px}
+ .hb{border:1px solid var(--line);background:#fff;border-radius:16px;padding:6px 12px;font-size:13px;font-weight:700;color:var(--dim);cursor:pointer}
+ .me{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700}
+ .me select,.conv select{border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:13px;font-weight:700;background:#fff}
  .gate{max-width:360px;margin:12vh auto;text-align:center}
- .gate input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;font-family:inherit;margin:10px 0}
- .gate button{width:100%;padding:13px;border:0;border-radius:10px;background:var(--gold);font-weight:800;cursor:pointer;font-family:inherit}
- .main{flex:1;display:grid;grid-template-columns:300px 1fr;min-height:0}
- .list{border-right:1px solid var(--line);overflow:auto}
- .th{padding:13px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+ .gate input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;margin:10px 0}
+ .gate button{width:100%;padding:13px;border:0;border-radius:10px;background:var(--gold);font-weight:800;cursor:pointer}
+ .main{flex:1;display:grid;grid-template-columns:320px 1fr;min-height:0}
+ .side{border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+ .flt{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-bottom:1px solid var(--line)}
+ .flt button{border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px}
+ .flt button[aria-pressed=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+ .list{overflow:auto;flex:1}
+ .th{padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;display:grid;grid-template-columns:34px 1fr;gap:0 10px}
  .th:hover{background:var(--bg2)}.th.on{background:#fffbe9}
- .th .nm{font-weight:800;font-size:14px;display:flex;align-items:center;gap:8px}
+ .th .nm{font-weight:800;font-size:14px;display:flex;align-items:center;gap:6px}
  .dot{background:#e24b4a;color:#fff;font-size:10px;font-weight:800;border-radius:10px;padding:1px 7px}
  .th .ls{font-size:12.5px;color:var(--dim);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .th .who{font-size:11px;color:var(--dim);margin-top:2px}
+ .av{width:34px;height:34px;border-radius:50%;background:var(--gold);display:grid;place-items:center;font-size:12px;font-weight:800;overflow:hidden;flex:none}
+ .av img{width:100%;height:100%;object-fit:cover}.av.s{width:22px;height:22px;font-size:9px}.av.l{width:64px;height:64px;font-size:18px}
  .conv{display:flex;flex-direction:column;min-height:0}
- .convh{padding:12px 18px;border-bottom:1px solid var(--line);font-weight:800}
+ .convh{padding:10px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+ .convh b{font-weight:800;font-size:15px}
  .feed{flex:1;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:10px;background:var(--bg2)}
  .m{max-width:70%;padding:9px 13px;border-radius:12px;font-size:14px;line-height:1.45;white-space:pre-wrap}
  .m.dealer{background:#fff;border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:4px}
  .m.ahooga{background:#16160f;color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
- .m .t{display:block;font-size:10.5px;opacity:.6;margin-top:4px}
- .cbar{display:flex;gap:10px;padding:12px 16px;border-top:1px solid var(--line)}
- .cbar textarea{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 13px;font-family:inherit;font-size:14px;resize:none}
- .cbar button{border:0;border-radius:10px;background:var(--gold);font-weight:800;padding:0 20px;cursor:pointer;font-family:inherit}
- .empty{margin:auto;color:var(--dim)}
+ .m .t{display:flex;align-items:center;gap:6px;font-size:10.5px;opacity:.7;margin-top:5px}
+ .cbar{display:flex;gap:10px;padding:12px 16px;border-top:1px solid var(--line);align-items:stretch}
+ .cbar textarea{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 13px;font-size:14px;resize:none}
+ .cbar button{border:0;border-radius:10px;background:var(--gold);font-weight:800;padding:0 20px;cursor:pointer}
+ .empty{margin:auto;color:var(--dim);padding:20px}
+ dialog{border:0;border-radius:16px;padding:0;width:min(720px,94vw);max-height:90vh}
+ dialog::backdrop{background:rgba(22,22,15,.45)}
+ .dh{display:flex;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line)}.dh b{font-size:17px;font-weight:900}
+ .db{padding:12px 20px;overflow:auto;max-height:64vh;display:grid;gap:12px}
+ .agr{display:grid;grid-template-columns:72px 1fr;gap:10px 14px;border:1px solid var(--line);border-radius:14px;padding:12px}
+ .agr .phc{display:grid;gap:6px;justify-items:center}.agr .phc button{font-size:11px;border:0;background:none;color:var(--dim);cursor:pointer;text-decoration:underline}
+ .agr .f{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+ .agr label{display:grid;gap:3px;font-size:11px;font-weight:700;color:var(--dim)}
+ .agr input{border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:13px;color:var(--ink)}
+ .df{display:flex;gap:10px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--line)}
+ .btn{border:0;border-radius:10px;background:var(--gold);font-weight:800;padding:10px 18px;cursor:pointer}.btn.g{background:#fff;border:1px solid var(--line)}
+ @media (max-width:760px){.main{grid-template-columns:1fr}.side{max-height:40vh;border-right:0;border-bottom:1px solid var(--line)}.agr .f{grid-template-columns:1fr}}
 </style></head>
 <body>
 <div id="gate" class="gate">
@@ -39,31 +63,82 @@
  <div id="gmsg" class="muted" style="color:#b3261e;margin-top:8px"></div>
 </div>
 <div id="app" style="display:none;height:100%;flex-direction:column">
- <header><button onclick="goBack()" style="border:1px solid var(--line);background:#fff;border-radius:16px;padding:6px 12px;font-size:13px;font-weight:700;color:var(--dim);cursor:pointer;font-family:inherit">← Back</button><b>Ahooga</b><span class="tag">Support inbox</span><span class="spacer"></span><button onclick="adminLock()" style="border:1px solid var(--line);background:#fff;border-radius:16px;padding:6px 12px;font-size:13px;font-weight:700;color:var(--dim);cursor:pointer;font-family:inherit">🔒 Lock</button><span class="muted" id="status">live</span></header>
+ <header><button class="hb" onclick="goBack()">← Back</button><b>Ahooga</b><span class="tag">Support inbox</span><span class="spacer"></span>
+  <label class="me">I am <select id="me" onchange="setMe(this.value)"></select></label>
+  <button class="hb" onclick="openTeam()">Team &amp; photos</button>
+  <button class="hb" onclick="adminLock()">🔒 Lock</button><span class="muted" id="status">live</span></header>
  <div class="main">
-  <div class="list" id="list"></div>
+  <div class="side"><div class="flt" id="flt"></div><div class="list" id="list"></div></div>
   <div class="conv" id="conv"><div class="empty">Select a conversation</div></div>
  </div>
 </div>
+<dialog id="team">
+ <div class="dh"><b>After-sales team</b><span class="spacer"></span><button class="hb" onclick="team.close()">Close</button></div>
+ <div class="db" id="tlist"></div>
+ <div class="df"><button class="btn g" onclick="addAgent()">+ Add a person</button><span class="spacer"></span><span class="muted" id="tmsg" style="align-self:center"></span><button class="btn" onclick="saveTeam()">Save</button></div>
+ <input type="file" id="file" accept="image/*" hidden>
+</dialog>
 <script>
-const CF="https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev";
-let pw="",cur=null,threads=[],msgs=[],tPoll=null,mPoll=null;
+let CF="https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev";
+try{const o=JSON.parse(localStorage.getItem("ahg-admin-api")||"null");if(o)CF=o}catch(e){}
+let pw="",cur=null,curAgent="",threads=[],msgs=[],agents=[],tPoll=null,mPoll=null,flt="mine",me="";
+try{me=localStorage.getItem("ahg_sup_me")||""}catch(e){}
+const $=id=>document.getElementById(id);
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function ago(ts){if(!ts)return"";const d=Math.floor((Date.now()-ts)/1000);if(d<60)return"now";if(d<3600)return Math.floor(d/60)+"m";if(d<86400)return Math.floor(d/3600)+"h";return new Date(ts).toLocaleDateString(undefined,{day:"2-digit",month:"short"});}
+const ini=n=>String(n||"?").split(" ").filter(Boolean).map(x=>x[0]).join("").slice(0,2).toUpperCase();
+const ag=id=>agents.find(a=>a.id===id);
+const face=(a,c)=>'<span class="av '+(c||"")+'">'+(a&&a.photo?'<img src="'+esc(a.photo)+'" alt="">':esc(ini(a?a.name:"?")))+'</span>';
 async function api(path,extra){const r=await fetch(CF+path,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({adminPw:pw},extra||{}))});return r.json();}
 function goBack(){try{if(window.parent&&window.parent!==window&&window.parent.closeApp){window.parent.closeApp();return;}}catch(e){}if(history.length>1){history.back();}else{location.href='index.html';}}
 function adminSavePw(){try{localStorage.setItem('ahg_admin_pw',pw);}catch(e){}}
 function adminClearPw(){try{localStorage.removeItem('ahg_admin_pw');}catch(e){}}
 function adminLock(){adminClearPw();location.reload();}
-window.addEventListener('DOMContentLoaded',function(){try{var _sp=localStorage.getItem('ahg_admin_pw');if(_sp){var _i=document.getElementById('pw');if(_i){_i.value=_sp;enter(true);}}}catch(e){}});
-async function enter(silent){pw=document.getElementById("pw").value||"";const d=await api("/support/admin/threads");if(d.error){if(!silent)document.getElementById("gmsg").textContent=d.error;adminClearPw();return;}adminSavePw();
- document.getElementById("gate").style.display="none";document.getElementById("app").style.display="flex";
- threads=d.threads||[];renderList();tPoll=setInterval(loadThreads,10000);}
-async function loadThreads(){const d=await api("/support/admin/threads");if(d.threads){threads=d.threads;renderList();}}
-function renderList(){document.getElementById("list").innerHTML=threads.map(t=>'<div class="th'+(cur===t.pid?' on':'')+'" onclick="open_(\''+t.pid+'\',\''+esc(t.name).replace(/\x27/g,"")+'\')"><div class="nm">'+esc(t.name)+(t.unread?' <span class="dot">'+t.unread+'</span>':'')+'</div><div class="ls">'+esc(t.last||'')+' · '+ago(t.lastTs)+'</div></div>').join("")||'<div class="empty" style="padding:20px">No conversations yet</div>';}
-async function open_(pid,name){cur=pid;renderList();document.getElementById("conv").innerHTML='<div class="convh">'+esc(name)+'</div><div class="feed" id="feed"></div><div class="cbar"><textarea id="rep" rows="2" placeholder="Reply to '+esc(name)+'…" onkeydown="if(event.key===\x27Enter\x27&&!event.shiftKey){event.preventDefault();reply()}"></textarea><button onclick="reply()">Send</button></div>';
+window.addEventListener('DOMContentLoaded',function(){try{var _sp=localStorage.getItem('ahg_admin_pw');if(_sp){$('pw').value=_sp;enter(true);}}catch(e){}});
+async function enter(silent){pw=$("pw").value||"";const d=await api("/support/admin/threads");if(d.error){if(!silent)$("gmsg").textContent=d.error;adminClearPw();return;}adminSavePw();
+ $("gate").style.display="none";$("app").style.display="flex";
+ take(d);tPoll=setInterval(loadThreads,10000);}
+function take(d){threads=d.threads||[];if(d.agents)agents=d.agents;if(!ag(me)){flt="all"}drawMe();renderList();}
+function drawMe(){$("me").innerHTML='<option value="">Choose…</option>'+agents.map(a=>'<option value="'+esc(a.id)+'"'+(a.id===me?" selected":"")+'>'+esc(a.name)+'</option>').join("");}
+function setMe(v){me=v;try{localStorage.setItem("ahg_sup_me",v)}catch(e){}flt=v?"mine":"all";renderList();if(cur)drawConv();}
+async function loadThreads(){const d=await api("/support/admin/threads");if(d.threads)take(d);}
+function renderList(){
+ const un=id=>threads.filter(t=>(id==="all"||t.agent===id)).reduce((s,t)=>s+(t.unread||0),0);
+ const F=[[me?"mine":null,"Mine",me],["all","All","all"]].filter(x=>x[0]).concat(agents.filter(a=>a.id!==me).map(a=>[a.id,a.name,a.id]));
+ $("flt").innerHTML=F.map(([k,l,u])=>{const n=un(u);return '<button type="button" aria-pressed="'+(flt===k)+'" onclick="flt=\''+k+'\';renderList()">'+esc(l)+(n?' <span class="dot">'+n+'</span>':'')+'</button>'}).join("");
+ const want=flt==="mine"?me:flt;
+ const L=threads.filter(t=>want==="all"||t.agent===want);
+ $("list").innerHTML=L.map(t=>{const a=ag(t.agent);return '<div class="th'+(cur===t.pid?' on':'')+'" onclick="open_(\''+esc(t.pid)+'\')">'+face(a)+'<div><div class="nm">'+esc(t.name)+(t.unread?' <span class="dot">'+t.unread+'</span>':'')+'</div><div class="ls">'+esc(t.last||'')+' · '+ago(t.lastTs)+'</div><div class="who">'+(a?esc(a.name):'Nobody')+(t.auto?' · by country'+(t.cc?' ('+esc(t.cc)+')':''):' · chosen by the dealer')+'</div></div></div>'}).join("")||'<div class="empty">No conversations here</div>';}
+async function open_(pid){cur=pid;renderList();$("conv").innerHTML='<div class="convh" id="ch"></div><div class="feed" id="feed"></div><div class="cbar"><textarea id="rep" rows="2" onkeydown="if(event.key===\'Enter\'&&!event.shiftKey){event.preventDefault();reply()}"></textarea><button onclick="reply()">Send</button></div>';
  await loadMsgs();if(mPoll)clearInterval(mPoll);mPoll=setInterval(loadMsgs,8000);}
-async function loadMsgs(){if(!cur)return;const d=await api("/support/admin/messages",{pid:cur});if(d.messages){msgs=d.messages;const f=document.getElementById("feed");if(f){f.innerHTML=msgs.map(m=>'<div class="m '+(m.from==="ahooga"?"ahooga":"dealer")+'">'+esc(m.text)+'<span class="t">'+(m.from==="ahooga"?"Ahooga":esc(m.name))+' · '+ago(m.ts)+'</span></div>').join("");f.scrollTop=f.scrollHeight;}loadThreads();}}
-async function reply(){const ta=document.getElementById("rep");const text=(ta.value||"").trim();if(!text||!cur)return;ta.value="";const d=await api("/support/admin/post",{pid:cur,text});if(d.error){alert(d.error);return;}loadMsgs();}
+let curName="";
+function drawConv(){const a=ag(me);
+ $("ch").innerHTML='<b>'+esc(curName)+'</b><span class="spacer"></span><label class="muted">Handled by <select onchange="assign(this.value)">'+agents.map(x=>'<option value="'+esc(x.id)+'"'+(x.id===curAgent?' selected':'')+'>'+esc(x.name)+'</option>').join("")+'</select></label>';
+ $("rep").placeholder=a?'Reply to '+curName+' as '+a.name+'…':'Choose who you are (top right) to reply';
+ const f=$("feed");f.innerHTML=msgs.map(m=>{const x=ag(m.agent),to=ag(m.to);return '<div class="m '+(m.from==="ahooga"?"ahooga":"dealer")+'">'+esc(m.text)+'<span class="t">'+(m.from==="ahooga"?face(x||{name:m.name},"s")+esc(x?x.name:(m.name||"Ahooga")):esc(m.name)+(to?' → '+esc(to.name):''))+' · '+ago(m.ts)+'</span></div>'}).join("");f.scrollTop=f.scrollHeight;}
+async function loadMsgs(){if(!cur)return;const d=await api("/support/admin/messages",{pid:cur});if(d.messages){msgs=d.messages;curName=d.name||"";curAgent=d.agent||"";drawConv();loadThreads();}}
+async function assign(id){const d=await api("/support/admin/assign",{pid:cur,agent:id});if(d.error){alert(d.error);return}curAgent=id;loadThreads();}
+async function reply(){if(!ag(me)){alert("Choose who you are first (top right: I am …).");return}const ta=$("rep");const text=(ta.value||"").trim();if(!text||!cur)return;ta.value="";const d=await api("/support/admin/post",{pid:cur,text,as:me});if(d.error){alert(d.error);ta.value=text;return;}loadMsgs();}
+/* ---- team & photos ---- */
+let T=[],photoFor=null;
+function openTeam(){T=agents.map(a=>Object.assign({},a,{langs:(a.langs||[]).join(", "),cc:(a.cc||[]).join(", ")}));drawTeam();$("tmsg").textContent="";$("team").showModal();}
+function drawTeam(){$("tlist").innerHTML=T.map((a,i)=>'<div class="agr"><div class="phc">'+face(a,"l")+'<button type="button" onclick="pick('+i+')">'+(a.photo?"Change photo":"Add photo")+'</button>'+(a.photo?'<button type="button" onclick="unphoto('+i+')">Remove</button>':'')+'</div><div class="f">'
+ +'<label>Name<input value="'+esc(a.name)+'" oninput="T['+i+'].name=this.value"></label>'
+ +'<label>Languages (e.g. fr, en)<input value="'+esc(a.langs)+'" oninput="T['+i+'].langs=this.value"></label>'
+ +'<label>Area shown to dealers<input value="'+esc(a.area)+'" oninput="T['+i+'].area=this.value"></label>'
+ +'<label>Default for countries (e.g. FR, BE) — empty = all others<input value="'+esc(a.cc)+'" oninput="T['+i+'].cc=this.value"></label>'
+ +(a.isNew?'<label>Short id (letters only)<input value="'+esc(a.id)+'" oninput="T['+i+'].id=this.value"></label>':'')+'</div></div>').join("");}
+function addAgent(){T.push({id:"",name:"",langs:"en",area:"",cc:"",photo:"",isNew:true});drawTeam();}
+const list=s=>String(s||"").split(/[,\s]+/).map(x=>x.trim()).filter(Boolean);
+async function saveTeam(){const out=T.map(a=>({id:(a.id||a.name).toLowerCase().replace(/[^a-z0-9]/g,""),name:a.name.trim(),langs:list(a.langs).map(x=>x.toLowerCase()),area:a.area,cc:list(a.cc).map(x=>x.toUpperCase())}));
+ $("tmsg").textContent="Saving…";const d=await api("/support/admin/agents",{agents:out});if(d.error){$("tmsg").textContent=d.error;return}agents=d.agents;$("tmsg").textContent="Saved";drawMe();renderList();if(cur)drawConv();setTimeout(()=>$("team").close(),500);}
+function pick(i){if(T[i].isNew){alert("Save the new person first, then add the photo.");return}photoFor=i;$("file").value="";$("file").click();}
+async function unphoto(i){const d=await api("/support/admin/agents",{photoFor:T[i].id,photo:""});if(d.agents){agents=d.agents;T[i].photo="";drawTeam();renderList();}}
+$("file").addEventListener("change",async e=>{const f=e.target.files[0];if(!f||photoFor==null)return;
+ const img=await new Promise((ok,no)=>{const u=URL.createObjectURL(f),im=new Image();im.onload=()=>ok(im);im.onerror=no;im.src=u});
+ const S=320,c=document.createElement("canvas");c.width=c.height=S;const x=c.getContext("2d"),m=Math.min(img.width,img.height);
+ x.drawImage(img,(img.width-m)/2,(img.height-m)/2,m,m,0,0,S,S);let q=.85,url=c.toDataURL("image/jpeg",q);while(url.length>140000&&q>.4){q-=.1;url=c.toDataURL("image/jpeg",q)}
+ $("tmsg").textContent="Uploading photo…";const d=await api("/support/admin/agents",{photoFor:T[photoFor].id,photo:url});
+ if(d.error){$("tmsg").textContent=d.error;return}agents=d.agents;T[photoFor].photo=url;$("tmsg").textContent="Photo saved";drawTeam();renderList();if(cur)drawConv();});
 </script>
 </body></html>
