@@ -90,7 +90,7 @@ window.addEventListener('DOMContentLoaded',()=>{try{const p=localStorage.getItem
 async function enter(silent){pw=$("pw").value||"";$("gmsg").textContent=silent?"":"Loading…";const d=await api("/testrides/all").catch(e=>({error:e.message}));
  if(d.error){if(!silent)$("gmsg").textContent=d.error;try{localStorage.removeItem('ahg_admin_pw')}catch(e){}return}
  try{localStorage.setItem('ahg_admin_pw',pw)}catch(e){}$("gate").style.display="none";$("app").style.display="block";take(d)}
-async function load(){$("upd").textContent="Refreshing…";const d=await api("/testrides/all");if(!d.error)take(d);else $("upd").textContent=d.error}
+async function load(fresh){$("upd").textContent="Refreshing…";const d=await api("/testrides/all",{fresh:!!fresh});if(!d.error)take(d);else $("upd").textContent=d.error}
 function take(d){DATA=d;$("upd").textContent="Updated "+new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})+" · "+d.dealers.length+" dealers";
  const uniq=a=>[...new Set(a.filter(Boolean))].sort();
  $("fc").innerHTML=`<option value="">All countries</option>`+uniq(d.dealers.map(x=>x.country)).map(c=>`<option>${esc(c)}</option>`).join("");
@@ -149,7 +149,10 @@ function agenda(){const t=new Date(DATA.today+"T12:00"),mon=new Date(t);mon.setD
  const days=[...Array(7)].map((_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return iso(d)});$("wk").textContent=fdt(days[0])+" – "+fdt(days[6]);
  const D={};DATA.dealers.forEach(x=>D[x.id]=x);const LB={showed:"Showed up",noshow:"No-show",open:"Not marked",up:"",cancelled:"Cancelled"};
  const A=DATA.rows.filter(r=>r.d>=days[0]&&r.d<=days[6]&&(!F.c||(D[r.dealer]||{}).country===F.c)&&(!F.r||(D[r.dealer]||{}).rep===F.r)&&(!F.d||String(r.dealer)===F.d)&&(F.s==="all"||r.src===F.s));
- $("agenda").innerHTML=`<div class="ag">${days.map(d=>{const L=A.filter(r=>r.d===d).sort((a,b)=>String(a.t).localeCompare(String(b.t)));const dt=new Date(d+"T12:00");
+ let jump="";const act=A.filter(r=>state(r)!=="cancelled");if(!act.length){const all=DATA.rows.filter(r=>state(r)!=="cancelled"&&(!F.c||(D[r.dealer]||{}).country===F.c)&&(!F.r||(D[r.dealer]||{}).rep===F.r)&&(!F.d||String(r.dealer)===F.d)&&(F.s==="all"||r.src===F.s));
+  const pv=all.filter(r=>r.d<days[0]).pop(),nx=all.find(r=>r.d>days[6]),m0=new Date(t);m0.setDate(t.getDate()-((t.getDay()+6)%7));const wo=d=>Math.floor((new Date(d+"T12:00")-m0)/(7*864e5));
+  jump=`<p class="muted" style="margin:0 0 8px">No test ride this week.${pv?` <button class="hb" data-w="=${wo(pv.d)}">Last one: ${fdt(pv.d)} · ${esc((D[pv.dealer]||{}).name||"")}</button>`:""}${nx?` <button class="hb" data-w="=${wo(nx.d)}">Next one: ${fdt(nx.d)} · ${esc((D[nx.dealer]||{}).name||"")}</button>`:""}</p>`}
+ $("agenda").innerHTML=jump+`<div class="ag">${days.map(d=>{const L=A.filter(r=>r.d===d).sort((a,b)=>String(a.t).localeCompare(String(b.t)));const dt=new Date(d+"T12:00");
   return `<div class="agd${d===DATA.today?" now":""}"><h4>${dt.toLocaleDateString("en-GB",{weekday:"short"})} <b>${dt.getDate()}</b></h4>${L.map(r=>{const s=state(r),x=D[r.dealer]||{};return `<div class="age ${s}"><b>${esc(r.t||"walk-in")} · ${esc(x.name||"#"+r.dealer)}</b><small>${esc(r.bike||"")}${LB[s]?" · "+LB[s]:""}</small></div>`}).join("")||`<span class="muted">—</span>`}</div>`}).join("")}</div>`}
 function csv(){const D={};DATA.dealers.forEach(x=>D[x.id]=x);const L=rows(),h=["date","time","dealer","city","country","rep","source","booking","bike","heard","booked_on","after_ride","customer_status","reason"];
  const q=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';const t=[h.join(",")].concat(L.map(r=>{const x=D[r.dealer]||{};return [r.d,r.t,x.name,x.city,x.country,x.rep,r.src,state(r),r.bike,r.heard,r.booked,r.out,r.status,r.reason].map(q).join(",")})).join("\n");
@@ -158,7 +161,7 @@ document.addEventListener("click",e=>{const t=e.target;let x;
  if((x=t.closest("[data-p]"))){F.p=x.dataset.p;draw();return}
  if((x=t.closest("[data-s]"))){F.s=x.dataset.s;draw();return}
  if((x=t.closest("[data-sort]"))){const k=x.dataset.sort;sortD=sortK===k?-sortD:(k==="name"||k==="rep"?1:-1);sortK=k;draw();return}
- if((x=t.closest("[data-w]"))){wk=x.dataset.w==="0"?0:wk+(+x.dataset.w);agenda();return}});
+ if((x=t.closest("[data-w]"))){const v=x.dataset.w;wk=v==="0"?0:v[0]==="="?+v.slice(1):wk+(+v);agenda();return}});
 ["fc","fr","fd"].forEach(id=>$(id).addEventListener("change",e=>{F[id.slice(1)]=e.target.value;draw()}));
 ["fa","fb"].forEach(id=>$(id).addEventListener("change",()=>{F.p="custom";F.a=$("fa").value;F.b=$("fb").value;draw()}));
 document.addEventListener("mousemove",e=>{const x=e.target.closest&&e.target.closest("[data-tip],[data-tipt]");tip(e,x?(x.dataset.tip||x.dataset.tipt):"",x&&!!x.dataset.tipt)});
