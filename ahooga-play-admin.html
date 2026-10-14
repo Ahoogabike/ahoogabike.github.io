@@ -81,6 +81,7 @@
    <button class="tab" data-t="chal">Challenges</button>
    <button class="tab" data-t="biz">Business rewards</button>
    <button class="tab" data-t="pers">Personal rewards</button>
+   <button class="tab" data-t="play">Players</button>
   </div>
 
   <section id="t-appr">
@@ -106,6 +107,13 @@
    <div id="bizEditor"></div>
    <button class="add" onclick="addReward('biz')">+ Add business reward</button>
    <div class="bar"><button class="save" onclick="saveCfg()">Save challenges &amp; rewards</button><span class="smsg" id="msgBiz"></span></div>
+  </section>
+
+  <section id="t-play" style="display:none">
+   <h2>Players <span class="muted">— every shop's team. Remove someone who left the shop; restore if it was a mistake.</span></h2>
+   <div class="rtools"><input id="plq" placeholder="Search a name or shop" oninput="renderPlayers()" style="max-width:280px"><label class="muted" style="display:flex;gap:6px;align-items:center;white-space:nowrap"><input type="checkbox" id="plgone" onchange="renderPlayers()" style="width:auto"> Show removed players</label><span class="spacer"></span><span class="muted" id="plcount"></span></div>
+   <div id="players"><div class="empty">Loading…</div></div>
+   <p class="muted" style="margin-top:14px"><b>Remove</b> hides the player: no login, not in "Who's playing?" or the leaderboards. Their Points keep counting for the shop wallet bonus and their reward orders stay here. <b>Delete for good</b> erases the person's data (for example when they ask for it); the shop keeps the bonus they earned.</p>
   </section>
 
   <section id="t-pers" style="display:none">
@@ -135,7 +143,31 @@ async function enter(silent){pw=document.getElementById("pw").value||"";const d=
  adminSavePw();
  document.getElementById("gate").style.display="none";document.getElementById("app").style.display="block";
  cfg={challenges:d.challenges||[],businessRewards:d.businessRewards||[],personalRewards:d.personalRewards||[]};
- renderEditors();loadImages(false);loadPending();loadRedemptions();poll=setInterval(function(){loadPending();loadRedemptions();},12000);}
+ renderEditors();loadImages(false);loadPending();loadRedemptions();loadPlayers();poll=setInterval(function(){loadPending();loadRedemptions();},12000);}
+
+/* ---------- players ---------- */
+let playersAll=[];
+const jq=v=>esc(String(v==null?'':v).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
+async function loadPlayers(){const d=await api("/play/admin/players");if(d.error){document.getElementById('players').innerHTML='<div class="empty">'+esc(d.error)+'</div>';return;}playersAll=d.players||[];renderPlayers();}
+function renderPlayers(){
+ const q=(document.getElementById('plq').value||'').toLowerCase(),showGone=document.getElementById('plgone').checked;
+ const L=playersAll.filter(p=>(showGone||!p.removed)&&(!q||(p.name+' '+p.user+' '+p.shop).toLowerCase().includes(q)));
+ const active=playersAll.filter(p=>!p.removed).length,gone=playersAll.length-active;
+ document.getElementById('plcount').textContent=active+' active'+(gone?' · '+gone+' removed':'');
+ const by={};L.forEach(p=>{(by[p.shop||('Shop #'+p.pid)]=by[p.shop||('Shop #'+p.pid)]||[]).push(p)});
+ document.getElementById('players').innerHTML=L.length?Object.keys(by).map(sh=>`<h3 style="margin:18px 0 8px;font-size:14px">${esc(sh)} <span class="muted">· ${by[sh].filter(p=>!p.removed).length} player(s)</span></h3>`+by[sh].map(p=>{
+  const k=jq(p.pid)+"','"+jq(p.user);
+  const act=p.removed?`<button class="ap" onclick="setPlayer('${k}',true)">Restore</button><button class="rj" onclick="delPlayer('${k}','${jq(p.name)}',${p.openRewards||0})">Delete for good</button>`
+   :`<button class="rj" onclick="rmPlayer('${k}','${jq(p.name)}')">Remove</button>`;
+  return `<div class="sub" style="${p.removed?'opacity:.6':''}"><span class="ic">${p.removed?'🚪':'👤'}</span>
+   <div class="main"><div class="t">${esc(p.name)} <span class="muted">@${esc(p.user)}</span></div>
+    <div class="meta">${p.lifetime} Points earned · ${p.sparks} Sparks left · ${p.courses} course(s)${p.openRewards?' · '+p.openRewards+' reward(s) open':''}${p.removed?' · removed '+ago(p.removed)+(p.removedBy==='shop'?' by the shop':p.removedBy==='ahooga'?' by Ahooga':p.removedBy?' by the rep':''):''}</div></div>${act}</div>`}).join('')).join(''):'<div class="empty">No players found.</div>';
+}
+async function rmPlayer(pid,user,name){if(!confirm('Remove '+name+' from the team?\n\nThey can no longer log in and leave the leaderboards. Their Points keep counting for the shop wallet. You can restore them later.'))return;await setPlayer(pid,user,false);}
+async function setPlayer(pid,user,restore){const d=await api("/play/admin/removeplayer",{pid:Number(pid),user,restore:!!restore});if(d.error){toast('⚠️ '+d.error);return;}toast(restore?'✓ Player restored':'✓ Player removed');loadPlayers();}
+async function delPlayer(pid,user,name,open){if(open){toast('⚠️ '+name+' has a reward still open. Fulfil or reject it first.');return;}
+ if(!confirm('Delete '+name+' for good?\n\nThis erases their name, progress and history and cannot be undone. The shop keeps the wallet bonus they earned.'))return;
+ const d=await api("/play/admin/deleteplayer",{pid:Number(pid),user});if(d.error){toast('⚠️ '+d.error);return;}toast('✓ Deleted');loadPlayers();}
 
 /* ---------- redemptions ---------- */
 let redemptions=[];
@@ -298,7 +330,7 @@ async function saveCfg(){
 
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));b.classList.add('on');
- ['appr','redm','chal','biz','pers'].forEach(t=>document.getElementById('t-'+t).style.display=(t===b.dataset.t?'block':'none'));
+ ['appr','redm','chal','biz','pers','play'].forEach(t=>document.getElementById('t-'+t).style.display=(t===b.dataset.t?'block':'none'));
 });
 </script>
 </body></html>
