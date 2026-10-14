@@ -46,6 +46,22 @@
  .toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:12px;font-weight:700;font-size:14px;display:none;z-index:50}
  .toast.show{display:block}
  @media(max-width:720px){.row,.row.rw,.row.rwh{grid-template-columns:1fr 1fr}.row.head{display:none}}
+ /* rewards (V3): one card per reward, same fields the dealer portal uses */
+ .rtools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
+ .rtools .muted b{color:var(--ink)}
+ .rc{border:1px solid var(--line);border-radius:14px;background:#fff;padding:12px;margin-bottom:12px;display:grid;grid-template-columns:96px 1fr 34px;gap:12px;align-items:start}
+ .rc .ph{width:96px;height:96px;border-radius:10px;background:var(--bg2);display:grid;place-items:center;font-size:40px;overflow:hidden}
+ .rc .ph img{width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply}
+ .rc .g{display:grid;grid-template-columns:70px 1.3fr 1fr;gap:8px}
+ .rc .g2{display:grid;grid-template-columns:150px 1.2fr 120px 110px 110px;gap:8px;margin-top:8px;align-items:end}
+ .rc label{display:grid;gap:3px;font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--dim);font-weight:700}
+ .rc .d{grid-column:1/-1}
+ .rc .hint{font-size:11.5px;color:var(--dim);margin-top:6px;line-height:1.4}
+ .rc .rate{font-size:12px;font-weight:800;padding:8px 0}
+ .rc .rate.lo{color:var(--red)}.rc .rate.ok{color:var(--green)}
+ .rc .codes{display:none}.rc.multi .codes{display:grid}.rc.multi .one{display:none}
+ .pill2{display:inline-block;font-size:11px;font-weight:800;border-radius:10px;padding:2px 8px;background:var(--bg2);color:var(--dim)}
+ @media(max-width:720px){.rc{grid-template-columns:64px 1fr 30px}.rc .ph{width:64px;height:64px}.rc .g,.rc .g2{grid-template-columns:1fr 1fr}}
 </style></head>
 <body>
 <div class="toast" id="toast"></div>
@@ -86,7 +102,7 @@
 
   <section id="t-biz" style="display:none">
    <h2>Business rewards <span class="muted">— spent from the shop wallet</span></h2>
-   <div class="row rwh head"><div>Icon</div><div>Title</div><div>Description</div><div>Category</div><div>Cost</div><div></div></div>
+   <div class="rtools"><button class="add" onclick="sortRewards('biz')">Sort by cost</button><span class="muted" id="bizRate"></span><span class="spacer"></span><a class="muted" href="https://dealer-portal-v3.ahoogahouse-1050-be.workers.dev/rewards.html" target="_blank" rel="noopener">See it in the dealer portal ↗</a></div>
    <div id="bizEditor"></div>
    <button class="add" onclick="addReward('biz')">+ Add business reward</button>
    <div class="bar"><button class="save" onclick="saveCfg()">Save challenges &amp; rewards</button><span class="smsg" id="msgBiz"></span></div>
@@ -94,7 +110,7 @@
 
   <section id="t-pers" style="display:none">
    <h2>Personal rewards <span class="muted">— spent from each employee's training points</span></h2>
-   <div class="row rwh head"><div>Icon</div><div>Title</div><div>Description</div><div>Category</div><div>Cost</div><div></div></div>
+   <div class="rtools"><button class="add" onclick="sortRewards('pers')">Sort by cost</button><span class="muted" id="persRate"></span><span class="spacer"></span><a class="muted" href="https://dealer-portal-v3.ahoogahouse-1050-be.workers.dev/rewards.html" target="_blank" rel="noopener">See it in the dealer portal ↗</a></div>
    <div id="persEditor"></div>
    <button class="add" onclick="addReward('pers')">+ Add personal reward</button>
    <div class="bar"><button class="save" onclick="saveCfg()">Save challenges &amp; rewards</button><span class="smsg" id="msgPers"></span></div>
@@ -119,7 +135,7 @@ async function enter(silent){pw=document.getElementById("pw").value||"";const d=
  adminSavePw();
  document.getElementById("gate").style.display="none";document.getElementById("app").style.display="block";
  cfg={challenges:d.challenges||[],businessRewards:d.businessRewards||[],personalRewards:d.personalRewards||[]};
- renderEditors();loadPending();loadRedemptions();poll=setInterval(function(){loadPending();loadRedemptions();},12000);}
+ renderEditors();loadImages(false);loadPending();loadRedemptions();poll=setInterval(function(){loadPending();loadRedemptions();},12000);}
 
 /* ---------- redemptions ---------- */
 let redemptions=[];
@@ -209,24 +225,63 @@ function renderChal(){
    <button class="add" onclick="addItem(${ci})">+ Add challenge</button>
   </div>`).join('')||'<div class="empty">No challenges yet — add a category.</div>';
 }
+/* Rewards, as the V3 dealer portal uses them (worker /play config):
+   kind ""        = Odoo product, redeeming creates a quotation at 100% discount (code, or one code per size / colour)
+   kind "voucher" = Ahooga buys it and emails it (Odoo task only)
+   kind "service" = something Ahooga does (event, visit…), Odoo task only
+   worth = value in EUR shown to dealers ("worth €…"); cost = Sparks (personal) or shop points (business). */
+let IMGS={};
+const imgUrl=b=>!b?"":"data:image/"+(/^\/9j\//.test(b)?"jpeg":/^UklGR/.test(b)?"webp":/^PHN2|^PD94/.test(b)?"svg+xml":"png")+";base64,"+b;
+async function loadImages(refresh){try{const r=await fetch(CF+"/play/reward/images",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(refresh?{refresh:true}:{})});const d=await r.json();IMGS=d.images||{};renderRewards('biz');renderRewards('pers');}catch(e){}}
+const typeOf=r=>r.kind==='voucher'?'voucher':r.kind==='service'?'service':'product';
+const codesTxt=r=>Array.isArray(r.codes)?r.codes.map(c=>c[0]+'='+c[1]).join(', '):'';
+function rateOf(r){return r.worth&&r.cost?r.cost/r.worth:null}
+function median(a){a=a.filter(x=>x!=null).sort((x,y)=>x-y);return a.length?a[Math.floor(a.length/2)]:null}
 function renderRewards(kind){
- const arr=kind==='biz'?cfg.businessRewards:cfg.personalRewards;const key=kind==='biz'?'businessRewards':'personalRewards';
- document.getElementById((kind==='biz'?'biz':'pers')+'Editor').innerHTML=arr.map((r,ri)=>`
-  <div class="row rw">
-   <input value="${esc(r.ic||'')}" oninput="cfg.${key}[${ri}].ic=this.value" placeholder="🎁">
-   <input value="${esc(r.t||'')}" oninput="cfg.${key}[${ri}].t=this.value" placeholder="Title">
-   <input value="${esc(r.d||'')}" oninput="cfg.${key}[${ri}].d=this.value" placeholder="Description">
-   <input value="${esc(r.cat||'')}" oninput="cfg.${key}[${ri}].cat=this.value" placeholder="Category">
-   <input type="number" value="${r.cost||0}" oninput="cfg.${key}[${ri}].cost=parseInt(this.value)||0">
-   <button class="del" onclick="delReward('${kind}',${ri})">✕</button>
-  </div>`).join('')||'<div class="empty">No rewards yet.</div>';
+ const arr=kind==='biz'?cfg.businessRewards:cfg.personalRewards,key=kind==='biz'?'businessRewards':'personalRewards',unit=kind==='biz'?'pts':'Sparks';
+ const med=kind==='pers'?SPARKS_PER_EUR:median(arr.map(rateOf));
+ const rateEl=document.getElementById(kind+'Rate');
+ if(rateEl)rateEl.innerHTML=kind==='pers'?`Rate: <b>100 Sparks = €5</b> (20 Sparks per €1 of value). Prices off this rate show in red. <a href="#" onclick="applyRate();return false">Apply to all</a>`:med?`Usual rate: <b>${Math.round(med*10)/10} ${unit} per €1</b> of value. Rewards far below it show in red.`:'Fill in the value in € to compare prices.';
+ document.getElementById(kind+'Editor').innerHTML=arr.map((r,ri)=>{const t=typeOf(r),rt=rateOf(r),lo=med&&rt&&(kind==='pers'?Math.abs(rt-med)>med*0.1:rt<med*0.6),multi=Array.isArray(r.codes)&&r.codes.length;
+  const R=`cfg.${key}[${ri}]`;
+  return `<div class="rc ${multi?'multi':''}" id="rc_${kind}_${ri}">
+  <div class="ph">${IMGS[r.id]?`<img src="${imgUrl(IMGS[r.id])}" alt="">`:esc(r.ic||'🎁')}</div>
+  <div>
+   <div class="g">
+    <label>Icon<input value="${esc(r.ic||'')}" oninput="${R}.ic=this.value" placeholder="🎁"></label>
+    <label>Title<input value="${esc(r.t||'')}" oninput="${R}.t=this.value" placeholder="Title"></label>
+    <label>Category<input value="${esc(r.cat||'')}" oninput="${R}.cat=this.value" placeholder="Category"></label>
+    <label class="d">Description<input value="${esc(r.d||'')}" oninput="${R}.d=this.value" placeholder="What the dealer gets"></label>
+   </div>
+   <div class="g2">
+    <label>Type<select onchange="setType('${kind}',${ri},this.value)">
+     <option value="product"${t==='product'?' selected':''}>Odoo product</option>
+     <option value="voucher"${t==='voucher'?' selected':''}>Voucher (by email)</option>
+     <option value="service"${t==='service'?' selected':''}>Service / event</option></select></label>
+    ${t==='product'?`<label class="one">Odoo product code<input value="${esc(r.code||'')}" oninput="${R}.code=this.value.trim()" placeholder="e.g. MKT27PKG-A"></label>
+    <label class="codes">Codes per ${r.pick==='Colour'?'colour':'size'}<input value="${esc(codesTxt(r))}" onchange="setCodes('${kind}',${ri},this.value)" placeholder="S=AC00000314A, M=AC00000314B"></label>`:`<label><span>&nbsp;</span><span class="muted" style="text-transform:none;letter-spacing:0;font-weight:500;padding:8px 0">${t==='voucher'?'Ahooga buys it and emails it within 5 working days.':'Ahooga organises it; an Odoo task is created.'}</span></label>`}
+    <label>Value (€)<input type="number" min="0" step="1" value="${r.worth||''}" oninput="${R}.worth=parseFloat(this.value)||0;rateHint('${kind}',${ri})" placeholder="0"></label>
+    <label>Cost (${unit})<input type="number" min="0" step="25" value="${r.cost||0}" oninput="${R}.cost=parseInt(this.value)||0;rateHint('${kind}',${ri})"></label>
+    <div class="rate ${lo?'lo':rt?'ok':''}" id="rt_${kind}_${ri}">${rt?Math.round(rt*10)/10+' '+unit+'/€':'—'}</div>
+   </div>
+   ${t==='product'?`<div class="hint">${multi?`One Odoo product per ${r.pick==='Colour'?'colour':'size'}: the dealer picks one when redeeming. <a href="#" onclick="setMulti('${kind}',${ri},false);return false">Use one product code</a>`:`<a href="#" onclick="setMulti('${kind}',${ri},true,'Size');return false">Sizes</a> · <a href="#" onclick="setMulti('${kind}',${ri},true,'Colour');return false">Colours</a> (one product code each)`} · ${(r.code||multi)?(IMGS[r.id]?'<span class="pill2">✓ photo from Odoo</span>':'<span class="pill2">no photo found yet: check the code, then save</span>'):'<span class="pill2">no product code: no photo, no quotation</span>'}</div>`:''}
+  </div>
+  <button class="del" onclick="delReward('${kind}',${ri})" title="Delete">✕</button></div>`}).join('')||'<div class="empty">No rewards yet.</div>';
 }
+function rateHint(kind,ri){const arr=kind==='biz'?cfg.businessRewards:cfg.personalRewards,unit=kind==='biz'?'pts':'Sparks',el=document.getElementById('rt_'+kind+'_'+ri);const med=kind==='pers'?SPARKS_PER_EUR:median(arr.map(rateOf)),rt=rateOf(arr[ri]);const lo=med&&rt&&(kind==='pers'?Math.abs(rt-med)>med*0.1:rt<med*0.6);if(el){el.textContent=rt?Math.round(rt*10)/10+' '+unit+'/€':'—';el.className='rate '+(lo?'lo':rt?'ok':'')}}
+/* staff Sparks: 100 Sparks = €5 of value (same rule as the worker) */
+const SPARKS_PER_EUR=20;
+function applyRate(){let n=0;cfg.personalRewards.forEach(r=>{if(r.worth){r.cost=Math.max(25,Math.round(r.worth*SPARKS_PER_EUR/25)*25);n++}});renderRewards('pers');toast(n+' rewards priced at 100 Sparks = €5. Save to make it live.')}
+function setType(kind,ri,v){const r=(kind==='biz'?cfg.businessRewards:cfg.personalRewards)[ri];if(v==='product'){delete r.kind}else{r.kind=v;delete r.code;delete r.codes;delete r.pick}renderRewards(kind)}
+function setMulti(kind,ri,on,pick){const r=(kind==='biz'?cfg.businessRewards:cfg.personalRewards)[ri];if(on){r.codes=r.codes&&r.codes.length?r.codes:(r.code?[['?',r.code]]:[]);if(!r.codes.length)r.codes=[['S',''],['M',''],['L','']];r.pick=pick;delete r.code}else{r.code=(r.codes&&r.codes[0]&&r.codes[0][1])||'';delete r.codes;delete r.pick}renderRewards(kind)}
+function setCodes(kind,ri,txt){const r=(kind==='biz'?cfg.businessRewards:cfg.personalRewards)[ri];r.codes=txt.split(/[,;\n]+/).map(x=>x.split('=').map(y=>y.trim())).filter(x=>x[0]&&x[1]).map(x=>[x[0],x[1]]);}
+function sortRewards(kind){const arr=kind==='biz'?cfg.businessRewards:cfg.personalRewards;arr.sort((a,b)=>(a.cost||0)-(b.cost||0));renderRewards(kind);toast('Sorted by cost. Save to keep this order.')}
 function rid(p){return p+'_'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
 function addCat(){cfg.challenges.push({cat:"New category",em:"🎯",items:[]});renderChal();}
 function delCat(ci){if(!confirm('Delete this whole category?'))return;cfg.challenges.splice(ci,1);renderChal();}
 function addItem(ci){cfg.challenges[ci].items=cfg.challenges[ci].items||[];cfg.challenges[ci].items.push({id:rid('ch'),ic:"🎯",t:"New challenge",d:"",type:"photo",points:50,freq:"Once"});renderChal();}
 function delItem(ci,ii){cfg.challenges[ci].items.splice(ii,1);renderChal();}
-function addReward(kind){const arr=kind==='biz'?cfg.businessRewards:cfg.personalRewards;arr.push({id:rid(kind==='biz'?'b':'e'),ic:"🎁",t:"New reward",d:"",cat:"",cost:100});renderRewards(kind);}
+function addReward(kind){const arr=kind==='biz'?cfg.businessRewards:cfg.personalRewards;arr.push({id:rid(kind==='biz'?'b':'e'),ic:"🎁",t:"New reward",d:"",cat:"",cost:100,worth:0,kind:"voucher"});renderRewards(kind);setTimeout(()=>{const el=document.getElementById('rc_'+kind+'_'+(arr.length-1));el&&el.scrollIntoView({behavior:'smooth',block:'center'})},50);}
 function delReward(kind,ri){const arr=kind==='biz'?cfg.businessRewards:cfg.personalRewards;arr.splice(ri,1);renderRewards(kind);}
 
 async function saveCfg(){
@@ -238,7 +293,7 @@ async function saveCfg(){
  const d=await api("/play/admin/saveconfig",{challenges:cfg.challenges,businessRewards:cfg.businessRewards,personalRewards:cfg.personalRewards});
  const ok=!d.error;
  ['msgChal','msgBiz','msgPers'].forEach(id=>{const e=document.getElementById(id);e.style.color=ok?'#2d6e2d':'#b3261e';e.textContent=ok?'✓ Saved':(d.error||'Error');});
- if(ok){cfg={challenges:d.challenges||cfg.challenges,businessRewards:d.businessRewards||cfg.businessRewards,personalRewards:d.personalRewards||cfg.personalRewards};renderEditors();toast('✓ Saved — live for all dealers');}
+ if(ok){cfg={challenges:d.challenges||cfg.challenges,businessRewards:d.businessRewards||cfg.businessRewards,personalRewards:d.personalRewards||cfg.personalRewards};renderEditors();loadImages(true);toast('✓ Saved — live for all dealers');}
 }
 
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
