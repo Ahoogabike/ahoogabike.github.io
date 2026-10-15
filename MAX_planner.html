@@ -224,7 +224,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
       <input type="text" id="q-search" placeholder="Search order, customer, SKU…" oninput="renderQueue()"/>
       <select id="q-filter" onchange="renderQueue()">
         <option value="">All</option>
-        <option value="stock">✓ Ready to ship (Brain Log / AND)</option>
+        <option value="stock">✓ Ready to ship (Brain Log / AND / UK 3PL)</option>
         <option value="transit_match">🚚 Serial assigned (not in the warehouse)</option>
         <option value="urgent">Urgent</option>
         <option value="urgent_stock">Urgent + in stock</option>
@@ -254,6 +254,11 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
         <option value="">All locations</option>
         <option value="AND">Warehouse (Brain Log / AND)</option>
         <option value="LOUI">LOUI/Stock (Louise)</option>
+      </select>
+      <select id="q-market-filter" onchange="renderQueue()">
+        <option value="">EU + UK</option>
+        <option value="EU">🇪🇺 EU orders</option>
+        <option value="UK">🇬🇧 UK orders</option>
       </select>
       <button class="btn btn-secondary btn-sm" onclick="loadDemo()">Load demo data</button>
     </div>
@@ -287,11 +292,15 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   <div class="view" id="view-stock">
     <div class="section-header">
       <h2>Warehouse Stock</h2>
-      <span class="section-label">bikes available for immediate shipping</span>
+      <span class="section-label">EU and UK are separate stock pools</span>
       <button class="btn btn-secondary btn-sm" onclick="syncOdoo()">↻ Sync from Odoo</button>
       <button class="btn btn-primary btn-sm" onclick="openAddStock()">+ Add stock manually</button>
     </div>
 
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" id="mkt-btn-EU" onclick="stockMarket('EU')">🇪🇺 EU stock · Brain Log / AND / VV</button>
+      <button class="btn btn-secondary btn-sm" id="mkt-btn-UK" onclick="stockMarket('UK')">🇬🇧 UK stock · UK 3PL</button>
+    </div>
     <div class="tab-row">
       <button class="tab-btn active" onclick="stockTab('summary')">📊 Summary</button>
       <button class="tab-btn" onclick="stockTab('available')">Available</button>
@@ -540,6 +549,9 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
     <div class="field"><label>Rack</label>
       <select id="man-rack"><option value="rack">With rack</option><option value="no rack">Without rack</option></select>
     </div>
+    <div class="field"><label>Market (which stock it takes)</label>
+      <select id="man-market"><option value="EU">🇪🇺 EU stock (Brain Log / AND / VV)</option><option value="UK">🇬🇧 UK stock (UK 3PL)</option></select>
+    </div>
     <div class="field"><label>Deadline (needed by)</label><input type="date" id="man-deadline"/></div>
     <div class="field"><label>Notes</label><input type="text" id="man-notes" placeholder="e.g. UK shipment W22"/></div>
     <div class="modal-footer">
@@ -584,7 +596,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
 // ─── STATE ───────────────────────────────────────────────
 let cfg = {
   url:'', db:'', user:'', key:'',
-  leadtime:2, prodtime:12, minBatch:40, minEmax:40, minAmax:20, trackedPOs:[], decocoatSheetId:'1hsfsJyKJuJjsQcIkYjnE8OQwQqIgEF_cD5d3bPxwVFA', decocoatGid:'222048185',
+  leadtime:2, ukLeadtime:5, prodtime:12, minBatch:40, minEmax:40, minAmax:20, trackedPOs:[], decocoatSheetId:'1hsfsJyKJuJjsQcIkYjnE8OQwQqIgEF_cD5d3bPxwVFA', decocoatGid:'222048185',
   prefixes:{ yellow:'MAYA', black:'MABS', red:'MARA', custom:'MACU' }
 };
 
@@ -628,13 +640,35 @@ const WH_LOCS = ['Brain/Stock', 'AND/Warehouse'];
 const TRANSIT_LOCS = ['VV/Stock', 'AND/In Transit', 'Brain/Input'];
 const isWH = loc => WH_LOCS.includes(loc);
 const isTransitLoc = loc => TRANSIT_LOCS.includes(loc);
+// ─── UK MARKET (Odoo warehouse "UK 3PL", code UK, id 15) ─────────────────
+// The UK business sells from its OWN stock. Bikes leave Brain Log on a transfer
+// Brain/Stock → Inter-warehouse transit → UK/Stock ("Receive from BrainLog").
+//   UK/Stock     standing at the UK 3PL — UK stock, ready to ship.
+//   UK/Transfer  planner-only bucket: bikes still at Brain Log but already reserved
+//                on an open Brain Log → UK transfer, or in inter-warehouse transit
+//                towards the UK. They count as UK stock (arriving) and are NOT part
+//                of the EU stock any more.
+// EU orders only take EU stock (WH_LOCS / LOUI / TRANSIT_LOCS); UK orders (sale order
+// warehouse = UK 3PL) only take UK stock. isWH / isTransitLoc stay EU-only.
+const UK_WAREHOUSE_ID = 15;
+const UK_WH_LOCS = ['UK/Stock'];
+const UK_TRANSIT_LOCS = ['UK/Transfer'];
+const isUKLoc = loc => (loc||'').startsWith('UK/');
+const isUKWH = loc => UK_WH_LOCS.includes(loc);
+const isUKTransitLoc = loc => UK_TRANSIT_LOCS.includes(loc);
+const marketOfLoc = loc => isUKLoc(loc) ? 'UK' : 'EU';
+const marketOf = o => (o && o.market) || 'EU';
+let currentStockMarket = 'EU';
 const locLabel = loc => loc==='LOUI/Stock' ? 'LOUI/Stock'
+  : loc==='UK/Stock' ? 'UK 3PL'
+  : loc==='UK/Transfer' ? 'Brain Log → UK'
   : (loc||'').startsWith('VV/') ? 'Velovisie'
   : (loc||'').startsWith('Brain/Input') ? 'Brain Log (receiving)'
   : (loc||'').startsWith('Brain') ? 'Brain Log'
   : (loc||'AND/Warehouse');
 const locBadgeHtml = loc => loc==='LOUI/Stock'
   ? '<span class="badge badge-warn" style="font-size:10px">LOUI/Stock</span>'
+  : isUKLoc(loc) ? '<span class="badge badge-po" style="font-size:10px">'+locLabel(loc)+'</span>'
   : '<span class="badge badge-neutral" style="font-size:10px">'+locLabel(loc)+'</span>';
 
 let manualOrders = []; // Virtual orders (e.g. Matt Cooke reservations)
@@ -882,7 +916,7 @@ async function saveSharedState() {
     // dealer page's three buckets (available / arriving / reserved) match this planner exactly.
     const isMAXmirror = s => s.bikeType==='amax' || s.bikeType==='emax';
     const stockMirror = (stock||[])
-      .filter(s => isMAXmirror(s) && (s.inTransit || s.reservedFor || isWH(s.location)))
+      .filter(s => isMAXmirror(s) && !isUKLoc(s.location) && (s.inTransit || s.reservedFor || isWH(s.location)))
       .map(s => ({
         bikeType: s.bikeType, transmission: s.transmission, color: s.color, rack: s.rack, my: myOf(s),
         serial: s.serial||'', reserved: !!s.reservedFor, inTransit: !!s.inTransit,
@@ -1096,7 +1130,7 @@ async function syncOdoo() {
     // ── 1. SALES ORDERS (confirmed, not fully delivered) ──────────────────
     const soData = toArr(await odooCall('sale.order','search_read',
       [[['state','in',['sale','done']],['delivery_status','in',['pending','started','partial','ready']]]],
-      {fields:['name','partner_id','commitment_date','order_line','team_id'],limit:1000}));
+      {fields:['name','partner_id','commitment_date','order_line','team_id','warehouse_id'],limit:1000}));
 
     const lineIds = soData.flatMap(o=>toArr(o.order_line));
     // Only fetch lines for bike products (all Bikes categories)
@@ -1222,21 +1256,76 @@ async function syncOdoo() {
     //    Anderlecht closes 31 Oct 2026 — see 2a for Brain Log.
     const warehouseQuants = await safeCall('warehouseQuants', 'stock.quant','search_read',
       [[['location_id.complete_name','like','AND/Warehouse'],['location_id.usage','=','internal'],['quantity','>',0]]],
-      {fields:['lot_id','product_id','quantity','in_date'],limit:2000});
+      {fields:['lot_id','product_id','quantity','reserved_quantity','in_date'],limit:2000});
 
     // ── 2a. BRAIN LOG (Brain/Stock + sublocations) — the new main warehouse ──
     const brainQuants = await safeCall('brainQuants', 'stock.quant','search_read',
       [[['location_id.complete_name','like','Brain/Stock'],['location_id.usage','=','internal'],['quantity','>',0]]],
-      {fields:['lot_id','product_id','quantity','in_date'],limit:3000});
+      {fields:['lot_id','product_id','quantity','reserved_quantity','in_date'],limit:3000});
     // Brain/Input = received at Brain Log but not yet put away (treated like in transit)
     const brainInputQuants = await safeCall('brainInputQuants', 'stock.quant','search_read',
       [[['location_id.complete_name','like','Brain/Input'],['quantity','>',0]]],
-      {fields:['lot_id','product_id','quantity','in_date'],limit:1000});
+      {fields:['lot_id','product_id','quantity','reserved_quantity','in_date'],limit:1000});
+
+    // ── 2c. UK 3PL (UK/Stock) — the UK business's own stock ──────────────
+    const ukQuants = await safeCall('ukQuants', 'stock.quant','search_read',
+      [[['location_id.complete_name','like','UK/Stock'],['location_id.usage','=','internal'],['quantity','>',0]]],
+      {fields:['lot_id','product_id','quantity','reserved_quantity','in_date'],limit:2000});
+    // ── 2d. BRAIN LOG → UK TRANSFERS ─────────────────────────────────────
+    // Open UK receipts ("Receive from BrainLog"): their scheduled date is the UK ETA, their
+    // origin names the Brain Log picking, and once the bikes have left Brain Log their
+    // move lines carry the serials sitting in inter-warehouse transit.
+    const ukReceipts = await safeCall('ukReceipts','stock.picking','search_read',
+      [[['picking_type_code','=','incoming'],['location_dest_id.complete_name','=like','UK/%'],['state','not in',['done','cancel']]]],
+      {fields:['name','origin','scheduled_date','state'],limit:500});
+    const ukReceiptByOrigin = {};
+    for(const r of ukReceipts){ if(r.origin) ukReceiptByOrigin[r.origin.trim()] = r; }
+    const ukReceiptIds = ukReceipts.map(r=>r.id);
+    const ukReceiptLines = ukReceiptIds.length ? await safeCall('ukReceiptLines','stock.move.line','search_read',
+      [[['picking_id','in',ukReceiptIds],['lot_id','!=',false],['state','not in',['done','cancel']]]],
+      {fields:['lot_id','product_id','quantity','picking_id'],limit:3000}) : [];
+    // Open pickings leaving Brain Log for the transit location (or straight into UK/…).
+    // A picking is UK-bound when its type is a UK one ("Send to UK 3PL"), when an open UK
+    // receipt was created from it, or when it goes straight to UK/…. AND → Brain Log
+    // transfers start in AND/ and are never caught here.
+    const brainOutPicks = await safeCall('brainOutPicks','stock.picking','search_read',
+      [[['location_id.complete_name','=like','Brain/%'],['state','not in',['done','cancel','draft']],
+        '|',['location_dest_id.usage','=','transit'],['location_dest_id.complete_name','=like','UK/%']]],
+      {fields:['name','picking_type_id','location_dest_id','scheduled_date','origin'],limit:500});
+    const ukBoundPicks = brainOutPicks.filter(pk=>
+      /\bUK\b/i.test(toArr(pk.picking_type_id)[1]||'') ||
+      !!ukReceiptByOrigin[pk.name] ||
+      (toArr(pk.location_dest_id)[1]||'').startsWith('UK/'));
+    const ukBoundIds = ukBoundPicks.map(pk=>pk.id);
+    const ukTransferLines = ukBoundIds.length ? await safeCall('ukTransferLines','stock.move.line','search_read',
+      [[['picking_id','in',ukBoundIds],['lot_id','!=',false],['state','not in',['done','cancel']]]],
+      {fields:['lot_id','picking_id'],limit:3000}) : [];
+    // serial → {ref, eta}
+    const ukTransferInfo = {};
+    const ukEta = (receipt, pick) => {
+      const d = receipt && receipt.scheduled_date ? receipt.scheduled_date.split(' ')[0] : null;
+      if(d) return d;
+      const base = pick && pick.scheduled_date ? pick.scheduled_date.split(' ')[0] : null;
+      return base ? addDaysStr(base, cfg.ukLeadtime||5) : null;
+    };
+    for(const l of ukTransferLines){
+      const lot = toArr(l.lot_id)[1]; if(!lot) continue;
+      const pk = ukBoundPicks.find(x=>x.id===toArr(l.picking_id)[0]);
+      ukTransferInfo[lot] = { ref: pk?pk.name:'', eta: ukEta(pk?ukReceiptByOrigin[pk.name]:null, pk) };
+    }
+    // Bikes that already left Brain Log: read them from the UK receipt lines.
+    const ukTransitPseudoQuants = [];
+    for(const l of ukReceiptLines){
+      const lot = toArr(l.lot_id)[1]; if(!lot || ukTransferInfo[lot]) continue;
+      const rc = ukReceipts.find(x=>x.id===toArr(l.picking_id)[0]);
+      ukTransferInfo[lot] = { ref: rc?rc.name:'', eta: ukEta(rc, null) };
+      ukTransitPseudoQuants.push({ lot_id:l.lot_id, product_id:l.product_id, quantity:l.quantity||1, in_date:null });
+    }
 
     // ── 2b. LOUI/Stock (Point of Sale Louise) ─────────────────────────────
     const louiQuants = await safeCall('louiQuants', 'stock.quant','search_read',
       [[['location_id.complete_name','like','LOUI/Stock'],['location_id.usage','=','internal'],['quantity','>',0]]],
-      {fields:['lot_id','product_id','quantity','in_date'],limit:500});
+      {fields:['lot_id','product_id','quantity','reserved_quantity','in_date'],limit:500});
 
     // ── 3. BIKES NOT YET AT THE CENTRAL WAREHOUSE (real serial numbers) ──
     // A finished bike now appears in VV/Stock, at Velovisie. Reading only
@@ -1244,10 +1333,24 @@ async function syncOdoo() {
     // say Anderlecht about bikes that have never left Hasselt.
     const vvStockQuants = await safeCall('vvStockQuants', 'stock.quant','search_read',
       [[['location_id.complete_name','like','VV/Stock'],['quantity','>',0]]],
-      {fields:['lot_id','product_id','quantity','in_date'],limit:2000});
+      {fields:['lot_id','product_id','quantity','reserved_quantity','in_date'],limit:2000});
     const inTransitQuants = await safeCall('inTransitQuants', 'stock.quant','search_read',
       [[['location_id.complete_name','like','AND/In Transit'],['quantity','>',0]]],
-      {fields:['lot_id','product_id','quantity','in_date'],limit:2000});
+      {fields:['lot_id','product_id','quantity','reserved_quantity','in_date'],limit:2000});
+
+    // ── 3a. OPEN DELIVERIES NOT YET RESERVED IN ODOO ────────────────────
+    //    A confirmed delivery whose move is still 'waiting' has a claim on stock
+    //    even though Odoo hasn't pinned a serial to it yet. Count it as taken.
+    const waitingOutMoves = await safeCall('waitingOutMoves','stock.move','search_read',
+      [[['sale_line_id','!=',false],['state','in',['confirmed','waiting','partially_available']]]],
+      {fields:['product_id','product_uom_qty','quantity','location_id'],limit:3000});
+    // Serials Odoo has reserved for a SALE ORDER. quant.reserved_quantity is not
+    // used: it also counts internal moves (e.g. AND -> Brain Log transfers) and
+    // stale reservations, which are not sold bikes.
+    const soReservedLines = await safeCall('soReservedLines','stock.move.line','search_read',
+      [[['move_id.sale_line_id','!=',false],['state','not in',['done','cancel']],['lot_id','!=',false]]],
+      {fields:['lot_id'],limit:3000});
+    const soReservedLots = new Set((soReservedLines||[]).map(l=>toArr(l.lot_id)[1]).filter(Boolean));
 
     // ── 3b. READ RECEIPTS for tracked Okazi POs ─────────────────────────
     const trackedPOs = cfg.trackedPOs || [];
@@ -1364,6 +1467,9 @@ async function syncOdoo() {
         const oid=`${so.id}_${l.id}`;
         const p=prev[oid];
         const isLoui = (toArr(so.team_id)[1]||'').toLowerCase().includes('louise');
+        // UK order = sale order shipped from the UK 3PL warehouse → served from UK stock only
+        const soWh = toArr(so.warehouse_id);
+        const soMarket = (soWh[0]===UK_WAREHOUSE_ID || /\bUK\b/.test(soWh[1]||'')) ? 'UK' : 'EU';
         // One row per bike (qty always 1)
         for(let bi=0; bi<remaining; bi++){
           const bikeId = `${oid}_${bi}`;
@@ -1405,6 +1511,7 @@ async function syncOdoo() {
             serialEst:prevBike?prevBike.serialEst:null,
             isUrgent:false,
             isLoui: isLoui,
+            market: soMarket,
             salesTeam: toArr(so.team_id)[1]||null
           });
         }
@@ -1431,6 +1538,8 @@ async function syncOdoo() {
             dateArrived:q.in_date?q.in_date.split(' ')[0]:null,
             inTransit:false,
             location: location,
+            odooReserved: soReservedLots.has(serial),   // serial reserved on a sale order in Odoo
+            odooDemand: false,           // claimed by a waiting (unreserved) delivery
             reservedFor:existing?existing.reservedFor:null
           });
         }
@@ -1444,6 +1553,31 @@ async function syncOdoo() {
     buildStockItems(vvStockQuants||[], 'VV/Stock');
     buildStockItems(inTransitQuants, 'AND/In Transit');
     buildStockItems(brainInputQuants||[], 'Brain/Input');
+
+    // ── 7a. UK STOCK ─────────────────────────────────────────────────────
+    // Brain Log bikes reserved on a Brain Log → UK transfer move out of the EU pool
+    // into UK/Transfer (UK stock, arriving). Then UK/Stock + bikes already in transit.
+    for(const s of newStock){
+      if(s.location!=='Brain/Stock') continue;
+      const info = ukTransferInfo[(s.serial||'').split('#')[0]];
+      if(!info) continue;
+      const prevUK = stock.find(x=>x.serial===s.serial&&x.location==='UK/Transfer');
+      s.location = 'UK/Transfer';
+      s.id = `stk_UK/Transfer_${s.serial}`;
+      s.fromLocation = 'Brain/Stock';
+      s.reservedFor = prevUK ? prevUK.reservedFor : null;
+    }
+    buildStockItems(ukQuants||[], 'UK/Stock');
+    buildStockItems(ukTransitPseudoQuants, 'UK/Transfer');
+    for(const s of newStock.filter(s=>isUKTransitLoc(s.location))){
+      const info = ukTransferInfo[(s.serial||'').split('#')[0]] || {};
+      s.inTransit = true;
+      s.ukTransferRef = info.ref || '';
+      s.expectedArrival = info.eta || null;
+      if(!s.fromLocation) s.fromLocation = 'Inter-warehouse transit';
+    }
+    for(const s of newStock) s.market = marketOfLoc(s.location);
+
     for(const s of newStock.filter(s=>isTransitLoc(s.location))){
       s.inTransit = true;
       // VV/Stock and Brain/Input are places the bike is already standing and
@@ -1452,6 +1586,32 @@ async function syncOdoo() {
       s.expectedArrival = (s.location==='Brain/Input' || s.location==='VV/Stock')
         ? (s.dateArrived||null)
         : (s.dateArrived ? addDaysStr(s.dateArrived, cfg.leadtime) : null);
+    }
+
+    // ── 7b. WAITING DELIVERIES consume free units (warehouse first) ──────
+    {
+      // Split by market: a UK delivery (leaving UK/…) only claims UK stock,
+      // every other delivery only claims EU stock.
+      const waitByMkt = { EU:{}, UK:{} };
+      for(const m of (waitingOutMoves||[])){
+        const pid = toArr(m.product_id)[0];
+        const open = Math.max(0, (m.product_uom_qty||0) - (m.quantity||0));
+        const mk = isUKLoc(toArr(m.location_id)[1]||'') ? 'UK' : 'EU';
+        if(pid && open>0) waitByMkt[mk][pid] = (waitByMkt[mk][pid]||0) + open;
+      }
+      const orderByMkt = { EU:[...WH_LOCS, 'LOUI/Stock', ...TRANSIT_LOCS], UK:[...UK_WH_LOCS, ...UK_TRANSIT_LOCS] };
+      for(const mk of ['EU','UK'])
+      for(const [pid, qty] of Object.entries(waitByMkt[mk])){
+        const order = orderByMkt[mk];
+        let left = Math.round(qty);
+        for(const loc of order){
+          for(const s of newStock){
+            if(left<=0) break;
+            if(String(s.productId)!==String(pid) || s.location!==loc || s.odooReserved || s.odooDemand) continue;
+            s.odooDemand = true; left--;
+          }
+        }
+      }
     }
 
     // ── 8. AUTO-ASSIGN inprod STATUS from Okazi POs ─────────────────────
@@ -1791,9 +1951,12 @@ function matchStockToOrders() {
     // Location priority:
     // Louise orders:    LOUI/Stock → Brain/Stock → AND/Warehouse → in transit
     // Warehouse orders: Brain/Stock → AND/Warehouse → in transit
-    const locationPriority = o.isLoui
-      ? ['LOUI/Stock', ...WH_LOCS, ...TRANSIT_LOCS]
-      : [...WH_LOCS, ...TRANSIT_LOCS];
+    // UK orders:        UK/Stock → UK/Transfer (Brain Log → UK) — never EU stock
+    const locationPriority = marketOf(o)==='UK'
+      ? [...UK_WH_LOCS, ...UK_TRANSIT_LOCS]
+      : o.isLoui
+        ? ['LOUI/Stock', ...WH_LOCS, ...TRANSIT_LOCS]
+        : [...WH_LOCS, ...TRANSIT_LOCS];
 
     let matched = 0;
 
@@ -1829,6 +1992,7 @@ function matchStockToOrders() {
           o.status = 'transit_match';
           o.serialEst = reserved[0].serial;
           o.stockLocation = reserved[0].location || 'VV/Stock';
+          // (UK: 'UK/Transfer' = still at Brain Log / on the way, reserved for the UK)
           o.estimatedDelivery = reserved[0].expectedArrival || o.estimatedDelivery;
         } else {
           // Bike is in the warehouse (Brain Log or AND): ready to ship
@@ -2078,6 +2242,8 @@ function renderQueue() {
     const locationFilter=(document.getElementById('q-location-filter')||{}).value||'';
     if(locationFilter==='AND' && o.isLoui) return false;
     if(locationFilter==='LOUI' && !o.isLoui) return false;
+    const mktFilter=(document.getElementById('q-market-filter')||{}).value||'';
+    if(mktFilter && marketOf(o)!==mktFilter) return false;
     return true;
   });
 
@@ -2117,7 +2283,8 @@ function renderQueue() {
       o.status==='inprod' ? `<span class="badge badge-po">${o.poRef||'In prod'}</span>` :
       '<span style="color:var(--text3);font-size:12px">—</span>';
     const canMove = o.status !== 'shipped';
-    const louiBadge = o.isLoui ? '<span class="badge badge-warn" style="font-size:10px;margin-left:4px">Louise</span>' : '';
+    const louiBadge = (o.isLoui ? '<span class="badge badge-warn" style="font-size:10px;margin-left:4px">Louise</span>' : '')
+      + (marketOf(o)==='UK' ? '<span class="badge badge-po" style="font-size:10px;margin-left:4px">UK</span>' : '');
     const v = visibleCols; void v;
     const customBadge = o.color==='custom' ? '<span class="badge" style="font-size:10px;margin-left:4px;background:var(--purple-bg);color:var(--purple)">Custom</span>' : '';
     const locBadge = o.stockLocation ? locBadgeHtml(o.stockLocation) : '';
@@ -2172,7 +2339,7 @@ function updateKPIs() {
   const transitReady=active.filter(o=>o.status==='transit_match').length;
   document.getElementById('kpi-stock').textContent=warehouseReady+(transitReady?` (+${transitReady} transit)`:'');
   document.getElementById('kpi-urgent').textContent=active.filter(o=>o.isUrgent).length;
-  const transitCount=stock.filter(s=>s.inTransit).length;
+  const transitCount=stock.filter(s=>s.inTransit&&!isUKLoc(s.location)).length;
   const inprodCount=active.filter(o=>o.status==='inprod').length;
   document.getElementById('kpi-inprod').textContent=inprodCount+(transitCount?` (+${transitCount} in transit)`:'');
 }
@@ -3151,6 +3318,7 @@ function openAddManualOrder() {
   document.getElementById('man-type').value = 'amax';
   document.getElementById('man-notes').value = '';
   document.getElementById('man-customer').value = 'Matt Cooke Components';
+  const mm = document.getElementById('man-market'); if(mm) mm.value = 'EU';
   el.classList.add('open');
 }
 
@@ -3162,6 +3330,7 @@ function addManualOrder() {
   const transmission = document.getElementById('man-trans').value;
   const bikeType = document.getElementById('man-type').value;
   const notes = document.getElementById('man-notes').value.trim();
+  const market = ((document.getElementById('man-market')||{}).value==='UK') ? 'UK' : 'EU';
   const customer = document.getElementById('man-customer').value.trim() || 'Matt Cooke Components';
   if(!sku){ alert('Please enter a SKU or description.'); return; }
   // Build a descriptive SKU from the dropdowns for display
@@ -3186,6 +3355,7 @@ function addManualOrder() {
     serialEst: null,
     isUrgent: false,
     isLoui: false,
+    market,
     isManual: true,
     notes
   };
@@ -3291,8 +3461,19 @@ function renderStockSummary(el) {
   const isMAX = s => (s.bikeType==='amax'||s.bikeType==='emax') && !isMY27(s);
   const my27Free = stock.filter(s=>!s.reservedFor&&(s.bikeType==='amax'||s.bikeType==='emax')&&isMY27(s)&&(isWH(s.location)||isTransitLoc(s.location)));
   const my27VV = vvStock.filter(i=>(i.bikeType==='amax'||i.bikeType==='emax')&&isMY27(i)).reduce((n,i)=>n+(i.qty||0),0);
-  const availableNow = stock.filter(s=>!s.inTransit&&!s.reservedFor&&isWH(s.location)&&isMAX(s));
-  const arrivingSoon = stock.filter(s=>s.inTransit&&!s.reservedFor&&isMAX(s));
+  // Free to sell = not tied to any order. Source of truth is Odoo: a bike is taken
+  // when it is reserved on a delivery, or claimed by a confirmed delivery still
+  // waiting for a serial. Planner-only (manual) orders also take their bike.
+  // The planner's own date-window matching is NOT used here — it ignores orders
+  // due later than 3 weeks, which made far-off orders look like free stock.
+  const manualIds = new Set((manualOrders||[]).map(o=>o.id));
+  const isTaken = s => s.odooReserved || s.odooDemand || (s.reservedFor && manualIds.has(s.reservedFor));
+  // EU and UK are separate pools. EU = Brain Log / AND / VV / Brain receiving, minus every
+  // bike reserved on a Brain Log → UK transfer (those live in UK/Transfer). UK = UK 3PL +
+  // UK/Transfer. Waiting deliveries only claim stock of their own market (see sync 7b).
+  const UKM = currentStockMarket==='UK';
+  const availableNow = stock.filter(s=>!s.inTransit&&!isTaken(s)&&(UKM?isUKWH(s.location):isWH(s.location))&&isMAX(s));
+  const arrivingSoon = stock.filter(s=>s.inTransit&&!isTaken(s)&&(UKM?isUKLoc(s.location):!isUKLoc(s.location))&&isMAX(s));
   const nextArrival = arrivingSoon.length
     ? [...new Set(arrivingSoon.map(s=>s.expectedArrival).filter(Boolean))].sort()[0]
     : null;
@@ -3406,7 +3587,7 @@ function renderStockSummary(el) {
   function getFreeStockItems(){
     const result = [];
     // Built, serial known, not reserved — wherever it is standing
-    const freeTransit = stock.filter(s=>s.inTransit&&!s.reservedFor&&isMAX(s));
+    const freeTransit = stock.filter(s=>s.inTransit&&!s.reservedFor&&isMAX(s)&&!isUKLoc(s.location));
     for(const s of freeTransit){
       result.push({sku:s.sku, color:s.color, rack:s.rack,
         bikeType:detectBikeType(s.sku), transmission:detectTransmission(s.sku),
@@ -3491,7 +3672,7 @@ function renderStockSummary(el) {
   function getFreeStockItems(){
     const result = [];
     // From AND/In Transit: not reserved
-    for(const s of stock.filter(s=>s.inTransit&&!s.reservedFor&&isMAX(s)&&s.color!=='custom')){
+    for(const s of stock.filter(s=>s.inTransit&&!s.reservedFor&&isMAX(s)&&s.color!=='custom'&&!isUKLoc(s.location))){
       result.push({sku:s.sku,color:s.color,rack:s.rack,
         bikeType:detectBikeType(s.sku),transmission:detectTransmission(s.sku),
         serial:s.serial,source:'transit',
@@ -3584,15 +3765,59 @@ function renderStockSummary(el) {
   }
 
   const total1=availableNow.length, total2=arrivingSoon.length;
+
+  if(UKM){
+    // UK orders that do not have a UK bike yet (queued / on hold / in production) —
+    // these need a Brain Log → UK transfer (or production) to be served.
+    const ukOpen = [...orders,...manualOrders].filter(o=>marketOf(o)==='UK'&&o.status!=='shipped'&&(o.bikeType==='amax'||o.bikeType==='emax'));
+    const ukNeed = ukOpen.filter(o=>['queued','hold','inprod'].includes(o.status));
+    const ukTaken = stock.filter(s=>isUKLoc(s.location)&&isTaken(s)&&isMAX(s)).length;
+    const nextUK = arrivingSoon.map(s=>s.expectedArrival).filter(Boolean).sort()[0];
+    const toEU = stock.filter(s=>s.location==='UK/Transfer'&&s.fromLocation==='Brain/Stock').length;
+    el.innerHTML = `<div class="alert alert-info" style="margin-bottom:14px;font-size:12px">
+        <strong>UK stock only.</strong> Free = not reserved on a UK delivery and not claimed by a waiting UK delivery.
+        Includes ${toEU} bike${toEU!==1?'s':''} still at Brain Log but reserved on a Brain Log → UK transfer (not counted in EU stock).
+        ${ukTaken} UK bike${ukTaken!==1?'s':''} already taken by UK orders · ${ukOpen.length} open UK order bike${ukOpen.length!==1?'s':''}.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;align-items:start">
+      <div>
+        <div style="background:var(--success-bg);border:1px solid rgba(45,110,45,0.2);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-weight:700;font-size:14px;color:var(--success)">✓ Available now (UK)</div>
+          <div style="font-size:11px;color:var(--success);margin-top:2px">UK 3PL · not reserved in Odoo</div></div>
+          <div style="font-size:28px;font-weight:700;color:var(--success)">${total1}</div>
+        </div>${buildTable(availableNow)}
+      </div>
+      <div>
+        <div style="background:var(--accent-bg);border:1px solid rgba(26,79,160,0.2);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-weight:700;font-size:14px;color:var(--accent-text)">🚚 On transfer to UK</div>
+          <div style="font-size:11px;color:var(--accent-text);margin-top:2px">Brain Log → UK 3PL · not reserved${nextUK?' · ~'+fmtDate(nextUK):''}</div></div>
+          <div style="font-size:28px;font-weight:700;color:var(--accent)">${total2}</div>
+        </div>${buildTable(arrivingSoon)}
+      </div>
+      <div>
+        <div style="background:var(--warn-bg);border:1px solid rgba(122,78,10,0.2);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-weight:700;font-size:14px;color:var(--warn)">📋 UK orders without a UK bike</div>
+          <div style="font-size:11px;color:var(--warn);margin-top:2px">queued / on hold / in production · need a transfer</div></div>
+          <div style="font-size:28px;font-weight:700;color:var(--warn)">${ukNeed.length}</div>
+        </div>${buildTable(ukNeed)}
+      </div>
+    </div>`;
+    return;
+  }
+
+  const ukReservedFromBrain = stock.filter(s=>s.location==='UK/Transfer'&&s.fromLocation==='Brain/Stock').length;
+  const ukExclNote = ukReservedFromBrain
+    ? `<div class="alert alert-info" style="margin-bottom:14px;font-size:12px"><strong>EU stock only.</strong> ${ukReservedFromBrain} bike${ukReservedFromBrain!==1?'s':''} at Brain Log reserved on a Brain Log → UK transfer ${ukReservedFromBrain!==1?'are':'is'} excluded (see 🇬🇧 UK stock). Reservations below come from EU orders only.</div>`
+    : '';
   const my27Note = (my27Free.length||my27VV)
     ? `<div class="alert alert-info" style="margin-bottom:14px;font-size:12px">MY26 only below. <strong>MY27 (next year's orders):</strong> ${my27Free.filter(s=>!s.inTransit).length} free in warehouse · ${my27Free.filter(s=>s.inTransit).length} free in transit · ${my27VV} at VV — kept apart, never used for this year's orders.</div>`
     : '';
-  el.innerHTML = my27Note + `
+  el.innerHTML = ukExclNote + my27Note + `
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;align-items:start">
       <div>
         <div style="background:var(--success-bg);border:1px solid rgba(45,110,45,0.2);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
           <div><div style="font-weight:700;font-size:14px;color:var(--success)">✓ Available now</div>
-          <div style="font-size:11px;color:var(--success);margin-top:2px">Brain Log + AND/Warehouse · not reserved</div></div>
+          <div style="font-size:11px;color:var(--success);margin-top:2px">Brain Log + AND/Warehouse · not reserved in Odoo</div></div>
           <div style="font-size:28px;font-weight:700;color:var(--success)">${total1}</div>
         </div>${buildTable(availableNow)}
       </div>
@@ -3615,6 +3840,10 @@ function renderStockSummary(el) {
 }
 
 // ─── STOCK VIEW ──────────────────────────────────────────
+function stockMarket(m) {
+  currentStockMarket = m==='UK' ? 'UK' : 'EU';
+  renderStock();
+}
 function stockTab(tab) {
   currentStockTab=tab;
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',(['summary','available','reserved','transit','inprod'])[i]===tab));
@@ -3624,6 +3853,12 @@ function stockTab(tab) {
 function renderStock() {
   const el=document.getElementById('stock-content');
   if(!el) return;
+  for(const m of ['EU','UK']){
+    const b=document.getElementById('mkt-btn-'+m);
+    if(b) b.className='btn btn-sm '+(currentStockMarket===m?'btn-primary':'btn-secondary');
+  }
+  const UKM = currentStockMarket==='UK';
+  const inMkt = s => UKM ? isUKLoc(s.location) : !isUKLoc(s.location);
 
   if(currentStockTab==='summary'){
     renderStockSummary(el);
@@ -3631,8 +3866,8 @@ function renderStock() {
   }
 
   if(currentStockTab==='transit'){
-    const items=stock.filter(s=>s.inTransit);
-    if(!items.length){ el.innerHTML='<div class="empty">Every bike with a serial is in the warehouse.</div>'; return; }
+    const items=stock.filter(s=>s.inTransit&&inMkt(s));
+    if(!items.length){ el.innerHTML=`<div class="empty">${UKM?'No bikes on a Brain Log → UK transfer.':'Every bike with a serial is in the warehouse.'}</div>`; return; }
 
     // Match transit bikes to orders by SKU
     const transitRows = items.map(s=>{
@@ -3640,7 +3875,7 @@ function renderStock() {
       const matchingOrder = [...orders,...manualOrders].find(o=>o.serialEst===s.serial);
       return `<tr>
         <td><span class="serial-chip">${s.serial||'—'}</span></td>
-        <td style="font-size:12px">${locLabel(s.location)}</td>
+        <td style="font-size:12px">${locLabel(s.location)}${s.ukTransferRef?'<br><span style="font-size:10px;color:var(--text3)">'+s.ukTransferRef+(s.fromLocation?' · '+s.fromLocation:'')+'</span>':''}</td>
         <td style="font-size:12px">${s.sku}</td>
         <td>${colorDot(s.color)} ${s.color}</td>
         <td>${s.rack}</td>
@@ -3652,13 +3887,17 @@ function renderStock() {
       </tr>`;
     }).join('');
 
-    el.innerHTML=`<div class="alert alert-info" style="margin-bottom:12px">
+    el.innerHTML=(UKM?`<div class="alert alert-info" style="margin-bottom:12px">
+      UK stock on its way: bikes reserved on an open <strong>Brain Log → UK 3PL</strong> transfer
+      (still physically at Brain Log) or already in inter-warehouse transit. They count as UK
+      stock and are excluded from the EU stock. Expected date = scheduled date of the UK receipt.
+    </div>`:`<div class="alert alert-info" style="margin-bottom:12px">
       Bikes that have a serial but are not standing in the central warehouse.
       <strong>Velovisie</strong> means finished at Hasselt and sellable from there — it is
       not on its way to Brussels unless somebody moves it. <strong>Brain Log (receiving)</strong>
       means arrived but not yet put away. <strong>AND/In Transit</strong> is the old
       Anderlecht route and should be empty once that warehouse closes.
-    </div>
+    </div>`)+`
     <div class="table-wrap"><table class="data-table">
       <thead><tr><th>Serial</th><th>Where</th><th>SKU</th><th>Color</th><th>Rack</th><th>Since</th><th>Expected in warehouse</th><th>Assigned to</th></tr></thead>
       <tbody>${transitRows}</tbody>
@@ -3669,7 +3908,7 @@ function renderStock() {
   if(currentStockTab==='inprod'){
     // Show all orders currently in production, grouped by PO
     const inprodOrders = [...orders,...manualOrders]
-      .filter(o=>o.status==='inprod')
+      .filter(o=>o.status==='inprod' && marketOf(o)===currentStockMarket)
       .sort((a,b)=>{
         if(a.poRef&&b.poRef&&a.poRef!==b.poRef) return a.poRef.localeCompare(b.poRef);
         if(a.deadline&&b.deadline) return new Date(a.deadline)-new Date(b.deadline);
@@ -3712,14 +3951,14 @@ function renderStock() {
     }).join('');
 
     el.innerHTML=`<div class="alert alert-info" style="margin-bottom:12px">
-      <strong>${inprodOrders.length} bikes</strong> currently in production at Okazi, grouped by PO.
+      <strong>${inprodOrders.length} ${UKM?'UK':'EU'} order bikes</strong> currently in production at Okazi, grouped by PO.${UKM?' Production lands at Brain Log — these still need a transfer to the UK 3PL.':''}
     </div>${html}`;
     return;
   }
 
   const items=currentStockTab==='available'
-    ? stock.filter(s=>!s.reservedFor&&!s.inTransit)
-    : stock.filter(s=>s.reservedFor&&!s.inTransit);
+    ? stock.filter(s=>!s.reservedFor&&!s.inTransit&&inMkt(s))
+    : stock.filter(s=>s.reservedFor&&!s.inTransit&&inMkt(s));
 
   if(!items.length){ el.innerHTML=`<div class="empty">No ${currentStockTab==='available'?'available':'reserved'} stock bikes.</div>`; return; }
 
