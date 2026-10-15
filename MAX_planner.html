@@ -1278,8 +1278,8 @@ async function syncOdoo() {
     const ukReceipts = await safeCall('ukReceipts','stock.picking','search_read',
       [[['picking_type_code','=','incoming'],['location_dest_id.complete_name','=like','UK/%'],['state','not in',['done','cancel']]]],
       {fields:['name','origin','scheduled_date','state'],limit:500});
-    const ukReceiptByOrigin = {};
-    for(const r of ukReceipts){ if(r.origin) ukReceiptByOrigin[r.origin.trim()] = r; }
+    // A receipt's origin can name several Brain Log pickings ("Brain/OUT/00241 + Brain/OUT/00245")
+    const ukReceiptFor = name => ukReceipts.find(r=>String(r.origin||'').split(/[\s+,;&]+/).includes(name)) || null;
     const ukReceiptIds = ukReceipts.map(r=>r.id);
     const ukReceiptLines = ukReceiptIds.length ? await safeCall('ukReceiptLines','stock.move.line','search_read',
       [[['picking_id','in',ukReceiptIds],['lot_id','!=',false],['state','not in',['done','cancel']]]],
@@ -1294,7 +1294,8 @@ async function syncOdoo() {
       {fields:['name','picking_type_id','location_dest_id','scheduled_date','origin'],limit:500});
     const ukBoundPicks = brainOutPicks.filter(pk=>
       /\bUK\b/i.test(toArr(pk.picking_type_id)[1]||'') ||
-      !!ukReceiptByOrigin[pk.name] ||
+      !!ukReceiptFor(pk.name) ||
+      /\bUK\b/.test(String(pk.origin||'')) ||
       (toArr(pk.location_dest_id)[1]||'').startsWith('UK/'));
     const ukBoundIds = ukBoundPicks.map(pk=>pk.id);
     const ukTransferLines = ukBoundIds.length ? await safeCall('ukTransferLines','stock.move.line','search_read',
@@ -1311,7 +1312,7 @@ async function syncOdoo() {
     for(const l of ukTransferLines){
       const lot = toArr(l.lot_id)[1]; if(!lot) continue;
       const pk = ukBoundPicks.find(x=>x.id===toArr(l.picking_id)[0]);
-      ukTransferInfo[lot] = { ref: pk?pk.name:'', eta: ukEta(pk?ukReceiptByOrigin[pk.name]:null, pk) };
+      ukTransferInfo[lot] = { ref: pk?pk.name:'', eta: ukEta(pk?ukReceiptFor(pk.name):null, pk) };
     }
     // Bikes that already left Brain Log: read them from the UK receipt lines.
     const ukTransitPseudoQuants = [];
