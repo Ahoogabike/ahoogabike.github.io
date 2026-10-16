@@ -69,6 +69,7 @@
    <div class="card"><h2>After the ride</h2><p class="sub">What the dealer noted for riders who showed up</p><div id="out"></div></div>
    <div class="card"><h2>Why no sale yet</h2><p class="sub">Reasons the dealer noted</p><div id="why"></div></div>
    <div class="card"><h2>When people ride</h2><p class="sub">Booked rides by weekday and hour (darker = more)</p><div id="heat"></div></div>
+   <div class="card"><h2>When people book</h2><p class="sub">The moment the customer clicked "book" in Calendly, by weekday and hour, in the dealer's local time (darker = more). Includes bookings cancelled later. Rides the dealer typed in the portal have no click time.</p><div id="heatb"></div></div>
    <div class="card"><h2>Per country</h2><p class="sub">Booked rides (excl. cancelled)</p><div id="ctry"></div></div>
   </div>
   <div class="card"><h2>Dealers</h2><p class="sub">Click a column to sort. "Not marked" = past rides the dealer has not marked as showed up / no-show yet.</p><div class="tw" id="dtab"></div></div>
@@ -122,7 +123,7 @@ function draw(){
  const OUT={bought:"Bought",reserved:"Reserved",considering:"Considering",return:"Will return",no:"Not interested"};hbars("out",count(sh,r=>OUT[r.out]||""),sh.length);
  hbars("why",count(L,r=>r.reason),0);
  const D={};DATA.dealers.forEach(x=>D[x.id]=x);hbars("ctry",count(bk,r=>(D[r.dealer]||{}).country||"Unknown"),bk.length);
- heat(bk);dealers(L);agenda()}
+ heat(bk);heatB(L);dealers(L);agenda()}
 function weeks(bk){const W={};bk.forEach(r=>{if(!r.d)return;const d=new Date(r.d+"T12:00");d.setDate(d.getDate()-((d.getDay()+6)%7));const k=iso(d);(W[k]=W[k]||{showed:0,noshow:0,open:0,up:0})[state(r)]++});
  const ks=Object.keys(W).sort();if(!ks.length){$("weeks").innerHTML=`<p class="empty">No test rides in this selection.</p>`;return}
  const H=200,bw=Math.max(6,Math.min(24,Math.floor(900/ks.length)-4)),gap=Math.max(4,Math.min(14,Math.floor(900/ks.length)-bw)),w=ks.length*(bw+gap)+40,mx=Math.max(...ks.map(k=>Object.values(W[k]).reduce((a,b)=>a+b,0)));
@@ -134,10 +135,17 @@ function weeks(bk){const W={};bk.forEach(r=>{if(!r.d)return;const d=new Date(r.d
   g+=`<rect x="${x-gap/2}" y="0" width="${bw+gap}" height="${H-20}" fill="transparent" data-tip="${esc(tt)}"/>`;
   if(i%Math.max(1,Math.ceil(ks.length/12))===0)g+=`<text x="${x+bw/2}" y="${H-5}" text-anchor="middle">${new Date(k+"T12:00").toLocaleDateString("en-GB",{day:"numeric",month:"short"})}</text>`});
  $("weeks").innerHTML=`<div class="tw"><svg width="${Math.max(w,300)}" height="${H}" role="img" aria-label="Test rides per week">${g}</svg></div>`}
-function heat(bk){const C={},days=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];let mx=0;bk.forEach(r=>{if(!r.t||!r.d)return;const h=+r.t.slice(0,2),dw=(new Date(r.d+"T12:00").getDay()+6)%7,k=h+"-"+dw;C[k]=(C[k]||0)+1;mx=Math.max(mx,C[k])});
- if(!mx){$("heat").innerHTML=`<p class="empty">No booked times in this selection.</p>`;return}
- const hs=[];for(let h=8;h<=20;h++)hs.push(h);const col=v=>!v?"var(--bg2)":v/mx<.34?"var(--seq-1)":v/mx<.67?"var(--seq-4)":"var(--seq-7)";
- $("heat").innerHTML=`<div class="heat"><span></span>${days.map(d=>`<span style="text-align:center">${d}</span>`).join("")}${hs.map(h=>`<span>${h}:00</span>${days.map((d,i)=>{const v=C[h+"-"+i]||0;return `<div style="background:${col(v)};color:${v/mx>=.67?"#fff":"var(--ink)"}" data-tipt="${d} ${h}:00–${h+1}:00: ${v} ride${v===1?"":"s"}">${v||""}</div>`}).join("")}`).join("")}</div>`}
+function heat(bk){heatGrid("heat",bk.filter(r=>r.t&&r.d).map(r=>[r.d,r.t]),"ride","No booked times in this selection.",8,20,"")}
+function heatGrid(el,P,unit,none,h0,h1,note){const C={},days=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];let mx=0;P.forEach(([d,t])=>{const h=+t.slice(0,2),dw=(new Date(d+"T12:00").getDay()+6)%7,k=h+"-"+dw;C[k]=(C[k]||0)+1;mx=Math.max(mx,C[k]);h0=Math.min(h0,h);h1=Math.max(h1,h)});
+ if(!mx){$(el).innerHTML=`<p class="empty">${none}</p>`;return}
+ const hs=[];for(let h=h0;h<=h1;h++)hs.push(h);const col=v=>!v?"var(--bg2)":v/mx<.34?"var(--seq-1)":v/mx<.67?"var(--seq-4)":"var(--seq-7)";
+ const pl=v=>`${v} ${unit}${v===1?"":"s"}`,dt=days.map((d,i)=>hs.reduce((a,h)=>a+(C[h+"-"+i]||0),0));
+ $(el).innerHTML=(note||"")+`<div class="heat"><span></span>${days.map((d,i)=>`<span style="text-align:center" title="${pl(dt[i])}">${d}</span>`).join("")}${hs.map(h=>`<span>${h}:00</span>${days.map((d,i)=>{const v=C[h+"-"+i]||0;return `<div style="background:${col(v)};color:${v/mx>=.67?"#fff":"var(--ink)"}" data-tipt="${d} ${h}:00–${h+1}:00: ${pl(v)}">${v||""}</div>`}).join("")}`).join("")}</div>`}
+function heatB(L){const P=L.filter(r=>r.at&&r.at.length>=16).map(r=>[r.at.slice(0,10),r.at.slice(11,16)]);
+ let note="";if(P.length){const off=P.filter(([d,t])=>{const h=+t.slice(0,2),dw=new Date(d+"T12:00").getDay();return dw===0||h<9||h>=18}).length;
+  const by={};P.forEach(([d,t])=>{const k=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][new Date(d+"T12:00").getDay()]+" "+t.slice(0,2)+":00";by[k]=(by[k]||0)+1});const top=Object.entries(by).sort((a,b)=>b[1]-a[1])[0];
+  note=`<p class="sub" style="margin:-4px 0 10px"><b>${P.length}</b> online bookings · <b>${pct(off,P.length)}</b> clicked outside shop hours (before 9:00, after 18:00 or on Sunday) · busiest hour: <b>${top[0]}</b></p>`}
+ heatGrid("heatb",P,"booking","No Calendly booking clicks in this selection yet. They appear once the worker is updated and Calendly is synced.",8,20,note)}
 function dealers(L){const D={};DATA.dealers.forEach(x=>D[x.id]=Object.assign({},x,{n:0,sh:0,no:0,op:0,ca:0,up:0,won:0,walk:0}));
  L.forEach(r=>{const x=D[r.dealer];if(!x)return;const s=state(r);if(s==="cancelled"){x.ca++;return}x.n++;if(s==="showed")x.sh++;if(s==="noshow")x.no++;if(s==="open")x.op++;if(s==="up")x.up++;if(r.status==="won")x.won++;if(r.src==="walkin")x.walk++});
  let V=Object.values(D).filter(x=>(x.n||x.ca||x.calendly)&&(!F.c||x.country===F.c)&&(!F.r||x.rep===F.r)&&(!F.d||String(x.id)===F.d));
@@ -154,8 +162,8 @@ function agenda(){const t=new Date(DATA.today+"T12:00"),mon=new Date(t);mon.setD
   jump=`<p class="muted" style="margin:0 0 8px">No test ride this week.${pv?` <button class="hb" data-w="=${wo(pv.d)}">Last one: ${fdt(pv.d)} · ${esc((D[pv.dealer]||{}).name||"")}</button>`:""}${nx?` <button class="hb" data-w="=${wo(nx.d)}">Next one: ${fdt(nx.d)} · ${esc((D[nx.dealer]||{}).name||"")}</button>`:""}</p>`}
  $("agenda").innerHTML=jump+`<div class="ag">${days.map(d=>{const L=A.filter(r=>r.d===d).sort((a,b)=>String(a.t).localeCompare(String(b.t)));const dt=new Date(d+"T12:00");
   return `<div class="agd${d===DATA.today?" now":""}"><h4>${dt.toLocaleDateString("en-GB",{weekday:"short"})} <b>${dt.getDate()}</b></h4>${L.map(r=>{const s=state(r),x=D[r.dealer]||{};return `<div class="age ${s}"><b>${esc(r.t||"walk-in")} · ${esc(x.name||"#"+r.dealer)}</b><small>${esc(r.bike||"")}${LB[s]?" · "+LB[s]:""}</small></div>`}).join("")||`<span class="muted">—</span>`}</div>`}).join("")}</div>`}
-function csv(){const D={};DATA.dealers.forEach(x=>D[x.id]=x);const L=rows(),h=["date","time","dealer","city","country","rep","source","booking","bike","heard","booked_on","after_ride","customer_status","reason"];
- const q=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';const t=[h.join(",")].concat(L.map(r=>{const x=D[r.dealer]||{};return [r.d,r.t,x.name,x.city,x.country,x.rep,r.src,state(r),r.bike,r.heard,r.booked,r.out,r.status,r.reason].map(q).join(",")})).join("\n");
+function csv(){const D={};DATA.dealers.forEach(x=>D[x.id]=x);const L=rows(),h=["date","time","dealer","city","country","rep","source","booking","bike","heard","booked_on","clicked_at","after_ride","customer_status","reason"];
+ const q=v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"';const t=[h.join(",")].concat(L.map(r=>{const x=D[r.dealer]||{};return [r.d,r.t,x.name,x.city,x.country,x.rep,r.src,state(r),r.bike,r.heard,r.booked,r.at,r.out,r.status,r.reason].map(q).join(",")})).join("\n");
  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+t],{type:"text/csv"}));a.download="test-rides-"+DATA.today+".csv";a.click()}
 document.addEventListener("click",e=>{const t=e.target;let x;
  if((x=t.closest("[data-p]"))){F.p=x.dataset.p;draw();return}
