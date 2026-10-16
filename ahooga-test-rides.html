@@ -28,7 +28,7 @@
  .hbar{display:grid;grid-template-columns:minmax(90px,170px) 1fr 44px;gap:6px 10px;align-items:center;font-size:12.5px}
  .hbar .tr{height:14px;background:var(--bg2);border-radius:0 4px 4px 0}.hbar .tr i{display:block;height:100%;background:var(--s-up);border-radius:0 4px 4px 0;min-width:2px}
  .hbar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.hbar em{font-style:normal;font-weight:700;text-align:right}
- .heat{display:grid;grid-template-columns:40px repeat(7,1fr);gap:2px;font-size:11px;color:var(--dim)}.heat div{height:20px;border-radius:3px;display:grid;place-items:center}
+ .heat{display:grid;grid-template-columns:40px repeat(7,1fr) 52px;gap:2px;font-size:11px;color:var(--dim)}.heat .tot{color:var(--ink);font-weight:600}.heat .tot.best{font-weight:800;box-shadow:inset 0 0 0 1.5px var(--ink)}.heat .th{font-weight:700;color:var(--ink)}.heat .tr2{margin-top:4px}.heat div{height:20px;border-radius:3px;display:grid;place-items:center}
  table{width:100%;border-collapse:collapse;font-size:13px}th{font-size:11.5px;color:var(--dim);text-align:left;font-weight:700;padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
  th button{border:0;background:none;font:inherit;color:inherit;cursor:pointer;padding:0}td{padding:8px;border-bottom:1px solid var(--line);vertical-align:top}td.r,th.r{text-align:right}
  td small{display:block;color:var(--dim);font-size:11.5px}.tw{overflow:auto}
@@ -139,13 +139,21 @@ function heat(bk){heatGrid("heat",bk.filter(r=>r.t&&r.d).map(r=>[r.d,r.t]),"ride
 function heatGrid(el,P,unit,none,h0,h1,note){const C={},days=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];let mx=0;P.forEach(([d,t])=>{const h=+t.slice(0,2),dw=(new Date(d+"T12:00").getDay()+6)%7,k=h+"-"+dw;C[k]=(C[k]||0)+1;mx=Math.max(mx,C[k]);h0=Math.min(h0,h);h1=Math.max(h1,h)});
  if(!mx){$(el).innerHTML=`<p class="empty">${none}</p>`;return}
  const hs=[];for(let h=h0;h<=h1;h++)hs.push(h);const col=v=>!v?"var(--bg2)":v/mx<.34?"var(--seq-1)":v/mx<.67?"var(--seq-4)":"var(--seq-7)";
- const pl=v=>`${v} ${unit}${v===1?"":"s"}`,dt=days.map((d,i)=>hs.reduce((a,h)=>a+(C[h+"-"+i]||0),0));
- $(el).innerHTML=(note||"")+`<div class="heat"><span></span>${days.map((d,i)=>`<span style="text-align:center" title="${pl(dt[i])}">${d}</span>`).join("")}${hs.map(h=>`<span>${h}:00</span>${days.map((d,i)=>{const v=C[h+"-"+i]||0;return `<div style="background:${col(v)};color:${v/mx>=.67?"#fff":"var(--ink)"}" data-tipt="${d} ${h}:00–${h+1}:00: ${pl(v)}">${v||""}</div>`}).join("")}`).join("")}</div>`}
+ const pl=v=>`${v} ${unit}${v===1?"":"s"}`,dt=days.map((d,i)=>hs.reduce((a,h)=>a+(C[h+"-"+i]||0),0)),ht=hs.map(h=>days.reduce((a,d,i)=>a+(C[h+"-"+i]||0),0)),N=P.length,mD=Math.max(...dt),mH=Math.max(...ht);
+ const pc=v=>Math.round(v/N*100)+"%",bar=(v,m,dir)=>`background:linear-gradient(to ${dir},var(--seq-1) ${v/m*100}%,var(--bg2) ${v/m*100}%)`;
+ const hc=(h,j)=>`<div class="tot${ht[j]===mH?" best":""}" style="${bar(ht[j],mH,"right")}" data-tipt="${h}:00–${h+1}:00, all days: ${pl(ht[j])} (${pc(ht[j])})">${ht[j]||""}</div>`;
+ const dc=i=>`<div class="tot tr2${dt[i]===mD?" best":""}" style="${bar(dt[i],mD,"top")};height:28px" data-tipt="${days[i]}, all hours: ${pl(dt[i])} (${pc(dt[i])})">${dt[i]||""}<small style="display:block;font-weight:400;color:var(--dim);font-size:9.5px;line-height:1">${dt[i]?pc(dt[i]):""}</small></div>`;
+ $(el).innerHTML=(note||"")+`<div class="heat"><span></span>${days.map(d=>`<span style="text-align:center">${d}</span>`).join("")}<span class="th" style="text-align:center">Total</span>${hs.map((h,j)=>`<span>${h}:00</span>${days.map((d,i)=>{const v=C[h+"-"+i]||0;return `<div style="background:${col(v)};color:${v/mx>=.67?"#fff":"var(--ink)"}" data-tipt="${d} ${h}:00–${h+1}:00: ${pl(v)}">${v||""}</div>`}).join("")}${hc(h,j)}`).join("")}<span class="th tr2" style="align-self:center">Total</span>${days.map((d,i)=>dc(i)).join("")}<div class="tot tr2" style="height:28px" data-tipt="All: ${pl(N)}">${N}</div></div>
+ <p class="sub" style="margin:8px 0 0">Best day: <b>${days[dt.indexOf(mD)]}</b> (${pc(mD)}) · best hour: <b>${hs[ht.indexOf(mH)]}:00–${hs[ht.indexOf(mH)]+1}:00</b> (${pc(mH)}). Outlined = the highest total.</p>`}
 function heatB(L){const P=L.filter(r=>r.at&&r.at.length>=16).map(r=>[r.at.slice(0,10),r.at.slice(11,16)]);
  let note="";if(P.length){const off=P.filter(([d,t])=>{const h=+t.slice(0,2),dw=new Date(d+"T12:00").getDay();return dw===0||h<9||h>=18}).length;
   const by={};P.forEach(([d,t])=>{const k=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][new Date(d+"T12:00").getDay()]+" "+t.slice(0,2)+":00";by[k]=(by[k]||0)+1});const top=Object.entries(by).sort((a,b)=>b[1]-a[1])[0];
   note=`<p class="sub" style="margin:-4px 0 10px"><b>${P.length}</b> online bookings · <b>${pct(off,P.length)}</b> clicked outside shop hours (before 9:00, after 18:00 or on Sunday) · busiest hour: <b>${top[0]}</b></p>`}
- heatGrid("heatb",P,"booking","No Calendly booking clicks in this selection yet. They appear once the worker is updated and Calendly is synced.",8,20,note)}
+ const nc=L.filter(r=>r.src==="calendly").length;
+ const why=!DATA.v?"The worker running on Cloudflare is still the old version, so no click times are sent. Deploy the new worker (Build worker.command, then paste in Cloudflare and Deploy) and press Refresh."
+  :!nc?"No Calendly bookings in this selection. Try a longer period or another dealer."
+  :`${nc} Calendly booking${nc===1?"":"s"} in this selection, but none has a click time yet. Press Refresh in 10 minutes (Calendly data is cached).`;
+ heatGrid("heatb",P,"booking",why,8,20,note)}
 function dealers(L){const D={};DATA.dealers.forEach(x=>D[x.id]=Object.assign({},x,{n:0,sh:0,no:0,op:0,ca:0,up:0,won:0,walk:0}));
  L.forEach(r=>{const x=D[r.dealer];if(!x)return;const s=state(r);if(s==="cancelled"){x.ca++;return}x.n++;if(s==="showed")x.sh++;if(s==="noshow")x.no++;if(s==="open")x.op++;if(s==="up")x.up++;if(r.status==="won")x.won++;if(r.src==="walkin")x.walk++});
  let V=Object.values(D).filter(x=>(x.n||x.ca||x.calendly)&&(!F.c||x.country===F.c)&&(!F.r||x.rep===F.r)&&(!F.d||String(x.id)===F.d));
