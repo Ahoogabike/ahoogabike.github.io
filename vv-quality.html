@@ -95,6 +95,16 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   .case .top .dt{margin-left:auto;color:var(--muted);font-size:11px}
   .case .pr{font-weight:600;margin:6px 0 4px;font-size:15px}
   .case .bk{color:var(--muted);font-size:12.5px;font-family:ui-monospace,monospace}
+  /* bike and part are two separate lines on a case: the bike can be released while the part follows its own decision */
+  .case .line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .case .line .k{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);width:38px;flex:none}
+  .case .line .pill{margin-top:0}
+  .case .line .bk{flex:1;min-width:0}
+  .case .line button{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+  .case .line button.confirm{background:var(--ok);color:#06210f;border-color:var(--ok)}
+  .case .act{padding-left:46px}
+  .group{margin-bottom:10px}.group:last-child{margin-bottom:0}
+  .group .gl{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px}
   .pill{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.03em;border-radius:999px;padding:3px 10px;margin-top:8px}
   .pill.hold{background:#3a3010;color:var(--hold)} .pill.ok{background:#10331e;color:var(--ok)} .pill.scrap{background:#3a1c12;color:#f4a08a} .pill.new{background:#13263a;color:var(--new)} .pill.done{background:var(--line);color:var(--muted)}
   .case .act{font-size:14px;margin-top:6px}
@@ -137,7 +147,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   <div class="result" id="result"></div>
   <div class="msg" id="rmsg"></div>
 
-  <div class="card"><div class="lab">Who is reporting</div><div class="chips" id="reporters"></div></div>
+  <div class="card"><div class="lab">Who is reporting</div><div id="reporters"></div></div>
 
   <div class="card"><div class="lab">Case tag on the part <span class="opt">optional for stock-out / fixed</span></div>
     <div class="row"><input id="tag" class="mono" type="text" placeholder="VV-0042" autocomplete="off" maxlength="7"><button class="scanbtn" onclick="scan('tag')" title="Scan"><svg viewBox="0 0 24 24"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M7 9v6M11 9v6M14 9v6M17 9v6"/></svg></button></div>
@@ -149,6 +159,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     <div class="row"><input id="bike" class="mono" type="text" placeholder="MAYA0000658" autocomplete="off" maxlength="11"><button class="scanbtn" onclick="scan('bike')" title="Scan"><svg viewBox="0 0 24 24"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M7 9v6M11 9v6M14 9v6M17 9v6"/></svg></button></div>
     <div class="hint" id="bikehint">Scan the sticker on the frame.</div></div>
 
+  <div class="card" id="bikestatuscard"><div class="lab">The bike</div><div class="seg" id="bikestatus"></div>
+    <div class="hint">The bike and the part are followed separately: a bike repaired with a spare goes on, the faulty part keeps its own case.</div></div>
+
   <div class="card"><div class="lab">Component</div>
     <div id="compsel" style="display:none"></div>
     <div class="list" id="complist"><div class="row"><input id="comp" type="text" placeholder="Search name or scan the Ahooga code on the box" autocomplete="off"><button class="scanbtn" onclick="scan('comp')" title="Scan"><svg viewBox="0 0 24 24"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M7 9v6M11 9v6M14 9v6M17 9v6"/></svg></button></div><div class="dd" id="dd"></div></div>
@@ -159,10 +172,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
 
   <div class="card"><div class="lab">What is wrong</div><div class="chips" id="problem"></div></div>
 
-  <div class="grid2">
-    <div class="card"><div class="lab">Quantity</div><div class="stepper"><button onclick="qty(-1)">−</button><input id="qty" type="number" min="1" value="1"><button onclick="qty(1)">+</button></div></div>
-    <div class="card"><div class="lab">Bike blocked?</div><div class="toggle" id="blocked" onclick="this.classList.toggle('on')"><span>Waiting for it</span><span class="sw"></span></div></div>
-  </div>
+  <div class="card"><div class="lab">Quantity <span class="opt">type any number, e.g. 250 screws</span></div><div class="stepper"><button onclick="qty(-1)">−</button><input id="qty" type="number" min="1" step="1" inputmode="numeric" value="1"><button onclick="qty(1)">+</button></div></div>
 
   <div class="card" id="outcomecard"><div class="lab">What happened to the part</div><div class="seg" id="outcome"></div>
     <div id="shelfsub" style="margin-top:10px"><div class="lab" style="margin-top:6px">Condition <span class="opt">your view — Ahooga decides</span></div><div class="chips" id="condition"></div></div>
@@ -214,7 +224,10 @@ const VV_PIN    = "1124";
 const ASSEMBLER = "VV";   /* profile in the worker: Velovisie = Quality team "Velovisie", location, people, tag prefix VV- */
 /* ─────────────────────────────────── */
 
-const REPORTERS  = ['Jan','Sander','Dieter','Sven'];
+/* who can report: the line team and the Ahooga team (names must match the worker's people lists) */
+const REPORTER_GROUPS = [['Velovisie',['Jan','Sander','Dieter','Sven']],['Ahooga',['Thomas','Eliot H.','Elliot V.','Nicolas']]];
+const BIKE = [['Not blocked','the bike goes on, or no bike is waiting'],['Blocked — waiting for this part','Ahooga sees it with high priority'],['Repaired with a spare — bike released','the faulty part stays on the red shelf with its tag']];
+const BIKE_VALUE = { [BIKE[0][0]]:'none', [BIKE[1][0]]:'blocked', [BIKE[2][0]]:'released' };
 const WHERE      = [['On a bike','the part is (or was going) on a bike'],['Part from stock (not on a bike yet)','found when opening the box or picking'],['Stock-out (part ran out, line stops)','no tag needed']];
 const PROBLEMS   = ['Missing in kit','Damaged on arrival','Defective','Damaged during assembly','Wrong part','Cosmetic','Stock-out'];
 const OUTCOMES   = [['On the red shelf — Ahooga decides','red tag on it, wait for the decision in Cases'],['Solved on the line — for the record','used a spare, fixed or swapped it; Ahooga is informed']];
@@ -222,7 +235,7 @@ const CONDITIONS = ['To be assessed by Ahooga','Repairable','Damaged – not rep
 const TAG_RE  = /^VV-\d{4}$/, BIKE_RE = /^MA[A-Z]{2}\d{7}$/, CODE_RE = /^[A-Z]{5}\d{5}$/;
 
 const $ = id => document.getElementById(id);
-const state = { reporter: localStorage.getItem('vvq_reporter')||'', where: WHERE[0][0], problem:'', outcome: OUTCOMES[0][0], condition: CONDITIONS[0], comp:null, photosR:[], photosP:[], components:[], scanner:null, scanTarget:null };
+const state = { reporter: localStorage.getItem('vvq_reporter')||'', where: WHERE[0][0], bike: BIKE[0][0], problem:'', outcome: OUTCOMES[0][0], condition: CONDITIONS[0], comp:null, photosR:[], photosP:[], components:[], scanner:null, scanTarget:null };
 let currentScope = 'open';
 
 /* ── gate ── */
@@ -258,15 +271,33 @@ function renderChips(el, items, current, onPick, seg){
     el.appendChild(b);
   });
 }
-renderChips($('reporters'), REPORTERS, state.reporter, v => { state.reporter = v; localStorage.setItem('vvq_reporter', v); $('whoami').textContent = v; });
+function renderReporters(){
+  const box = $('reporters'); box.innerHTML = '';
+  REPORTER_GROUPS.forEach(([org, names]) => {
+    const g = document.createElement('div'); g.className = 'group';
+    g.innerHTML = '<div class="gl">'+org+'</div><div class="chips"></div>';
+    box.appendChild(g);
+    renderChips(g.querySelector('.chips'), names, state.reporter, v => { state.reporter = v; localStorage.setItem('vvq_reporter', v); $('whoami').textContent = v; renderReporters(); });
+  });
+}
+renderReporters();
 $('whoami').textContent = state.reporter;
+function renderBike(){
+  const so = /^Stock-out/.test(state.where), items = so ? BIKE.slice(0,2) : BIKE;
+  if (!items.some(b => b[0] === state.bike)) state.bike = BIKE[0][0];
+  renderChips($('bikestatus'), items, state.bike, v => { state.bike = v; }, true);
+}
 renderChips($('where'), WHERE, state.where, v => { state.where = v; onWhereChange(); }, true);
 renderChips($('problem'), PROBLEMS, state.problem, v => { state.problem = v; if (v==='Stock-out'){ state.where = WHERE[2][0]; renderChips($('where'), WHERE, state.where, w => { state.where = w; onWhereChange(); }, true); onWhereChange(); } });
 renderChips($('outcome'), OUTCOMES, state.outcome, v => { state.outcome = v; onOutcomeChange(); }, true);
 renderChips($('condition'), CONDITIONS, state.condition, v => { state.condition = v; });
 const isShelf = () => state.outcome === OUTCOMES[0][0];
 function onOutcomeChange(){ $('shelfsub').style.display = isShelf() ? 'block' : 'none'; $('solvedsub').style.display = isShelf() ? 'none' : 'block'; }
-function onWhereChange(){ const so = /^Stock-out/.test(state.where); $('bikecard').style.opacity = so ? .45 : 1; $('outcomecard').style.display = so ? 'none' : 'block'; }
+function onWhereChange(){
+  const so = /^Stock-out/.test(state.where), fromStock = /^Part from stock/.test(state.where);
+  $('bikecard').style.opacity = so ? .45 : 1; $('outcomecard').style.display = so ? 'none' : 'block';
+  $('bikestatuscard').style.display = fromStock ? 'none' : 'block'; renderBike();
+}
 
 /* ── qty ── */
 function qty(d){ const i = $('qty'); i.value = Math.max(1, (parseInt(i.value,10)||1) + d); }
@@ -356,7 +387,7 @@ async function submitReport(){
   const body = { reporter: state.reporter, tag, where: state.where, bike, componentId: state.comp ? state.comp.id : null, componentCode: state.comp ? state.comp.code : '',
     componentSerial: $('serial').value, problem: state.problem, qty: parseInt($('qty').value,10)||1,
     outcome: so ? 'solved' : (isShelf() ? 'shelf' : 'solved'), condition: state.condition, spareUsed: $('spare').classList.contains('on'),
-    blocked: $('blocked').classList.contains('on'), comment: $('comment').value };
+    bikeStatus: /^Part from stock/.test(state.where) ? 'none' : (BIKE_VALUE[state.bike] || 'none'), comment: $('comment').value };
   const photos = state.photosR.slice();
   $('send').disabled = true; $('send').textContent = 'Sending…';
   try {
@@ -389,7 +420,7 @@ async function uploadPhotos(key, photos, progress){
 }
 function softReset(){
   $('tag').value=''; $('bike').value=''; $('bikehint').className='hint'; $('bikehint').textContent='Scan the sticker on the frame.'; $('serial').value=''; $('qty').value=1; $('comment').value='';
-  $('blocked').classList.remove('on'); $('spare').classList.remove('on'); state.problem=''; renderChips($('problem'), PROBLEMS, '', v => { state.problem = v; });
+  state.bike = BIKE[0][0]; $('spare').classList.remove('on'); state.problem=''; renderChips($('problem'), PROBLEMS, '', v => { state.problem = v; });
   state.outcome = OUTCOMES[0][0]; renderChips($('outcome'), OUTCOMES, state.outcome, v => { state.outcome = v; onOutcomeChange(); }, true); onOutcomeChange();
   state.condition = CONDITIONS[0]; renderChips($('condition'), CONDITIONS, state.condition, v => { state.condition = v; });
   state.where = WHERE[0][0]; renderChips($('where'), WHERE, state.where, v => { state.where = v; onWhereChange(); }, true); onWhereChange(); clearComp(); state.photosR = []; renderThumbs('r');
@@ -409,15 +440,35 @@ async function loadCases(scope, force, silent){
     box.innerHTML = r.cases.map(c => {
       const d = new Date(c.created.replace(' ','T')+'Z');
       return '<div class="case"><div class="top">'+(c.tag ? '<span class="tg">'+c.tag+'</span>' : '')+'<span class="rf">'+c.ref+'</span><span class="dt">'+d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+'</span></div>' +
-        '<div class="pr">'+(c.product || c.title)+'</div>' + (c.bike ? '<div class="bk">'+c.bike+'</div>' : '') +
-        '<span class="pill '+c.tone+'">'+c.status.toUpperCase()+'</span>' + (c.action ? '<div class="act">'+c.action+'</div>' : '') +
+        '<div class="pr">'+esc(c.product || c.title)+'</div>' + bikeLine(c) +
+        '<div class="line"><span class="k">Part</span><span class="pill '+c.tone+'">'+esc(c.status.toUpperCase())+'</span></div>' + (c.action ? '<div class="act">'+esc(c.action)+'</div>' : '') +
         (c.thread.length ? '<div class="thread">'+c.thread.map(t => '<div class="m '+t.side+'"><small>'+esc(t.author)+' · '+fmtD(t.date)+'</small>'+esc(t.body).replace(/\n/g,'<br>')+'</div>').join('')+'</div>' : '') +
-        '<div class="reply"><input type="text" id="re-'+c.id+'" placeholder="Reply to Ahooga…" autocomplete="off" onkeydown="if(event.key===\'Enter\'){sendReply('+c.id+',\''+(c.tag||c.ref)+'\')}"><button onclick="sendReply('+c.id+',\''+(c.tag||c.ref)+'\')">Send</button></div>' +
+        '<div class="reply"><input type="text" id="re-'+c.id+'" placeholder="Message on this case…" autocomplete="off" onkeydown="if(event.key===\'Enter\'){sendReply('+c.id+',\''+(c.tag||c.ref)+'\')}"><button onclick="sendReply('+c.id+',\''+(c.tag||c.ref)+'\')">Send</button></div>' +
         '<div class="foot"><span>'+(c.photos ? c.photos+' photo(s)' : 'no photo')+'</span>'+(c.priority==='2'||c.priority==='3' ? '<span style="color:var(--warn)">priority</span>' : '')+'<button onclick="photoFor(\''+(c.tag||c.ref)+'\')">Add photo</button></div></div>';
     }).join('');
   } catch(e){ box.innerHTML = '<div class="empty">Could not load cases: '+e.message+'</div>'; }
 }
 function photoFor(key){ $('pkey').value = key; show('photo'); }
+/* the bike line of a case: blocked / released, separate from what happens to the part */
+function bikeLine(c){
+  if (!c.bike && !c.bike_status) return '';
+  const pill = c.bike_status === 'blocked' ? '<span class="pill scrap">BLOCKED</span>' : c.bike_status === 'released' ? '<span class="pill ok">RELEASED</span>' : '';
+  const btn = c.bike_status === 'blocked' ? '<button id="rel-'+c.id+'" onclick="releaseBike('+c.id+',\''+(c.tag||c.ref)+'\')">Bike repaired → release</button>' : '';
+  return '<div class="line"><span class="k">Bike</span>'+pill+'<span class="bk">'+esc(c.bike||'')+'</span>'+btn+'</div>';
+}
+const REL_LABEL = 'Bike repaired → release';
+async function releaseBike(id, key){
+  const b = $('rel-'+id); if (!b) return;
+  if (!state.reporter){ $('cmsg').className='msg err'; $('cmsg').textContent='Choose your name on the Report tab first, so Ahooga knows who released the bike.'; window.scrollTo(0,0); return; }
+  if (!b.classList.contains('confirm')){   /* two taps, so a bike is never released by accident */
+    b.classList.add('confirm'); b.textContent = 'Tap again to confirm';
+    setTimeout(() => { if (b.isConnected && !b.disabled){ b.classList.remove('confirm'); b.textContent = REL_LABEL; } }, 4000);
+    return;
+  }
+  b.disabled = true; b.textContent = 'Releasing…';
+  try { await api('/bike-released', { method:'POST', body:{ key, reporter: state.reporter } }); await loadCases(currentScope, true, true); }
+  catch(e){ $('cmsg').className='msg err'; $('cmsg').textContent = 'Not released: '+e.message; b.disabled = false; b.classList.remove('confirm'); b.textContent = REL_LABEL; }
+}
 const esc = s => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const fmtD = d => new Date(String(d).replace(' ','T')+'Z').toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
 async function sendReply(id, key){
