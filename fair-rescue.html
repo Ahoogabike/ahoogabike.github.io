@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fair Dashboard Rescue</title>
+<style>
+  :root{--ink:#1d1d1f;--muted:#5f6368;--bg:#f6f4ef;--card:#fff;--line:#e3dfd6;--go:#138a3e;--go2:#0f7333;--pink:#ea1d5e;--warn:#b3261e;--warnbg:#fdecea;--okbg:#e7f5ec}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:20px/1.5 "Segoe UI",Arial,sans-serif}
+  main{max-width:760px;margin:0 auto;padding:40px 20px 60px}
+  .brand{font-weight:800;letter-spacing:.04em;color:var(--pink);font-size:18px}
+  h1{font-size:34px;line-height:1.2;margin:6px 0 24px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px;margin-bottom:20px}
+  .found{background:var(--okbg);border-color:#bfe3cb}
+  .none{background:var(--warnbg);border-color:#f4c7c3}
+  .big{font-size:24px;font-weight:700;margin:0 0 6px}
+  ul{margin:8px 0 0;padding-left:24px}
+  button{display:block;width:100%;border:0;border-radius:14px;background:var(--go);color:#fff;font:700 28px/1.2 "Segoe UI",Arial,sans-serif;padding:26px 20px;cursor:pointer;box-shadow:0 4px 0 var(--go2)}
+  button:hover{background:var(--go2)}
+  button:disabled{background:#9aa0a6;box-shadow:none;cursor:default}
+  .small{font-size:16px;color:var(--muted)}
+  .hidden{display:none}
+  a{color:#1a5fb4}
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">AHOOGA</div>
+  <h1>Fair Dashboard: rescue your data</h1>
+
+  <div id="foundBox" class="card found hidden">
+    <p class="big">✅ Good news: your fair data is on this computer.</p>
+    <ul id="summary"></ul>
+  </div>
+
+  <div id="noneBox" class="card none hidden">
+    <p class="big">❌ No fair data was found on this computer.</p>
+    <p>Please check that you are using the same browser you normally use for the Fair Dashboard (for example Google Chrome). If you are, please tell Massimiliano. Nothing has been changed.</p>
+  </div>
+
+  <div id="actionBox" class="hidden">
+    <button id="sendBtn">Send my fair data to Massimiliano</button>
+    <p class="small" style="margin-top:10px">Clicking the button sends a copy and also saves a copy in your <b>Downloads</b> folder. Nothing on this computer is deleted or changed.</p>
+  </div>
+
+  <div id="okBox" class="card found hidden">
+    <p class="big">✅ Done! Massimiliano has received your data.</p>
+    <p>You can close this page now. A copy was also saved in your <b>Downloads</b> folder as <b>fair-dashboard-backup.json</b>. Keep it until Massimiliano says everything is restored.</p>
+    <p><b>Please do not open the Fair Dashboard</b> until Massimiliano tells you it has been restored.</p>
+  </div>
+
+  <div id="failBox" class="card none hidden">
+    <p class="big">⚠️ The data could not be sent automatically.</p>
+    <p>No problem: a copy was saved in your <b>Downloads</b> folder as <b>fair-dashboard-backup.json</b>.</p>
+    <p>Please email that file to <a href="mailto:massimiliano@ahooga.bike?subject=Fair%20dashboard%20backup">massimiliano@ahooga.bike</a> as an attachment.</p>
+  </div>
+</main>
+
+<script>
+/* This page ONLY reads this browser's local copy of the Fair Dashboard.
+   It never reads or writes the live dashboard keys (fairdash_*) in the cloud.
+   It uploads the copy to a separate rescue key (fairrescue_*). */
+(function(){
+  var WORKER='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
+  var PREFIX='ahfd2_';
+  var $=function(id){return document.getElementById(id)};
+  var data={},keys=[];
+  try{
+    for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf(PREFIX)===0){keys.push(k);data[k]=localStorage.getItem(k);}}
+  }catch(e){}
+  function parse(k){try{return JSON.parse(data[PREFIX+k])}catch(e){return null}}
+  var recs=parse('recs')||{},tasks=parse('tasks')||[],ticked=parse('ticked')||{};
+  var nRecs=Object.keys(recs).filter(function(id){return recs[id]&&Object.keys(recs[id]).length}).length;
+  var nTasks=Array.isArray(tasks)?tasks.length:0;
+  var nTicked=Object.keys(ticked).filter(function(id){return ticked[id]}).length;
+  var hasBudget=!!data[PREFIX+'budgetModel']||!!data[PREFIX+'budgetDef'];
+
+  if(!keys.length){$('noneBox').classList.remove('hidden');return;}
+  var li=[];
+  li.push('<li><b>'+nRecs+'</b> fairs with notes / details</li>');
+  li.push('<li><b>'+nTasks+'</b> tasks</li>');
+  li.push('<li><b>'+nTicked+'</b> fairs selected</li>');
+  if(hasBudget)li.push('<li>Budget information</li>');
+  $('summary').innerHTML=li.join('');
+  $('foundBox').classList.remove('hidden');
+  $('actionBox').classList.remove('hidden');
+
+  function pad(n){return(n<10?'0':'')+n}
+  function stamp(){var d=new Date();return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'-'+pad(d.getHours())+pad(d.getMinutes())+pad(d.getSeconds())}
+
+  $('sendBtn').onclick=function(){
+    var btn=this;btn.disabled=true;btn.textContent='Sending… please wait';
+    var when=stamp();
+    var payload={rescuedAt:new Date().toISOString(),browser:navigator.userAgent,summary:{fairsWithNotes:nRecs,tasks:nTasks,fairsSelected:nTicked},localStorage:data};
+    var txt=JSON.stringify(payload);
+    // 1) always save a local copy
+    try{var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'}));a.download='fair-dashboard-backup.json';document.body.appendChild(a);a.click();a.remove();}catch(e){}
+    // 2) upload to a separate rescue key, then add it to the rescue index
+    var key='fairrescue_'+when;
+    fetch(WORKER+'/store/'+encodeURIComponent(key),{method:'POST',headers:{'Content-Type':'application/json'},body:txt})
+      .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);
+        return fetch(WORKER+'/store/fairrescue_index').then(function(r){return r.ok?r.text():'null'}).then(function(t){var list;try{list=JSON.parse(t)}catch(e){list=null}if(!Array.isArray(list))list=[];list.push({key:key,at:payload.rescuedAt,fairsWithNotes:nRecs,tasks:nTasks});
+          return fetch(WORKER+'/store/fairrescue_index',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(list)});}).catch(function(){});})
+      .then(function(){$('actionBox').classList.add('hidden');$('okBox').classList.remove('hidden');})
+      .catch(function(){$('actionBox').classList.add('hidden');$('failBox').classList.remove('hidden');});
+  };
+})();
+</script>
+</body>
+</html>
