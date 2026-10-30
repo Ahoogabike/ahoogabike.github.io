@@ -752,7 +752,7 @@ async function _flush(){
     if(r.ok&&j.ok){SYNC.queue.shift();_saveQueue();if(j.v&&j.v===SYNC.v+1)SYNC.v=j.v;_banner('');setCloud(SYNC.queue.length?'☁ saving…':'☁ saved','ok');}
     else if(r.status>=400&&r.status<500){                  // refused (e.g. would blank a whole section): drop it, reload the truth
       SYNC.queue.shift();_saveQueue();console.warn('[sync] change refused:',j.error);
-      setCloud('⚠ change refused: '+(j.error||r.status),'err');await _full();
+      setCloud('⚠ change refused: '+(j.error||r.status),'err');_banner('⚠ One change could not be saved ('+(j.error||r.status)+'). Please check it and enter it again.');await _full();
     }else throw new Error(j.error||('HTTP '+r.status));
   }catch(e){
     console.warn('[sync] save failed, will retry',e);
@@ -816,11 +816,11 @@ async function _poll(){
 }
 async function loadCloud(){
   if(!CLOUD_ON){SYNC.ready=true;return;}
-  setCloud('☁ connecting…','saving');
+  setCloud('☁ connecting…','saving');_gate('Loading the shared fair data…');
   try{SYNC.queue=JSON.parse(localStorage.getItem('ahfd3_queue')||'[]')||[];}catch(e){SYNC.queue=[];}
   try{
     await _full();
-    SYNC.ready=true;_banner('');
+    SYNC.ready=true;_banner('');_gate('');
     _rerender();
     setCloud('☁ live · everyone sees changes within seconds','ok');
     if(SYNC.queue.length)_flush();
@@ -829,10 +829,41 @@ async function loadCloud(){
   }catch(e){
     console.warn('[sync] cannot reach the shared data',e);
     setCloud('⚠ offline','err');
-    _banner('⚠ Cannot reach the shared fair data — your changes are NOT being saved. Please reload the page in a minute.');
+    _banner('⚠ Cannot reach the shared fair data — your changes are NOT being saved. Please reload the page in a minute.');_gate('⚠ Cannot reach the shared fair data. Retrying… (nothing can be edited until it is back, so nothing gets lost)');
     setTimeout(loadCloud,10000);
   }
 }
+
+// ── Save safety (2026-10-30) ──────────────────────────────────────────────────
+// PDFs are too big for the shared records (they were silently refused by the server and vanished on reload):
+// each PDF now lives under its own cloud key, the record only keeps {name, ref}.
+async function docPut(dataUrl){if(!CLOUD_ON)throw new Error('cloud storage not available here');
+  const key='fairdash_doc_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+  const r=await fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(dataUrl)});
+  if(!r.ok)throw new Error('HTTP '+r.status);return key;}
+document.addEventListener('click',async e=>{const a=e.target.closest&&e.target.closest('[data-docref]');if(!a)return;e.preventDefault();
+  try{const t=await fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(a.dataset.docref)}`,{cache:'no-store'}).then(r=>r.text());const d=JSON.parse(t);if(!d)throw new Error('file not found');
+    const b=await fetch(d).then(r=>r.blob());const u=URL.createObjectURL(b);const w=window.open(u,'_blank');if(!w){const l=document.createElement('a');l.href=u;l.download=a.dataset.docname||'document.pdf';l.click();}}
+  catch(err){alert('Could not open this PDF: '+err.message);}});
+// A field only saves when you leave it. If the tab is closed / hidden while the cursor is still in a field,
+// leave the field first so the change is saved, and send whatever is still waiting.
+function _leaveField(){const a=document.activeElement;if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)){try{a.dispatchEvent(new Event('change',{bubbles:true}));}catch(e){}}
+  _saveQueue();if(SYNC.queue.length&&!SYNC.inflight){const item=SYNC.queue[0];try{fetch(FAIRS_API+'/patch',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json'},body:JSON.stringify({ops:item.ops,batch:item.bid,who:_who(),client:SYNC.client})});}catch(e){}}}
+document.addEventListener('visibilitychange',()=>{if(document.hidden)_leaveField();});
+window.addEventListener('pagehide',_leaveField);
+window.addEventListener('beforeunload',e=>{const a=document.activeElement;if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))try{a.dispatchEvent(new Event('change',{bubbles:true}));}catch(_){}
+  if(CLOUD_ON&&(SYNC.queue.length||SYNC.inflight)){e.preventDefault();e.returnValue='Some changes are still being saved.';return e.returnValue;}});
+// Nothing can be edited until the shared data has loaded (edits made before were thrown away on load).
+function _gate(msg){let g=document.getElementById('cloudGate');if(!msg){if(g)g.remove();return;}
+  if(!g){g=document.createElement('div');g.id='cloudGate';g.style.cssText='position:fixed;inset:0;z-index:9998;background:rgba(244,245,247,.82);display:flex;align-items:center;justify-content:center;font:600 16px system-ui,sans-serif;color:#111827;text-align:center;padding:20px';document.body.appendChild(g);}
+  g.textContent=msg;}
+// When a newer version of this page is published, tell everyone who has it open to reload
+// (old open tabs kept saving to the old storage after the 28 Oct update).
+const APP_VER='2026-10-30a';
+async function _checkVersion(){try{const t=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'}).then(r=>r.text());const m=t.match(/const APP_VER='([^']+)'/);
+  if(m&&m[1]!==APP_VER&&!document.getElementById('verBanner')){const b=document.createElement('div');b.id='verBanner';b.style.cssText='position:sticky;top:0;z-index:9999;background:#ffd400;color:#111;font-weight:700;padding:10px 16px;text-align:center;font-size:14px;cursor:pointer';
+    b.textContent='A new version of the Fair Dashboard is available — click here to reload (your saved changes are kept).';b.onclick=()=>{_leaveField();setTimeout(()=>location.reload(),600);};document.body.prepend(b);}}catch(e){}}
+if(CLOUD_ON)setInterval(_checkVersion,3*60e3);
 // ── History & undo panel ───────────────────────────────────────────────────
 function _opText(o){const p=o.path.slice();const k=p.shift();
   let name=k;if((k==='recs'||k==='ticked'||k==='vanOverride'||k==='planState')&&p.length){const f=FAIRS.find(x=>x.id===p[0]);name=(f?f.name:p[0]);p.shift();}
@@ -1007,7 +1038,7 @@ function editorHTML(f){
       if(t==='textarea')h+=`<div class="efield" style="grid-column:1/-1"><label>${l}</label><textarea data-fld="${f.id}|${k}">${ev}</textarea></div>`;
       else if(t==='yn')h+=`<div class="efield"><label>${l}</label><select data-fld="${f.id}|${k}"><option value="" ${val===''?'selected':''}>—</option><option ${val==='Yes'?'selected':''}>Yes</option><option ${val==='No'?'selected':''}>No</option></select></div>`;
       else if(t==='iob')h+=`<div class="efield"><label>${l}</label><select data-fld="${f.id}|${k}"><option value="" ${val===''?'selected':''}>—</option><option ${val==='Indoor'?'selected':''}>Indoor</option><option ${val==='Outdoor'?'selected':''}>Outdoor</option><option ${val==='Both'?'selected':''}>Both</option></select></div>`;
-      else if(t==='file'){const att=r[k];h+=`<div class="efield" style="grid-column:1/-1"><label>${l}</label><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">${att&&att.data?`<a href="${att.data}" download="${esc(att.name)}" target="_blank" class="pill" style="background:var(--blue)">📄 ${esc(att.name)}</a><button class="btn" data-rmfile="${f.id}|${k}">Remove</button>`:''}<input type="file" accept="application/pdf" data-file="${f.id}|${k}"></div></div>`;}
+      else if(t==='file'){const att=r[k];h+=`<div class="efield" style="grid-column:1/-1"><label>${l}</label><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">${att&&(att.data||att.ref)?`<a href="${att.ref?'#':att.data}" ${att.ref?`data-docref="${esc(att.ref)}" data-docname="${esc(att.name)}"`:''} download="${esc(att.name)}" target="_blank" class="pill" style="background:var(--blue)">📄 ${esc(att.name)}</a><button class="btn" data-rmfile="${f.id}|${k}">Remove</button>`:''}<input type="file" accept="application/pdf" data-file="${f.id}|${k}"></div></div>`;}
       else h+=`<div class="efield"><label>${l}</label><input type="${t}" data-fld="${f.id}|${k}" value="${ev}"></div>`;
     });
     h+='</div></div>';
@@ -1016,7 +1047,7 @@ function editorHTML(f){
   h+=`<div class="egroup" style="${secStyle(7)}"><h4>Documents (PDF)</h4>`;
   const docs=r.docs||(r.floorPlan?[{label:'Floor plan',name:r.floorPlan.name,data:r.floorPlan.data}]:[]);
   h+='<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px">';
-  if(docs.length) docs.forEach((dc,di)=>{ h+=`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><a href="${dc.data}" download="${esc(dc.name)}" target="_blank" class="pill" style="background:var(--blue)">📄 ${esc(dc.label||dc.name)}</a><span class="hint" style="margin:0">${esc(dc.name)}</span><button class="btn" data-docrm="${f.id}|${di}">Remove</button></div>`; });
+  if(docs.length) docs.forEach((dc,di)=>{ h+=`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><a href="${dc.ref?'#':dc.data}" ${dc.ref?`data-docref="${esc(dc.ref)}" data-docname="${esc(dc.name)}"`:''} download="${esc(dc.name)}" target="_blank" class="pill" style="background:var(--blue)">📄 ${esc(dc.label||dc.name)}</a><span class="hint" style="margin:0">${esc(dc.name)}</span><button class="btn" data-docrm="${f.id}|${di}">Remove</button></div>`; });
   else h+='<span class="hint" style="margin:0">No documents yet — e.g. floor plan, parking permit, technical form…</span>';
   h+='</div>';
   h+=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input class="inp" style="width:200px" placeholder="Label (e.g. Parking permit)" data-doclabel="${f.id}"><input type="file" accept="application/pdf" data-docfile="${f.id}"><span class="hint" style="margin:0">≤3.5 MB each</span></div>`;
@@ -1044,12 +1075,12 @@ function wireFairRows(){
   $$('[data-pres]').forEach(el=>el.onchange=e=>{const[id,p]=e.target.dataset.pres.split('|');const r=rec2(id);r.presence=r.presence||{};r.presence[p]=e.target.value;saveRecs();});
   $$('[data-file]').forEach(el=>el.onchange=e=>{const[id,k]=e.target.dataset.file.split('|');const file=e.target.files[0];if(!file)return;
     if(file.size>3.5*1024*1024){alert('This PDF is '+(file.size/1048576).toFixed(1)+' MB. Browser storage is limited (~5 MB total), so please attach smaller files or paste a link instead.');return;}
-    const rd=new FileReader();rd.onload=()=>{rec2(id)[k]={name:file.name,data:rd.result};if(!saveRecs()){alert('Storage full — could not save this PDF. Remove some attachments or use links.');delete rec2(id)[k];}renderFairs();};rd.readAsDataURL(file);});
+    const rd=new FileReader();rd.onload=async()=>{try{const ref=await docPut(rd.result);rec2(id)[k]={name:file.name,ref};saveRecs();}catch(err){alert('Could not upload this PDF: '+err.message);}renderFairs();};rd.readAsDataURL(file);});
   $$('[data-rmfile]').forEach(b=>b.onclick=e=>{const[id,k]=e.target.dataset.rmfile.split('|');delete rec2(id)[k];saveRecs();renderFairs();});
   $$('[data-docfile]').forEach(el=>el.onchange=e=>{const id=e.target.dataset.docfile;const file=e.target.files[0];if(!file)return;
     if(file.size>3.5*1024*1024){alert('PDF too large ('+(file.size/1048576).toFixed(1)+' MB). Max ~3.5 MB.');return;}
     const lblEl=document.querySelector('[data-doclabel="'+id+'"]');const label=(lblEl&&lblEl.value.trim())||file.name.replace(/\.pdf$/i,'');
-    const rd=new FileReader();rd.onload=()=>{const r=rec2(id);if(!r.docs){r.docs=r.floorPlan?[{label:'Floor plan',name:r.floorPlan.name,data:r.floorPlan.data}]:[];}r.docs.push({label,name:file.name,data:rd.result});delete r.floorPlan;if(!saveRecs()){r.docs.pop();alert('Storage full — could not save this PDF.');}renderFairs();};rd.readAsDataURL(file);});
+    const rd=new FileReader();rd.onload=async()=>{let ref;try{ref=await docPut(rd.result);}catch(err){alert('Could not upload this PDF: '+err.message);return;}const r=rec2(id);if(!r.docs){r.docs=r.floorPlan?[{label:'Floor plan',name:r.floorPlan.name,data:r.floorPlan.data}]:[];}r.docs.push({label,name:file.name,ref});delete r.floorPlan;saveRecs();renderFairs();};rd.readAsDataURL(file);});
   $$('[data-docrm]').forEach(b=>b.onclick=e=>{const[id,di]=e.target.dataset.docrm.split('|');const r=rec2(id);if(!r.docs&&r.floorPlan)r.docs=[{label:'Floor plan',name:r.floorPlan.name,data:r.floorPlan.data}];delete r.floorPlan;if(r.docs){r.docs.splice(+di,1);saveRecs();renderFairs();}});
   $$('[data-carry]').forEach(b=>b.onclick=e=>carryOneFair(e.currentTarget.dataset.carry));
   $$('[data-gofb]').forEach(b=>b.onclick=e=>openFeedbackTab(e.currentTarget.dataset.gofb));
