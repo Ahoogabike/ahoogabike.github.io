@@ -1,22 +1,21 @@
 <!doctype html>
-<html lang="en"><head>
+<html lang="en" data-v3="board"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Velovisie · In &amp; Out</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700;800&family=Space+Mono:wght@400;700&display=swap">
 <style>
 :root{
-  --bg:#f7f4ec; --panel:#ffffff; --line:#e4ddcd;
-  --ink:#1d1c16; --ink2:#5a5548; --ink3:#8b8474;
-  --in:#0f7a52; --out:#ea1d5e; --late:#c0451f; --sn:#0b5c3e;
+  --bg:#f8f5f4; --panel:#ffffff; --line:#e5e1e0;
+  --ink:#151417; --ink2:#5f5a5d; --ink3:#8d878a;
+  --in:#14259b; --out:#151417; --late:#b0281e; --sn:#14259b;
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:#f7f4ec;color:#1d1c16;
-  font-family:'Archivo',system-ui,-apple-system,"Segoe UI",Arial,sans-serif;overflow:hidden}
+html,body{margin:0;height:100%;background:#f8f5f4;color:#151417;
+  font-family:'Figtree',system-ui,-apple-system,"Segoe UI",Arial,sans-serif;overflow:hidden}
 .wrap{height:100%;display:flex;flex-direction:column;padding:26px 30px 18px}
 header{display:flex;align-items:baseline;gap:18px;flex:none}
 h1{margin:0;font-size:34px;font-weight:700;letter-spacing:-.5px}
-.sub{color:#8b8474;font-size:19px}
+.sub{color:#8d878a;font-size:19px}
 .clock{margin-left:auto;font-size:30px;font-weight:600;font-variant-numeric:tabular-nums}
 /* Two thirds of the wall for what is arriving, because that is the
    column people actually walk up to and read. The other two share the
@@ -24,10 +23,10 @@ h1{margin:0;font-size:34px;font-weight:700;letter-spacing:-.5px}
    squeezed into slivers. */
 .cols{flex:1;display:grid;grid-template-columns:2fr 1fr;gap:18px;margin-top:18px;min-height:0}
 .side{display:grid;grid-template-rows:1fr 1fr;gap:18px;min-height:0}
-.col.plan h2{color:#5a5548}
-.row .rank{display:inline-block;min-width:30px;font-family:'Space Mono',ui-monospace,monospace;font-weight:700;color:#8b8474}
-.row .po{font-family:'Space Mono',ui-monospace,monospace;font-weight:700}
-.col{background:#ffffff;border:1px solid #e4ddcd;border-radius:16px;padding:20px 22px;display:flex;flex-direction:column;min-height:0}
+.col.plan h2{color:#5f5a5d}
+.row .rank{display:inline-block;min-width:30px;font-family:'Figtree',sans-serif;font-weight:700;color:#8d878a}
+.row .po{font-family:'Figtree',sans-serif;font-weight:700}
+.col{background:#ffffff;border:1px solid #e5e1e0;border-radius:16px;padding:20px 22px;display:flex;flex-direction:column;min-height:0}
 .col h2{margin:0 0 4px;font-size:24px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
 /* A soft fade at the foot of a panel that has more in it than fits, so a
    glance from across the room can tell a full list from a finished one. */
@@ -36,32 +35,40 @@ h1{margin:0;font-size:34px;font-weight:700;letter-spacing:-.5px}
   background:linear-gradient(to bottom,rgba(255,255,255,0),rgba(255,255,255,.96));pointer-events:none;opacity:0;
   transition:opacity .3s}
 .col.more::after{opacity:1}
-.col .cnt{color:#8b8474;font-size:18px;margin-bottom:14px}
-.col.in h2{color:#0f7a52}
-.col.out h2{color:#ea1d5e}
+.col .cnt{color:#8d878a;font-size:18px;margin-bottom:14px}
+.col.in h2{color:#14259b}
+.col.out h2{color:#151417}
 /* Scroll, do not clip. Everything open belongs on this screen; before
    this the panel simply cut off at whatever the screen height allowed and
    gave no sign that there was more. */
 .list{flex:1;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;gap:9px;
-      scrollbar-width:thin;scrollbar-color:#d8d0bd transparent;-webkit-overflow-scrolling:touch}
+      scrollbar-width:thin;scrollbar-color:#cdc8c7 transparent;-webkit-overflow-scrolling:touch}
 .list::-webkit-scrollbar{width:8px}
-.list::-webkit-scrollbar-thumb{background:#d8d0bd;border-radius:8px}
+.list::-webkit-scrollbar-thumb{background:#cdc8c7;border-radius:8px}
 .list::-webkit-scrollbar-track{background:transparent}
 /* One row per delivery. The auto-fill grid split this into columns as
    soon as the panel was wide, which made it read like a spreadsheet. */
 .col.in .list{display:flex;flex-direction:column;gap:9px}
-.row{background:#fbf9f3;border:1px solid #ece5d6;border-radius:10px;padding:10px 13px;display:flex;gap:12px;align-items:baseline}
+.row{background:#ffffff;border:1px solid #efebea;border-radius:10px;padding:10px 13px;display:flex;gap:12px;align-items:baseline}
 .row .main{font-size:23px;font-weight:600;line-height:1.25}
-.row .meta{color:#5a5548;font-size:18px;line-height:1.3}
-.row .right{margin-left:auto;text-align:right;color:#8b8474;font-size:18px;white-space:nowrap}
-.row.late{background:#fdece7;border-color:#e8b9a6}
-.row.late .right{color:#c0451f;font-weight:700}
-.sn{font-family:'Space Mono',ui-monospace,Menlo,Consolas,monospace;font-size:24px;font-weight:700;color:#0b5c3e}
-.pending{opacity:.62;background:#f4f1e8}
-.empty{color:#8b8474;font-size:21px;padding:14px 2px}
-footer{flex:none;color:#8b8474;font-size:17px;padding-top:12px;display:flex;gap:18px}
-.err{color:#c0451f}
-</style></head><body>
+.row .meta{color:#5f5a5d;font-size:18px;line-height:1.3}
+.row .right{margin-left:auto;text-align:right;color:#8d878a;font-size:18px;white-space:nowrap}
+.row.late{background:#fbe8e6;border-color:#f0c4bf}
+.row.late .right{color:#b0281e;font-weight:700}
+.sn{font-family:'Figtree',sans-serif;font-size:24px;font-weight:700;color:#14259b}
+.pending{opacity:.62;background:#f8f5f4}
+.empty{color:#8d878a;font-size:21px;padding:14px 2px}
+footer{flex:none;color:#8d878a;font-size:17px;padding-top:12px;display:flex;gap:18px}
+.err{color:#b0281e}
+</style>
+<!-- Ahooga V3 theme (see ahooga-v3.css) -->
+<link rel="stylesheet" href="ahooga-v3.css">
+<style id="v3-map">
+html[data-v3]{--paper:#f8f5f4;--paper-2:#f1ecea;--card:#fff;--line:#e5e1e0;--line-soft:#efebea;--ink:#151417;--ink-dim:#5f5a5d;--ink-faint:#8d878a;--gold:#9a5b00;--pink:#14259b;--blue:#14259b;--green:#1d7349;--red:#b0281e;--radius:10px;--bg:#f8f5f4;--panel:#fff;--muted:#5f5a5d;--ink2:#5f5a5d;--ink3:#8d878a;--accent:#14259b;--ok:#1d7349;--warn:#9a5b00;--steel:#2b4f8a;--in:#14259b;--out:#151417;--late:#b0281e;--sn:#14259b}
+
+</style>
+<script>try{if(window.top!==window.self)document.documentElement.classList.add("v3-framed")}catch(e){document.documentElement.classList.add("v3-framed")}</script>
+</head><body>
 <div class="wrap">
   <header>
     <h1 id="site">…</h1>
@@ -76,7 +83,7 @@ footer{flex:none;color:#8b8474;font-size:17px;padding-top:12px;display:flex;gap:
     </section>
     <div class="side">
     <section class="col out">
-      <h2>Bikes going out</h2>
+      <h2>Going out: bikes &amp; parts</h2>
       <div class="cnt" id="out-cnt">—</div>
       <div class="list" id="out-list"></div>
     </section>
@@ -178,6 +185,11 @@ async function loadPlan(){
    and a figure on the right. At Velovisie the code is a bike serial and the
    destination a customer; at MTB it is a wheel and the destination Hasselt. */
 function rowOut(b){
+  /* a parts parcel for Brain Log (after-sales): marked so it stands out from the bikes */
+  if(b.parts) return '<div class="row'+(b.ready?"":" pending")+'" style="border-left:6px solid #d9730d">'+
+    '<div><div class="main"><span style="background:#d9730d;color:#fff;border-radius:6px;padding:1px 8px;font-size:.8em;margin-right:6px">PARTS</span>'+esc(b.to||"")+'</div>'+
+    '<div class="meta" style="white-space:pre-line">'+esc(b.sub||"")+'</div></div>'+
+    '<div class="right">'+esc(b.right||"")+'</div></div>';
   return '<div class="row'+(b.ready?"":" pending")+'">'+
     '<div><div class="main"><span class="sn">'+esc(b.code)+'</span> &rarr; '+esc(b.to||"—")+'</div>'+
     '<div class="meta">'+esc(b.sub||"")+'</div></div>'+
@@ -223,14 +235,16 @@ async function load(){
     document.getElementById("site").textContent = d.site || "Velovisie";
     document.getElementById("sub").textContent  = "in \u0026 out";
     fill("in-list",  d.inbound||[],  rowIn,  "Nothing on its way.");
-    fill("out-list", d.outbound||[], rowOut, "No bike waiting to leave.");
+    fill("out-list", d.outbound||[], rowOut, "Nothing waiting to leave.");
     document.getElementById("in-cnt").textContent  =
       (d.inbound||[]).length + " open arrival" + ((d.inbound||[]).length===1?"":"s") +
       "";
     /* Everything on this list is at Velovisie now — the Worker filters the
        rest out — so a "ready vs in hand" split no longer means anything. */
-    var n = (d.outbound||[]).length;
+    var parts = (d.outbound||[]).filter(function(b){ return b.parts; }).length,
+        n = (d.outbound||[]).length - parts;
     document.getElementById("out-cnt").textContent =
+      (parts ? parts + " parts parcel" + (parts===1?"":"s") + " for Brain Log · " : "") +
       n + " bike" + (n===1?"":"s") + " waiting to leave";
     document.getElementById("stamp").textContent =
       "updated " + new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});
