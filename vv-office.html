@@ -173,7 +173,7 @@ function vvForget(){ try{ localStorage.removeItem(VV_KEY_STORE); }catch(e){} }
 <div class="tabs2">
   <button id="t2-bikes" class="seg active" onclick="showView('bikes')">🚲 Finish a bike</button>
   <button id="t2-reg" class="seg" onclick="showView('register')">🔗 Link serial to order</button>
-  <button id="t2-ship" class="seg" onclick="showView('ship')">🚀 Ship a bike</button>
+  <button id="t2-ship" class="seg" onclick="showView('ship')">🚀 Ship bikes &amp; parts</button>
 </div>
 
 <section id="view-register" style="display:none">
@@ -308,8 +308,8 @@ function vvForget(){ try{ localStorage.removeItem(VV_KEY_STORE); }catch(e){} }
   <div class="card" style="border-left:6px solid #d9730d">
     <h2>Parts to Brain Log</h2>
     <div class="sub">Spare parts Ahooga asked for at Brain Log (after-sales). For each parcel:
-      1. print the barcode labels and stick one on every item (Brain Log scans them at arrival),
-      2. pack, 3. enter parcels and weight, book DPD and print the DPD label for the box.</div>
+      1. print the barcode labels: one per part, put all pieces of that part in one bag and stick the label on the bag
+      (Brain Log scans it at arrival), 2. pack and weigh, 3. enter boxes and kg, book DPD, print the DPD label for each box.</div>
     <div id="pp-msg"></div>
   </div>
   <div id="pp-list"></div>
