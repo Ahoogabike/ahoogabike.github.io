@@ -708,7 +708,7 @@ async function publishPartsDeadlines(){
     const wks=productionPlan.weeks, byFam=productionPlan.byFam||{};
     const incForWeek=(pid,wi)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[wi].monday, end=wks[wi+1]?wks[wi+1].monday:null; let s=0; for(const d of list){ if(!d.date){ if(wi===0) s+=d.qty; continue; } if(d.date>=start && (!end||d.date<end)) s+=d.qty; } return s; };
     const incBeforeFirst=(pid)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[0].monday; let s=0; for(const d of list){ if(d.date && d.date<start) s+=d.qty; } return s; };
-    const items=[];
+    const items=[]; const demand={};
     for(const r of rows){
       if(r.isSub) continue;
       if(wheelComponentIds.has(r.id)) continue;   // wheel parts are consumed at MTB → handled by the wheel agenda (AND→MTB), not the Velovisie flow
@@ -717,6 +717,7 @@ async function publishPartsDeadlines(){
       let inprodCons=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
       const consArr=wks.map((_,wi)=>{ let c=0; const um=usageForWeekMonday(wks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; c+=repairOf(pid); return c; });
       let vv=(r.vvReal||0), andP=(r.andQty||0);
+      const stock0=vv+andP;   /* on-hand only; open POs are added line by line by the Vendors page */
       const overdue=incBeforeFirst(pid);
       /* The floor is no longer zero. A part is short when cover would fall below
          ORDER_SAFETY_WEEKS of production, so the date lands early enough to act on. */
@@ -763,6 +764,9 @@ async function publishPartsDeadlines(){
         if(coverLeft<0 && coverWi<0) coverWi=wi;
       }
       if(totCons<=0.0001) continue;
+      /* Weekly demand profile per part: lets the Vendors page give EACH open PO line its own
+         need date (when stock + earlier deliveries run out), not the first shortage for all. */
+      if(r.partNo){ const k=String(r.partNo).toUpperCase(); const prev=demand[k]; const c=consArr.map(x=>Math.round(x*10)/10); if(prev){ prev.s+=Math.round(stock0); prev.c=prev.c.map((x,i)=>Math.round((x+(c[i]||0))*10)/10); } else demand[k]={s:Math.round(stock0), c}; }
       const nm=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
       const rate=wks.length?(totCons/wks.length):0;   // avg weekly consumption → lets the agenda size an order to cover N weeks
       if(shortWi>=0){
@@ -815,7 +819,7 @@ async function publishPartsDeadlines(){
       safetyWeeks:ORDER_SAFETY_WEEKS, coverWeeks:ORDER_COVER_WEEKS,
       packsOnFile:Object.keys(packByPart).length,
       packsFromOdoo:packFromOdoo, packsFromStore:packFromStore,
-      weeks:wks.map(w=>w.monday), items });
+      weeks:wks.map(w=>w.monday), items, demand });
     console.log('[PartStock] parts_deadlines published:', items.length, 'items');
   }catch(e){ console.warn('[PartStock] publishPartsDeadlines failed:', e.message); }
 }
@@ -1494,7 +1498,9 @@ async function loadData(){
     // first segment of their full path (e.g. "LOUISE/Stock" -> "LOUISE", "AND/Stock" -> "AND").
     // Matching the path prefix (not a loose substring) avoids false hits like ".../Standard".
     // Edit these tokens if your locations are named differently.
-    const AND_TOKENS=['AND'];
+    /* AND/Warehouse is CLOSED (Nov 2026): it is no longer a source. Parts for production sit only at
+       Brain Log (storage), Velovisie and MTB (subcontracting). Its leftover Odoo stock is ignored here. */
+    const AND_TOKENS=[];
     const LOUI_TOKENS=['LOUI','LOUISE'];
     /* internal AND transit. If AND/In Transit is ever switched to usage
        'transit' — which is what it actually is, and what stops Odoo counting
