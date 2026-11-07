@@ -718,7 +718,9 @@ async function publishPartsDeadlines(){
       const isWheelAsm = !!(r.isSub && mtbWheelTmpls.has(prodToTmpl[r.id]));
       if(r.isSub && !isWheelAsm) continue;
       if(wheelComponentIds.has(r.id)) continue;   // wheel parts are consumed at MTB → handled by the wheel agenda (AND→MTB), not the Velovisie flow
-      if(skipForecast(r)) continue;   // no order/move tasks for uncounted fasteners
+      /* Readiness calendar needs EVERY part (a missing crankset stops the line), so excluded parts still publish their demand,
+         flagged with the reason; they are skipped only for the order/move tasks below. */
+      const skipWhy=skipForecast(r)?(isUntracked(r)?'untracked':(r.isFastener&&excludeFasteners())?'fastener':'excluded'):'';
       const pid=r.id;
       let inprodCons=0; for(const fam in inprodByFam){ const u=(usagePerBikeByFam[fam]||{})[pid]||0; if(u) inprodCons+=u*(inprodByFam[fam]||0); }
       const consArr=wks.map((_,wi)=>{ let c=0; const um=usageForWeekMonday(wks[wi].monday); for(const fam in byFam){ const u=(um[fam]||{})[pid]||0; if(u) c+=u*(byFam[fam][wi]||0); } if(wi===0) c+=inprodCons; c+=repairOf(pid); return c; });
@@ -778,7 +780,8 @@ async function publishPartsDeadlines(){
       /* Weekly demand profile per part: lets the Vendors page give EACH open PO line its own
          need date (when stock + earlier deliveries run out), not the first shortage for all. */
       if(r.partNo){ const k=String(r.partNo).toUpperCase(); const prev=demand[k]; const c=consArr.map(x=>Math.round(x*10)/10); const b=consArr.map((x,i)=>Math.round(x*(bfShareByMonday[''+wks[i].monday]||0)*10)/10);
-        if(prev){ prev.s+=Math.round(stock0); prev.c=prev.c.map((x,i)=>Math.round((x+(c[i]||0))*10)/10); prev.b=prev.b.map((x,i)=>Math.round((x+(b[i]||0))*10)/10); } else demand[k]={s:Math.round(stock0), c, b, bf:Math.round(r.bfQty||0)}; }
+        if(prev){ prev.s+=Math.round(stock0); prev.c=prev.c.map((x,i)=>Math.round((x+(c[i]||0))*10)/10); prev.b=prev.b.map((x,i)=>Math.round((x+(b[i]||0))*10)/10); } else demand[k]={s:Math.round(stock0), c, b, bf:Math.round(r.bfQty||0), x:skipWhy||undefined}; }
+      if(skipWhy) continue;   // no order/move tasks for parts Parts Stock does not count
       const nm=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
       const rate=wks.length?(totCons/wks.length):0;   // avg weekly consumption → lets the agenda size an order to cover N weeks
       if(shortWi>=0){
@@ -1047,7 +1050,7 @@ async function publishWheelDeadlines(){
     const incBeforeFirst=(pid)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[0].monday; let s=0; for(const d of list){ if(d.date && d.date<start) s+=d.qty; } return s; };
     for(const r of rows){
       if(!wheelComponentIds.has(r.id)) continue;            // only wheel sub-parts
-      if(skipForecast(r)) continue;                         // skip uncounted fasteners
+      const skipWhy=skipForecast(r)?(isUntracked(r)?'untracked':(r.isFastener&&excludeFasteners())?'fastener':'excluded'):'';   // still published for the Readiness calendar, no tasks
       const consM=mtbCons[r.id], consB=bfCons[r.id]; if(!consM && !consB) continue;
       /* one pool orders for both: MTB (Okazi wheels) + BikeFun (its own wheels) */
       const cons=wks.map((_,wi)=>((consM&&consM[wi])||0)+((consB&&consB[wi])||0));
@@ -1061,7 +1064,8 @@ async function publishWheelDeadlines(){
       const onHand0=mtb+andP+(r.bfQty||0);   /* see the line tier: the curve, not just a date (BikeFun builds its own wheels: its wheel parts count) */
       /* weekly MTB consumption + on-hand, for the Readiness calendar (dealer portal) */
       if(r.partNo){ const k=String(r.partNo).toUpperCase(); const c=wks.map((_,i)=>Math.round(((consM&&consM[i])||0)*10)/10), b=wks.map((_,i)=>Math.round(((consB&&consB[i])||0)*10)/10); const pv=out.demand[k];
-        if(pv){ pv.s+=Math.round(onHand0); pv.c=pv.c.map((x,i)=>Math.round((x+(c[i]||0))*10)/10); pv.b=pv.b.map((x,i)=>Math.round((x+(b[i]||0))*10)/10); } else out.demand[k]={s:Math.round(onHand0), c, b}; }
+        if(pv){ pv.s+=Math.round(onHand0); pv.c=pv.c.map((x,i)=>Math.round((x+(c[i]||0))*10)/10); pv.b=pv.b.map((x,i)=>Math.round((x+(b[i]||0))*10)/10); } else out.demand[k]={s:Math.round(onHand0), c, b, x:skipWhy||undefined}; }
+      if(skipWhy) continue;
       for(let wi=0; wi<wks.length; wi++){
         let arrv=incForWeek(r.id,wi); if(wi===0) arrv+=overdue;
         andP+=arrv; mtb-=cons[wi];
