@@ -241,12 +241,12 @@ let odooUid=null;
 let blockedWeeks=new Set();   // Monday dates (YYYY-MM-DD, local) blocked for production
 let weekCaps={};              // site -> { Monday date (YYYY-MM-DD) -> max bikes that week }
 // ── ASSEMBLY SITES ───────────────────────────────────────────
-// Okazi has always been the assembler. BikeFun comes online in May 2027 and — unlike Okazi —
+// Okazi has always been the assembler. BikeFun comes online on 1 March 2027 (moved from 3 May, Nov 2026) and — unlike Okazi —
 // builds its own wheels on site, so the bikes it assembles place NO demand on MTB Maastricht
 // and carry no 3-week wheel lead. Each site is planned and ordered separately.
 const SITES=[
   {key:'okazi',   label:'Okazi',   vendor:'Okazi',   wheelsOnSite:false, start:null,         target:0},
-  {key:'bikefun', label:'BikeFun', vendor:'BikeFun', wheelsOnSite:true,  start:'2027-05-03', target:1500}
+  {key:'bikefun', label:'BikeFun', vendor:'BikeFun', wheelsOnSite:true,  start:'2027-03-01', target:1500}
 ];
 const SITE_KEYS=SITES.map(x=>x.key);
 const siteOf=(k)=>SITES.find(x=>x.key===k);
