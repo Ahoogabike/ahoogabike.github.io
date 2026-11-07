@@ -1014,7 +1014,7 @@ async function publishWheelDeadlines(){
   try{
     if(!rows.length || !productionPlan || !productionPlan.weeks || !productionPlan.weeks.length) return;
     const wks=productionPlan.weeks, byFam=productionPlan.byFam||{};
-    const out={ updated:new Date().toISOString(), build:APP_BUILD, transferLeadDays:3, tier:'MTB', weeks:wks.map(w=>w.monday), items:[] };
+    const out={ updated:new Date().toISOString(), build:APP_BUILD, transferLeadDays:3, tier:'MTB', weeks:wks.map(w=>w.monday), items:[], demand:{} };
     if(!mtbWheelTmpls.size){ await kvSetStore('wheel_deadlines', out); return; }
     // wheel products that bikes use, and each wheel's exploded component usage
     const isWheelPid=(pid)=> mtbWheelTmpls.has(prodToTmpl[pid]);
@@ -1043,6 +1043,8 @@ async function publishWheelDeadlines(){
          today carry us, counting nothing on its way. */
       let coverLeft=mtb+andP, coverWi=-1;
       const onHand0=mtb+andP;   /* see the line tier: the curve, not just a date */
+      /* weekly MTB consumption + on-hand, for the Readiness calendar (dealer portal) */
+      if(r.partNo){ const k=String(r.partNo).toUpperCase(); const c=cons.map(x=>Math.round(x*10)/10); const pv=out.demand[k]; if(pv){ pv.s+=Math.round(onHand0); pv.c=pv.c.map((x,i)=>Math.round((x+(c[i]||0))*10)/10); } else out.demand[k]={s:Math.round(onHand0), c}; }
       for(let wi=0; wi<wks.length; wi++){
         let arrv=incForWeek(r.id,wi); if(wi===0) arrv+=overdue;
         andP+=arrv; mtb-=cons[wi];
