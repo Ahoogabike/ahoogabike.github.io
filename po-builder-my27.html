@@ -78,6 +78,9 @@ table.grid thead th.wk:hover{color:var(--accent)}
 table.grid thead th.blocked{background:repeating-linear-gradient(45deg,#efe9da,#efe9da 5px,#e2dccb 5px,#e2dccb 10px);color:var(--text3);text-decoration:line-through}
 table.grid td.blocked{background:rgba(0,0,0,0.045)!important;color:var(--text3)}
 table.grid td.total.over{background:#fcebeb!important;color:#8b1f1f}
+table.grid input.ovr-in{width:40px;text-align:center;font-size:11px;padding:2px;border:1px solid transparent;border-radius:4px;background:transparent;font-family:inherit;color:inherit}
+table.grid input.ovr-in:hover,table.grid input.ovr-in:focus{border-color:var(--border2);background:var(--surface);outline:none}
+table.grid input.ovr-in::-webkit-outer-spin-button,table.grid input.ovr-in::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 table.grid tr.caprow td{background:var(--surface2,#faf9f5);border-bottom:2px solid var(--border2)}
 table.grid tr.caprow input::-webkit-outer-spin-button,table.grid tr.caprow input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 4px 2px 9px;border-radius:20px;background:var(--warn-bg);color:var(--warn);border:1px solid var(--border2);margin:1px}
@@ -251,6 +254,64 @@ const SITES=[
 const SITE_KEYS=SITES.map(x=>x.key);
 const siteOf=(k)=>SITES.find(x=>x.key===k);
 const SITE_HEX={okazi:'#14259b', bikefun:'#0f7a52'};
+// ── WHAT EACH ASSEMBLY LINE MAY BUILD ────────────────────────
+// Colours the scheduler must NOT give a site. BikeFun does no custom colour (Nov 2026) — so the
+// custom programme always lands at Okazi. Editable in the app; shared through KV like the caps.
+const LS_SITECOLS='ahooga_pobuilder_my27_sitecolours';
+const DEFAULT_SITE_EXCL={bikefun:['custom']};
+let siteExcl={};                 // site -> Set(colour keys it must not build)
+function applySiteExcl(o){ siteExcl={}; for(const k of SITE_KEYS) siteExcl[k]=new Set((o&&o[k])||[]); }
+function siteExclObj(){ const o={}; for(const k of SITE_KEYS) o[k]=[...(siteExcl[k]||[])]; return o; }
+function siteAllows(site, co){ const x=siteExcl[site]; return !x || !x.has(co); }
+function loadSiteExclLocal(){ let o=null; try{ o=JSON.parse(localStorage.getItem(LS_SITECOLS)||'null'); }catch(e){} applySiteExcl(o||DEFAULT_SITE_EXCL); }
+loadSiteExclLocal();             // works offline too; KV (if any) replaces it at start-up
+async function loadSiteExcl(){
+  const kv=await kvGet('po_site_colours_my27');
+  if(kv && typeof kv==='object'){ try{ localStorage.setItem(LS_SITECOLS, JSON.stringify(kv)); }catch(e){} applySiteExcl(kv); }
+  else loadSiteExclLocal();
+}
+function toggleSiteColour(site, co){
+  if(!siteExcl[site]) siteExcl[site]=new Set();
+  if(siteExcl[site].has(co)) siteExcl[site].delete(co);
+  else {
+    // Never leave a colour with nowhere to be built — it would silently drop out of the plan.
+    const others=SITE_KEYS.filter(k=>k!==site && siteAllows(k,co));
+    if(!others.length){ alert('At least one assembly line has to be able to build '+((CO.find(c=>c[0]===co)||[])[1]||co)+'.'); renderYear(); return; }
+    siteExcl[site].add(co);
+  }
+  const o=siteExclObj();
+  try{ localStorage.setItem(LS_SITECOLS, JSON.stringify(o)); }catch(e){}
+  kvSet('po_site_colours_my27', o);
+  recompute();
+}
+// ── MANUAL OVERRIDES, per site · week · SKU ──────────────────
+// A typed number is placed first, exactly as typed, before the scheduler fills the rest of that
+// site's week. It ignores the colour rules and the component check: it is a decision, not a proposal.
+// Bikes typed in are taken off that SKU's demand, so the year total does not double-count them.
+const LS_OVR='ahooga_pobuilder_my27_overrides';
+let cellOvr={};                  // site -> { monday YYYY-MM-DD -> { skuKey -> qty } }
+let gridSiteView='all';          // which grid the SKU rows show: 'all' or a site key (editable)
+function ovrAllObj(){ let all={}; try{ all=JSON.parse(localStorage.getItem(LS_OVR)||'{}'); }catch(e){} return all; }
+function syncOvrForYear(){ const o=ovrAllObj()[selectedYear()]||{}; cellOvr={}; for(const k of SITE_KEYS) cellOvr[k]=Object.assign({}, o[k]||{}); }
+function saveOvr(){ const all=ovrAllObj(); all[selectedYear()]=cellOvr; try{ localStorage.setItem(LS_OVR, JSON.stringify(all)); }catch(e){} kvSet('po_cell_overrides_my27', all); }
+async function loadOvr(){ const kv=await kvGet('po_cell_overrides_my27'); if(kv && typeof kv==='object'){ try{ localStorage.setItem(LS_OVR, JSON.stringify(kv)); }catch(e){} } syncOvrForYear(); }
+function ovrWeek(site, wi){ return (cellOvr[site]||{})[weekKey(wi)]||null; }
+function ovrAt(site, wi, sku){ const w=ovrWeek(site,wi); return (w && w[sku]!=null) ? w[sku] : null; }
+function ovrCount(site){ let n=0; const keys=site?[site]:SITE_KEYS; for(const k of keys) for(const d in (cellOvr[k]||{})) n+=Object.keys(cellOvr[k][d]).length; return n; }
+function setCellOvr(site, wi, sku, val){
+  const k=weekKey(wi); const n=parseInt(val);
+  if(!cellOvr[site]) cellOvr[site]={};
+  const row=Object.assign({}, cellOvr[site][k]||{});
+  if(String(val).trim()===''||isNaN(n)||n<0) delete row[sku]; else row[sku]=n;
+  if(Object.keys(row).length) cellOvr[site][k]=row; else delete cellOvr[site][k];
+  saveOvr(); recompute();
+}
+function clearOvr(site){
+  const n=ovrCount(site); if(!n) return;
+  if(!confirm(`Remove all ${n} typed-in number${n>1?'s':''} at ${siteOf(site).label}? The scheduler will plan those cells again.`)) return;
+  cellOvr[site]={}; saveOvr(); recompute();
+}
+function setGridSiteView(v){ gridSiteView=v; renderYear(); }
 /* How many weeks ahead the plan is held to the parts that actually exist.
    Beyond it the full forecast is planned on purpose: that is what drives component
    stock negative in Parts Stock and turns a shortage into a purchase order. Pushing
@@ -820,6 +881,8 @@ async function loadData(){
 
     await loadBlocked();
     await loadCaps();
+    await loadSiteExcl();
+    await loadOvr();
     alert_('<span class="spinner"></span> Reading the open order book…','info');
     await loadOrderbook();
     try{ alert_('<span class="spinner"></span> Reading '+(new Date().getFullYear())+' invoiced sales for the SKU mix…','info'); await loadInvoicedMix(); }
@@ -952,6 +1015,7 @@ async function loadOrderbook(){
 function recompute(){
   syncBlockedForYear();
   syncCapsForYear();
+  syncOvrForYear();
   buildWeeks();
   buildYearPlan();
   ntLast=ntBuildProposal();     // both tabs read the same proposal, so both show the same ticks
@@ -1068,6 +1132,7 @@ function buildYearPlan(){
   const capWeek=(wi)=>SITE_KEYS.reduce((a,k)=>a+capOf(k,wi),0);
   window._capOf=capOf; window._capWeek=capWeek;   // the renderers show the same numbers
   const skuFam={}; for(const s of SKUS) skuFam[s.key]=s.fam;
+  const skuCo={}; for(const s of SKUS) skuCo[s.key]=s.co;
   const fams=FAMILIES.map(f=>f.key);
 
   // ── component static data (from Parts Stock 'component_supply') ──
@@ -1093,6 +1158,18 @@ function buildYearPlan(){
     // weekly model mix — and therefore the Alfine / cassette wheel streams — proportional.
     const doneFrac=(fk)=> famTotal[fk]>0 ? 1-(remaining[fk]/famTotal[fk]) : 1;
     const earliestDue=(fk)=>{ for(const p of queue[fk]) if(p.qty>1e-9) return p.due; return Infinity; };
+    // What is left of a family that THIS site is allowed to build.
+    const famRemAt=(fk,site)=>{ let r=0; for(const p of queue[fk]) if(p.qty>1e-9 && siteAllows(site, skuCo[p.sku])) r+=p.qty; return r; };
+    // Typed-in cells: take them off the demand queue before anything is scheduled.
+    const ovrPlaced={};   // site -> wi -> bikes already placed by hand
+    for(const site of SITE_KEYS){ ovrPlaced[site]={};
+      for(const wi of av){ if(!siteOpen(site,wi)) continue; const w=ovrWeek(site,wi); if(!w) continue;
+        for(const sk in w){ const q=w[sk]; if(!(q>0) || !grid[sk]) continue;
+          grid[sk][wi]+=q; sg[site][sk][wi]+=q; ovrPlaced[site][wi]=(ovrPlaced[site][wi]||0)+q;
+          const fk=skuFam[sk]; let left=q;
+          for(const p of queue[fk]){ if(left<=1e-9) break; if(p.sku!==sk || p.qty<=1e-9) continue; const t=Math.min(left,p.qty); p.qty-=t; left-=t; remaining[fk]-=t; }
+          if(remaining[fk]<0) remaining[fk]=0;
+        } } }
     /* gate=true: each piece is checked against ITS OWN colour- and rack-specific recipe as it
        is taken off the queue, and the parts are drawn there and then. A family average cannot
        tell a Midnight Blue frame from a Bumblebee one — four Midnight frames all reserved to
@@ -1101,6 +1178,7 @@ function buildYearPlan(){
       let need=n, placedHere=0;
       for(const p of queue[fk]){
         if(need<=1e-9) break; if(p.qty<=1e-9) continue;
+        if(!siteAllows(site, skuCo[p.sku])) continue;      // e.g. no custom colour at BikeFun
         let t=Math.min(need,p.qty);
         if(gate){
           const c=Math.floor(skuCap(p.sku)+1e-9);
@@ -1141,11 +1219,12 @@ function buildYearPlan(){
       // Each assembly site is its own slot: its own capacity and its own changeover budget, so
       // two sites can run two models each in the same week without either doing four.
       for(const site of SITE_KEYS){
-      const budget=capOf(site,wi);
+      const budget=Math.max(0, capOf(site,wi)-((ovrPlaced[site]||{})[wi]||0));   // typed-in bikes use up capacity first
       if(budget<=1e-9) continue;                       // a closed or zero-capacity site stays empty
       const elig=[];
       for(const fk of fams){
         if(remaining[fk]<=1e-9) continue;
+        if(famRemAt(fk,site)<=1e-9) continue;          // nothing left this site is allowed to build
         if(useCompNow && famBuildable(fk)<1) continue;   // some colour of this family must be buildable
         elig.push({fk, due:earliestDue(fk), rem:remaining[fk]});
       }
@@ -1184,7 +1263,7 @@ function buildYearPlan(){
       for(const e of pick) give(e, Math.round(budget*(famTotal[e.fk]/shareTot)));
       for(const e of pick) if(budget-placed>1e-9) give(e, budget-placed);      // mop up rounding
       // only if both picked families are exhausted does a third model get the rest of the week
-      for(const e of order) if(budget-placed>1e-9 && pick.indexOf(e)<0){ give(e, budget-placed); break; }
+      for(const e of order) if(budget-placed>1e-9 && pick.indexOf(e)<0){ const before=placed; give(e, budget-placed); if(placed>before) break; }
       }
     }
     // Anything still remaining does not fit inside the capacities that have been set. We do NOT
@@ -1233,12 +1312,12 @@ function buildYearPlan(){
   yearGridDemand={}; for(const s of SKUS) yearGridDemand[s.key]=want.grid[s.key].slice();
   siteGridDemand={}; for(const k of SITE_KEYS){ siteGridDemand[k]={}; for(const s of SKUS) siteGridDemand[k][s.key]=want.siteGrid[k][s.key].slice(); }
   if(want.leftover && want.leftover.length){
-    const biggestSiteAt=(wi)=>{ let best=SITE_KEYS[0], b=-1; for(const k of SITE_KEYS){ const c=capOf(k,wi); if(c>b){ b=c; best=k; } } return best; };
+    const biggestSiteAt=(wi,sku)=>{ const co=(SKUS.find(s=>s.key===sku)||{}).co; let best=SITE_KEYS.find(k=>siteAllows(k,co))||SITE_KEYS[0], b=-1; for(const k of SITE_KEYS){ if(!siteAllows(k,co)) continue; const c=capOf(k,wi); if(c>b){ b=c; best=k; } } return best; };
     for(const p of want.leftover){
       const wi=Math.min(Math.max(0, p.due), weeks.length-1);
       const q=Math.round(p.qty); if(q<=0) continue;
       yearGridDemand[p.sku][wi]+=q;
-      siteGridDemand[biggestSiteAt(wi)][p.sku][wi]+=q;
+      siteGridDemand[biggestSiteAt(wi,p.sku)][p.sku][wi]+=q;
     }
   }
   // Each leftover piece is rounded on its own, so the demand grid can land a bike either side
@@ -1594,9 +1673,21 @@ function renderYear(){
   const buildTotal=Math.round(SKUS.reduce((a,s)=>a+((yearGrid[s.key]||[]).reduce((x,y)=>x+y,0)),0));
   const compGap=Math.max(0, demandTotal-buildTotal);
   const colTot=Array(weeks.length).fill(0); let grand=0, ooTot=0;
+  const vSite = SITE_KEYS.indexOf(gridSiteView)>=0 ? gridSiteView : null;
+  const vGrid = vSite ? (((showDemandPlan && Object.keys(siteGridDemand).length) ? siteGridDemand : siteGrid)[vSite]||{}) : null;
   const body=SKUS.map(s=>{
     let rt=0;
-    const cells=weeks.map((wk,wi)=>{ const val=grid[s.key][wi]||0; rt+=val; colTot[wi]+=val;
+    const cells=weeks.map((wk,wi)=>{
+      if(vSite){
+        const val=Math.round(((vGrid[s.key]||[])[wi])||0); rt+=val; colTot[wi]+=val;
+        const blk=isBlocked(wi), closed=!siteOpen(vSite,wi);
+        if(blk||closed) return `<td class="zero ${blk?'blocked':''}" style="text-align:center">${closed&&!blk?'–':fmt(val)}</td>`;
+        const ov=ovrAt(vSite,wi,s.key); const isOv=ov!=null;
+        const noCol=!siteAllows(vSite,s.co);
+        const tip=`${siteOf(vSite).label} · ${wk.monday.toLocaleDateString('en-GB')} · ${s.label} ${s.col} ${s.rkl}`+(isOv?' · typed in — clear the box to hand it back to the scheduler':' · planned automatically — type a number to fix it')+(noCol?' · this colour is switched off for this line':'');
+        return `<td class="${val?'has':'zero'} ${wi===ci?'cur':''}" style="padding:1px 2px;text-align:center${noCol&&!isOv?';background:rgba(0,0,0,.035)':''}"><input type="number" min="0" class="ovr-in" value="${isOv?ov:(val||'')}" placeholder="${noCol?'×':'·'}" title="${esc(tip)}" onchange="setCellOvr('${vSite}',${wi},'${s.key}',this.value)" style="${isOv?'font-weight:700;color:#fff;background:'+SITE_HEX[vSite]+';border-color:'+SITE_HEX[vSite]:''}"/></td>`;
+      }
+      const val=grid[s.key][wi]||0; rt+=val; colTot[wi]+=val;
       const cls=[ val?'has':'zero', wi===ci?'cur':'', isBlocked(wi)?'blocked':'' ].filter(Boolean).join(' ');
       return `<td class="${cls}" title="${wk.monday.toLocaleDateString('en-GB')} · ${wk.label}">${fmt(val)}</td>`;
     }).join('');
@@ -1606,7 +1697,7 @@ function renderYear(){
            `<td class="oo ${oo?'has':'zero'}" title="${oo?(oo+' on confirmed POs, not yet received'):'nothing on order'}">${fmt(oo)}</td>`+
            `${cells}<td class="total">${fmt(rt)}</td></tr>`;
   }).join('');
-  const head=`<tr><th class="sku">SKU (${SKUS.length})</th><th class="oo" title="Bikes already on a confirmed purchase order and not yet received — ordered, not yet here. Not part of the weekly plan: these are coming whatever the plan says.">On order</th>${weeks.map((wk,wi)=>`<th class="wk ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}" onclick="toggleBlock(${wi})" title="${wk.monday.toLocaleDateString('en-GB')}${isBlocked(wi)?' · blocked — click to unblock':' · click to block (assembler off)'}">${wk.label}</th>`).join('')}<th class="total">Year</th></tr>`;
+  const head=`<tr><th class="sku">SKU (${SKUS.length})${vSite?` · <span style="color:${SITE_HEX[vSite]}">${esc(siteOf(vSite).label)} only</span>`:''}</th><th class="oo" title="Bikes already on a confirmed purchase order and not yet received — ordered, not yet here. Not part of the weekly plan: these are coming whatever the plan says.">On order</th>${weeks.map((wk,wi)=>`<th class="wk ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''}" onclick="toggleBlock(${wi})" title="${wk.monday.toLocaleDateString('en-GB')}${isBlocked(wi)?' · blocked — click to unblock':' · click to block (assembler off)'}">${wk.label}</th>`).join('')}<th class="total">Year</th></tr>`;
   // Per-week capacity, one editable row per assembly site. The scheduler's own capOf is reused
   // so the boxes always show exactly the numbers the plan was built against.
   const effCapSite=(site,wi)=> window._capOf ? window._capOf(site,wi) : 0;
@@ -1641,7 +1732,8 @@ function renderYear(){
       const tip = (!showDemandPlan && worst>2) ? ` title="${worst} models at one site this week — a tail-week top-up so the last bikes of a third family still fit"` : '';
       return `<td${tip} style="text-align:center;font-size:11px;color:${col}">${shown||''}</td>`;
     }).join('')}<td class="total"></td></tr>`;
-  const foot=`<tr><th class="sku">Total</th><td class="oo ${ooTot?'has':'zero'}">${fmt(Math.round(ooTot))}</td>${colTot.map((c,wi)=>`<td class="total ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''} ${(!isBlocked(wi)&&c>effCap(wi)+0.5)?'over':''}">${fmt(c)}</td>`).join('')}<td class="total">${fmt(grand)}</td></tr>`;
+  const footCap=(wi)=> vSite ? effCapSite(vSite,wi) : effCap(wi);
+  const foot=`<tr><th class="sku">${vSite?esc(siteOf(vSite).label)+' total':'Total'}</th><td class="oo ${ooTot?'has':'zero'}">${fmt(Math.round(ooTot))}</td>${colTot.map((c,wi)=>`<td class="total ${wi===ci?'cur':''} ${isBlocked(wi)?'blocked':''} ${(!isBlocked(wi)&&c>footCap(wi)+0.5)?'over':''}">${fmt(c)}</td>`).join('')}<td class="total">${fmt(grand)}</td></tr>`;
   const issueRow= SITES.map(st=>`<tr><th class="sku" style="font-size:11px;color:var(--text2)">Issue ${st.label} PO →</th><td class="oo"></td>${weeks.map((wk,wi)=>(!isBlocked(wi)&&sitePlan(st.key,wi,false)>0.5)?`<td style="text-align:center"><button class="btn btn-secondary" style="padding:2px 7px" title="Issue ${st.label} bike PO for ${wk.label}" onclick="issueBikePO(${wi},'${st.key}')">⇩ PO</button></td>`:'<td></td>').join('')}<td class="total"></td></tr>`).join('');
   const toggleBar=`<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap"><span style="font-size:11px;color:var(--text2);font-weight:600">VIEW:</span><button class="btn ${showDemandPlan?'btn-secondary':'btn-primary'}" style="padding:3px 10px" onclick="setPlanView(false)">📦 What we can build</button><button class="btn ${showDemandPlan?'btn-primary':'btn-secondary'}" style="padding:3px 10px" onclick="setPlanView(true)">🎯 What we should build</button>${showDemandPlan?`<span class="hint" style="color:var(--warn)">demand view — shows the full target, including anything capacity or components can't take. The ⇩ PO buttons always order the <b>buildable</b> quantity.</span>`:(compGap>0?`<span class="hint" style="color:var(--warn)">${fmt(compGap)} bikes can't be built yet (components) — see “what we should build”</span>`:'')}`+
     `<label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);margin-left:auto;white-space:nowrap"`+
@@ -1649,7 +1741,18 @@ function renderYear(){
     `component check <input type="number" min="1" max="52" value="${NEAR_TERM_WEEKS}" onchange="setNearTerm(this.value)"`+
     ` style="width:48px;text-align:center;font-size:11px;padding:3px;border:1px solid var(--border2);border-radius:4px;font-family:inherit;${showDemandPlan?'opacity:.5':'font-weight:700;color:var(--accent)'}"/> wks`+
     `${showDemandPlan?'<span class="hint" style="margin-left:2px">(buildable view only)</span>':''}</label></div>`;
-  document.getElementById('year-grid').innerHTML=toggleBar+`<table class="grid"><thead>${head}</thead><tbody>${capRow}${siteRows}${body}</tbody><tfoot>${modelsRow}${foot}${issueRow}</tfoot></table>`;
+  const nOv=ovrCount();
+  const siteBar=`<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap"><span style="font-size:11px;color:var(--text2);font-weight:600">SKU ROWS:</span>`+
+    `<button class="btn ${vSite?'btn-secondary':'btn-primary'}" style="padding:3px 10px" onclick="setGridSiteView('all')">All lines (read-only)</button>`+
+    SITES.map(st=>{ const n=ovrCount(st.key); return `<button class="btn ${vSite===st.key?'btn-primary':'btn-secondary'}" style="padding:3px 10px" onclick="setGridSiteView('${st.key}')"><span class="dot" style="background:${SITE_HEX[st.key]}"></span>✎ ${st.label}${n?` · ${n} typed`:''}</button>`; }).join('')+
+    (vSite ? `<span class="hint">Editing <b>${esc(siteOf(vSite).label)}</b>: type a number in any cell to fix it (filled boxes), clear it to hand it back to the planner. Typed bikes come off that SKU's demand and use up the line's capacity first.</span>`+(ovrCount(vSite)?`<button class="btn btn-secondary" style="padding:3px 10px" onclick="clearOvr('${vSite}')">Clear ${esc(siteOf(vSite).label)} typed numbers</button>`:'')
+           : (nOv?`<span class="hint">${nOv} cell${nOv>1?'s':''} typed in by hand — pick a line to see or change them.</span>`:'<span class="hint">Pick a line to edit its cells.</span>'))+
+    `</div>`+
+    `<div style="display:flex;gap:10px;margin-bottom:8px;align-items:center;flex-wrap:wrap;font-size:11px"><span style="color:var(--text2);font-weight:600">COLOURS PER LINE:</span>`+
+    SITES.map(st=>`<span style="display:inline-flex;align-items:center;gap:4px;flex-wrap:wrap"><b style="color:${SITE_HEX[st.key]}">${st.label}</b>`+
+      CO.map(([co,cl])=>{ const on=siteAllows(st.key,co); return `<label title="${on?'Planner may give '+st.label+' '+cl+' bikes — untick to keep them off this line':cl+' is never planned at '+st.label}" style="display:inline-flex;align-items:center;gap:2px;padding:1px 6px;border-radius:20px;border:1px solid var(--border2);cursor:pointer;${on?'':'opacity:.55;text-decoration:line-through'}"><input type="checkbox" ${on?'checked':''} onchange="toggleSiteColour('${st.key}','${co}')" style="margin:0"/><span class="dot" style="background:${COLOR_HEX[co]};margin-right:0"></span>${cl}</label>`; }).join('')+
+    `</span>`).join('<span style="color:var(--border2)">|</span>')+`</div>`;
+  document.getElementById('year-grid').innerHTML=toggleBar+siteBar+`<table class="grid"><thead>${head}</thead><tbody>${capRow}${siteRows}${body}</tbody><tfoot>${modelsRow}${foot}${issueRow}</tfoot></table>`;
 
   // blocked-week chips + deadline note
   const chips=[...blockedWeeks].sort().map(d=>`<span class="chip">${new Date(d+'T00:00:00').toLocaleDateString('en-GB')}<button onclick="unblockKey('${d}')" title="unblock">×</button></span>`).join('');
