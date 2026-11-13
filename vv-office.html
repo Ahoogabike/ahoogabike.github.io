@@ -653,6 +653,19 @@ async function receiveFrame(code){
     if(already&&already.length){ rcMsg('⚠ '+so+' was already received earlier ('+already[0].name+') — nothing to do.','warn'); $('rc-hint').textContent=''; return; }
   }catch(e){}
 
+  /* Second guard (13 Nov 2026): the frame may already have been booked through GOODS IN.
+     Then the one-step Deco Coat receipt of the P0 is done and already landed at Velovisie,
+     but its reference is the P0, not the sales order, so the check above misses it. With
+     no open receipt left, the code below would fall into the old Anderlecht route and
+     invent In Transit -> Warehouse -> Velovisie moves for a frame that is already in stock. */
+  try{
+    var openRec=await odoo('stock.picking','search_read',[[['origin','=',poName],['picking_type_id','in',[PT_DECO_VV,PT_RECEIPT]],['state','in',['assigned','confirmed','waiting']]]],{fields:['id'],limit:1});
+    if(!openRec||!openRec.length){
+      var doneRec=await odoo('stock.picking','search_read',[[['origin','=',poName],['picking_type_id','in',[PT_DECO_VV,PT_RECEIPT]],['state','=','done'],['location_dest_id','=',LOC_VELOVISIE]]],{fields:['name'],limit:1});
+      if(doneRec&&doneRec.length){ rcMsg('⚠ '+so+' is already in stock at Velovisie: the '+poName+' receipt ('+doneRec[0].name+') was validated earlier, probably in Goods in. Nothing was moved in Odoo.','warn'); $('rc-hint').textContent=''; await rcStopCam(); return; }
+    }
+  }catch(e){}
+
   var done=[];
   var landedAtVV=false;   /* true when the receipt itself lands at Velovisie */
   var recIds=[];
