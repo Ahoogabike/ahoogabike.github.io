@@ -634,97 +634,46 @@ async function notifyFelixScan(so, poName){
    move it In Transit -> Warehouse, then create + validate the Warehouse -> Velovisie
    transfer, and flag the order ready to build. */
 async function receiveFrame(code){
+  /* 13 Nov 2026: this tab used to call Odoo through ahooga-odoo-proxy, which now answers
+     "Blocked" to everything, so every scan failed after the camera had read the label.
+     It now goes through the vv-inbound worker, exactly like Goods in: find the open
+     Deco Coat receipt from the sales order, book ONE frame on it, validate. The worker
+     posts the note on the receipt and emails Felix. Nothing here can invent stock moves:
+     if there is no open receipt for this sales order, nothing is changed. */
   $('rc-hint').textContent='Looking up “'+code+'”…';
-  var list=await regList();
+  var list=[]; try{ list=await regList(); }catch(e){}
   var so=await soForCode(code,list);
-  if(!so){ rcMsg('Could not identify an order for “'+code+'”. Scan the sales order label on the frame, or type it in.'); $('rc-hint').textContent=''; return; }
+  if(!so){ rcMsg('Could not identify an order for “'+code+'”. Scan the sales order label on the frame, or type it in (e.g. S27133).'); $('rc-hint').textContent=''; return; }
+  if(!devKey()){ rcMsg('This phone has no Velovisie device key yet: open Goods in once and enter it.','err'); $('rc-hint').textContent=''; return; }
 
-  /* find the Deco Coat purchase order (P0####) that references this sales order */
-  var poId=null, poName='', frameProd=null;
-  try{
-    var pol=await odoo('purchase.order.line','search_read',[['|',['name','ilike',so],['order_id.origin','ilike',so]]],{fields:['order_id','product_id'],limit:1});
-    if(pol&&pol.length&&Array.isArray(pol[0].order_id)){ poId=pol[0].order_id[0]; poName=pol[0].order_id[1]; if(Array.isArray(pol[0].product_id)) frameProd=pol[0].product_id[0]; }
-  }catch(e){ rcMsg('Odoo error looking up the purchase order: '+((e&&e.message)||e)); $('rc-hint').textContent=''; return; }
-  if(!poName){ rcMsg('No Deco Coat purchase order references '+so+'. Check the purchase order exists and mentions the sales order on its lines.','err'); $('rc-hint').textContent=''; return; }
+  var s=null;
+  try{ s=await ibGet('/shipment?ref='+encodeURIComponent(so)); }
+  catch(e){
+    if(/404/.test(String(e&&e.message))){ rcMsg('⚠ No open Deco Coat receipt for '+so+'. It was already received (in Goods in or an earlier scan), or its P0 has no receipt yet. Nothing was changed.','warn'); }
+    else rcMsg('Could not reach Odoo ('+((e&&e.message)||e)+'). Check the connection and scan again.','err');
+    $('rc-hint').textContent=''; return;
+  }
+  if(!s||!s.id||!s.lines||!s.lines.length){ rcMsg('⚠ No open Deco Coat receipt for '+so+'. Nothing was changed.','warn'); $('rc-hint').textContent=''; return; }
 
-  /* guard against a re-scan: if this order was already transferred to Velovisie, stop */
-  try{
-    var already=await odoo('stock.picking','search_read',[[['origin','=',so],['location_dest_id','=',LOC_VELOVISIE],['state','=','done']]],{fields:['name'],limit:1});
-    if(already&&already.length){ rcMsg('⚠ '+so+' was already received earlier ('+already[0].name+') — nothing to do.','warn'); $('rc-hint').textContent=''; return; }
-  }catch(e){}
+  /* One scan = one frame. A receipt can hold several frames of the same P0; the rest stay
+     open on a backorder for their own scan. */
+  var left=1;
+  var lines=s.lines.map(function(l){
+    var isFrame=/^FRNAA/i.test(l.code||'')||/frame/i.test(l.name||'');
+    var n=isFrame?Math.min(left,l.expected||0):(l.expected||0);
+    if(isFrame) left-=n;
+    return {id:l.id, counted:n, reason:''};
+  });
+  if(left>0){ rcMsg('⚠ The open receipt '+s.ref+' ('+(s.order||'')+') has no frame on it. Nothing was changed — use Goods in.','warn'); $('rc-hint').textContent=''; return; }
 
-  /* Second guard (13 Nov 2026): the frame may already have been booked through GOODS IN.
-     Then the one-step Deco Coat receipt of the P0 is done and already landed at Velovisie,
-     but its reference is the P0, not the sales order, so the check above misses it. With
-     no open receipt left, the code below would fall into the old Anderlecht route and
-     invent In Transit -> Warehouse -> Velovisie moves for a frame that is already in stock. */
-  try{
-    var openRec=await odoo('stock.picking','search_read',[[['origin','=',poName],['picking_type_id','in',[PT_DECO_VV,PT_RECEIPT]],['state','in',['assigned','confirmed','waiting']]]],{fields:['id'],limit:1});
-    if(!openRec||!openRec.length){
-      var doneRec=await odoo('stock.picking','search_read',[[['origin','=',poName],['picking_type_id','in',[PT_DECO_VV,PT_RECEIPT]],['state','=','done'],['location_dest_id','=',LOC_VELOVISIE]]],{fields:['name'],limit:1});
-      if(doneRec&&doneRec.length){ rcMsg('⚠ '+so+' is already in stock at Velovisie: the '+poName+' receipt ('+doneRec[0].name+') was validated earlier, probably in Goods in. Nothing was moved in Odoo.','warn'); $('rc-hint').textContent=''; await rcStopCam(); return; }
-    }
-  }catch(e){}
+  $('rc-hint').textContent='Validating '+s.ref+' ('+(s.order||'')+')…';
+  var j=null;
+  try{ j=await ibPost('/confirm',{ id:s.id, ref:s.ref, by:IB_BY, device:devKey(), photos:[], lines:lines }); }
+  catch(e){ rcMsg('Could not validate '+s.ref+': '+((e&&e.message)||e),'err'); $('rc-hint').textContent=''; return; }
 
-  var done=[];
-  var landedAtVV=false;   /* true when the receipt itself lands at Velovisie */
-  var recIds=[];
-
-  /* STEP 1 — validate the Anderlecht receipt(s) of the P0 order (Vendors -> AND/In Transit) */
-  try{
-    $('rc-hint').textContent='Validating the '+poName+' receipt…';
-    var recs=await odoo('stock.picking','search_read',[[['origin','=',poName],['picking_type_id','in',[PT_DECO_VV,PT_RECEIPT]],['state','in',['assigned','confirmed','waiting']]]],{fields:['id','name','location_dest_id'],limit:10});
-    for(var i=0;i<recs.length;i++){
-      await rcValidatePicking(recs[i].id); done.push(recs[i].name); recIds.push(recs[i].id);
-      var dst=recs[i].location_dest_id;
-      if(Array.isArray(dst)&&dst[0]===LOC_VELOVISIE) landedAtVV=true;
-    }
-  }catch(e){ rcMsg('Could not validate the '+poName+' receipt: '+((e&&e.message)||e),'err'); $('rc-hint').textContent=''; return; }
-
-  /* One-step routing (operation type 267). The receipt itself put the frame in
-     Velovisie, so the two Anderlecht hops below describe a journey that never
-     happened. Skipping them matters: creating them would invent stock moves
-     through a warehouse the frame never entered. */
-  var newPickName='';
-  if(landedAtVV){
-    newPickName=done[0]||'';
-    if(recIds.length){
-      try{ await odoo('stock.picking','message_post',[[recIds[0]]],{body:'Painted frame received at Velovisie - scanned in the VV app ('+so+', PO '+poName+').',message_type:'comment',subtype_xmlid:'mail.mt_note'}); }catch(e){}
-    }
-  } else {
-
-  /* STEP 2 — the frame is now in AND/In Transit; move it In Transit -> Warehouse.
-     Validate the Storage transfer Odoo created, or create it if none exists. */
-  try{
-    $('rc-hint').textContent='Moving In Transit -> Warehouse…';
-    var stor=await odoo('stock.picking','search_read',[[['origin','=',poName],['picking_type_id','=',PT_STORAGE],['state','in',['assigned','confirmed','waiting']]]],{fields:['id','name'],limit:10});
-    if(stor&&stor.length){ for(var j=0;j<stor.length;j++){ await rcValidatePicking(stor[j].id); done.push(stor[j].name); } }
-    else if(frameProd){ var mv=await rcMoveAndValidate(PT_STORAGE,LOC_INTRANSIT,LOC_WAREHOUSE,frameProd,poName,code); done.push(mv.name); }
-  }catch(e){ rcMsg('Receipt done, but the In Transit -> Warehouse move failed: '+((e&&e.message)||e),'err'); $('rc-hint').textContent=''; return; }
-
-  /* STEP 3 — create & validate the AND/Warehouse -> Velovisie transfer */
-  try{
-    $('rc-hint').textContent='Transferring Warehouse -> Velovisie…';
-    if(!frameProd){
-      try{ var m2=await odoo('stock.move','search_read',[[['origin','=',poName]]],{fields:['product_id'],limit:1}); if(m2&&m2.length&&Array.isArray(m2[0].product_id)) frameProd=m2[0].product_id[0]; }catch(e){}
-    }
-    if(!frameProd) throw new Error('could not resolve the frame product from '+poName);
-    var toVV=await rcMoveAndValidate(PT_TO_VELO,LOC_WAREHOUSE,LOC_VELOVISIE,frameProd,so,code);
-    newPickName=toVV.name; done.push(newPickName);
-    try{ await odoo('stock.picking','message_post',[[toVV.id]],{body:'Painted frame received & transferred to Velovisie — scanned in the VV app ('+so+', PO '+poName+').',message_type:'comment',subtype_xmlid:'mail.mt_note'}); }catch(e){}
-  }catch(e){ rcMsg('Receipt & warehouse steps done, but the Velovisie transfer failed: '+((e&&e.message)||e),'err'); $('rc-hint').textContent=''; return; }
-  }  /* end of the legacy three-step path */
-
-  /* notify the PO Builder that this order is ready to build */
-  var serial = looksLikeSO(code) ? '' : cleanSerial(code);
-  if(!serial){ var h=(list||[]).find(function(r){return cleanSO(r.so||'')===so;}); if(h) serial=cleanSerial(h.serial||''); }
-  var cfg=await configFor(so); var model=await bikeLineForSO(so);
-  var rec={ so:so, frameId:serial, model:model, colour:(cfg&&cfg.main&&cfg.main.name)||'', finish:(cfg&&cfg.main&&cfg.main.finish)||'', arrivedAt:new Date().toISOString(), by:'VV', status:'ready' };
-  try{ var arr=await kvGet('vv_frame_arrivals'); if(!Array.isArray(arr)) arr=[]; arr=arr.filter(function(x){return x&&x.so!==so;}); arr.unshift(rec); arr=arr.slice(0,500); await kvSet('vv_frame_arrivals',arr); }catch(e){}
-  try{ await notifyFelixScan(so, poName); }catch(e){}
   await rcStopCam();
-  rcMsg('✓ '+so+' received — '+poName+' receipt validated, moved to warehouse, transferred to Velovisie ('+done.join(', ')+'). Sent to the PO Builder as ready to build.','ok');
-  $('rc-hint').textContent=''; renderScanLog();
+  rcMsg('✓ '+so+' received at Velovisie — '+(s.order?('P0 '+s.order+', '):'')+'receipt '+((j&&j.ref)||s.ref)+' validated'+(j&&j.backorder?(' (other frames of this P0 stay open on '+j.backorder+')'):'')+'. Felix has been emailed.','ok');
+  $('rc-hint').textContent=''; try{ renderScanLog(); }catch(e){}
 }
 var _recLog=[];
 function renderReceipts(){ renderScanLog(); }
