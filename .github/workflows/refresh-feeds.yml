@@ -41,6 +41,7 @@ jobs:
         env:
           ODOO_USER: ${{ secrets.ODOO_USER }}
           ODOO_KEY:  ${{ secrets.ODOO_KEY }}
+          STORE_KEY: ${{ secrets.STORE_KEY }}
         run: node scripts/refresh-feeds.mjs
  
       # Only on failure, and only screenshots — no page HTML, because the
