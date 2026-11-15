@@ -17,6 +17,9 @@ import { chromium } from 'playwright';
  
 const SITE  = process.env.SITE  || 'https://ahoogabike.github.io';
 const STORE = process.env.STORE || 'https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
+/* the proxy's /store/ key (Nov 2026): private feeds need it to read, and the pages need it to publish */
+const STORE_KEY = process.env.STORE_KEY || '';
+const SKH = STORE_KEY ? { 'X-Store-Key': STORE_KEY } : {};
 const USER  = process.env.ODOO_USER;
 const KEY   = process.env.ODOO_KEY;
  
@@ -72,7 +75,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
  
 async function feedUpdated(key) {
   try {
-    const r = await fetch(`${STORE}/store/${encodeURIComponent(key)}`, { cache: 'no-store' });
+    const r = await fetch(`${STORE}/store/${encodeURIComponent(key)}`, { cache: 'no-store', headers: SKH });
     if (!r.ok) return null;
     const t = (await r.text() || '').trim();
     if (!t || t === 'null') return null;
@@ -105,7 +108,7 @@ const CRED_KEYS = [
  * reproduces the human's plan rather than inventing its own. */
 async function forecastSettings() {
   try {
-    const r = await fetch(`${STORE}/store/forecast_settings_my27`, { cache: 'no-store' });
+    const r = await fetch(`${STORE}/store/forecast_settings_my27`, { cache: 'no-store', headers: SKH });
     if (!r.ok) return null;
     const t = (await r.text() || '').trim();
     return (!t || t === 'null') ? null : JSON.parse(t);
@@ -135,9 +138,10 @@ try {
     console.log(`   feed ${step.key} was last published ${before || 'never'}`);
  
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
-    await ctx.addInitScript(([keys, cred, set]) => {
+    await ctx.addInitScript(([keys, cred, set, storeKey]) => {
       const put = (k, v) => { try { localStorage.setItem(k, v); } catch {} };
       for (const k of keys) put(k, cred);
+      if (storeKey) put('ahooga_store_key', storeKey);
       if (!set) return;
       /* the forecast's own saved config carries the three boxes as well */
       put('ahooga_forecast_my27_cfg', JSON.stringify({
@@ -146,7 +150,7 @@ try {
       if (Array.isArray(set.shape) && set.shape.length === 12) put('ahooga_forecast_my27_shape', JSON.stringify(set.shape));
       if (set.countryTargets) put('ahooga_forecast_my27_country_targets', JSON.stringify(set.countryTargets));
       if (set.colourTargets)  put('ahooga_forecast_my27_colour_targets',  JSON.stringify(set.colourTargets));
-    }, [CRED_KEYS, CRED, SET]);
+    }, [CRED_KEYS, CRED, SET, STORE_KEY]);
  
     const page = await ctx.newPage();
     const problems = [];
@@ -203,7 +207,7 @@ for (const r of results) console.log(`${r.ok ? '✓' : '✗'}  ${r.label}`);
    is being held back by components, which is a fact about the business, not a
    quirk of the job. */
 try {
-  const plan = await (await fetch(`${STORE}/store/production_plan_my27`)).json();
+  const plan = await (await fetch(`${STORE}/store/production_plan_my27`, { headers: SKH })).json();
   const total = Object.values(plan.byFam || {})
     .reduce((a, arr) => a + arr.reduce((x, y) => x + (y || 0), 0), 0);
   console.log(`\nFinal MY27 plan after the component feedback: ${Math.round(total)} bikes.`);

@@ -1,6 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+/* /store/ key (Nov 2026): once the proxy's STORE_KEY secret is set, every save (and every read of a private key)
+   needs the header X-Store-Key. The key is kept only in this browser (localStorage 'ahooga_store_key') and is
+   asked once, the first time the server answers 401. Never write the key itself into this file. */
+async function storeFetch(url,opts){
+  opts=opts||{};
+  var getK=function(){var k='';try{k=localStorage.getItem('ahooga_store_key')||'';}catch(e){}return k||storeFetch._k||'';};
+  var send=function(k){var h=Object.assign({},opts.headers||{});if(k)h['X-Store-Key']=k;return fetch(url,Object.assign({},opts,{headers:h}));};
+  var k=getK(),r=await send(k);
+  if(r.status===401||r.status===403){
+    var n=getK();
+    if(n===k&&!storeFetch._asked){storeFetch._asked=true;n=String(window.prompt('This tool needs the Ahooga store key to load and save shared data (asked once on this computer):')||'').trim();
+      if(n){storeFetch._k=n;try{localStorage.setItem('ahooga_store_key',n);}catch(e){}}}
+    if(n&&n!==k)r=await send(n);
+  }
+  return r;
+}
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ahooga · Fair Event Dashboard · 2026–2027</title>
@@ -775,7 +793,7 @@ async function _full(){
 }
 async function _importOld(){
   try{
-    const old={};await Promise.all(CLOUD_KEYS.map(async k=>{const t=await fetch(`${CF_WORKER_URL}/store/fairdash_${k}`).then(r=>r.text());if(t&&t!=='null')old[k]=JSON.parse(t);}));
+    const old={};await Promise.all(CLOUD_KEYS.map(async k=>{const t=await storeFetch(`${CF_WORKER_URL}/store/fairdash_${k}`).then(r=>r.text());if(t&&t!=='null')old[k]=JSON.parse(t);}));
     if(Object.keys(old).length)await fetch(FAIRS_API+'/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({state:old,who:'auto-import',client:SYNC.client})});
   }catch(e){console.warn('[sync] import from old storage failed',e);}
 }
@@ -839,10 +857,10 @@ async function loadCloud(){
 // each PDF now lives under its own cloud key, the record only keeps {name, ref}.
 async function docPut(dataUrl){if(!CLOUD_ON)throw new Error('cloud storage not available here');
   const key='fairdash_doc_'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
-  const r=await fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(dataUrl)});
+  const r=await storeFetch(`${CF_WORKER_URL}/store/${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(dataUrl)});
   if(!r.ok)throw new Error('HTTP '+r.status);return key;}
 document.addEventListener('click',async e=>{const a=e.target.closest&&e.target.closest('[data-docref]');if(!a)return;e.preventDefault();
-  try{const t=await fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(a.dataset.docref)}`,{cache:'no-store'}).then(r=>r.text());const d=JSON.parse(t);if(!d)throw new Error('file not found');
+  try{const t=await storeFetch(`${CF_WORKER_URL}/store/${encodeURIComponent(a.dataset.docref)}`,{cache:'no-store'}).then(r=>r.text());const d=JSON.parse(t);if(!d)throw new Error('file not found');
     const b=await fetch(d).then(r=>r.blob());const u=URL.createObjectURL(b);const w=window.open(u,'_blank');if(!w){const l=document.createElement('a');l.href=u;l.download=a.dataset.docname||'document.pdf';l.click();}}
   catch(err){alert('Could not open this PDF: '+err.message);}});
 // A field only saves when you leave it. If the tab is closed / hidden while the cursor is still in a field,
@@ -1619,8 +1637,8 @@ function photoCount(fid){return phCount&&phCount[fid]||0;}
 function prevEdition(f){return FAIRS.find(x=>x!==f&&x.name===f.name&&(x.year||2027)===(f.year||2027)-1)||null;}
 function prevFeedbackHTML(f){const pf=prevEdition(f);if(!pf)return'';const pr=recs[pf.id]||{};if(!hasFeedback(pr)&&!pr.rating&&!pr.repeat)return'';
   return `<div class="fbprev"><b>📌 Last edition (${pf.year||2027}) — lessons learned</b>${pr.rating?' · '+esc(pr.rating)+'★':''}${pr.repeat?' · repeat: '+esc(pr.repeat):''}${FB_FIELDS.filter(([k])=>pr[k]&&(''+pr[k]).trim()).map(([k,l])=>`<div><span>${l}</span>${esc(pr[k])}</div>`).join('')}</div>`;}
-async function phGet(key){const r=await fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(key)}`,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);const t=await r.text();return(t==='null'||t==='')?null:JSON.parse(t);}
-async function phPut(key,val){const body=JSON.stringify(val);if(body.length>1040000)throw new Error('too large for cloud ('+Math.round(body.length/1024)+' KB)');const r=await fetch(`${CF_WORKER_URL}/store/${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body});if(!r.ok)throw new Error('HTTP '+r.status);}
+async function phGet(key){const r=await storeFetch(`${CF_WORKER_URL}/store/${encodeURIComponent(key)}`,{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);const t=await r.text();return(t==='null'||t==='')?null:JSON.parse(t);}
+async function phPut(key,val){const body=JSON.stringify(val);if(body.length>1040000)throw new Error('too large for cloud ('+Math.round(body.length/1024)+' KB)');const r=await storeFetch(`${CF_WORKER_URL}/store/${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body});if(!r.ok)throw new Error('HTTP '+r.status);}
 async function loadPhCount(){if(!CLOUD_ON)return;try{phCount=(await phGet(PH_COUNT))||{};}catch(e){phCount=phCount||{};}}
 // read-modify-write against the LATEST cloud list, so two people uploading to the same fair don't overwrite each other
 async function phIndexMutate(fid,fn,updCount=true){const cur=(await phGet(PH_IDX(fid)))||[];const nx=fn(cur);await phPut(PH_IDX(fid),nx);photoIdx[fid]=nx;

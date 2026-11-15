@@ -1,6 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script>
+/* /store/ key (Nov 2026): once the proxy's STORE_KEY secret is set, every save (and every read of a private key)
+   needs the header X-Store-Key. The key is kept only in this browser (localStorage 'ahooga_store_key') and is
+   asked once, the first time the server answers 401. Never write the key itself into this file. */
+async function storeFetch(url,opts){
+  opts=opts||{};
+  var getK=function(){var k='';try{k=localStorage.getItem('ahooga_store_key')||'';}catch(e){}return k||storeFetch._k||'';};
+  var send=function(k){var h=Object.assign({},opts.headers||{});if(k)h['X-Store-Key']=k;return fetch(url,Object.assign({},opts,{headers:h}));};
+  var k=getK(),r=await send(k);
+  if(r.status===401||r.status===403){
+    var n=getK();
+    if(n===k&&!storeFetch._asked){storeFetch._asked=true;n=String(window.prompt('This tool needs the Ahooga store key to load and save shared data (asked once on this computer):')||'').trim();
+      if(n){storeFetch._k=n;try{localStorage.setItem('ahooga_store_key',n);}catch(e){}}}
+    if(n&&n!==k)r=await send(n);
+  }
+  return r;
+}
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Ahooga DSV Shipments — Inbound components</title>
@@ -208,7 +226,7 @@ function airWeeks(){ return cfg().airW||4; }
 function moveDays(){ const m=cfg().moveD; return (m!=null)?m:3; }
 
 // ── KV store (read what Parts Stock / Agenda publish) ─────────
-async function kvGet(key){ try{ const r=await fetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`); const t=(await r.text()||'').trim(); return (!t||t==='null')?null:JSON.parse(t); }catch(e){ console.warn('kv',key,e); return null; } }
+async function kvGet(key){ try{ const r=await storeFetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`); const t=(await r.text()||'').trim(); return (!t||t==='null')?null:JSON.parse(t); }catch(e){ console.warn('kv',key,e); return null; } }
 
 // ── Odoo (supplier address lookup only) ──────────────────────
 function v(x){ if(x===null||x===undefined)return'<value><boolean>0</boolean></value>'; if(typeof x==='boolean')return`<value><boolean>${x?1:0}</boolean></value>`; if(typeof x==='number'&&Number.isInteger(x))return`<value><int>${x}</int></value>`; if(typeof x==='number')return`<value><double>${x}</double></value>`; if(Array.isArray(x))return`<value><array><data>${x.map(v).join('')}</data></array></value>`; if(typeof x==='object'){const m=Object.entries(x).map(([k,vv])=>`<member><name>${k}</name>${v(vv)}</member>`).join('');return`<value><struct>${m}</struct></value>`;} return`<value><string>${String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</string></value>`; }

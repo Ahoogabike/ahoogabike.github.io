@@ -148,14 +148,17 @@ async function enter(silent){pw=document.getElementById("pw").value||"";const d=
 /* ---------- players ---------- */
 let playersAll=[];
 const jq=v=>esc(String(v==null?'':v).replace(/\\/g,'\\\\').replace(/'/g,"\\'"));
-async function loadPlayers(){const d=await api("/play/admin/players");if(d.error){document.getElementById('players').innerHTML='<div class="empty">'+esc(d.error)+'</div>';return;}playersAll=d.players||[];renderPlayers();}
+async function loadPlayers(){const d=await api("/play/admin/players");if(d.error){document.getElementById('players').innerHTML='<div class="empty">'+esc(d.error)+'</div>';return;}playersAll=d.players||[];shopsAll=d.shops||[];renderPlayers();}
+let shopsAll=[];
+/* player cap per shop (2 + 1 per 10 bikes in 365 days, or the number set here); flag = more players than the cap, or 15+ course passes in 24 h */
+async function setCap(pid){const v=(document.getElementById('cap_'+pid)||{}).value||'';const d=await api("/play/admin/setcap",{pid:Number(pid),cap:Number(v)||0});if(d.error){toast('⚠️ '+d.error);return;}toast('✓ Cap saved: '+d.cap);loadPlayers();}
 function renderPlayers(){
  const q=(document.getElementById('plq').value||'').toLowerCase(),showGone=document.getElementById('plgone').checked;
  const L=playersAll.filter(p=>(showGone||!p.removed)&&(!q||(p.name+' '+p.user+' '+p.shop).toLowerCase().includes(q)));
  const active=playersAll.filter(p=>!p.removed).length,gone=playersAll.length-active;
  document.getElementById('plcount').textContent=active+' active'+(gone?' · '+gone+' removed':'');
  const by={};L.forEach(p=>{(by[p.shop||('Shop #'+p.pid)]=by[p.shop||('Shop #'+p.pid)]||[]).push(p)});
- document.getElementById('players').innerHTML=L.length?Object.keys(by).map(sh=>`<h3 style="margin:18px 0 8px;font-size:14px">${esc(sh)} <span class="muted">· ${by[sh].filter(p=>!p.removed).length} player(s)</span></h3>`+by[sh].map(p=>{
+ document.getElementById('players').innerHTML=L.length?Object.keys(by).map(sh=>(S=>`<h3 style="margin:18px 0 8px;font-size:14px">${esc(sh)} <span class="muted">· ${by[sh].filter(p=>!p.removed).length} player(s) · cap ${S.cap==null?'?':S.cap}${S.capSet?' (set)':''} · ${S.coursesPassedLast24h||0} course pass(es) in 24 h</span>${S.flag?' <span class="pts" style="background:var(--red-bg);color:var(--red)">check</span>':''} <input id="cap_${esc(by[sh][0].pid)}" type="number" min="0" max="500" placeholder="auto" value="${S.capSet||''}" style="width:70px;display:inline-block"> <button class="ap" onclick="setCap('${jq(by[sh][0].pid)}')">Save cap</button></h3>`)(shopsAll.find(x=>String(x.pid)===String(by[sh][0].pid))||{})+by[sh].map(p=>{
   const k=jq(p.pid)+"','"+jq(p.user);
   const act=p.removed?`<button class="ap" onclick="setPlayer('${k}',true)">Restore</button><button class="rj" onclick="delPlayer('${k}','${jq(p.name)}',${p.openRewards||0})">Delete for good</button>`
    :`<button class="rj" onclick="rmPlayer('${k}','${jq(p.name)}')">Remove</button>`;
@@ -173,26 +176,32 @@ async function delPlayer(pid,user,name,open){if(open){toast('⚠️ '+name+' has
 let redemptions=[];
 async function loadRedemptions(){const d=await api("/play/admin/redemptions");if(d.error)return;redemptions=d.redemptions||[];renderRedemptions();}
 function renderRedemptions(){
- const pend=redemptions.filter(r=>r.status==='pending');
+ const pend=redemptions.filter(r=>r.status==='pending'||r.status==='held');
  const b=document.getElementById('redmBadge');if(pend.length){b.style.display='inline-block';b.textContent=pend.length;}else b.style.display='none';
- const order={pending:0,fulfilled:1,rejected:2};
- const sorted=redemptions.slice().sort((a,b)=>(order[a.status]-order[b.status])||(b.ts-a.ts));
+ const order={held:0,pending:0,fulfilled:1,rejected:2};
+ const sorted=redemptions.slice().sort((a,b)=>((order[a.status]||0)-(order[b.status]||0))||(b.ts-a.ts));
  document.getElementById('redemptions').innerHTML=sorted.length?sorted.map(r=>{
   const kindTag=r.kind==='personal'?'👤 personal':'🏪 shop';
   const who=r.kind==='personal'?(esc(r.who||'')+(r.shop?(' · '+esc(r.shop)):'')):('Shop #'+esc(r.pid));
-  const task=r.taskId?(' · Odoo task #'+esc(r.taskId)):'';
+  const task=(r.taskId?(' · Odoo task #'+esc(r.taskId)):'')+(r.order?(' · Quotation '+esc(r.order)+(r.orderState?' ('+(r.orderState==='cancel'?'cancelled':esc(r.orderState))+')':'')):r.orderError?' · ⚠ no quotation yet, check Odoo':'')
+   +(r.status==='held'?' · ⏸ on hold until '+(r.heldUntil?new Date(r.heldUntil).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):''):'')
+   +(r.dup&&(r.status==='pending'||r.status==='held')?' · <b style="color:var(--red)">⚠ same reward twice in 24 h, check before sending</b>':'');
   let action='';
-  if(r.status==='pending')action=`<button class="ap" onclick="fulfil('${r.kind}','${esc(r.pid)}','${esc(r.user||'')}','${esc(r.id)}','fulfilled')">Mark fulfilled</button>
+  if(r.status==='held')action=`<button class="ap" onclick="release('${esc(r.pid)}','${esc(r.user||'')}','${esc(r.id)}')">Release now</button>
+    <button class="rj" onclick="fulfil('${r.kind}','${esc(r.pid)}','${esc(r.user||'')}','${esc(r.id)}','rejected')">Reject</button>`;
+  else if(r.status==='pending')action=`<button class="ap" onclick="fulfil('${r.kind}','${esc(r.pid)}','${esc(r.user||'')}','${esc(r.id)}','fulfilled')">Mark fulfilled</button>
     <button class="rj" onclick="fulfil('${r.kind}','${esc(r.pid)}','${esc(r.user||'')}','${esc(r.id)}','rejected')">Reject</button>`;
   else action=`<span class="pts" style="background:${r.status==='fulfilled'?'var(--green-bg)':'var(--red-bg)'};color:${r.status==='fulfilled'?'var(--green)':'var(--red)'}">${r.status==='fulfilled'?'✓ Fulfilled':'Rejected'}</span>`;
-  return `<div class="sub" id="r_${esc(r.id)}" style="${r.status!=='pending'?'opacity:.7':''}">
+  return `<div class="sub" id="r_${esc(r.id)}" style="${r.status!=='pending'&&r.status!=='held'?'opacity:.7':''}">
    <span class="ic">🎁</span>
    <div class="main"><div class="t">${esc(r.title)}</div>
     <div class="meta">${kindTag} · ${who} · ${ago(r.ts)}${task}</div></div>
    <span class="pts">−${r.cost} pts</span>${action}</div>`;
  }).join(''):'<div class="empty">No redemptions yet.</div>';
 }
+async function release(pid,user,id){const d=await api("/play/admin/release",{pid:Number(pid),user,id});if(d.error){toast('⚠️ '+d.error);return;}toast('✓ Released: Odoo task and quotation made');loadRedemptions();}
 async function fulfil(kind,pid,user,id,status){
+ if(status==='rejected'&&!confirm('Reject this reward?\n\nThe points go back. An open Odoo quotation is cancelled; a confirmed order must be cancelled in Odoo first.'))return;
  const el=document.getElementById('r_'+id);if(el)el.style.opacity='.4';
  const d=await api("/play/admin/fulfil",{kind,pid,user,id,status});
  if(d.error){toast('⚠️ '+d.error);if(el)el.style.opacity='1';return;}
@@ -219,7 +228,9 @@ function renderPending(){
 async function viewMedia(key){
  const r=await fetch(CF+"/play/admin/media",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({adminPw:pw,key:key})});
  if(!r.ok){let e={};try{e=await r.json();}catch(_){}toast('⚠️ '+(e.error||'Could not open file'));return;}
- const blob=await r.blob();const url=URL.createObjectURL(blob);window.open(url,'_blank');setTimeout(()=>URL.revokeObjectURL(url),60000);
+ /* only photo / video types open as such; anything else (old SVG / HTML uploads) becomes a plain download, so it cannot run here */
+ const ct=(r.headers.get('content-type')||'').split(';')[0].trim().toLowerCase(),safe=/^(image\/(jpeg|png|webp|heic|heif)|video\/(mp4|quicktime|webm))$/.test(ct)?ct:'application/octet-stream';
+ const blob=new Blob([await r.blob()],{type:safe});const url=URL.createObjectURL(blob);window.open(url,'_blank');setTimeout(()=>URL.revokeObjectURL(url),60000);
 }
 async function decide(pid,subId,decision){
  const el=document.getElementById('s_'+subId);if(el)el.style.opacity='.4';
