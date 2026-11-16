@@ -140,7 +140,7 @@ function rowIn(p){
   return '<div class="row'+(late?" late":"")+'">'+
     '<div><div class="main">'+esc(p.partner||p.ref||"")+'</div>'+
     '<div class="meta">'+meta+'</div></div>'+
-    '<div class="right">'+esc(p.when||"")+'</div></div>';
+    '<div class="right">'+esc(p.when||"")+(p.estimated && p.when ? " (est.)" : "")+(p.qty ? "<br>"+p.qty+" units" : "")+'</div></div>';
 }
 
 /* One open purchase order = one batch this site has been asked to build.
@@ -238,7 +238,12 @@ async function load(){
     fill("out-list", d.outbound||[], rowOut, "Nothing waiting to leave.");
     document.getElementById("in-cnt").textContent  =
       (d.inbound||[]).length + " open arrival" + ((d.inbound||[]).length===1?"":"s") +
-      "";
+      (d.inboundQty ? " \u00b7 " + d.inboundQty + " units" : "") +
+      (d.total > d.shown ? " \u00b7 showing " + d.shown + " of " + d.total : "") +
+      /* Ordered but not shipped (forecast receipts). Office keys only; the
+         Worker leaves it out for a tablet key. Never part of the total. */
+      ((d.forecast||[]).length ? " \u00b7 not counted: " + d.forecastQty +
+        " units ordered / forecast or out of sync, not shipped" : "");
     /* Everything on this list is at Velovisie now — the Worker filters the
        rest out — so a "ready vs in hand" split no longer means anything. */
     var parts = (d.outbound||[]).filter(function(b){ return b.parts; }).length,
