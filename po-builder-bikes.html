@@ -1,24 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>
-/* /store/ key (Nov 2026): once the proxy's STORE_KEY secret is set, every save (and every read of a private key)
-   needs the header X-Store-Key. The key is kept only in this browser (localStorage 'ahooga_store_key') and is
-   asked once, the first time the server answers 401. Never write the key itself into this file. */
-async function storeFetch(url,opts){
-  opts=opts||{};
-  var getK=function(){var k='';try{k=localStorage.getItem('ahooga_store_key')||'';}catch(e){}return k||storeFetch._k||'';};
-  var send=function(k){var h=Object.assign({},opts.headers||{});if(k)h['X-Store-Key']=k;return fetch(url,Object.assign({},opts,{headers:h}));};
-  var k=getK(),r=await send(k);
-  if(r.status===401||r.status===403){
-    var n=getK();
-    if(n===k&&!storeFetch._asked){storeFetch._asked=true;n=String(window.prompt('This tool needs the Ahooga store key to load and save shared data (asked once on this computer):')||'').trim();
-      if(n){storeFetch._k=n;try{localStorage.setItem('ahooga_store_key',n);}catch(e){}}}
-    if(n&&n!==k)r=await send(n);
-  }
-  return r;
-}
-</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Ahooga PO Builder — Bikes</title>
@@ -100,7 +82,38 @@ table.grid tr.caprow input::-webkit-outer-spin-button,table.grid tr.caprow input
 .chip button{border:none;background:none;cursor:pointer;color:var(--warn);font-weight:700;font-size:13px;line-height:1;padding:0 3px}
 @media(max-width:700px){main{padding:12px}input{font-size:16px!important}}
 </style>
-  <script src="mxp-auth.js"></script>
+  <script>
+/* /store/ key (Nov 2026): once the proxy's STORE_KEY secret is set, every save (and every read of a private key)
+   needs the header X-Store-Key. The key is kept only in this browser (localStorage 'ahooga_store_key') and is
+   asked once, the first time the server answers 401. Never write the key itself into this file. */
+async function storeFetch(url,opts){
+  opts=opts||{};
+  var getK=function(){var k='';try{k=localStorage.getItem('ahooga_store_key')||'';}catch(e){}return k||storeFetch._k||'';};
+  var send=function(k){var h=Object.assign({},opts.headers||{});if(k)h['X-Store-Key']=k;return fetch(url,Object.assign({},opts,{headers:h}));};
+  var k=getK(),r=await send(k);
+  /* Nov 17 fix: before, the typed key was saved even when the server refused it, so one typo meant the
+     prompt came back on every visit. Now a refused saved key is wiped, and a typed key is saved only
+     after the server accepts it (2 tries, then give up for this page load). */
+  if(r.status===401||r.status===403){
+    var n=getK();
+    if(n&&n!==k)return send(n);                    // another call already got a working key
+    if(storeFetch._asked)return r;
+    storeFetch._asked=true;
+    if(k){storeFetch._k='';try{localStorage.removeItem('ahooga_store_key');}catch(e){}}
+    var msg=k?'The saved Ahooga store key was refused (wrong or changed). Please enter the current key:'
+             :'This tool needs the Ahooga store key to load and save shared data (asked once on this computer):';
+    for(var t=0;t<2;t++){
+      n=String(window.prompt(msg)||'').trim();
+      if(!n)break;
+      var r2=await send(n);
+      if(r2.status!==401&&r2.status!==403){storeFetch._k=n;try{localStorage.setItem('ahooga_store_key',n);}catch(e){}return r2;}
+      msg='That key was not accepted. Check it and try again:';
+    }
+  }
+  return r;
+}
+</script>
+<script src="mxp-auth.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style id="ahooga-brand">
 body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}

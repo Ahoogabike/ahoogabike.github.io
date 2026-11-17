@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ahooga PO Builder — Long-lead components (BETA)</title>
+<style>
+:root{
+  --bg:#f4f2ec;--surface:#fff;--surface2:#f0eee7;--border:#e3e0d7;--border2:#d3cfc3;
+  --text:#232019;--text2:#5c574c;--text3:#938d7e;--accent:#14259b;--accent-bg:#e7e9f7;
+  --success:#2d6e2d;--success-bg:#eaf3de;--warn:#8a5a13;--warn-bg:#f6ecd8;--danger:#8b1f1f;--danger-bg:#fbeaea;
+  --purple:#3c3489;--purple-bg:#e9e7f5;--teal:#0f6e56;--teal-bg:#e1f5ee;--radius:12px;--radius-sm:7px;
+}
+*{box-sizing:border-box}
+body{font-family:Georgia,'Times New Roman',serif;background:var(--bg);color:var(--text);font-size:14px;margin:0}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:54px;gap:12px;position:sticky;top:0;z-index:100}
+.logo{font-weight:700;font-size:17px}
+.logo span{color:var(--accent)}
+.beta{font-size:10px;background:var(--warn-bg);color:var(--warn);padding:2px 8px;border-radius:20px;font-family:sans-serif;font-weight:700;letter-spacing:.04em}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--text3);border:1px solid var(--border2);font-family:sans-serif}
+.pill.ok{background:var(--success-bg);color:var(--success)}
+.pill.err{background:var(--danger-bg);color:var(--danger)}
+main{padding:20px;max-width:1400px;margin:0 auto}
+.explain{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:var(--radius);padding:14px 18px;margin-bottom:16px;line-height:1.5;font-size:13px;color:var(--text2)}
+.controls{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:11px;font-weight:700;color:var(--text2);font-family:sans-serif;text-transform:uppercase;letter-spacing:.03em}
+.field input,.field select{padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface);color:var(--text)}
+.hint{font-size:11px;color:var(--text3);font-family:sans-serif}
+.btn{padding:8px 15px;border-radius:var(--radius-sm);border:1px solid var(--border2);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;background:var(--surface2);color:var(--text)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-sm{padding:4px 10px;font-size:12px}
+.conn{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;max-width:520px}
+.kpis{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;min-width:120px}
+.kpi-label{font-size:11px;color:var(--text3);font-family:sans-serif;text-transform:uppercase;letter-spacing:.03em}
+.kpi-value{font-size:20px;font-weight:700;margin-top:2px}
+.sup-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:16px;overflow:hidden}
+.sup-head{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--surface2);border-bottom:1px solid var(--border)}
+.sup-name{font-weight:700;font-size:15px}
+.sup-meta{font-size:12px;color:var(--text3);font-family:sans-serif}
+.sup-head .btn{margin-left:auto}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--text2);font-family:sans-serif;font-weight:600;padding:8px 12px;border-bottom:1px solid var(--border);background:var(--surface)}
+th.num,td.num{text-align:right;font-variant-numeric:tabular-nums}
+td{padding:7px 12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:top}
+tr:last-child td{border-bottom:none}
+.order-qty{font-weight:700;color:var(--accent);font-size:15px}
+.badge{font-size:10px;font-family:sans-serif;background:var(--purple-bg);color:var(--purple);padding:1px 7px;border-radius:20px;margin-left:6px}
+.alert{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin:10px 0}
+.alert-info{background:var(--accent-bg);color:var(--accent)}
+.alert-warn{background:var(--warn-bg);color:var(--warn)}
+.alert-success{background:var(--success-bg);color:var(--success)}
+.alert-err{background:var(--danger-bg);color:var(--danger)}
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sub-note{font-size:11px;color:var(--text3);font-family:sans-serif;padding:8px 16px}
+code{background:var(--surface2);padding:1px 5px;border-radius:4px;font-size:12px}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>PO Builder — Long-lead</span></div>
+  <span class="beta">BETA · compare vs old builder</span>
+  <span class="pill" id="conn-pill">Not connected</span>
+  <span class="pill" id="data-pill">Plans: —</span>
+</header>
+<main>
+  <div class="explain">
+    <b>Bulk component ordering for long-lead suppliers.</b> Sizes one consolidated draft PO <b>per supplier</b> to cover a rolling window of production, instead of small per-part top-ups.
+    <b>Quantity</b> = (bikes in the coverage window &times; per-bike BoM usage) + after-sales spares &minus; (on-hand + open POs), rounded up to a clean lot.
+    Bike volume combines the current-year plan (<code>production_plan</code>) and the <b>MY27</b> plan (<code>production_plan_my27</code>) so growth is included. Spares scale with that future volume from each part's historical after-sales rate. Colour variants (e.g. the frame) are combined into one total &mdash; allocate colours in Odoo before confirming. This is a <b>BETA</b> tool: it creates <b>draft</b> POs only.
+  </div>
+
+  <div class="conn" id="conn-panel">
+    <div class="field" style="margin-bottom:10px"><label>Odoo email</label><input type="text" id="cfg-user" placeholder="you@ahooga.bike"/></div>
+    <div class="field" style="margin-bottom:10px"><label>API key</label><input type="password" id="cfg-key" placeholder="Odoo &rarr; My Profile &rarr; Account Security &rarr; New API Key"/></div>
+    <button class="btn btn-primary" onclick="connect()">Connect to Odoo</button>
+    <span id="conn-detail" class="hint" style="margin-left:8px"></span>
+  </div>
+
+  <div class="controls">
+    <div class="field"><label>Coverage (months)</label><input type="number" id="f-months" value="12" min="1" max="36" style="width:90px"/><span class="hint">rolling window from today</span></div>
+    <div class="field"><label>Long-lead threshold (days)</label><input type="number" id="f-thresh" value="90" min="0" style="width:110px"/><span class="hint">only suppliers &ge; this lead</span></div>
+    <div class="field"><label>Round up to lot</label><input type="number" id="f-lot" value="50" min="1" style="width:90px"/><span class="hint">clean order multiples</span></div>
+    <button class="btn btn-primary" id="btn-compute" onclick="compute()" disabled>Compute long-lead POs</button>
+    <span id="compute-status" class="hint"></span>
+  </div>
+
+  <div id="kpis" class="kpis"></div>
+  <div id="results"></div>
+</main>
+
+<script>
+/* /store/ key (Nov 2026): once the proxy's STORE_KEY secret is set, every save (and every read of a private key)
+   needs the header X-Store-Key. The key is kept only in this browser (localStorage 'ahooga_store_key') and is
+   asked once, the first time the server answers 401. Never write the key itself into this file. */
+async function storeFetch(url,opts){
+  opts=opts||{};
+  var getK=function(){var k='';try{k=localStorage.getItem('ahooga_store_key')||'';}catch(e){}return k||storeFetch._k||'';};
+  var send=function(k){var h=Object.assign({},opts.headers||{});if(k)h['X-Store-Key']=k;return fetch(url,Object.assign({},opts,{headers:h}));};
+  var k=getK(),r=await send(k);
+  /* Nov 17 fix: before, the typed key was saved even when the server refused it, so one typo meant the
+     prompt came back on every visit. Now a refused saved key is wiped, and a typed key is saved only
+     after the server accepts it (2 tries, then give up for this page load). */
+  if(r.status===401||r.status===403){
+    var n=getK();
+    if(n&&n!==k)return send(n);                    // another call already got a working key
+    if(storeFetch._asked)return r;
+    storeFetch._asked=true;
+    if(k){storeFetch._k='';try{localStorage.removeItem('ahooga_store_key');}catch(e){}}
+    var msg=k?'The saved Ahooga store key was refused (wrong or changed). Please enter the current key:'
+             :'This tool needs the Ahooga store key to load and save shared data (asked once on this computer):';
+    for(var t=0;t<2;t++){
+      n=String(window.prompt(msg)||'').trim();
+      if(!n)break;
+      var r2=await send(n);
+      if(r2.status!==401&&r2.status!==403){storeFetch._k=n;try{localStorage.setItem('ahooga_store_key',n);}catch(e){}return r2;}
+      msg='That key was not accepted. Check it and try again:';
+    }
+  }
+  return r;
+}
+</script>
+<script>
+const ODOO_URL='https://ahooga.odoo.com';
+const ODOO_DB ='logicasoft-aho-18-0-21599177';
+const CF_WORKER='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
+let odooUid=null;
+
+// shared store + Odoo XML-RPC (company-locked to Belgium)
+function proxyUrl(path){ return (location.hostname==='localhost'||location.hostname==='127.0.0.1') ? `/odoo/${encodeURIComponent(ODOO_URL+path)}` : `${CF_WORKER}/odoo/${encodeURIComponent(ODOO_URL+path)}`; }
+async function kvGet(key){ try{ const r=await storeFetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`); if(!r.ok) return null; const t=(await r.text()||'').trim(); return (!t||t==='null')?null:JSON.parse(t); }catch(e){ console.warn('kvGet',key,e.message); return null; } }
+function v(x){
+  if(x===null||x===undefined) return '<value><boolean>0</boolean></value>';
+  if(typeof x==='boolean') return `<value><boolean>${x?1:0}</boolean></value>`;
+  if(typeof x==='number'&&Number.isInteger(x)) return `<value><int>${x}</int></value>`;
+  if(typeof x==='number') return `<value><double>${x}</double></value>`;
+  if(Array.isArray(x)) return `<value><array><data>${x.map(v).join('')}</data></array></value>`;
+  if(typeof x==='object'){const m=Object.entries(x).map(([k,vv])=>`<member><name>${k}</name>${v(vv)}</member>`).join('');return `<value><struct>${m}</struct></value>`;}
+  return `<value><string>${String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</string></value>`;
+}
+function parseXml(xml){
+  const doc=new DOMParser().parseFromString(xml,'text/xml');
+  if(doc.querySelector('fault')) throw new Error('Odoo error: '+(doc.querySelector('faultString')?.textContent?.substring(0,180)||'fault'));
+  function pv(n){ if(!n) return null; const c=n.firstElementChild; if(!c) return n.textContent;
+    switch(c.tagName){
+      case 'int':case 'i4':case 'i8': return parseInt(c.textContent);
+      case 'double': return parseFloat(c.textContent);
+      case 'boolean': return c.textContent==='1';
+      case 'string': return c.textContent;
+      case 'nil': return null;
+      case 'array': return Array.from(c.querySelector('data')?.children||[]).map(pv);
+      case 'struct':{const o={};c.querySelectorAll(':scope>member').forEach(m=>{o[m.querySelector('name').textContent]=pv(m.querySelector('value'))});return o;}
+      default: return c.textContent;
+    } }
+  return pv(doc.querySelector('methodResponse>params>param>value'));
+}
+async function odoo(model,method,args,kwargs={}){
+  const user=document.getElementById('cfg-user').value.trim(); const key=document.getElementById('cfg-key').value.trim();
+  if(!user||!key) throw new Error('Enter your Odoo email + API key and connect first.');
+  if(!odooUid){
+    const b=`<?xml version="1.0"?><methodCall><methodName>authenticate</methodName><params>${[v(ODOO_DB),v(user),v(key),v({})].map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+    const r=await fetch(proxyUrl('/xmlrpc/2/common'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+    odooUid=parseXml(await r.text());
+    if(!odooUid||typeof odooUid!=='number') throw new Error('Authentication failed — check email and API key');
+  }
+  // COMPANY LOCK: exclude Ahooga Paris (company 2, closed/unreliable). Force company 1 (Belgium).
+  kwargs=Object.assign({},kwargs); kwargs.context=Object.assign({},kwargs.context,{allowed_company_ids:[1],company_id:1});
+  const params=[v(ODOO_DB),v(odooUid),v(key),v(model),v(method),v(args),v(kwargs)];
+  const b=`<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>${params.map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+  const r=await fetch(proxyUrl('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+  return parseXml(await r.text());
+}
+
+// helpers
+function arr(x){return Array.isArray(x)?x:[null,x?String(x):''];}
+function esc(x){return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmt(n){ if(n==null||isNaN(n)) return '—'; return Math.round(n).toLocaleString('en-US'); }
+function ymd(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function chunk(a,n){const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o;}
+function roundUpLot(x,lot){ if(lot<=1) return Math.ceil(x); return Math.ceil(x/lot)*lot; }
+function alert_(el,msg,type){ document.getElementById(el).innerHTML=`<div class="alert alert-${type}">${msg}</div>`; }
+
+// state
+let CS=null;            // component_supply payload
+let PLAN=null, PLAN27=null;
+let supGroups={};       // vendorId -> {name, delay, lines:[...]}
+
+async function connect(){
+  const d=document.getElementById('conn-detail'); d.textContent='Connecting…';
+  odooUid=null;
+  try{
+    await odoo('res.users','search_read',[[['id','=',1]]],{fields:['name'],limit:1});
+    document.getElementById('conn-pill').textContent='✓ Connected'; document.getElementById('conn-pill').className='pill ok';
+    d.textContent='';
+    try{ localStorage.setItem('mxp_cfg', JSON.stringify({user:document.getElementById('cfg-user').value.trim(), key:document.getElementById('cfg-key').value.trim()})); }catch(e){}
+    await loadStores();
+  }catch(e){ document.getElementById('conn-pill').textContent='✗ '+e.message; document.getElementById('conn-pill').className='pill err'; d.textContent=''; }
+}
+
+async function loadStores(){
+  CS=await kvGet('component_supply');
+  PLAN=await kvGet('production_plan');
+  PLAN27=await kvGet('production_plan_my27');
+  const bits=[];
+  bits.push(PLAN?'MY26 ✓':'MY26 ✗');
+  bits.push(PLAN27?'MY27 ✓':'MY27 ✗');
+  bits.push(CS?'usage ✓':'usage ✗');
+  document.getElementById('data-pill').textContent='Plans: '+bits.join(' · ');
+  const ok=CS&&PLAN;
+  document.getElementById('btn-compute').disabled=!ok;
+  if(!CS) alert_('results','No <code>component_supply</code> in the shared store yet — open Parts Stock &amp; load it first, then come back.','warn');
+  else if(!PLAN) alert_('results','No <code>production_plan</code> yet — open the PO Builder (Bikes) so it publishes the plan.','warn');
+}
+
+// bikes per family in the rolling window; MY26 up to its plan end, then MY27 for later weeks (no double count)
+function windowBikesByFam(months){
+  const out={};
+  const today=ymd(new Date());
+  const end=new Date(); end.setMonth(end.getMonth()+months); const endYmd=ymd(end);
+  const add=(plan, afterYmd)=>{
+    if(!plan||!plan.weeks||!plan.byFam) return;
+    plan.weeks.forEach((w,wi)=>{
+      const m=w.monday; if(!m) return;
+      if(m<today || m>=endYmd) return;
+      if(afterYmd && m<=afterYmd) return;   // avoid overlap with MY26
+      for(const fam in plan.byFam){ out[fam]=(out[fam]||0)+(plan.byFam[fam][wi]||0); }
+    });
+  };
+  add(PLAN, null);
+  const planEnd=(PLAN&&PLAN.weeks&&PLAN.weeks.length)?PLAN.weeks[PLAN.weeks.length-1].monday:null;
+  add(PLAN27, planEnd);   // only MY27 weeks after MY26's last week
+  return out;
+}
+
+async function compute(){
+  const st=document.getElementById('compute-status'); const months=parseInt(document.getElementById('f-months').value)||12;
+  const thresh=parseInt(document.getElementById('f-thresh').value)||0; const lot=Math.max(1,parseInt(document.getElementById('f-lot').value)||1);
+  document.getElementById('results').innerHTML=''; supGroups={};
+  if(!CS||!CS.usageByFam){ alert_('results','Load the shared data first (connect).','warn'); return; }
+  st.innerHTML='<span class="spinner"></span> reading Odoo…';
+  try{
+    const winBikes=windowBikesByFam(months);
+    const winTotal=Object.values(winBikes).reduce((a,b)=>a+b,0);
+
+    // pids used by the plan
+    const pidSet=new Set();
+    for(const f in CS.usageByFam){ for(const pid in CS.usageByFam[f]) pidSet.add(Number(pid)); }
+    const pids=[...pidSet];
+    if(!pids.length){ alert_('results','No component usage found in the plan.','warn'); st.textContent=''; return; }
+
+    // product template + name + uom
+    const meta={};
+    for(const c of chunk(pids,300)){ const pr=await odoo('product.product','read',[c],{fields:['product_tmpl_id','display_name','default_code','uom_id']}); for(const p of pr) meta[p.id]={tmpl:arr(p.product_tmpl_id)[0], name:p.display_name||'', code:p.default_code||'', uom:arr(p.uom_id)[0], tmplName:arr(p.product_tmpl_id)[1]||''}; }
+
+    // vendor + lead + moq (variant line first, then template fallback)
+    const vend={};
+    for(const c of chunk(pids,200)){ const si=await odoo('product.supplierinfo','search_read',[[['product_id','in',c]]],{fields:['product_id','partner_id','delay','min_qty'],order:'sequence,min_qty'}); for(const s of si){ const pid=arr(s.product_id)[0]; if(pid==null||vend[pid]) continue; vend[pid]={pid:arr(s.partner_id)[0], name:arr(s.partner_id)[1]||'', delay:s.delay, moq:s.min_qty||0}; } }
+    const missing=pids.filter(p=>!vend[p]);
+    if(missing.length){ const tmpls=[...new Set(missing.map(p=>meta[p]&&meta[p].tmpl).filter(Boolean))]; const byT={}; for(const c of chunk(tmpls,200)){ const si=await odoo('product.supplierinfo','search_read',[[['product_tmpl_id','in',c]]],{fields:['product_tmpl_id','partner_id','delay','min_qty'],order:'sequence,min_qty'}); for(const s of si){ const t=arr(s.product_tmpl_id)[0]; if(t==null||byT[t]) continue; byT[t]={pid:arr(s.partner_id)[0], name:arr(s.partner_id)[1]||'', delay:s.delay, moq:s.min_qty||0}; } } for(const p of missing){ const t=meta[p]&&meta[p].tmpl; if(t&&byT[t]) vend[p]=byT[t]; } }
+
+    // after-sales trailing 12 months (spares basis)
+    const sav={}; const since=new Date(); since.setDate(since.getDate()-365); const sinceYmd=ymd(since);
+    for(const c of chunk(pids,300)){ try{ const g=await odoo('sale.order.line','read_group',[[['product_id','in',c],['order_id.state','in',['sale','done']],['order_id.date_order','>=',sinceYmd]],['qty_delivered'],['product_id']],{lazy:false}); for(const row of g){ const p=arr(row.product_id)[0]; if(p!=null) sav[p]=(sav[p]||0)+(row.qty_delivered||0); } }catch(e){ console.warn('sav',e.message); } }
+
+    // trailing bikes produced (to turn after-sales into a per-bike rate)
+    let trailingBikes=0;
+    try{
+      const cats=await odoo('product.category','search_read',[[['complete_name','ilike','Bikes']]],{fields:['id']});
+      const catIds=cats.map(c=>c.id);
+      if(catIds.length) trailingBikes=await odoo('stock.lot','search_count',[[['product_id.categ_id','in',catIds],['create_date','>=',sinceYmd]]]);
+    }catch(e){ console.warn('trailingBikes',e.message); }
+
+    // per-part figures
+    const parts=[];
+    for(const pid of pids){
+      let need=0; for(const f in CS.usageByFam){ const per=CS.usageByFam[f][pid]||0; if(per) need+=per*(winBikes[f]||0); }
+      if(need<=0) continue;
+      const spareRate=(trailingBikes>0)?((sav[pid]||0)/trailingBikes):0;   // spares per bike
+      const spares=spareRate*winTotal;
+      const stock=(CS.stock&&CS.stock[pid]!=null)?CS.stock[pid]:0;
+      const inc=(CS.incoming&&CS.incoming[pid])?CS.incoming[pid].reduce((a,d)=>a+(d.qty||0),0):0;
+      const v0=vend[pid]||{name:'(no vendor)',delay:null,pid:null,moq:0};
+      parts.push({pid, tmpl:meta[pid]?meta[pid].tmpl:null, name:(meta[pid]&&meta[pid].name)||(CS.names&&CS.names[pid])||('#'+pid), code:(meta[pid]&&meta[pid].code)||'', tmplName:(meta[pid]&&meta[pid].tmplName)||'', vend:v0, need, spares, stock, inc});
+    }
+
+    // long-lead only
+    const longlead=parts.filter(p=>p.vend.delay!=null && p.vend.delay>=thresh && p.vend.pid);
+    const excluded=parts.length-longlead.length;
+
+    // aggregate colour variants by template (order one total, allocate colour later)
+    const byTmpl={};
+    for(const p of longlead){ const key=p.tmpl||('p'+p.pid); (byTmpl[key]=byTmpl[key]||[]).push(p); }
+    const lines=[];
+    for(const key in byTmpl){
+      const grp=byTmpl[key];
+      const agg=grp.length>1;
+      const need=grp.reduce((a,p)=>a+p.need,0), spares=grp.reduce((a,p)=>a+p.spares,0), stock=grp.reduce((a,p)=>a+p.stock,0), inc=grp.reduce((a,p)=>a+p.inc,0);
+      const raw=Math.max(0, need+spares-stock-inc);
+      const order=roundUpLot(raw, lot);
+      // order product: prefer an "unpainted" variant, else the variant with the biggest need
+      let target=grp.find(p=>/unpaint/i.test(p.name)) || grp.slice().sort((a,b)=>b.need-a.need)[0];
+      const v0=grp[0].vend;
+      lines.push({ vendId:v0.pid, vendName:v0.name, delay:v0.delay, moq:v0.moq,
+        label: agg ? (grp[0].tmplName||grp[0].name.replace(/\s*\([^)]*\)\s*$/,'')) : grp[0].name,
+        code: agg ? '' : grp[0].code, agg, nColours:grp.length,
+        need, spares, stock, inc, order, targetPid:target.pid, targetName:target.name });
+    }
+
+    // group by supplier
+    supGroups={};
+    for(const l of lines){ if(l.order<=0) continue; (supGroups[l.vendId]=supGroups[l.vendId]||{name:l.vendName, delay:l.delay, lines:[]}).lines.push(l); }
+
+    renderKpis({months, winTotal, nSup:Object.keys(supGroups).length, nLines:lines.filter(l=>l.order>0).length, excluded, trailingBikes});
+    renderResults();
+    st.textContent='';
+  }catch(e){ st.textContent=''; alert_('results','Compute failed: '+esc(e.message),'err'); console.error(e); }
+}
+
+function renderKpis(k){
+  document.getElementById('kpis').innerHTML=
+    kpi('Coverage', k.months+' mo')+
+    kpi('Bikes in window', fmt(k.winTotal))+
+    kpi('Long-lead suppliers', k.nSup)+
+    kpi('Order lines', k.nLines)+
+    kpi('Trailing bikes (spares base)', fmt(k.trailingBikes))+
+    kpi('Excluded (short-lead)', k.excluded);
+}
+function kpi(l,val){ return `<div class="kpi"><div class="kpi-label">${esc(l)}</div><div class="kpi-value">${val}</div></div>`; }
+
+function renderResults(){
+  const R=document.getElementById('results');
+  const vids=Object.keys(supGroups);
+  if(!vids.length){ R.innerHTML='<div class="alert alert-info">No long-lead orders needed for this window — stock + open POs cover the plan, or no supplier meets the lead-time threshold.</div>'; return; }
+  vids.sort((a,b)=>supGroups[b].lines.length-supGroups[a].lines.length);
+  let html='';
+  for(const vid of vids){
+    const g=supGroups[vid];
+    const units=g.lines.reduce((a,l)=>a+l.order,0);
+    const aggLine=g.lines.find(l=>l.agg);
+    html+=`<div class="sup-card">
+      <div class="sup-head">
+        <span class="sup-name">${esc(g.name)}</span>
+        <span class="sup-meta">lead ~${g.delay}d · ${g.lines.length} lines · ${fmt(units)} units total</span>
+        <button class="btn btn-primary btn-sm" onclick="createPO('${vid}')">Create draft PO in Odoo</button>
+      </div>
+      <table><thead><tr>
+        <th>Part</th><th>Part #</th>
+        <th class="num">Window need</th><th class="num">Spares</th><th class="num">On hand</th><th class="num">Incoming</th><th class="num">Order</th>
+      </tr></thead><tbody>
+      ${g.lines.map(l=>`<tr>
+        <td>${esc(l.label)}${l.agg?`<span class="badge">${l.nColours} colours → 1 total</span>`:''}</td>
+        <td style="font-family:monospace;font-size:11px;color:var(--text3)">${esc(l.code)||'—'}</td>
+        <td class="num">${fmt(l.need)}</td>
+        <td class="num">${fmt(l.spares)}</td>
+        <td class="num">${fmt(l.stock)}</td>
+        <td class="num">${fmt(l.inc)}</td>
+        <td class="num order-qty">${fmt(l.order)}</td>
+      </tr>`).join('')}
+      </tbody></table>
+      <div class="sub-note" id="po-msg-${vid}">Order = ⌈need + spares − on-hand − incoming⌉ rounded up to lot.${aggLine?` Aggregated colour lines placed on <em>${esc(aggLine.targetName)}</em> — reallocate colours in the draft before confirming.`:''}</div>
+    </div>`;
+  }
+  R.innerHTML=html;
+}
+
+async function createPO(vid){
+  const g=supGroups[vid]; if(!g) return;
+  const msg=document.getElementById('po-msg-'+vid); msg.innerHTML='<span class="spinner"></span> creating draft PO…';
+  try{
+    const ol=g.lines.filter(l=>l.order>0 && l.targetPid).map(l=>[0,0,{product_id:l.targetPid, product_uom_qty:l.order}]);
+    if(!ol.length){ msg.innerHTML='<span style="color:var(--warn)">Nothing to order.</span>'; return; }
+    const poId=await odoo('purchase.order','create',[{partner_id:Number(vid), date_order:ymd(new Date())+' 08:00:00', order_line:ol}]);
+    let name='#'+poId; try{ const rd=await odoo('purchase.order','read',[[poId]],{fields:['name']}); if(rd&&rd[0]&&rd[0].name) name=rd[0].name; }catch(e){}
+    msg.innerHTML=`<span style="color:var(--success);font-weight:700">✓ Draft PO ${esc(name)} created.</span> <a href="${ODOO_URL}/odoo/purchase/${poId}" target="_blank">Open in Odoo ↗</a> — review, set colours, and confirm there.`;
+  }catch(e){ msg.innerHTML=`<span style="color:var(--danger)">Failed: ${esc(e.message)}</span>`; }
+}
+
+// auto-fill saved creds
+window.addEventListener('load',()=>{
+  try{ const c=localStorage.getItem('mxp_cfg'); if(c){ const cfg=JSON.parse(c); if(cfg.user&&cfg.key){ document.getElementById('cfg-user').value=cfg.user; document.getElementById('cfg-key').value=cfg.key; setTimeout(()=>connect(),300); } } }catch(e){}
+});
+</script>
+</body>
+</html>

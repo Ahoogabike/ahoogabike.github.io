@@ -196,7 +196,9 @@ async function loadData(){
     const roots=(cfg().roots||'Components, Accessories').split(',').map(s=>s.trim()).filter(Boolean);
     const catConds=roots.map(r=>['categ_id.complete_name','ilike',r]);
     const orBlock=Array(Math.max(0,catConds.length-1)).fill('|').concat(catConds);   // OR over the roots
-    const dom = catConds.length ? ['&',['sale_ok','=',true], ...orBlock] : [['sale_ok','=',true]];
+    /* 17 Nov 2026: 2027 range — accessories that are discontinued have "Can be purchased" OFF in Odoo.
+       They may still be SOLD (shop destock) but must never be suggested for reordering here. */
+    const dom = catConds.length ? ['&','&',['sale_ok','=',true],['purchase_ok','=',true], ...orBlock] : ['&',['sale_ok','=',true],['purchase_ok','=',true]];
     const sale=toArr(await odoo('product.product','search_read',[dom],{fields:['id','default_code','display_name','categ_id'],limit:8000}));
     const isBike=(c)=>/^AHF(AM|MC)/i.test(c||'');
     const accMeta={};

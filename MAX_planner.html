@@ -1,24 +1,6 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-v3="planner">
 <head>
-<script>
-/* /store/ key (Nov 2026): once the proxy's STORE_KEY secret is set, every save (and every read of a private key)
-   needs the header X-Store-Key. The key is kept only in this browser (localStorage 'ahooga_store_key') and is
-   asked once, the first time the server answers 401. Never write the key itself into this file. */
-async function storeFetch(url,opts){
-  opts=opts||{};
-  var getK=function(){var k='';try{k=localStorage.getItem('ahooga_store_key')||'';}catch(e){}return k||storeFetch._k||'';};
-  var send=function(k){var h=Object.assign({},opts.headers||{});if(k)h['X-Store-Key']=k;return fetch(url,Object.assign({},opts,{headers:h}));};
-  var k=getK(),r=await send(k);
-  if(r.status===401||r.status===403){
-    var n=getK();
-    if(n===k&&!storeFetch._asked){storeFetch._asked=true;n=String(window.prompt('This tool needs the Ahooga store key to load and save shared data (asked once on this computer):')||'').trim();
-      if(n){storeFetch._k=n;try{localStorage.setItem('ahooga_store_key',n);}catch(e){}}}
-    if(n&&n!==k)r=await send(n);
-  }
-  return r;
-}
-</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MAX Production Planner</title>
@@ -32,9 +14,9 @@ async function storeFetch(url,opts){
   --text: #1a1a18;
   --text2: #6b6b66;
   --text3: #9a9a94;
-  --accent: #1a4fa0;
-  --accent-bg: #e6f0fb;
-  --accent-text: #0c3a78;
+  --accent: #14259b;
+  --accent-bg: #eef0fb;
+  --accent-text: #14259b;
   --success: #2d6e2d;
   --success-bg: #eaf3de;
   --warn: #7a4e0a;
@@ -49,7 +31,7 @@ async function storeFetch(url,opts){
   --radius-sm: 6px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Georgia',serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh}
+body{font-family:'Figtree',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5;min-height:100vh}
 #app{display:flex;flex-direction:column;min-height:100vh}
 
 header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;height:56px;position:sticky;top:0;z-index:100;gap:0}
@@ -71,7 +53,7 @@ main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
 /* BUTTONS */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:var(--radius-sm);font-size:13px;font-family:inherit;font-weight:600;cursor:pointer;border:none;transition:all 0.15s}
 .btn-primary{background:var(--accent);color:#fff}
-.btn-primary:hover{background:#163d80}
+.btn-primary:hover{background:#0f1c78}
 .btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
 .btn-secondary:hover{background:#e8e7e1}
 .btn-danger{background:var(--danger-bg);color:var(--danger);border:1px solid rgba(139,31,31,0.2)}
@@ -174,20 +156,58 @@ main{flex:1;padding:24px;max-width:1400px;margin:0 auto;width:100%}
 
 @media(max-width:900px){.kpi-row{grid-template-columns:repeat(2,1fr)}}
 </style>
+<script>
+/* /store/ key (Nov 2026): once the proxy's STORE_KEY secret is set, every save (and every read of a private key)
+   needs the header X-Store-Key. The key is kept only in this browser (localStorage 'ahooga_store_key') and is
+   asked once, the first time the server answers 401. Never write the key itself into this file. */
+async function storeFetch(url,opts){
+  opts=opts||{};
+  var getK=function(){var k='';try{k=localStorage.getItem('ahooga_store_key')||'';}catch(e){}return k||storeFetch._k||'';};
+  var send=function(k){var h=Object.assign({},opts.headers||{});if(k)h['X-Store-Key']=k;return fetch(url,Object.assign({},opts,{headers:h}));};
+  var k=getK(),r=await send(k);
+  /* Nov 17 fix: before, the typed key was saved even when the server refused it, so one typo meant the
+     prompt came back on every visit. Now a refused saved key is wiped, and a typed key is saved only
+     after the server accepts it (2 tries, then give up for this page load). */
+  if(r.status===401||r.status===403){
+    var n=getK();
+    if(n&&n!==k)return send(n);                    // another call already got a working key
+    if(storeFetch._asked)return r;
+    storeFetch._asked=true;
+    if(k){storeFetch._k='';try{localStorage.removeItem('ahooga_store_key');}catch(e){}}
+    var msg=k?'The saved Ahooga store key was refused (wrong or changed). Please enter the current key:'
+             :'This tool needs the Ahooga store key to load and save shared data (asked once on this computer):';
+    for(var t=0;t<2;t++){
+      n=String(window.prompt(msg)||'').trim();
+      if(!n)break;
+      var r2=await send(n);
+      if(r2.status!==401&&r2.status!==403){storeFetch._k=n;try{localStorage.setItem('ahooga_store_key',n);}catch(e){}return r2;}
+      msg='That key was not accepted. Check it and try again:';
+    }
+  }
+  return r;
+}
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx-js-style/1.2.0/xlsx.bundle.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="mxp-auth.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style id="ahooga-brand">
-body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
 :root{--accent:#14259b;--pink:#14259b}
-.ahooga-home{position:fixed;left:14px;bottom:14px;z-index:2147483600;display:inline-flex;align-items:center;gap:6px;font-family:'Inter',system-ui,sans-serif;font-weight:700;font-size:12.5px;line-height:1;padding:9px 14px;border-radius:999px;text-decoration:none;background:#14259b;color:#fff;border:1px solid rgba(255,255,255,.25);box-shadow:0 6px 18px rgba(20,37,155,.4);opacity:.9;transition:opacity .15s,transform .15s}
+.ahooga-home{position:fixed;left:14px;bottom:14px;z-index:2147483600;display:inline-flex;align-items:center;gap:6px;font-family:'Figtree',system-ui,sans-serif;font-weight:700;font-size:12.5px;line-height:1;padding:9px 14px;border-radius:999px;text-decoration:none;background:#14259b;color:#fff;border:1px solid rgba(255,255,255,.25);box-shadow:0 6px 18px rgba(20,37,155,.4);opacity:.9;transition:opacity .15s,transform .15s}
 .ahooga-home:hover{opacity:1;transform:translateY(-1px)}
 @media print{.ahooga-home{display:none}}
 </style>
+
+<!-- Ahooga V3 theme (see ahooga-v3.css) -->
+<link rel="stylesheet" href="ahooga-v3.css">
+<style id="v3-map">
+html[data-v3]{--bg:#f8f5f4;--surface:#fff;--surface2:#f8f5f4;--border:rgba(21,20,23,.12);--border2:rgba(21,20,23,.22);--text:#151417;--text2:#5f5a5d;--text3:#8d878a;--accent:#14259b;--accent-bg:#eef0fb;--accent-text:#14259b;--pink:#14259b;--success:#1d7349;--success-bg:#e6f3ec;--warn:#9a5b00;--warn-bg:#fdf1db;--danger:#b0281e;--danger-bg:#fbe8e6;--green:#1d7349;--green-bg:#e6f3ec;--red:#b0281e;--red-bg:#fbe8e6;--amber:#9a5b00;--amber-bg:#fdf1db;--radius:12px;--radius-sm:8px}
+
+</style>
+<script>try{if(window.top!==window.self)document.documentElement.classList.add("v3-framed")}catch(e){document.documentElement.classList.add("v3-framed")}</script>
 </head>
 <body>
 <div id="app">
@@ -362,9 +382,9 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
       <div style="display:flex;flex-wrap:wrap;gap:8px">
         <button class="btn btn-success btn-sm" onclick="exportPOImport({selected:true})">⬇ PO → Odoo import (selected)</button>
         <button class="btn btn-primary btn-sm" title="For custom orders without a PO from Odoo, look the SO up in the Deco Coat sheet and write the PO into the tab." onclick="fillDecoCoatPOsFromSheet()">🔎 Find PO in Deco Coat sheet</button>
-        <button class="btn btn-primary btn-sm" onclick="createLabels()">🏷 Create labels — new</button>
-        <button class="btn btn-primary btn-sm" onclick="createLabels({selected:true})">🏷 Labels — selected <span id="lbl-sel-count" style="font-weight:600"></span></button>
-        <button class="btn btn-secondary btn-sm" onclick="createLabels({all:true})">🏷 Labels — all custom</button>
+        <button class="btn btn-primary btn-sm" onclick="createLabels()">🏷 Create labels · new</button>
+        <button class="btn btn-primary btn-sm" onclick="createLabels({selected:true})">🏷 Labels · selected <span id="lbl-sel-count" style="font-weight:600"></span></button>
+        <button class="btn btn-secondary btn-sm" onclick="createLabels({all:true})">🏷 Labels · all custom</button>
         <button class="btn btn-success btn-sm" onclick="exportUpdatedDecocoat()">⬇ Updated Decocoat file</button>
         <button class="btn btn-secondary btn-sm" title="Link real frame serials from the Decocoat order book. Serials are assigned by Decocoat during painting — never invented here." onclick="assignSerials()">#️⃣ Link Decocoat serials</button>
         <span style="font-size:11px;color:var(--text3);align-self:center">Order forms, PO PDF &amp; emails are in the <strong>Order Form</strong> tab.</span>
@@ -412,7 +432,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
     </div>
     <div class="alert alert-info" style="margin-bottom:16px">
       Pick a custom-colour order and download its Order Form. The file is generated from the
-      real Ahooga template, so the font, colours, cell sizes and layout are identical — only the
+      real Ahooga template, so the font, colours, cell sizes and layout are identical · only the
       order's own data is filled in. The two <strong>Frame nr.</strong> cells stay blank for Deco Coat.
     </div>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;max-width:820px">
@@ -2322,7 +2342,7 @@ function renderQueue() {
       {key:'move', td:`<td style="white-space:nowrap;min-width:80px">
         ${canMove
           ? `<input type="number" min="1" value="${realIdx+1}"
-              style="width:52px;padding:3px 5px;border:1px solid var(--border2);border-radius:4px;font-size:12px;font-family:monospace;text-align:center"
+              style="width:52px;padding:3px 5px;border:1px solid var(--border2);border-radius:4px;font-size:12px;font-family:Figtree,sans-serif;text-align:center"
               onblur="moveOrderToPosition('${o.id}', this.value-1)"
               onkeydown="if(event.key==='Enter'){this.blur()}"
               title="Type a position number and press Enter to move"
@@ -3570,7 +3590,7 @@ function renderStockSummary(el) {
           const unassigned = getUnassigned(f.key, rack, color);
           if(total===0) return `<td style="text-align:center;color:var(--text3);padding:6px 8px">—</td>`;
           const serialRange = matchItems.map(i=>i.serialRange).filter(Boolean).join(', ');
-          const serial = serialRange ? `<br><span style="font-family:monospace;font-size:10px;color:var(--text3)">${serialRange}</span>` : '';
+          const serial = serialRange ? `<br><span style="font-family:Figtree,sans-serif;font-size:10px;color:var(--text3)">${serialRange}</span>` : '';
           const freeTag = unassigned>0 ? `<br><span style="font-size:10px;color:var(--success);font-weight:600">+${unassigned} free</span>` : '';
           // PO reference(s) feeding these specific bikes
           const cellPOs = [...new Set(matchItems.map(i=>i.poName).filter(Boolean))].join(', ');
@@ -4027,7 +4047,7 @@ function renderSerials() {
       <div style="font-size:12px;color:var(--text3);margin-top:4px">Last in Odoo: ${prefix}${String(last).padStart(7,'0')}</div>
       <div style="font-size:12px;color:var(--text3);margin-top:2px">Next to assign: <b>${prefix}${String(next).padStart(7,'0')}</b></div>
       <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
-        <input type="number" value="${last}" min="0" id="so-${prefix}" style="width:110px;padding:5px 8px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-family:monospace;font-size:13px"/>
+        <input type="number" value="${last}" min="0" id="so-${prefix}" style="width:110px;padding:5px 8px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-family:Figtree,sans-serif;font-size:13px"/>
         <button class="btn btn-secondary btn-sm" onclick="overrideSerial('${prefix}')">Override last</button>
       </div>
     </div>`;
@@ -4476,7 +4496,7 @@ function renderCustom() {
       </td>
       <td>
         <input type="number" min="1" value="${realIdx+1}"
-          style="width:52px;padding:3px 5px;border:1px solid var(--border2);border-radius:4px;font-size:12px;font-family:monospace;text-align:center"
+          style="width:52px;padding:3px 5px;border:1px solid var(--border2);border-radius:4px;font-size:12px;font-family:Figtree,sans-serif;text-align:center"
           onblur="moveOrderToPosition('${o.id}', this.value-1)"
           onkeydown="if(event.key==='Enter'){this.blur()}"
         />
@@ -4550,7 +4570,7 @@ function exportShipList() {
       <td>${o.color}</td>
       <td>${o.rack}</td>
       <td>${o.deadline ? new Date(o.deadline).toLocaleDateString('en-GB') : '&#8212;'}</td>
-      <td style="font-family:monospace;font-size:11px">${o.serialEst||'&#8212;'}</td>
+      <td style="font-family:Figtree,sans-serif;font-size:11px">${o.serialEst||'&#8212;'}</td>
       <td>${locLabel(o.stockLocation||'Brain/Stock')}</td>
       <td style="text-align:center">${o.isUrgent?'&#9888;':'&#8212;'}</td>
     </tr>`).join('');
@@ -5292,7 +5312,7 @@ function buildPOPdfDoc(po){
   const right = 195;
   doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.text('AHOOGA', 15, 18);
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
-  doc.text('Ahooga SRL\nRue Henry Joseph Genesse 34\n1070 - Anderlecht\nBelgium\nVAT: BE0633687835', 80, 14);
+  doc.text('Ahooga SRL\nRue des Tanneurs 62 A2.07\n1000 Brussels\nBelgium\nVAT: BE0633687835', 80, 14);
   doc.text('Shipping address\nOkazi Fiets Atelier - Velovisie\nStadsheide 2,\n3500 Hasselt\nBelgium', 15, 40);
   doc.text((pd.partner||'Deco Coat')+'\nHermes 12\n8448 CK Heerenveen\nNetherlands\nVAT: NL855944717B01', 120, 40);
   doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.text('Purchase Order #'+po, 15, 72);

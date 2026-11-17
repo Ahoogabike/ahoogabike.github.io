@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ahooga Finance IN / OUT</title>
+<style>
+:root{--bg:#f2f1ed;--surface:#fff;--surface2:#f0efe9;--border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);--text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#14259b;--accent-bg:#e6f0fb;--success:#2d6e2d;--success-bg:#eaf3de;--warn:#7a4e0a;--warn-bg:#faeeda;--danger:#8b1f1f;--danger-bg:#fcebeb;--purple:#3c3489;--purple-bg:#eeedfe;--teal:#0f6e56;--teal-bg:#e1f5ee;--radius:10px;--radius-sm:6px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:52px;gap:12px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.logo{font-size:17px;font-weight:800}.logo span{color:var(--accent)}
+.nav-btn{padding:5px 12px;border-radius:var(--radius-sm);font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--text2)}
+.nav-btn.active{background:var(--accent-bg);color:var(--accent);border-color:rgba(20,37,155,0.2)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--text3);border:1px solid var(--border2)}
+.pill.ok{background:var(--success-bg);color:var(--success)}.pill.err{background:var(--danger-bg);color:var(--danger)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:var(--radius-sm);font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:inherit}
+.btn-primary{background:var(--accent);color:#fff}.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+main{padding:20px;max-width:1500px;margin:0 auto}
+.view{display:none}.view.active{display:block}
+.explain{background:var(--accent-bg);border:1px solid rgba(20,37,155,0.15);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;font-size:13px;color:var(--accent);line-height:1.55}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px}
+.kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:4px}
+.kpi-value{font-size:20px;font-weight:700}
+.toolbar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.toolbar input,.toolbar select{padding:6px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;background:var(--surface);color:var(--text);outline:none}
+.toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:12px}
+.tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px}
+.tag.iss{background:var(--accent-bg);color:var(--accent)}.tag.pln{background:#dbe2fb;color:#2c3da8}.tag.pay{background:var(--purple-bg);color:var(--purple)}.tag.svc{background:var(--teal-bg);color:var(--teal)}
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface);margin-bottom:14px}
+table.grid{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+table.grid th,table.grid td{border-bottom:1px solid var(--border);padding:6px 9px;font-size:12px;text-align:right;white-space:nowrap}
+table.grid th{background:var(--surface2);color:var(--text2);font-size:10px;text-transform:uppercase;letter-spacing:0.03em;text-align:right}
+table.grid td:first-child,table.grid th:first-child{text-align:left;white-space:normal}
+table.grid tr.mrow{cursor:pointer}
+table.grid tr.mrow:hover td{background:var(--surface2)}
+table.grid tr.cur td{background:rgba(20,37,155,0.05)}
+table.grid tr.subtot td{font-weight:700;background:var(--surface2)}
+.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px;height:340px}
+.alert{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:12px;line-height:1.5}
+.alert.info{background:var(--accent-bg);color:var(--accent)}.alert.ok{background:var(--success-bg);color:var(--success)}.alert.warn{background:var(--warn-bg);color:var(--warn)}.alert.err{background:var(--danger-bg);color:var(--danger)}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.field label{font-size:11px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text2);font-weight:600}
+.field input{padding:8px 10px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none}
+.hint{font-size:11px;color:var(--text3);margin-top:3px}
+.settings-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+a.link{color:var(--accent);font-weight:600;text-decoration:none}
+.ahooga-home{position:fixed;left:14px;bottom:14px;z-index:9999;display:inline-flex;gap:6px;font-weight:700;font-size:12.5px;padding:9px 14px;border-radius:999px;text-decoration:none;background:#14259b;color:#fff;border:1px solid rgba(255,255,255,.25);box-shadow:0 6px 18px rgba(20,37,155,.4);opacity:.9}
+@media print{.ahooga-home,header,.toolbar{display:none}}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script>
+/* /store/ key (Nov 2026): once the proxy's STORE_KEY secret is set, every save (and every read of a private key)
+   needs the header X-Store-Key. The key is kept only in this browser (localStorage 'ahooga_store_key') and is
+   asked once, the first time the server answers 401. Never write the key itself into this file. */
+async function storeFetch(url,opts){
+  opts=opts||{};
+  var getK=function(){var k='';try{k=localStorage.getItem('ahooga_store_key')||'';}catch(e){}return k||storeFetch._k||'';};
+  var send=function(k){var h=Object.assign({},opts.headers||{});if(k)h['X-Store-Key']=k;return fetch(url,Object.assign({},opts,{headers:h}));};
+  var k=getK(),r=await send(k);
+  /* Nov 17 fix: before, the typed key was saved even when the server refused it, so one typo meant the
+     prompt came back on every visit. Now a refused saved key is wiped, and a typed key is saved only
+     after the server accepts it (2 tries, then give up for this page load). */
+  if(r.status===401||r.status===403){
+    var n=getK();
+    if(n&&n!==k)return send(n);                    // another call already got a working key
+    if(storeFetch._asked)return r;
+    storeFetch._asked=true;
+    if(k){storeFetch._k='';try{localStorage.removeItem('ahooga_store_key');}catch(e){}}
+    var msg=k?'The saved Ahooga store key was refused (wrong or changed). Please enter the current key:'
+             :'This tool needs the Ahooga store key to load and save shared data (asked once on this computer):';
+    for(var t=0;t<2;t++){
+      n=String(window.prompt(msg)||'').trim();
+      if(!n)break;
+      var r2=await send(n);
+      if(r2.status!==401&&r2.status!==403){storeFetch._k=n;try{localStorage.setItem('ahooga_store_key',n);}catch(e){}return r2;}
+      msg='That key was not accepted. Check it and try again:';
+    }
+  }
+  return r;
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>Finance IN / OUT</span></div>
+  <button class="nav-btn active" id="nav-plan" onclick="showTab('plan')">💶 IN / OUT</button>
+  <button class="nav-btn" id="nav-pnl" onclick="showTab('pnl')">📈 P&amp;L / EBITDA</button>
+  <button class="nav-btn" id="nav-spend" onclick="showTab('spend')">📒 Spending (accounts)</button>
+  <button class="nav-btn" id="nav-settings" onclick="showTab('settings')">⚙ Settings</button>
+  <div class="header-right">
+    <span class="pill" id="conn-pill">Odoo: not connected</span>
+    <button class="btn btn-primary" onclick="loadAll()">↻ Load</button>
+  </div>
+</header>
+<main>
+  <div id="alert"></div>
+
+  <!-- PLAN -->
+  <div class="view active" id="view-plan">
+    <div class="explain">
+      <b>Money in &amp; out — to a projected bank balance.</b>
+      <b>Cash IN</b> = bikes (sales-forecast seasonality × annual bikes 2026/2027 × avg price) <b>plus accessories, spare-parts &amp; maintenance revenue</b> (from Odoo actuals; maintenance kept at this year's level), landing 30 days after the sale.
+      <b>Cash OUT</b> below. 2027: May–Dec POs are the 2026 ones ×1.5 (towards 6,500 bikes in 2028) and marketing runs +50%. The bottom table is IN − OUT building on your <b>opening bank balance (auto from Odoo/KBC)</b>. Accounts receivable is shown but excluded from the opening by default — it's permanent working capital that stays roughly constant.<br>
+      <span class="tag iss">issued POs</span> = open purchase orders in Odoo, paid at <b>issue date + that vendor's usual payment terms</b>.
+      <span class="tag pln">planned POs</span> = the Parts Agenda's upcoming orders — each part's <b>needed-date − lead time</b> gives the issue date, then + the vendor's usual terms — valued at part cost × qty.
+      <span class="tag pay">payroll</span> (class 62) and <span class="tag svc">services/other</span> (class 61/64/65) run at their monthly run-rate from accounting.
+      <b>POs are paid in milestones</b> — e.g. 30% <b>deposit at order</b>, 70% <b>balance at shipment</b> (expected receipt − transit) — not all in one month. Turn the split off in Settings to use single net-terms payments instead. All ex-VAT unless toggled.
+    </div>
+    <div class="kpis" id="plan-kpis"></div>
+    <div class="toolbar">
+      <label class="toggle">Horizon to <input type="text" id="pf-end" value="2026-12" style="width:90px" onchange="renderPlan()"/></label>
+      <label class="toggle"><input type="checkbox" id="pf-iss" checked onchange="renderPlan()"/> issued POs</label>
+      <label class="toggle"><input type="checkbox" id="pf-pln" checked onchange="renderPlan()"/> planned POs</label>
+      <label class="toggle"><input type="checkbox" id="pf-pay" checked onchange="renderPlan()"/> payroll</label>
+      <label class="toggle"><input type="checkbox" id="pf-svc" checked onchange="renderPlan()"/> services/other</label>
+      <label class="toggle"><input type="checkbox" id="pf-in" checked onchange="renderPlan()"/> cash in (revenue)</label>
+      <button class="btn btn-secondary" onclick="exportPlan()">⬇ Export</button>
+      <span id="plan-status" class="hint"></span>
+    </div>
+    <div class="chart-box"><canvas id="cashChart"></canvas></div>
+    <div style="font-weight:700;margin:6px 0 8px;color:var(--accent)">Cash OUT — by stream</div>
+    <div class="table-wrap"><table class="grid" id="plan-table"></table></div>
+    <div class="hint" style="margin-bottom:14px">Click a month to see the POs &amp; planned orders behind it.</div>
+    <div style="font-weight:700;margin:6px 0 8px;color:var(--accent)">Bank balance — Cash IN − Cash OUT</div>
+    <div class="table-wrap"><table class="grid" id="bank-table"></table></div>
+  </div>
+
+  <!-- P&L / EBITDA -->
+  <div class="view" id="view-pnl">
+    <div class="explain"><b>P&amp;L, EBITDA &amp; tax — fiscal years 2026 &amp; 2027 (accrual, full-year, ex-VAT).</b> Revenue is the same plan as the IN/OUT tab (bikes + accessories + spares + maintenance). COGS is scaled from your historical purchases-to-revenue ratio. Payroll &amp; overhead come from the ledger run-rate; 2027 adds +50% marketing. EBITDA = gross − payroll − overhead (before depreciation, interest, tax). Tax applies to positive profit before tax.</div>
+    <div class="kpis" id="pnl-kpis"></div>
+    <div class="table-wrap"><table class="grid" id="pnl-table"></table></div>
+    <div class="hint">COGS ratio &amp; tax rate are in Settings. Depreciation (class 63), interest (65) come from the ledger.</div>
+  </div>
+
+  <!-- SPENDING -->
+  <div class="view" id="view-spend">
+    <div class="explain"><b>What you actually spend, by account code.</b> Posted expense postings over the history window, grouped by Belgian account class. Class 62/61/64 drive the payroll &amp; overhead run-rate used in the plan.</div>
+    <div class="kpis" id="spend-kpis"></div>
+    <div class="table-wrap"><table class="grid" id="spend-table"></table></div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div class="view" id="view-settings">
+    <div class="settings-grid">
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:10px">Odoo connection</div>
+        <div class="field"><label>Your Odoo email</label><input type="text" id="cfg-user" placeholder="yourname@ahooga.bike"/></div>
+        <div class="field"><label>API key</label><input type="password" id="cfg-key"/></div>
+        <button class="btn btn-primary" onclick="connectOdoo()">▶ Connect</button>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:10px">Horizon &amp; payment milestones</div>
+        <div class="field"><label>Horizon end (YYYY-MM)</label><input type="text" id="cfg-end" value="2027-12"/></div>
+        <label class="toggle" style="margin:2px 0 8px"><input type="checkbox" id="cfg-split" checked/> split PO payment: deposit at order + balance at shipment</label>
+        <div class="field"><label>Deposit % at order</label><input type="number" id="cfg-deposit" min="0" max="100" value="30"/><div class="hint">balance (the rest) is paid at shipment</div></div>
+        <div class="field"><label>Transit (days, sea)</label><input type="number" id="cfg-transit" min="0" value="45"/><div class="hint">shipment = expected receipt − transit</div></div>
+        <div class="field"><label>Default payment terms (days)</label><input type="number" id="cfg-defterms" min="0" value="60"/><div class="hint">used only when the split is OFF (single payment = order + terms)</div></div>
+        <label class="toggle" style="margin-top:4px"><input type="checkbox" id="cfg-incvat"/> include VAT on goods (POs &amp; parts)</label>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:10px">Model assumptions</div>
+        <div class="field"><label>Accounting history (months)</label><input type="number" id="cfg-hist" min="3" max="24" value="12"/></div>
+        <div class="field"><label>Extra transfer lead (days)</label><input type="number" id="cfg-leadextra" min="0" value="0"/><div class="hint">added to each part's supplier lead on top of the agenda's transfer lead</div></div>
+        <div class="field"><label>Overhead factor (%)</label><input type="number" id="cfg-ovf" min="0" value="100"/><div class="hint">100 = keep payroll/overhead flat at run-rate</div></div>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:10px">Revenue (cash in)</div>
+        <div class="field"><label>Bikes to sell 2026</label><input type="number" id="cfg-b2026" min="0" value="2005"/></div>
+        <div class="field"><label>Bikes to sell 2027</label><input type="number" id="cfg-b2027" min="0" value="4500"/></div>
+        <div class="field"><label>Avg selling price €/bike</label><input type="number" id="cfg-asp" min="0" value="0"/><div class="hint">0 = auto-detect from Odoo bike sales (ex-VAT)</div></div>
+        <div class="field"><label>Collection delay (days)</label><input type="number" id="cfg-coll" min="0" value="30"/><div class="hint">cash lands this many days after the sale</div></div>
+        <div class="field"><label>Bank balance override €</label><input type="number" id="cfg-startbal" value="0"/><div class="hint">0 = auto from Odoo bank/cash accounts (KBC)</div></div>
+        <label class="toggle" style="margin:2px 0 4px"><input type="checkbox" id="cfg-incar"/> add accounts receivable to the opening balance</label>
+        <div class="hint" style="margin-bottom:6px">AR is roughly constant working capital — it doesn't really drop to zero. Leave OFF for a realistic balance; turn ON only to see the theoretical cushion if you collected it all.</div>
+        <div style="font-weight:600;margin:8px 0 4px;font-size:12px">Other revenue (Odoo actuals)</div>
+        <div class="field"><label>Accessories 2027 (×)</label><input type="number" id="cfg-acc27" min="0" step="0.1" value="1"/></div>
+        <div class="field"><label>Spare parts 2027 (×)</label><input type="number" id="cfg-spare27" min="0" step="0.1" value="1"/><div class="hint">accessories, spare parts &amp; maintenance revenue are pulled from Odoo (last 12m). Maintenance stays at this year's level; bump accessories/spares for 2027 here.</div></div>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:10px">P&amp;L &amp; tax</div>
+        <div class="field"><label>Corporate tax rate (%)</label><input type="number" id="cfg-tax" min="0" max="100" value="25"/><div class="hint">Belgium ≈ 25%</div></div>
+        <div class="field"><label>COGS ratio override (% of revenue)</label><input type="number" id="cfg-cogsr" min="0" max="100" value="0"/><div class="hint">0 = auto from history (purchases ÷ revenue)</div></div>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:10px">2027 ramp (towards 6,500 in 2028)</div>
+        <div class="field"><label>2027 PO uplift (×)</label><input type="number" id="cfg-pofac" min="1" step="0.1" value="1.5"/><div class="hint">May–Dec 2027 purchasing = the same 2026 POs × this factor</div></div>
+        <div class="field"><label>2027 marketing uplift (%)</label><input type="number" id="cfg-mktg" min="0" value="50"/><div class="hint">extra marketing on top of the 2026 run-rate, all of 2027</div></div>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:12px" onclick="saveCfg()">💾 Save settings</button>
+  </div>
+</main>
+
+<script>
+const CF_WORKER='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
+const ODOO_URL='https://ahooga.odoo.com';
+const ODOO_DB ='logicasoft-aho-18-0-21599177';
+const LS='ahooga_cashout_all_cfg';
+let odooUid=null;
+let SPEND=[];           // [{code,name,cat,total,monthly}]
+let CAT={payrollMo:0,servicesMo:0,mktgMo:0};
+let TERMS={};           // vendor name (lc) -> usual net days
+let ENTRIES=[];         // purchasing cash items: {kind:'issued'|'planned', date, amount, vendor, ref, phase}
+let CASHIN=[];          // revenue cash-in: {date, amount, units, saleMonth}
+let ASP=0;              // avg selling price / bike
+let OTHERREV={accMo:0,spareMo:0,maintMo:0};  // monthly run-rate of accessories / spare parts / maintenance revenue
+let BANKBAL=0, ARBAL=0;                       // current bank (KBC) balance & accounts receivable, from Odoo
+let REV12=0;                                  // total customer-invoice revenue last 12m (for COGS ratio)
+let META={pos:0,agenda:0,agendaNoCost:0,baseTerms:0};
+let _chart=null;
+const SEASON_FWD=[3,7,11,15,15,15,11,7,11,7,3,3], SEASON_SUM=108;  // sales-forecast seasonality (Jan..Dec)
+const MKTG_RE=/market|publicit|publici|advertis|promo|communic|salon|foire|trade ?show|adwords|google ads|meta|facebook|instagram/i;
+
+const $=(id)=>document.getElementById(id);
+const esc=(s)=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const eur=(n)=> (n==null||isNaN(n))?'€0':'€'+ (Math.round(n)).toLocaleString('en-GB');
+const fmt=(n)=> (n==null||isNaN(n))?'0':Math.round(n).toLocaleString('en-GB');
+function alert_(m,t){ $('alert').innerHTML=`<div class="alert ${t}">${m}</div>`; if(t==='ok')setTimeout(()=>{$('alert').innerHTML='';},6000); }
+function toArr(x){ return Array.isArray(x)?x:(x?[x]:[]); }
+function arr(x){return Array.isArray(x)?x:[null,x?String(x):''];}
+function chunk(a,n){ const o=[]; for(let i=0;i<a.length;i+=n) o.push(a.slice(i,i+n)); return o; }
+function today(){ return new Date().toISOString().slice(0,10); }
+function addDays(ds,n){ const d=new Date((''+ds).slice(0,10)+'T00:00:00'); if(isNaN(d)) return today(); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
+function median(a){ if(!a.length)return null; const s=[...a].sort((x,y)=>x-y); const m=s.length>>1; return s.length%2?s[m]:Math.round((s[m-1]+s[m])/2); }
+function mk(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function mLabel(k){ const [y,m]=k.split('-'); return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]+" '"+y.slice(2); }
+function monthsAgoISO(n){ const d=new Date(); d.setMonth(d.getMonth()-n); d.setDate(1); return d.toISOString().slice(0,10); }
+
+function cfg(){ try{ return JSON.parse(localStorage.getItem(LS)||'{}'); }catch(e){ return {}; } }
+function saveCfg(){
+  const c={ end:($('cfg-end').value||'2026-12').trim(), defterms:parseInt($('cfg-defterms').value)||60, incvat:$('cfg-incvat').checked,
+    split:$('cfg-split').checked, deposit:Math.min(100,Math.max(0,parseInt($('cfg-deposit').value)||0)), transit:parseInt($('cfg-transit').value)||0,
+    hist:Math.min(24,Math.max(3,parseInt($('cfg-hist').value)||12)), leadextra:parseInt($('cfg-leadextra').value)||0, ovf:parseFloat($('cfg-ovf').value)||100,
+    b2026:parseInt($('cfg-b2026').value)||0, b2027:parseInt($('cfg-b2027').value)||0, asp:parseFloat($('cfg-asp').value)||0, coll:parseInt($('cfg-coll').value)||0, startbal:parseFloat($('cfg-startbal').value)||0, incar:$('cfg-incar').checked,
+    acc27:parseFloat($('cfg-acc27').value)||1, spare27:parseFloat($('cfg-spare27').value)||1,
+    pofac:parseFloat($('cfg-pofac').value)||1, mktg:parseFloat($('cfg-mktg').value)||0,
+    tax:parseFloat($('cfg-tax').value)||0, cogsr:parseFloat($('cfg-cogsr').value)||0 };
+  try{ localStorage.setItem(LS,JSON.stringify(c)); }catch(e){}
+  try{ const m=JSON.parse(localStorage.getItem('mxp_cfg')||'{}'); m.user=$('cfg-user').value.trim(); m.key=$('cfg-key').value.trim(); localStorage.setItem('mxp_cfg',JSON.stringify(m)); }catch(e){}
+  $('pf-end').value=c.end; alert_('Settings saved — reloading…','ok'); loadAll();
+}
+function loadCfgUI(){
+  const c=cfg();
+  $('cfg-end').value=c.end||'2026-12'; $('cfg-defterms').value=c.defterms!=null?c.defterms:60; $('cfg-incvat').checked=!!c.incvat;
+  $('cfg-split').checked=c.split!==false; $('cfg-deposit').value=c.deposit!=null?c.deposit:30; $('cfg-transit').value=c.transit!=null?c.transit:45;
+  $('cfg-hist').value=c.hist||12; $('cfg-leadextra').value=c.leadextra||0; $('cfg-ovf').value=c.ovf||100;
+  $('cfg-b2026').value=c.b2026||2005; $('cfg-b2027').value=c.b2027||4500; $('cfg-asp').value=c.asp||0; $('cfg-coll').value=c.coll!=null?c.coll:30; $('cfg-startbal').value=c.startbal||0;
+  $('cfg-acc27').value=c.acc27!=null?c.acc27:1; $('cfg-spare27').value=c.spare27!=null?c.spare27:1; $('cfg-incar').checked=c.incar===true;
+  $('cfg-pofac').value=c.pofac||1.5; $('cfg-mktg').value=c.mktg!=null?c.mktg:50;
+  $('cfg-tax').value=c.tax!=null?c.tax:25; $('cfg-cogsr').value=c.cogsr||0;
+  $('pf-end').value=c.end||'2027-12';
+  try{ const m=JSON.parse(localStorage.getItem('mxp_cfg')||'{}'); if(m.user)$('cfg-user').value=m.user; if(m.key)$('cfg-key').value=m.key; }catch(e){}
+}
+const defTerms=()=>cfg().defterms!=null?cfg().defterms:60, histMonths=()=>Math.min(24,Math.max(3,cfg().hist||12)), leadExtra=()=>parseInt(cfg().leadextra)||0;
+const ovf=()=>(parseFloat(cfg().ovf)||100)/100, incVat=()=>!!cfg().incvat, endMonth=()=>($('pf-end').value||cfg().end||'2026-12').trim();
+const vatF=()=>incVat()?1.21:1;
+const splitOn=()=>cfg().split!==false, depositPct=()=>(cfg().deposit!=null?cfg().deposit:30)/100, transitDays=()=>cfg().transit!=null?cfg().transit:45;
+const bikes2026=()=>cfg().b2026||2005, bikes2027=()=>cfg().b2027||4500, aspCfg=()=>parseFloat(cfg().asp)||0, collDays=()=>cfg().coll!=null?cfg().coll:30;
+const startBal=()=>{ const ov=parseFloat(cfg().startbal)||0; if(ov) return ov; return (BANKBAL||0) + (cfg().incar===true?(ARBAL||0):0); };
+const po2027f=()=>parseFloat(cfg().pofac)||1.5, mktgUplift=()=>(cfg().mktg!=null?cfg().mktg:50)/100;
+const acc2027f=()=>cfg().acc27!=null?parseFloat(cfg().acc27):1, spare2027f=()=>cfg().spare27!=null?parseFloat(cfg().spare27):1;
+const taxRate=()=>(cfg().tax!=null?cfg().tax:25)/100;
+function byClass(p){ return SPEND.filter(s=>(''+s.code).replace(/\D/g,'').slice(0,2)===p).reduce((a,s)=>a+(s.monthly||0)*12,0); }
+function mktgAnnual(){ return SPEND.filter(s=>MKTG_RE.test(s.name||'')).reduce((a,s)=>a+(s.monthly||0)*12,0); }
+function cogsRatio(){ const ov=parseFloat(cfg().cogsr)||0; if(ov>0) return ov/100; return REV12>0 ? byClass('60')/REV12 : 0.6; }
+
+// ── Odoo ─────────────────────────────────────────────────────
+function v(x){ if(x===null||x===undefined)return'<value><boolean>0</boolean></value>'; if(typeof x==='boolean')return`<value><boolean>${x?1:0}</boolean></value>`; if(typeof x==='number'&&Number.isInteger(x))return`<value><int>${x}</int></value>`; if(typeof x==='number')return`<value><double>${x}</double></value>`; if(Array.isArray(x))return`<value><array><data>${x.map(v).join('')}</data></array></value>`; if(typeof x==='object'){const m=Object.entries(x).map(([k,vv])=>`<member><name>${k}</name>${v(vv)}</member>`).join('');return`<value><struct>${m}</struct></value>`;} return`<value><string>${String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</string></value>`; }
+function parseXml(xml){ const doc=new DOMParser().parseFromString(xml,'text/xml'); if(doc.querySelector('fault'))throw new Error('Odoo: '+(doc.querySelector('faultString')?.textContent?.slice(0,160)||'fault')); function pv(n){if(!n)return null;const c=n.firstElementChild;if(!c)return n.textContent;switch(c.tagName){case'int':case'i4':case'i8':return parseInt(c.textContent);case'double':return parseFloat(c.textContent);case'boolean':return c.textContent==='1';case'string':return c.textContent;case'nil':return null;case'array':return Array.from(c.querySelector('data')?.children||[]).map(pv);case'struct':{const o={};c.querySelectorAll(':scope>member').forEach(m=>{o[m.querySelector('name').textContent]=pv(m.querySelector('value'))});return o;}default:return c.textContent;}} return pv(doc.querySelector('methodResponse>params>param>value')); }
+function proxyUrl(p){ return `${CF_WORKER}/odoo/${encodeURIComponent(ODOO_URL+p)}`; }
+async function odoo(model,method,args,kwargs={}){
+  const user=$('cfg-user').value.trim(), key=$('cfg-key').value.trim();
+  if(!user||!key) throw new Error('Connect to Odoo first (Settings).');
+  if(!odooUid){ const b=`<?xml version="1.0"?><methodCall><methodName>authenticate</methodName><params>${[v(ODOO_DB),v(user),v(key),v({})].map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`; const r=await fetch(proxyUrl('/xmlrpc/2/common'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b}); odooUid=parseXml(await r.text()); if(!odooUid||typeof odooUid!=='number')throw new Error('Odoo auth failed.'); }
+  const params=[v(ODOO_DB),v(odooUid),v(key),v(model),v(method),v(args),v(kwargs)];
+  const b=`<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>${params.map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+  const r=await fetch(proxyUrl('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+  return parseXml(await r.text());
+}
+async function connectOdoo(){ odooUid=null; try{ await odoo('res.users','search_count',[[]]); $('conn-pill').textContent='Odoo: ✓'; $('conn-pill').className='pill ok'; alert_('Connected.','ok'); loadAll(); }catch(e){ $('conn-pill').textContent='Odoo: error'; $('conn-pill').className='pill err'; alert_('Odoo: '+esc(e.message),'err'); } }
+async function kv(key){ try{ const r=await storeFetch(`${CF_WORKER}/store/${key}`); if(!r.ok) return null; const t=await r.text(); if(!t) return null; let j=JSON.parse(t); if(j&&typeof j==='object'&&'value'in j){ let val=j.value; if(typeof val==='string'){ try{val=JSON.parse(val);}catch(e){} } j=val; } return j; }catch(e){ return null; } }
+
+// ── LOAD ─────────────────────────────────────────────────────
+async function loadAll(){
+  const user=$('cfg-user').value.trim(), key=$('cfg-key').value.trim();
+  if(!user||!key){ showTab('settings'); return; }
+  odooUid=null;
+  try{ await loadModel(); }catch(e){ alert_('Cash-out: '+esc(e.message),'err'); }
+}
+function status(s){ $('plan-status').textContent=s; }
+function classify(code){ const c=(''+code).replace(/\D/g,''); const d2=c.slice(0,2); if(d2==='60')return'purchases'; if(d2==='62')return'payroll'; if(d2==='61')return'services'; if(d2==='63')return'depreciation'; if(d2==='64'||d2==='65'||d2==='66'||d2==='67')return'other'; return'other'; }
+const termsOf=(name)=>{ const k=(''+(name||'')).toLowerCase().trim(); return TERMS[k]!=null?TERMS[k]:defTerms(); };
+
+// push one cash event; for issued POs a past milestone is treated as already paid (skipped),
+// for planned POs (always future order) a stray past date is clamped to today.
+function addEntry(kind,phase,amt,vendor,ref,date){ if(!amt||amt<1) return; let d=(''+date).slice(0,10); if(d<today()){ if(kind==='planned') d=today(); else return; } ENTRIES.push({kind,phase,date:d,amount:amt,vendor,ref}); }
+// split a PO into deposit (at order) + balance (at shipment), or a single payment when the split is off
+function addPO(kind,amount,vendor,ref,orderDate,shipDate,termsDays){
+  if(!amount||amount<1) return;
+  if(splitOn()){
+    const dep=depositPct();
+    addEntry(kind,'deposit',amount*dep,vendor,ref,orderDate);
+    addEntry(kind,'balance',amount*(1-dep),vendor,ref,shipDate);
+  } else {
+    addEntry(kind,'full',amount,vendor,ref,addDays(orderDate, termsDays!=null?termsDays:defTerms()));
+  }
+}
+
+async function loadModel(){
+  const look=histMonths(); const since=monthsAgoISO(look);
+  ENTRIES=[]; META={pos:0,agenda:0,agendaNoCost:0,baseTerms:0};
+
+  // 1) accounting — payroll & services run-rate + spend breakdown
+  status('reading accounting by account code…');
+  let groups=[];
+  try{ groups=toArr(await odoo('account.move.line','read_group',
+      [[['parent_state','=','posted'],['date','>=',since],['account_id.account_type','in',['expense','expense_direct_cost','expense_depreciation']]]],
+      {fields:['balance:sum'], groupby:['account_id']})); }
+  catch(e){ groups=toArr(await odoo('account.move.line','read_group',
+      [[['parent_state','=','posted'],['date','>=',since],['account_id.internal_group','=','expense']]],
+      {fields:['balance:sum'], groupby:['account_id']})); }
+  const accIds=groups.map(g=>arr(g.account_id)[0]).filter(Boolean); const accInfo={};
+  for(const c of chunk(accIds,300)){ const as=toArr(await odoo('account.account','read',[c],{fields:['code','name']})); for(const a of as) accInfo[a.id]={code:a.code||'',name:a.name||''}; }
+  SPEND=[]; const sum={purchases:0,payroll:0,services:0,other:0,depreciation:0};
+  for(const g of groups){ const id=arr(g.account_id)[0]; const info=accInfo[id]||{}; const code=info.code||(arr(g.account_id)[1]||'').split(' ')[0]; const name=info.name||arr(g.account_id)[1]||''; const total=g.balance||0; if(Math.abs(total)<1) continue; const cat=classify(code); sum[cat]+=total; SPEND.push({code,name,cat,total,monthly:total/look}); }
+  SPEND.sort((a,b)=>b.total-a.total);
+  const mkAnnual=SPEND.filter(s=>MKTG_RE.test(s.name||'')).reduce((a,s)=>a+s.total,0);
+  CAT={ payrollMo:(sum.payroll/look)*ovf(), servicesMo:((sum.services+sum.other)/look)*ovf(), mktgMo:(mkAnnual/look)*ovf() };
+
+  // opening position — bank/cash (KBC) balance + accounts receivable
+  status('reading bank & receivables…');
+  BANKBAL=0; ARBAL=0;
+  try{ const bg=toArr(await odoo('account.move.line','read_group',[[['parent_state','=','posted'],['account_id.account_type','=','asset_cash']]],{fields:['balance:sum'],groupby:['account_id']})); bg.forEach(g=>BANKBAL+=g.balance||0); }catch(e){}
+  try{ const ag=toArr(await odoo('account.move.line','read_group',[[['parent_state','=','posted'],['account_id.account_type','=','asset_receivable']]],{fields:['balance:sum'],groupby:['account_id']})); ag.forEach(g=>ARBAL+=g.balance||0); }catch(e){}
+
+  // 2) usual payment terms per vendor (avg due−invoice days)
+  status('learning usual payment terms…');
+  TERMS={};
+  try{
+    const hist=toArr(await odoo('account.move','search_read',
+      [[['move_type','=','in_invoice'],['state','=','posted'],['invoice_date','>=',monthsAgoISO(18)]]],
+      {fields:['partner_id','invoice_date','invoice_date_due'],limit:20000}));
+    const diffs={};
+    for(const b of hist){ const nm=(arr(b.partner_id)[1]||'').toLowerCase().trim(); if(!nm||!b.invoice_date||!b.invoice_date_due) continue; const d=Math.round((new Date(b.invoice_date_due)-new Date(b.invoice_date))/86400000); if(d>=0&&d<=180){ (diffs[nm]=diffs[nm]||[]).push(d); } }
+    for(const nm in diffs) TERMS[nm]=median(diffs[nm]);
+    META.baseTerms=Object.keys(TERMS).length;
+  }catch(e){}
+
+  // 3) ISSUED POs — open purchase orders; deposit at order, balance at shipment (receipt − transit)
+  status('loading issued purchase orders…');
+  const transit=transitDays();
+  const pos=toArr(await odoo('purchase.order','search_read',
+    [[['state','=','purchase']]],
+    {fields:['name','partner_id','date_order','date_approve','date_planned','amount_total','amount_untaxed','invoice_status'],limit:8000}));
+  for(const p of pos){ const ven=arr(p.partner_id)[1]||'(no vendor)'; const order=(p.date_approve||p.date_order||today()).slice(0,10);
+    const receipt=(p.date_planned||'').slice(0,10); const ship= receipt? addDays(receipt,-transit) : addDays(order,60);
+    const amt=incVat()?(p.amount_total||0):(p.amount_untaxed||0); if(amt<1) continue;
+    addPO('issued',amt,ven,p.name||'',order,ship,termsOf(ven)); }
+  META.pos=pos.length;
+
+  // 4) PLANNED POs — from the Parts Agenda (needed-date − lead = issue; + usual terms)
+  status('loading Parts Agenda planned orders…');
+  const pd=await kv('parts_deadlines'); const plc=await kv('parts_lead_cfg')||{};
+  const items=(pd&&pd.items)||[]; const transfer=(pd&&pd.transferLeadDays)||0; const leadMap=(plc.odoo)||{}; const seaDef=plc.seaDefault||90;
+  const pids=[...new Set(items.map(it=>it.pid).filter(Boolean))];
+  const costById={};
+  for(const c of chunk(pids,300)){ const ps=toArr(await odoo('product.product','read',[c],{fields:['standard_price']})); for(const p of ps) costById[p.id]=p.standard_price||0; }
+  for(const it of items){ const qty=it.qty||0; if(qty<=0) continue; const cost=costById[it.pid]||0; if(cost<=0){ META.agendaNoCost++; continue; }
+    const lc=leadMap[it.pid]||{}; const ven=lc.vendor||'(no vendor)'; const delay=(lc.delay!=null?lc.delay:seaDef);
+    const need=(''+(it.neededDate||'')).slice(0,10); if(!need) continue;
+    const order=addDays(need, -(delay+transfer+leadExtra()));     // when the PO is placed
+    if(order<today()) continue;                                   // already due to be ordered → covered by issued POs
+    const ship=addDays(need, -(transfer+leadExtra()));            // goods leave the supplier (balance milestone)
+    const amt=qty*cost*vatF();
+    addPO('planned',amt,ven,(it.name||it.partNo||('#'+it.pid)),order,ship,termsOf(ven)); }
+  META.agenda=items.length;
+
+  // 4b) 2027 ramp — replicate May–Dec 2026 purchasing into May–Dec 2027 × uplift factor
+  const f=po2027f(); const extra=[];
+  if(f>0){ for(const e of ENTRIES){ if(e.kind!=='issued'&&e.kind!=='planned') continue; const mo=e.date.slice(0,7); if(mo>='2026-05'&&mo<='2026-12'){ extra.push({kind:'planned', phase:e.phase, date:addDays(e.date,365), amount:e.amount*f, vendor:e.vendor, ref:'2027 ×'+f+': '+e.ref}); } } }
+  ENTRIES=ENTRIES.concat(extra); META.ramp=extra.length;
+
+  // 5) REVENUE → cash-in (sales-forecast seasonality × annual bikes × ASP, lands +collection days)
+  status('building revenue / cash-in…');
+  ASP=aspCfg();
+  if(!ASP){ try{ const sl=toArr(await odoo('sale.order.line','search_read',
+      [[['order_id.state','in',['sale','done']],['order_id.date_order','>=',monthsAgoISO(12)],['product_id.categ_id.complete_name','ilike','Bikes']]],
+      {fields:['product_uom_qty','price_subtotal'],limit:80000}));
+    let q=0,r=0; for(const l of sl){ const qq=l.product_uom_qty||0, rr=l.price_subtotal||0; if(qq<=0||rr<=0) continue; q+=qq; r+=rr; } ASP=q>0?r/q:0; }catch(e){ ASP=0; } }
+  // other revenue (accessories / spare parts / maintenance) from Odoo customer invoices, last 12m
+  OTHERREV={accMo:0,spareMo:0,maintMo:0};
+  try{
+    const sinceR=monthsAgoISO(12);
+    const rl=toArr(await odoo('account.move.line','search_read',
+      [[['move_id.move_type','=','out_invoice'],['move_id.state','=','posted'],['date','>=',sinceR],['product_id','!=',false],['display_type','=',false]]],
+      {fields:['product_id','price_subtotal'],limit:120000}));
+    const rpids=[...new Set(rl.map(l=>arr(l.product_id)[0]).filter(Boolean))]; const catOf={};
+    for(const c of chunk(rpids,300)){ const ps=toArr(await odoo('product.product','read',[c],{fields:['categ_id']})); for(const p of ps) catOf[p.id]=(arr(p.categ_id)[1]||''); }
+    let acc=0,spare=0,maint=0; REV12=0;
+    for(const l of rl){ const cn=(catOf[arr(l.product_id)[0]]||'').toLowerCase(); const a=l.price_subtotal||0; REV12+=a;
+      if(/bike/.test(cn)) continue;                          // bikes handled by the forecast above
+      if(/repair|maintenance/.test(cn)) maint+=a; else if(/accessor/.test(cn)) acc+=a; else if(/component|spare/.test(cn)) spare+=a; }
+    OTHERREV={accMo:acc/12, spareMo:spare/12, maintMo:maint/12};
+  }catch(e){}
+
+  CASHIN=[]; const coll=collDays();
+  for(const y of [2026,2027]){ const annual=(y===2026?bikes2026():bikes2027()); const aF=(y===2027?acc2027f():1), sF=(y===2027?spare2027f():1);
+    const otherMo=OTHERREV.accMo*aF + OTHERREV.spareMo*sF + OTHERREV.maintMo;   // maintenance flat = same as this year
+    for(let m=0;m<12;m++){ const units=annual*(SEASON_FWD[m]/SEASON_SUM); const rev=units*(ASP||0)+otherMo; if(rev<1) continue;
+      const cashDate=addDays(`${y}-${String(m+1).padStart(2,'0')}-15`, coll);
+      CASHIN.push({date:cashDate, amount:rev, units, saleMonth:`${y}-${String(m+1).padStart(2,'0')}`}); } }
+
+  const learned=`${META.baseTerms} vendors w/ learned terms`;
+  const otherYr=(OTHERREV.accMo+OTHERREV.spareMo+OTHERREV.maintMo)*12;
+  status(`${META.pos} issued POs · ${META.agenda} agenda items · +${META.ramp||0} 2027 ×${po2027f()} · ASP €${fmt(ASP)} · other rev €${fmt(otherYr)}/yr (acc ${fmt(OTHERREV.accMo*12)} · spare ${fmt(OTHERREV.spareMo*12)} · maint ${fmt(OTHERREV.maintMo*12)}) · ${learned}`);
+  renderPlan(); renderSpend(); renderPnl();
+}
+
+// ── BUCKETS / RENDER ─────────────────────────────────────────
+function horizonKeys(){ const now=new Date(); const endK=endMonth(); const keys=[]; let d=new Date(now.getFullYear(),now.getMonth(),1); for(let i=0;i<60;i++){ const k=mk(d); if(k>endK) break; keys.push(k); d.setMonth(d.getMonth()+1); } return keys.length?keys:[mk(now)]; }
+function filteredEntries(){ const i=$('pf-iss').checked, p=$('pf-pln').checked; return ENTRIES.filter(e=> (e.kind==='issued'&&i)||(e.kind==='planned'&&p)); }
+
+function buildRows(){
+  const keys=horizonKeys(); const curKey=mk(new Date()); const lastKey=keys[keys.length-1];
+  const incPay=$('pf-pay').checked, incSvc=$('pf-svc').checked, incIn=($('pf-in')||{checked:true}).checked;
+  const B={}; keys.forEach(k=>B[k]={issued:0,planned:0,payroll:0,services:0,cashin:0,items:[]});
+  for(const e of filteredEntries()){ let k=e.date.slice(0,7); if(k<curKey)k=curKey; if(k>lastKey) continue; const b=B[k]; if(!b)continue; b[e.kind]+=e.amount; b.items.push(e); }
+  keys.forEach(k=>{ if(k<curKey) return; if(incPay) B[k].payroll=CAT.payrollMo; if(incSvc){ B[k].services=CAT.servicesMo + (k>='2027-01'? CAT.mktgMo*mktgUplift() : 0); } });
+  if(incIn){ for(const c of CASHIN){ if(c.date<today()) continue; let k=c.date.slice(0,7); if(k<curKey)k=curKey; if(k>lastKey) continue; if(B[k]) B[k].cashin+=c.amount; } }
+  let cumOut=0, bal=startBal(); const rows=keys.map(k=>{ const b=B[k]; const out=b.issued+b.planned+b.payroll+b.services; const net=b.cashin-out; cumOut+=out; bal+=net; return {key:k,b,out,cashin:b.cashin,net,bal,cur:k===curKey}; });
+  return {rows};
+}
+
+function renderPlan(){
+  if(!$('plan-table')) return;
+  const {rows}=buildRows();
+  const sum=(f)=>rows.reduce((a,r)=>a+f(r),0);
+  const tI=sum(r=>r.b.issued), tP=sum(r=>r.b.planned), tPay=sum(r=>r.b.payroll), tS=sum(r=>r.b.services);
+  const tOut=sum(r=>r.out), tIn=sum(r=>r.cashin); const endBal=rows.length?rows[rows.length-1].bal:startBal();
+  const minBal=rows.reduce((m,r)=>Math.min(m,r.bal), startBal());
+  const k=(l,val,col,sub)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${val}</div>${sub?`<div class="hint">${sub}</div>`:''}</div>`;
+  const arOn=cfg().incar===true;
+  $('plan-kpis').innerHTML=
+    k('Opening balance',eur(startBal()),'var(--accent)',`bank €${fmt(BANKBAL)}${arOn?' + AR €'+fmt(ARBAL):` (AR €${fmt(ARBAL)} excl.)`}`)+
+    k('Cash OUT',eur(tOut),'var(--danger)',`to ${endMonth()}`)+
+    k('Cash IN',eur(tIn),'var(--success)',`ASP €${fmt(ASP)}/bike`)+
+    k('Net',eur(tIn-tOut),(tIn-tOut)>=0?'var(--success)':'var(--danger)')+
+    k('Ending balance',eur(endBal),endBal>=0?'var(--success)':'var(--danger)')+
+    k('Lowest balance',eur(minBal),minBal>=0?'var(--warn)':'var(--danger)','cash low-point');
+  // OUT by stream
+  let html='<thead><tr><th>Month</th><th>Issued POs</th><th>Planned POs</th><th>Payroll</th><th>Services/other</th><th>Cash OUT</th></tr></thead><tbody>';
+  rows.forEach((r,i)=>{
+    html+=`<tr class="mrow${r.cur?' cur':''}" onclick="togD('d${i}')"><td>▸ ${mLabel(r.key)}${r.cur?' · this month':''}</td><td>${eur(r.b.issued)}</td><td>${eur(r.b.planned)}</td><td>${eur(r.b.payroll)}</td><td>${eur(r.b.services)}</td><td><b>${eur(r.out)}</b></td></tr>`;
+    const items=[...r.b.items].sort((a,b)=>b.amount-a.amount).slice(0,80);
+    const ph=e=>e.phase==='deposit'?'<span class="hint">deposit</span>':e.phase==='balance'?'<span class="hint">balance</span>':'';
+    let det=items.map(e=>`<tr><td style="padding-left:18px">${esc(e.ref||'—')}</td><td style="text-align:left">${esc(e.vendor)}</td><td>${e.date}</td><td>${e.kind==='issued'?'<span class="tag iss">issued</span>':'<span class="tag pln">planned</span>'}</td><td>${ph(e)}</td><td>${eur(e.amount)}</td></tr>`).join('');
+    if(r.b.payroll>0.5) det+=`<tr><td style="padding-left:18px">Payroll (run-rate)</td><td style="text-align:left">—</td><td>${r.key}</td><td><span class="tag pay">payroll</span></td><td></td><td>${eur(r.b.payroll)}</td></tr>`;
+    if(r.b.services>0.5) det+=`<tr><td style="padding-left:18px">Services / other${r.key>='2027-01'&&CAT.mktgMo>0?' (incl. +'+Math.round(mktgUplift()*100)+'% mktg)':''}</td><td style="text-align:left">—</td><td>${r.key}</td><td><span class="tag svc">services</span></td><td></td><td>${eur(r.b.services)}</td></tr>`;
+    if(!det) det='<tr><td colspan="6" class="hint">nothing</td></tr>';
+    html+=`<tr id="d${i}" style="display:none"><td colspan="6" style="padding:0"><div class="table-wrap" style="margin:0;border:none"><table class="grid"><thead><tr><th>Reference</th><th>Vendor</th><th>Pay date</th><th>Type</th><th>Milestone</th><th>Amount</th></tr></thead><tbody>${det}</tbody></table></div></td></tr>`;
+  });
+  html+=`<tr class="subtot"><td>Total</td><td>${eur(tI)}</td><td>${eur(tP)}</td><td>${eur(tPay)}</td><td>${eur(tS)}</td><td>${eur(tOut)}</td></tr></tbody>`;
+  $('plan-table').innerHTML=html;
+  // Bank balance table
+  let bh='<thead><tr><th>Month</th><th>Cash OUT</th><th>Cash IN</th><th>Net</th><th>Bank balance</th></tr></thead><tbody>';
+  rows.forEach(r=>{ bh+=`<tr class="mrow${r.cur?' cur':''}"><td>${mLabel(r.key)}${r.cur?' · this month':''}</td><td style="color:var(--danger)">${eur(r.out)}</td><td style="color:var(--success)">${eur(r.cashin)}</td><td style="${r.net<0?'color:var(--danger)':'color:var(--success)'}">${eur(r.net)}</td><td style="font-weight:700;${r.bal<0?'color:var(--danger);background:rgba(139,31,31,.06)':''}">${eur(r.bal)}</td></tr>`; });
+  bh+=`<tr class="subtot"><td>Total</td><td>${eur(tOut)}</td><td>${eur(tIn)}</td><td>${eur(tIn-tOut)}</td><td>${eur(endBal)}</td></tr></tbody>`;
+  $('bank-table').innerHTML=bh;
+  drawChart(rows);
+}
+function togD(id){ const r=$(id); if(r) r.style.display = r.style.display==='none'?'table-row':'none'; }
+
+function drawChart(rows){
+  const ctx=$('cashChart'); if(!ctx||typeof Chart==='undefined') return;
+  const labels=rows.map(r=>mLabel(r.key));
+  if(_chart) _chart.destroy();
+  _chart=new Chart(ctx,{data:{labels,datasets:[
+    {type:'bar',label:'Issued POs',data:rows.map(r=>Math.round(r.b.issued)),backgroundColor:'#14259b',stack:'out',yAxisID:'y'},
+    {type:'bar',label:'Planned POs',data:rows.map(r=>Math.round(r.b.planned)),backgroundColor:'#7d8ce0',stack:'out',yAxisID:'y'},
+    {type:'bar',label:'Payroll',data:rows.map(r=>Math.round(r.b.payroll)),backgroundColor:'#3c3489',stack:'out',yAxisID:'y'},
+    {type:'bar',label:'Services / other',data:rows.map(r=>Math.round(r.b.services)),backgroundColor:'#0f6e56',stack:'out',yAxisID:'y'},
+    {type:'bar',label:'Cash IN',data:rows.map(r=>Math.round(r.cashin)),backgroundColor:'#2d6e2d',stack:'in',yAxisID:'y'},
+    {type:'line',label:'Bank balance',data:rows.map(r=>Math.round(r.bal)),borderColor:'#8b1f1f',backgroundColor:'#8b1f1f',borderWidth:2,tension:.2,pointRadius:3,yAxisID:'y1'}
+  ]},options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{position:'bottom',labels:{font:{size:11}}},tooltip:{callbacks:{label:c=>c.dataset.label+': €'+(c.parsed.y||0).toLocaleString('en-GB')}}},scales:{y:{stacked:true,ticks:{callback:v=>'€'+Math.round(v/1000)+'k'}},y1:{position:'right',grid:{drawOnChartArea:false},ticks:{callback:v=>'€'+Math.round(v/1000)+'k'}}}}});
+}
+
+// ── P&L / EBITDA ─────────────────────────────────────────────
+function pnlYear(year){
+  const y27=year===2027;
+  const bikeRev=(y27?bikes2027():bikes2026())*(ASP||0);
+  const acc=OTHERREV.accMo*12*(y27?acc2027f():1);
+  const spare=OTHERREV.spareMo*12*(y27?spare2027f():1);
+  const maint=OTHERREV.maintMo*12;
+  const rev=bikeRev+acc+spare+maint;
+  const cogs=rev*cogsRatio();
+  const gross=rev-cogs;
+  const payroll=byClass('62')*ovf();
+  let overhead=(byClass('61')+byClass('64'))*ovf(); if(y27) overhead+=mktgAnnual()*ovf()*mktgUplift();
+  const ebitda=gross-payroll-overhead;
+  const dep=byClass('63');
+  const ebit=ebitda-dep;
+  const interest=byClass('65');
+  const pbt=ebit-interest;
+  const tax=pbt>0?pbt*taxRate():0;
+  const net=pbt-tax;
+  return {bikeRev,acc,spare,maint,rev,cogs,gross,payroll,overhead,ebitda,dep,ebit,interest,pbt,tax,net};
+}
+function renderPnl(){
+  if(!$('pnl-table')) return;
+  const a=pnlYear(2026), b=pnlYear(2027);
+  const pca=v=>a.rev?`<span class="hint">${Math.round(v/a.rev*100)}%</span>`:'';
+  const pcb=v=>b.rev?`<span class="hint">${Math.round(v/b.rev*100)}%</span>`:'';
+  const row=(label,ka,kb,bold,margin)=>`<tr ${bold?'class="subtot"':''}><td>${label}</td><td>${eur(ka)}</td><td>${margin?pca(ka):''}</td><td>${eur(kb)}</td><td>${margin?pcb(kb):''}</td></tr>`;
+  let h='<thead><tr><th>Fiscal year</th><th>2026</th><th>% rev</th><th>2027</th><th>% rev</th></tr></thead><tbody>';
+  h+=row('Bikes',a.bikeRev,b.bikeRev);
+  h+=row('Accessories',a.acc,b.acc);
+  h+=row('Spare parts',a.spare,b.spare);
+  h+=row('Maintenance',a.maint,b.maint);
+  h+=row('Revenue',a.rev,b.rev,true);
+  h+=row('− COGS',-a.cogs,-b.cogs,false,true);
+  h+=row('Gross profit',a.gross,b.gross,true,true);
+  h+=row('− Payroll',-a.payroll,-b.payroll,false,true);
+  h+=row('− Marketing &amp; overhead',-a.overhead,-b.overhead,false,true);
+  h+=row('EBITDA',a.ebitda,b.ebitda,true,true);
+  h+=row('− Depreciation',-a.dep,-b.dep);
+  h+=row('EBIT',a.ebit,b.ebit,true,true);
+  h+=row('− Financial charges',-a.interest,-b.interest);
+  h+=row('Profit before tax',a.pbt,b.pbt,true,true);
+  h+=row('− Tax ('+Math.round(taxRate()*100)+'%)',-a.tax,-b.tax);
+  h+=row('Net profit',a.net,b.net,true,true);
+  h+='</tbody>';
+  $('pnl-table').innerHTML=h;
+  const k=(l,va,vb,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" style="color:${col||'var(--accent)'}">${eur(vb)}</div><div class="hint">2026: ${eur(va)}</div></div>`;
+  $('pnl-kpis').innerHTML=
+    k('Revenue (2027)',a.rev,b.rev,'var(--accent)')+
+    k('EBITDA (2027)',a.ebitda,b.ebitda,b.ebitda>=0?'var(--success)':'var(--danger)')+
+    k('Net profit (2027)',a.net,b.net,b.net>=0?'var(--success)':'var(--danger)')+
+    k('Tax (2027)',a.tax,b.tax,'var(--warn)')+
+    `<div class="kpi"><div class="kpi-label">COGS ratio</div><div class="kpi-value" style="color:var(--text2)">${Math.round(cogsRatio()*100)}%</div><div class="hint">of revenue</div></div>`;
+}
+
+// ── SPENDING ─────────────────────────────────────────────────
+function renderSpend(){
+  if(!$('spend-table')) return;
+  const catName={purchases:'60 · Purchases',services:'61 · Services & other goods',payroll:'62 · Payroll',other:'64-67 · Other / taxes / financial',depreciation:'63 · Depreciation (non-cash, excluded)'};
+  const order=['purchases','services','payroll','other','depreciation']; const look=histMonths();
+  const catTot={}; order.forEach(c=>catTot[c]=0); SPEND.forEach(s=>catTot[s.cat]+=s.total);
+  const cashTot=catTot.purchases+catTot.services+catTot.payroll+catTot.other;
+  const k=(l,val,col)=>`<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-value" ${col?`style="color:${col}"`:''}>${val}</div></div>`;
+  $('spend-kpis').innerHTML=
+    k(`Cash spend (last ${look}m)`,eur(cashTot),'var(--accent)')+
+    k('Monthly run-rate',eur(cashTot/look),'var(--purple)')+
+    k('Purchases (60)',eur(catTot.purchases),'var(--accent)')+
+    k('Payroll (62)',eur(catTot.payroll),'var(--purple)')+
+    k('Services+other',eur(catTot.services+catTot.other),'var(--teal)');
+  let html='<thead><tr><th>Account</th><th>Class</th><th>Total ('+look+'m)</th><th>Monthly avg</th></tr></thead><tbody>';
+  for(const c of order){ const inCat=SPEND.filter(s=>s.cat===c); if(!inCat.length) continue;
+    html+=`<tr class="subtot"><td>${catName[c]}</td><td></td><td>${eur(catTot[c])}</td><td>${eur(catTot[c]/look)}</td></tr>`;
+    for(const s of inCat) html+=`<tr><td>&nbsp;&nbsp;${esc(s.code)} · ${esc(s.name)}</td><td>${esc((''+s.code).replace(/\D/g,'').slice(0,2))}</td><td>${eur(s.total)}</td><td>${eur(s.monthly)}</td></tr>`;
+  }
+  html+='</tbody>';
+  $('spend-table').innerHTML=html;
+}
+
+// ── EXPORT ───────────────────────────────────────────────────
+function exportPlan(){
+  const {rows}=buildRows();
+  const out=[['Month','Issued POs €','Planned POs €','Payroll €','Services/other €','Cash OUT €','Cash IN €','Net €','Bank balance €']];
+  rows.forEach(r=>out.push([r.key,Math.round(r.b.issued),Math.round(r.b.planned),Math.round(r.b.payroll),Math.round(r.b.services),Math.round(r.out),Math.round(r.cashin),Math.round(r.net),Math.round(r.bal)]));
+  dl(out,'finance-in-out');
+}
+function dl(rows,base){ const csv=rows.map(r=>r.map(c=>{const s=String(c==null?'':c);return s.includes(',')||s.includes('"')?'"'+s.replace(/"/g,'""')+'"':s;}).join(',')).join('\n'); const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'})); a.download=base+'-'+today()+'.csv'; document.body.appendChild(a); a.click(); a.remove(); }
+function showTab(t){ document.querySelectorAll('.view').forEach(v=>v.classList.remove('active')); document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active')); $('view-'+t).classList.add('active'); $('nav-'+t).classList.add('active'); if(t==='spend')renderSpend(); if(t==='pnl')renderPnl(); }
+loadCfgUI();
+if($('cfg-user').value && $('cfg-key').value) loadAll(); else showTab('settings');
+</script>
+<a href="index.html" target="_top" class="ahooga-home" title="Back to homepage">⌂&nbsp;Home</a>
+</body>
+</html>

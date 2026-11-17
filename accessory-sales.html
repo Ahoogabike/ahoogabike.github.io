@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="en" data-v3="planner">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ahooga Accessory Sales</title>
+<style>
+:root{--bg:#f2f1ed;--surface:#fff;--surface2:#f0efe9;--border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);--text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#0f7a52;--accent-bg:#e4f3ec;--success:#2d6e2d;--success-bg:#eaf3de;--warn:#7a4e0a;--warn-bg:#faeeda;--danger:#8b1f1f;--danger-bg:#fcebeb;--purple:#3c3489;--purple-bg:#eeedfe;--radius:10px;--radius-sm:6px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Figtree',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:52px;gap:12px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.logo{font-size:17px;font-weight:800}.logo span{color:var(--accent)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--text3);border:1px solid var(--border2)}
+.pill.ok{background:var(--success-bg);color:var(--success)}
+.pill.err{background:var(--danger-bg);color:var(--danger)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;font-weight:600;cursor:pointer;border:none}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+main{padding:20px;max-width:1500px;margin:0 auto}
+.tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:7px 14px;border-radius:20px;font-size:12.5px;font-weight:600;cursor:pointer;border:1px solid var(--border2);background:var(--surface);color:var(--text2)}
+.tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.view{display:none}.view.active{display:block}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text2);font-weight:600}
+.field input,.field select{padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;background:var(--surface)}
+.field input:focus,.field select:focus{border-color:var(--accent)}
+.field .hint{font-size:10px;color:var(--text3)}
+.conn-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;max-width:520px;display:none}
+.conn-panel.open{display:block}
+.controls{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px}
+.kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:4px}
+.kpi-value{font-size:21px;font-weight:800}
+.kpi-sub{font-size:11px;color:var(--text3);margin-top:3px}
+.kpi-sub .pos{color:var(--success);font-weight:700}
+.kpi-sub .neg{color:var(--danger);font-weight:700}
+.section{margin-bottom:24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px}
+.section-title{font-size:14px;font-weight:800;margin-bottom:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.section-note{font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.5}
+.tag{font-size:10px;padding:2px 7px;border-radius:20px;background:var(--surface2);color:var(--text2);border:1px solid var(--border2)}
+.tag.fc{background:var(--purple-bg);color:var(--purple);border-color:transparent}
+.tag.act{background:var(--accent-bg);color:var(--accent);border-color:transparent}
+.table-wrap{overflow-x:auto;border-radius:var(--radius-sm);border:1px solid var(--border)}
+table.grid{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+table.grid th,table.grid td{border-bottom:1px solid var(--border);border-right:1px solid var(--border);padding:6px 9px;font-size:12px;text-align:right;white-space:nowrap}
+table.grid thead th{background:var(--surface2);color:var(--text2);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:0.03em;position:sticky;top:0;z-index:5}
+table.grid th.lbl,table.grid td.lbl{text-align:left;font-weight:600;min-width:150px}
+table.grid tr:hover td{background:var(--surface2)}
+table.grid td.zero{color:var(--text3)}
+table.grid tfoot td{font-weight:800;background:var(--surface2);border-top:2px solid var(--border2)}
+table.grid td.fc{color:var(--purple)}
+table.grid.po th.lbl,table.grid.po td.lbl{position:sticky;left:0;background:var(--surface);z-index:3;min-width:230px;max-width:300px;overflow:hidden;text-overflow:ellipsis}
+table.grid.po thead th.lbl{z-index:7;background:var(--surface2)}
+table.grid.po thead th{position:sticky;top:0}
+table.grid.po td.cat,table.grid.po th.cat{text-align:left;font-size:10px;color:var(--text3);max-width:110px;overflow:hidden;text-overflow:ellipsis}
+table.grid.po tfoot td{position:sticky;bottom:0}
+table.grid.po td.act,table.grid.po th.act{color:var(--accent);background:rgba(15,122,82,0.05)}
+table.grid.po .sep{border-left:2px solid var(--border2)}
+.ro-b{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:0.03em}
+.ro-b.now{background:var(--danger-bg);color:var(--danger)}
+.ro-b.soon{background:var(--warn-bg);color:var(--warn)}
+.ro-b.ok{background:var(--success-bg);color:var(--success)}
+.ro-b.none{background:var(--surface2);color:var(--text3)}
+.growth-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.growth-row{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px}
+.growth-row .cn{font-weight:700;font-size:12.5px;flex:1}
+.growth-row input{width:64px;padding:5px 7px;border:1px solid var(--border2);border-radius:5px;font-size:13px;font-family:inherit;text-align:right;outline:none}
+.growth-row .pct{color:var(--text3);font-size:12px}
+.alert{padding:9px 13px;border-radius:var(--radius-sm);font-size:12.5px;margin-bottom:12px;border:1px solid transparent}
+.alert-info{background:var(--accent-bg);color:var(--accent)}
+.alert-danger{background:var(--danger-bg);color:var(--danger)}
+.alert-success{background:var(--success-bg);color:var(--success)}
+.spinner{display:inline-block;width:11px;height:11px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-1px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.bars{display:flex;flex-direction:column;gap:6px}
+.bar-row{display:flex;align-items:center;gap:8px;font-size:12px}
+.bar-row .bn{width:160px;flex-shrink:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar-track{flex:1;background:var(--surface2);border-radius:4px;height:18px;position:relative;overflow:hidden}
+.bar-fill{height:100%;background:var(--accent);border-radius:4px}
+.bar-row .bv{width:70px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.chart-wrap{width:100%;overflow-x:auto}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;margin-top:8px}
+.legend .li{display:flex;align-items:center;gap:5px}
+.legend .sw{width:11px;height:11px;border-radius:3px;display:inline-block}
+@media(max-width:700px){main{padding:12px}input,select{font-size:16px!important}.bar-row .bn{width:110px}}
+</style>
+<script>
+/* /store/ key (Nov 2026): once the proxy's STORE_KEY secret is set, every save (and every read of a private key)
+   needs the header X-Store-Key. The key is kept only in this browser (localStorage 'ahooga_store_key') and is
+   asked once, the first time the server answers 401. Never write the key itself into this file. */
+async function storeFetch(url,opts){
+  opts=opts||{};
+  var getK=function(){var k='';try{k=localStorage.getItem('ahooga_store_key')||'';}catch(e){}return k||storeFetch._k||'';};
+  var send=function(k){var h=Object.assign({},opts.headers||{});if(k)h['X-Store-Key']=k;return fetch(url,Object.assign({},opts,{headers:h}));};
+  var k=getK(),r=await send(k);
+  /* Nov 17 fix: before, the typed key was saved even when the server refused it, so one typo meant the
+     prompt came back on every visit. Now a refused saved key is wiped, and a typed key is saved only
+     after the server accepts it (2 tries, then give up for this page load). */
+  if(r.status===401||r.status===403){
+    var n=getK();
+    if(n&&n!==k)return send(n);                    // another call already got a working key
+    if(storeFetch._asked)return r;
+    storeFetch._asked=true;
+    if(k){storeFetch._k='';try{localStorage.removeItem('ahooga_store_key');}catch(e){}}
+    var msg=k?'The saved Ahooga store key was refused (wrong or changed). Please enter the current key:'
+             :'This tool needs the Ahooga store key to load and save shared data (asked once on this computer):';
+    for(var t=0;t<2;t++){
+      n=String(window.prompt(msg)||'').trim();
+      if(!n)break;
+      var r2=await send(n);
+      if(r2.status!==401&&r2.status!==403){storeFetch._k=n;try{localStorage.setItem('ahooga_store_key',n);}catch(e){}return r2;}
+      msg='That key was not accepted. Check it and try again:';
+    }
+  }
+  return r;
+}
+</script>
+<script src="mxp-auth.js"></script>
+<style id="ahooga-brand">
+body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+.ahooga-home{position:fixed;left:14px;bottom:14px;z-index:2147483600;display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px;line-height:1;padding:9px 14px;border-radius:999px;text-decoration:none;background:#14259b;color:#fff;border:1px solid rgba(255,255,255,.25);box-shadow:0 6px 18px rgba(20,37,155,.4);opacity:.9;transition:opacity .15s,transform .15s}
+.ahooga-home:hover{opacity:1;transform:translateY(-1px)}
+@media print{.ahooga-home{display:none}}
+</style>
+
+<!-- Ahooga V3 theme (see ahooga-v3.css) -->
+<link rel="stylesheet" href="ahooga-v3.css">
+<style id="v3-map">
+html[data-v3]{--bg:#f8f5f4;--surface:#fff;--surface2:#f8f5f4;--border:rgba(21,20,23,.12);--border2:rgba(21,20,23,.22);--text:#151417;--text2:#5f5a5d;--text3:#8d878a;--accent:#14259b;--accent-bg:#eef0fb;--accent-text:#14259b;--pink:#14259b;--success:#1d7349;--success-bg:#e6f3ec;--warn:#9a5b00;--warn-bg:#fdf1db;--danger:#b0281e;--danger-bg:#fbe8e6;--green:#1d7349;--green-bg:#e6f3ec;--red:#b0281e;--red-bg:#fbe8e6;--amber:#9a5b00;--amber-bg:#fdf1db;--radius:12px;--radius-sm:8px}
+
+</style>
+<script>try{if(window.top!==window.self)document.documentElement.classList.add("v3-framed")}catch(e){document.documentElement.classList.add("v3-framed")}</script>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>Accessory Sales</span></div>
+  <div class="header-right">
+    <span class="pill" id="conn-pill">Not connected</span>
+    <button class="btn btn-secondary" onclick="toggleConn()">⚙ Connection</button>
+    <button class="btn btn-secondary" onclick="exportCSV()">⬇ CSV</button>
+    <button class="btn btn-primary" onclick="loadData()">↻ Refresh</button>
+  </div>
+</header>
+
+<main>
+  <div id="alert-box"></div>
+
+  <div class="conn-panel" id="conn-panel">
+    <h2 style="font-size:15px;font-weight:700;margin-bottom:12px">Odoo Connection</h2>
+    <div class="field" style="margin-bottom:10px"><label>Your Odoo email</label><input type="text" id="cfg-user" placeholder="yourname@ahooga.bike"/></div>
+    <div class="field" style="margin-bottom:10px"><label>API Key</label><input type="password" id="cfg-key" placeholder="your-api-key"/><span class="hint">Odoo → My Profile → Account Security → New API Key</span></div>
+    <button class="btn btn-primary" onclick="loadData()">Connect &amp; load</button>
+  </div>
+
+  <div class="controls">
+    <div class="field"><label>Accessory category keyword</label><input type="text" id="f-cat" value="Accessor" style="width:140px"/><span class="hint">Odoo category path must contain this (reload after change)</span></div>
+    <div class="field"><label>Measure</label><select id="f-measure" onchange="recompute()"><option value="qty">Units sold</option><option value="rev">Revenue (€)</option></select></div>
+    <div class="field"><label>Forecast method</label><select id="f-method" onchange="recompute()"><option value="attach">Attach-rate vs bikes (recommended)</option><option value="run">Run-rate · YTD pace</option><option value="blend">Blend · run-rate + seasonality</option><option value="season">Seasonality · history-shaped</option></select><span class="hint" id="method-hint">accessories per bike × bike volume</span></div>
+    <div class="field"><label>Monthly timing</label><label style="font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px;padding:7px 0"><input type="checkbox" id="f-stime" checked onchange="recompute()" style="width:auto"/> Channel seasonality</label><span class="hint">timing only · totals unchanged</span></div>
+    <div class="field" style="flex:1;min-width:200px"><label>Coverage</label><span class="hint" id="cov-line">Connect to load 2024 → today, then project to Dec 2027.</span></div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-v="overview" onclick="showTab('overview')">Overview</div>
+    <div class="tab" data-v="type" onclick="showTab('type')">By type</div>
+    <div class="tab" data-v="channel" onclick="showTab('channel')">By channel</div>
+    <div class="tab" data-v="country" onclick="showTab('country')">By country &amp; 2027 growth</div>
+    <div class="tab" data-v="po" onclick="showTab('po')">PO plan · per SKU × month</div>
+    <div class="tab" data-v="reorder" onclick="showTab('reorder')">When to order</div>
+    <div class="tab" data-v="forecast" onclick="showTab('forecast')">Monthly forecast (by type)</div>
+  </div>
+
+  <!-- OVERVIEW -->
+  <div class="view active" id="v-overview">
+    <div class="kpis" id="kpis"></div>
+    <div class="section">
+      <div class="section-title">Yearly totals <span class="tag act">actual</span><span class="tag fc">projection</span></div>
+      <div class="section-note">Posted customer invoices net of credit notes. 2024 &amp; 2025 are full actuals; <b id="cy-1">2026</b> shows year-to-date actual plus a seasonality projection to 31 Dec; <b id="cy-2">2027</b> applies your per-country growth to the projected <b id="cy-3">2026</b> total.</div>
+      <div class="table-wrap"><div id="t-year"></div></div>
+    </div>
+    <div class="section">
+      <div class="section-title">Monthly trend · all accessories</div>
+      <div class="section-note">Units per month. Solid bars are actuals; striped bars are forecast (current month onward + all of next year).</div>
+      <div class="chart-wrap" id="trend-chart"></div>
+    </div>
+  </div>
+
+  <!-- BY TYPE -->
+  <div class="view" id="v-type">
+    <div class="section">
+      <div class="section-title">Accessories by type &amp; year</div>
+      <div class="section-note">Types are taken automatically from the Odoo product-category tree (leaf category). Forecast columns use each type's recent sales mix.</div>
+      <div class="table-wrap"><div id="t-type"></div></div>
+    </div>
+    <div class="section">
+      <div class="section-title">Top types · projected next-year volume</div>
+      <div id="bars-type" class="bars"></div>
+    </div>
+  </div>
+
+  <!-- BY CHANNEL -->
+  <div class="view" id="v-channel">
+    <div class="section">
+      <div class="section-title">Accessories by channel &amp; year</div>
+      <div class="section-note">Channel = Odoo sales team on the order (B2R, Online, B2C Louise, POS Paris, Marketing).</div>
+      <div class="table-wrap"><div id="t-channel"></div></div>
+    </div>
+    <div class="section">
+      <div class="section-title">Channel split · projected next year</div>
+      <div id="bars-channel" class="bars"></div>
+    </div>
+  </div>
+
+  <!-- BY COUNTRY -->
+  <div class="view" id="v-country">
+    <div class="section">
+      <div class="section-title">2027 growth by country <span class="tag fc">drives the forecast</span></div>
+      <div class="section-note">These are your <b>bike</b> growth assumptions per country for next year. In the attach-rate model, accessories scale with bikes, so a country selling +100% more bikes is forecast to sell +100% more accessories (attach rate held constant). Defaults: Germany +100%, United Kingdom +200%, Belgium +30%, all others 0%. Edit any value and the whole forecast updates. New dealers/shops are captured automatically through higher bike volume.</div>
+      <div class="growth-grid" id="growth-box"></div>
+    </div>
+    <div class="section">
+      <div class="section-title">Accessories by country &amp; year</div>
+      <div class="table-wrap"><div id="t-country"></div></div>
+    </div>
+  </div>
+
+  <!-- PO PLAN -->
+  <div class="view" id="v-po">
+    <div class="section">
+      <div class="section-title">Per-SKU monthly forecast · Jun <span id="po-y0">2026</span> → Dec <span id="po-y1">2027</span> <span class="tag fc">purchase-order planning</span></div>
+      <div class="section-note" id="po-count">Each individual accessory/component. Green columns = real invoiced units already sold this year (Jan–current month); purple columns = forecast (June 2026 → Dec 2027). The default attach-rate method sets each year's quantity from accessories-sold-per-bike × bike volume (grown per country), and spreads it across months by each channel's seasonal buying pattern. Switch method/timing in the top bar. Values are units. Note June appears twice: green "Jun" = invoiced so far, purple "Jun" = projected full month.</div>
+      <div class="controls" style="margin-bottom:12px">
+        <div class="field"><label>Search SKU / name / type</label><input id="po-search" oninput="renderPO()" placeholder="filter…" style="width:200px"/></div>
+        <div class="field"><label>Hide products below (units)</label><input id="po-min" type="number" value="0" oninput="renderPO()" style="width:120px"/></div>
+        <button class="btn btn-primary" onclick="exportPO()">⬇ Export PO plan (CSV)</button>
+      </div>
+      <div class="table-wrap" style="max-height:72vh;overflow:auto"><div id="t-po"></div></div>
+    </div>
+  </div>
+
+  <!-- REORDER -->
+  <div class="view" id="v-reorder">
+    <div class="section">
+      <div class="section-title">When to order each component <span class="tag fc">reorder planning</span></div>
+      <div class="section-note" id="ro-count">Connect to load stock and lead times.</div>
+      <div class="section-note">On-hand &amp; incoming come from Odoo stock; lead time is the average days from PO approval to receipt for that part (falls back to the global average when there's no PO history). Order-by date = when stock falls to the reorder point (lead-time demand + safety). Suggested qty brings you up to the order-up-to cover.</div>
+      <div class="controls" style="margin-bottom:12px">
+        <div class="field"><label>Safety stock (weeks)</label><input id="ro-safety" type="number" step="1" value="3" oninput="renderReorder()" style="width:90px"/></div>
+        <div class="field"><label>Order up to (weeks cover)</label><input id="ro-cover" type="number" step="1" value="8" oninput="renderReorder()" style="width:110px"/></div>
+        <div class="field"><label>Lead-time fallback (days)</label><input id="ro-lt" type="number" step="1" value="60" oninput="this.dataset.touched=1;renderReorder()" style="width:120px"/></div>
+        <div class="field"><label>Open POs</label><label style="font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px;padding:7px 0"><input type="checkbox" id="ro-incoming" checked onchange="renderReorder()" style="width:auto"/> count incoming</label></div>
+        <div class="field"><label>Search</label><input id="ro-search" oninput="renderReorder()" placeholder="filter…" style="width:160px"/></div>
+        <div class="field"><label>Filter</label><label style="font-size:12px;font-weight:500;display:flex;align-items:center;gap:6px;padding:7px 0"><input type="checkbox" id="ro-hide" checked onchange="renderReorder()" style="width:auto"/> hide no-demand</label></div>
+        <button class="btn btn-primary" onclick="exportReorder()">⬇ Export reorder plan</button>
+      </div>
+      <div class="table-wrap" style="max-height:72vh;overflow:auto"><div id="t-reorder"></div></div>
+    </div>
+  </div>
+
+  <!-- FORECAST -->
+  <div class="view" id="v-forecast">
+    <div class="section">
+      <div class="section-title">Monthly forecast · now → Dec 2027 <span class="tag fc">forward plan</span></div>
+      <div class="section-note">Forward units by month. Current-year remaining months are projected from year-to-date run-rate × seasonality; next year is the country-growth total spread by seasonality. Use the CSV button to export.</div>
+      <div class="table-wrap"><div id="t-forecast"></div></div>
+    </div>
+    <div class="section">
+      <div class="section-title">Forward total by type</div>
+      <div class="section-note">Sum of all forward (not-yet-invoiced) months, current year remaining + next full year.</div>
+      <div id="bars-fwd" class="bars"></div>
+    </div>
+  </div>
+</main>
+
+<a class="ahooga-home" href="index.html">⌂ Tools</a>
+
+<script>
+// ── CONFIG (shared with the other Ahooga apps) ───────────────
+const ODOO_URL='https://ahooga.odoo.com';
+const ODOO_DB ='logicasoft-aho-18-0-21599177';
+const CF_WORKER='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
+const LS_CFG='ahooga_accessory_cfg';
+let odooUid=null;
+
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+// Sales-team → channel map (same IDs the SAV dashboard uses)
+const TEAM_MAP={1:'B2R',5:'Online',3:'B2C Louise',8:'POS Paris',7:'Marketing'};
+const CHANNEL_ORDER=['B2R','Online','B2C Louise','POS Paris','Marketing','Other'];
+// Default 2027 growth (%) by country — editable in the UI
+const DEFAULT_GROWTH={'Germany':100,'United Kingdom':200,'Belgium':30};
+// Fallback seasonality if history is too thin (Apr–Jun strongest)
+const SEASON_FALLBACK=[3,7,11,15,15,15,11,7,11,7,3,3];
+const PALETTE=['#2a78d6','#eb6834','#1baf7a','#eda100','#e87ba4','#008300','#6250d6','#e34948','#5f5a5d','#8d878a','#3d3a3e','#b9b4b5'];
+
+// dynamic time anchors
+const NOW=new Date();
+const CUR_YEAR=NOW.getFullYear();          // "current" year = 2026
+const CUR_MONTH=NOW.getMonth();            // 0-based
+const NEXT_YEAR=CUR_YEAR+1;                // forecast target = 2027
+const HIST_YEARS=[CUR_YEAR-2,CUR_YEAR-1];  // 2024, 2025
+
+// data: array of {year,month,channel,country,type,qty,rev,pid,sku,pname}
+let RECORDS=[];
+let BIKES=[];   // MAX bike invoiced units: {year,month,country,qty}
+let STOCK={};   // pid -> {onhand, free, incoming, virtual}
+let LEADTIME={};// pid -> {days, n}  average order→receipt lead time from PO history
+let GLOBAL_LT=60;
+let COUNTRIES=[], TYPES=[], CHANNELS=[], PRODUCTS=[];
+let growthByCountry={};   // country -> percent (number)
+let FORCE_QTY=false;      // PO matrix is always in units regardless of measure toggle
+
+// ── PROXY / XML-RPC (verbatim pattern from the other apps) ───
+function proxyUrl(path){
+  return (location.hostname==='localhost'||location.hostname==='127.0.0.1')
+    ? `/odoo/${encodeURIComponent(ODOO_URL+path)}`
+    : `${CF_WORKER}/odoo/${encodeURIComponent(ODOO_URL+path)}`;
+}
+function v(x){
+  if(x===null||x===undefined) return '<value><boolean>0</boolean></value>';
+  if(typeof x==='boolean') return `<value><boolean>${x?1:0}</boolean></value>`;
+  if(typeof x==='number'&&Number.isInteger(x)) return `<value><int>${x}</int></value>`;
+  if(typeof x==='number') return `<value><double>${x}</double></value>`;
+  if(Array.isArray(x)) return `<value><array><data>${x.map(v).join('')}</data></array></value>`;
+  if(typeof x==='object'){const m=Object.entries(x).map(([k,vv])=>`<member><name>${k}</name>${v(vv)}</member>`).join('');return `<value><struct>${m}</struct></value>`;}
+  return `<value><string>${String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</string></value>`;
+}
+function parseXml(xml){
+  const doc=new DOMParser().parseFromString(xml,'text/xml');
+  if(doc.querySelector('fault')) throw new Error('Odoo error: '+(doc.querySelector('faultString')?.textContent?.substring(0,160)||'fault'));
+  function pv(n){
+    if(!n) return null;
+    const c=n.firstElementChild;
+    if(!c) return n.textContent;
+    switch(c.tagName){
+      case 'int':case 'i4':case 'i8': return parseInt(c.textContent);
+      case 'double': return parseFloat(c.textContent);
+      case 'boolean': return c.textContent==='1';
+      case 'string': return c.textContent;
+      case 'nil': return null;
+      case 'array': return Array.from(c.querySelector('data')?.children||[]).map(pv);
+      case 'struct':{const o={};c.querySelectorAll(':scope>member').forEach(m=>{o[m.querySelector('name').textContent]=pv(m.querySelector('value'))});return o;}
+      default: return c.textContent;
+    }
+  }
+  return pv(doc.querySelector('methodResponse>params>param>value'));
+}
+function arr(x){return Array.isArray(x)?x:[null,x?String(x):''];}
+function toArr(x){return Array.isArray(x)?x:(x?[x]:[]);}
+async function odoo(model,method,args,kwargs={}){
+  const user=document.getElementById('cfg-user').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  if(!user||!key) throw new Error('Enter your Odoo email and API key (⚙ Connection).');
+  if(!odooUid){
+    const b=`<?xml version="1.0"?><methodCall><methodName>authenticate</methodName><params>${[v(ODOO_DB),v(user),v(key),v({})].map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+    const r=await fetch(proxyUrl('/xmlrpc/2/common'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+    odooUid=parseXml(await r.text());
+    if(!odooUid||typeof odooUid!=='number') throw new Error('Authentication failed — check email and API key');
+  }
+  // COMPANY LOCK: exclude Ahooga Paris (company 2, closed/unreliable). Force company 1 (Belgium).
+  kwargs=Object.assign({},kwargs); kwargs.context=Object.assign({},kwargs.context,{allowed_company_ids:[1],company_id:1});
+  const params=[v(ODOO_DB),v(odooUid),v(key),v(model),v(method),v(args),v(kwargs)];
+  const b=`<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>${params.map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+  const r=await fetch(proxyUrl('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+  return parseXml(await r.text());
+}
+
+// ── HELPERS ──────────────────────────────────────────────────
+function saveCfg(){try{localStorage.setItem(LS_CFG,JSON.stringify({user:document.getElementById('cfg-user').value,key:document.getElementById('cfg-key').value,cat:document.getElementById('f-cat').value}))}catch(e){}}
+function loadCfg(){try{const c=JSON.parse(localStorage.getItem(LS_CFG)||'{}');if(c.user)document.getElementById('cfg-user').value=c.user;if(c.key)document.getElementById('cfg-key').value=c.key;if(c.cat)document.getElementById('f-cat').value=c.cat;}catch(e){}
+  // also honour the shared mxp login
+  try{const g=JSON.parse(localStorage.getItem('mxp_cfg')||'null');if(g&&g.user&&!document.getElementById('cfg-user').value){document.getElementById('cfg-user').value=g.user;document.getElementById('cfg-key').value=g.key;}}catch(e){}}
+function toggleConn(){document.getElementById('conn-panel').classList.toggle('open');}
+function alert_(msg,type){document.getElementById('alert-box').innerHTML=`<div class="alert alert-${type}">${msg}</div>`;if(type==='success')setTimeout(()=>{const b=document.getElementById('alert-box');if(b&&b.querySelector('.alert-success'))b.innerHTML='';},5000);}
+function setPill(t,c){const e=document.getElementById('conn-pill');e.textContent=t;e.className='pill'+(c?' '+c:'');}
+function monthIdx(d){if(!d)return null;const x=new Date(d);return isNaN(x)?null:x.getMonth();}
+function yearOf(d){if(!d)return null;const x=new Date(d);return isNaN(x)?null:x.getFullYear();}
+function leafCat(name){const p=String(name||'').split('/').map(s=>s.trim()).filter(Boolean);return p.length?p[p.length-1]:'Uncategorised';}
+function measure(){return document.getElementById('f-measure').value;}
+function fmt(n){if(!n)return '·';const v=Math.round(n);return v.toLocaleString('en-GB');}
+function fmtM(n){return measure()==='rev'?'€'+fmt(n):fmt(n);}
+function showTab(v){document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));document.getElementById('v-'+v).classList.add('active');}
+
+// ── LOAD DATA ────────────────────────────────────────────────
+async function loadData(){
+  saveCfg();
+  try{
+    odooUid=null;
+    setPill('Connecting…');
+    const catKw=(document.getElementById('f-cat').value||'Accessor').trim();
+    const START=`${HIST_YEARS[0]}-01-01`;
+    const END=new Date(NOW.getTime()+86400000).toISOString().slice(0,10); // today+1 to be safe
+
+    // 1 — invoice lines (posted), accessory category, both invoice & refund
+    const base=[['parent_state','=','posted'],
+                ['date','>=',START],['date','<=',END],
+                ['product_id.categ_id.complete_name','ilike',catKw],
+                ['product_id.categ_id.complete_name','not ilike','Bikes']];
+    const rawLines=[];
+    const addLines=async(moveType,sign)=>{
+      alert_(`<span class="spinner"></span> Loading ${moveType==='out_invoice'?'invoices':'credit notes'}…`,'info');
+      let lines=[];
+      try{
+        lines=toArr(await odoo('account.move.line','search_read',
+          [[...base,['move_id.move_type','=',moveType]]],
+          {fields:['quantity','price_subtotal','product_id','date','move_id'],limit:80000}));
+      }catch(e){throw new Error('Could not read '+moveType+'. '+e.message);}
+      for(const l of lines){l.__sign=sign;rawLines.push(l);}
+    };
+    await addLines('out_invoice',1);
+    await addLines('out_refund',-1);
+    if(!rawLines.length){throw new Error('No accessory invoice lines found. Check the category keyword (currently "'+catKw+'").');}
+
+    // 2 — product → category leaf (type) + SKU + name
+    alert_('<span class="spinner"></span> Resolving products…','info');
+    const prodIds=[...new Set(rawLines.map(l=>arr(l.product_id)[0]).filter(Boolean))];
+    const prodInfo={};
+    for(let i=0;i<prodIds.length;i+=400){
+      const chunk=prodIds.slice(i,i+400);
+      const prods=toArr(await odoo('product.product','read',[chunk,['categ_id','default_code','name']]));
+      for(const p of prods){prodInfo[p.id]={cat:leafCat(arr(p.categ_id)[1]),sku:p.default_code||'',name:p.name||''};}
+    }
+
+    // 3 — move → team (channel) + partner
+    alert_('<span class="spinner"></span> Resolving channels…','info');
+    const moveIds=[...new Set(rawLines.map(l=>arr(l.move_id)[0]).filter(Boolean))];
+    const moveInfo={};
+    for(let i=0;i<moveIds.length;i+=400){
+      const chunk=moveIds.slice(i,i+400);
+      const mv=toArr(await odoo('account.move','read',[chunk,['team_id','partner_id']]));
+      for(const m of mv){moveInfo[m.id]={team:arr(m.team_id)[0],partner:arr(m.partner_id)[0]};}
+    }
+
+    // 4 — partner → country
+    alert_('<span class="spinner"></span> Resolving countries…','info');
+    const partnerIds=[...new Set(Object.values(moveInfo).map(m=>m.partner).filter(Boolean))];
+    const partnerCountry={};
+    for(let i=0;i<partnerIds.length;i+=400){
+      const chunk=partnerIds.slice(i,i+400);
+      const ps=toArr(await odoo('res.partner','read',[chunk,['country_id']]));
+      for(const p of ps){partnerCountry[p.id]=arr(p.country_id)[1]||'Unknown';}
+    }
+
+    // 5 — build records
+    RECORDS=[];
+    for(const l of rawLines){
+      const date=(l.date||'').slice(0,10);
+      const y=yearOf(date), m=monthIdx(date);
+      if(y==null||m==null) continue;
+      const pid=arr(l.product_id)[0];
+      const mid=arr(l.move_id)[0];
+      const mi=moveInfo[mid]||{};
+      const pinf=prodInfo[pid]||{};
+      const channel=TEAM_MAP[mi.team]||'Other';
+      const country=partnerCountry[mi.partner]||'Unknown';
+      const type=pinf.cat||'Uncategorised';
+      const qty=(parseFloat(l.quantity)||0)*l.__sign;
+      const rev=(parseFloat(l.price_subtotal)||0)*l.__sign;
+      RECORDS.push({year:y,month:m,channel,country,type,qty,rev,pid,sku:pinf.sku||'',pname:pinf.name||(arr(l.product_id)[1]||'')});
+    }
+
+    // derive dimensions
+    COUNTRIES=[...new Set(RECORDS.map(r=>r.country))].sort();
+    TYPES=[...new Set(RECORDS.map(r=>r.type))].sort();
+    CHANNELS=CHANNEL_ORDER.filter(c=>RECORDS.some(r=>r.channel===c));
+    const pmap={};
+    for(const r of RECORDS){if(r.pid&&!pmap[r.pid])pmap[r.pid]={pid:r.pid,sku:r.sku,name:r.pname,cat:r.type};}
+    PRODUCTS=Object.values(pmap);
+
+    // 6 — MAX bikes per country per month (for the attach-rate model)
+    alert_('<span class="spinner"></span> Loading MAX bikes (for attach-rate)…','info');
+    const bikeBase=[['parent_state','=','posted'],['date','>=',START],['date','<=',END],
+                    ['product_id.categ_id.complete_name','ilike','Bikes'],
+                    ['product_id.name','ilike','MAX']];
+    const bikeRaw=[];
+    for(const [mt,sg] of [['out_invoice',1],['out_refund',-1]]){
+      let bl=[];
+      try{bl=toArr(await odoo('account.move.line','search_read',[[...bikeBase,['move_id.move_type','=',mt]]],{fields:['quantity','date','move_id'],limit:80000}));}catch(e){console.warn('bike read '+mt,e.message);}
+      for(const l of bl){l.__sign=sg;bikeRaw.push(l);}
+    }
+    const bMoveIds=[...new Set(bikeRaw.map(l=>arr(l.move_id)[0]).filter(Boolean))];
+    const bMovePartner={};
+    for(let i=0;i<bMoveIds.length;i+=400){
+      const chunk=bMoveIds.slice(i,i+400);
+      const mv=toArr(await odoo('account.move','read',[chunk,['partner_id']]));
+      for(const m of mv){bMovePartner[m.id]=arr(m.partner_id)[0];}
+    }
+    const needP=[...new Set(Object.values(bMovePartner).filter(p=>p&&!(p in partnerCountry)))];
+    for(let i=0;i<needP.length;i+=400){
+      const chunk=needP.slice(i,i+400);
+      const ps=toArr(await odoo('res.partner','read',[chunk,['country_id']]));
+      for(const p of ps){partnerCountry[p.id]=arr(p.country_id)[1]||'Unknown';}
+    }
+    BIKES=[];
+    for(const l of bikeRaw){
+      const date=(l.date||'').slice(0,10);const y=yearOf(date),m=monthIdx(date);if(y==null||m==null)continue;
+      const country=partnerCountry[bMovePartner[arr(l.move_id)[0]]]||'Unknown';
+      BIKES.push({year:y,month:m,country,qty:(parseFloat(l.quantity)||0)*l.__sign});
+    }
+
+    // 7 — current stock per accessory product
+    alert_('<span class="spinner"></span> Reading current stock…','info');
+    STOCK={};
+    for(let i=0;i<prodIds.length;i+=300){
+      const chunk=prodIds.slice(i,i+300);
+      let ps=[];try{ps=toArr(await odoo('product.product','read',[chunk,['qty_available','free_qty','incoming_qty','virtual_available']]));}catch(e){console.warn('stock read',e.message);}
+      for(const p of ps) STOCK[p.id]={onhand:p.qty_available||0,free:(p.free_qty!=null?p.free_qty:p.qty_available)||0,incoming:p.incoming_qty||0,virtual:p.virtual_available||0};
+    }
+
+    // 8 — lead times from purchase-order history (approval → receipt)
+    alert_('<span class="spinner"></span> Computing lead times from PO history…','info');
+    LEADTIME={}; GLOBAL_LT=60;
+    try{
+      const polines=toArr(await odoo('purchase.order.line','search_read',
+        [[['product_id','in',prodIds],['qty_received','>',0]]],
+        {fields:['order_id','product_id'],limit:40000}));
+      const poIds=[...new Set(polines.map(l=>arr(l.order_id)[0]).filter(Boolean))];
+      const poApprove={};
+      for(let i=0;i<poIds.length;i+=300){const chunk=poIds.slice(i,i+300);const pos=toArr(await odoo('purchase.order','read',[chunk,['date_order','date_approve']]));for(const p of pos)poApprove[p.id]=(p.date_approve||p.date_order||'').split(' ')[0];}
+      const poReceipt={};
+      for(let i=0;i<poIds.length;i+=300){const chunk=poIds.slice(i,i+300);const pks=toArr(await odoo('stock.picking','search_read',[[['purchase_id','in',chunk],['state','=','done']]],{fields:['purchase_id','date_done'],limit:30000}));for(const pk of pks){const pid=arr(pk.purchase_id)[0];const d=(pk.date_done||'').split(' ')[0];if(!d)continue;if(!poReceipt[pid]||d<poReceipt[pid])poReceipt[pid]=d;}}
+      const ltAgg={};let allLt=[];
+      for(const l of polines){
+        const poId=arr(l.order_id)[0];const ap=poApprove[poId],rc=poReceipt[poId];if(!ap||!rc)continue;
+        const days=Math.round((new Date(rc)-new Date(ap))/86400000);if(days<0||days>400)continue;
+        const pid=arr(l.product_id)[0];(ltAgg[pid]=ltAgg[pid]||[]).push(days);allLt.push(days);
+      }
+      for(const pid in ltAgg){const a=ltAgg[pid];LEADTIME[pid]={days:Math.round(a.reduce((x,y)=>x+y,0)/a.length),n:a.length};}
+      if(allLt.length)GLOBAL_LT=Math.round(allLt.reduce((x,y)=>x+y,0)/allLt.length);
+    }catch(e){console.warn('lead-time calc failed',e.message);}
+    const ltEl=document.getElementById('ro-lt');if(ltEl&&!ltEl.dataset.touched)ltEl.value=(GLOBAL_LT>=14?GLOBAL_LT:60);
+
+    // init growth map
+    growthByCountry={};
+    for(const c of COUNTRIES){growthByCountry[c]=DEFAULT_GROWTH[c]!==undefined?DEFAULT_GROWTH[c]:0;}
+
+    setPill('Connected · '+new Date().toLocaleTimeString(),'ok');
+    document.getElementById('conn-panel').classList.remove('open');
+    document.getElementById('cov-line').textContent=`${RECORDS.length.toLocaleString()} invoice lines · ${HIST_YEARS[0]}–${CUR_YEAR} actual · projecting to Dec ${NEXT_YEAR}`;
+    renderGrowthBox();
+    recompute();
+    alert_('✓ Loaded '+RECORDS.length.toLocaleString()+' accessory invoice lines.','success');
+  }catch(e){
+    setPill('Error','err');
+    alert_('Error: '+e.message,'danger');
+    console.error(e);
+  }
+}
+
+// ── AGGREGATION ──────────────────────────────────────────────
+const fld=()=>FORCE_QTY?'qty':(measure()==='rev'?'rev':'qty');
+// sum over records matching predicate
+function sumWhere(pred){let s=0;const f=fld();for(const r of RECORDS){if(pred(r))s+=r[f];}return Math.max(0,s);}
+// monthly array [12] for a given year filtered by extra predicate
+function monthly(year,pred){const a=Array(12).fill(0);const f=fld();for(const r of RECORDS){if(r.year===year&&(!pred||pred(r)))a[r.month]+=r[f];}return a.map(x=>Math.max(0,x));}
+
+// data-driven seasonality from full hist years (normalised to sum 1)
+function seasonality(pred){
+  const a=Array(12).fill(0);const f=fld();
+  for(const r of RECORDS){if(HIST_YEARS.includes(r.year)&&(!pred||pred(r)))a[r.month]+=r[f];}
+  let tot=a.reduce((x,y)=>x+y,0);
+  if(tot<=0){const fb=SEASON_FALLBACK;const s=fb.reduce((x,y)=>x+y,0);return fb.map(x=>x/s);}
+  return a.map(x=>Math.max(0,x)/tot);
+}
+
+function projMethod(){const e=document.getElementById('f-method');return e?e.value:'run';}
+// project current-year full total for a predicate.
+//  run    = year-to-date pace × 12 (conservative, flat) ── default
+//  season = year-to-date grossed up by the 2024-25 seasonal curve (summer-heavy for accessories)
+//  blend  = average of the two
+function projectCurrentYear(pred){
+  const method=projMethod();
+  const season=seasonality(pred);
+  const cur=monthly(CUR_YEAR,pred);
+  // elapsed = months fully past (< current month), i.e. completed months only
+  const elapsedMonths=CUR_MONTH||1;
+  let elapsedActual=0,elapsedShare=0;
+  for(let m=0;m<CUR_MONTH;m++){elapsedActual+=cur[m];elapsedShare+=season[m];}
+  const fullRun = elapsedActual/elapsedMonths*12;
+  const fullSeason = elapsedShare>0.001 ? elapsedActual/elapsedShare : fullRun;
+  let full = method==='season'?fullSeason : method==='blend'?(fullRun+fullSeason)/2 : fullRun;
+  // distribute the remaining (full − elapsed actual) over the forward months (m >= current month)
+  const months=cur.slice();
+  const T=Math.max(0, full-elapsedActual);
+  let wsum=0;const w=Array(12).fill(0);
+  for(let m=CUR_MONTH;m<12;m++){w[m]=(method==='run'||method==='attach')?1:Math.max(0,season[m]);wsum+=w[m];}
+  for(let m=CUR_MONTH;m<12;m++){months[m]= wsum>0 ? T*w[m]/wsum : 0;}
+  return {full:Math.max(0,full), months, season, method, runRate:elapsedActual/elapsedMonths};
+}
+
+// next-year projection for a predicate, scaled by country growth
+function projectNextYear(){
+  // build per-country current-year full totals, then grow
+  const season=seasonality(null);
+  let totalNext=0;
+  const byCountry={};
+  for(const c of COUNTRIES){
+    const cy=projectCurrentYear(r=>r.country===c).full;
+    const g=(growthByCountry[c]||0)/100;
+    byCountry[c]=cy*(1+g);
+    totalNext+=byCountry[c];
+  }
+  return {total:totalNext, byCountry, season};
+}
+
+// product-level blended growth: weight each country's growth by the product's recent (CUR_YEAR + last hist) sales mix
+function blendedGrowthForProduct(pid){
+  const recent=r=>r.pid===pid&&(r.year===CUR_YEAR||r.year===HIST_YEARS[1]);
+  let denom=sumWhere(recent);
+  let useGlobal=denom<=0;
+  const recentG=r=>(r.year===CUR_YEAR||r.year===HIST_YEARS[1]);
+  if(useGlobal) denom=sumWhere(recentG);
+  if(denom<=0) return 1;
+  let f=0;
+  for(const c of COUNTRIES){
+    const num=useGlobal?sumWhere(r=>recentG(r)&&r.country===c):sumWhere(r=>recent(r)&&r.country===c);
+    f+=(num/denom)*(1+(growthByCountry[c]||0)/100);
+  }
+  return f;
+}
+// monthly forecast for one product: Jun CUR_YEAR → Dec NEXT_YEAR
+// ── ATTACH-RATE MODEL (accessories per bike) ─────────────────
+// Reference window for the ratios = last full history year + current-year completed months.
+function inWindow(r){return r.year===HIST_YEARS[1] || (r.year===CUR_YEAR && r.month<CUR_MONTH);}
+let IDX=null;   // pre-built lookups (units only), rebuilt each recompute
+function buildIdx(){
+  const bikeWin={},bikeYtd={},accWin={},elapsedAcc={};
+  const chRaw={},prodCh={},allRaw=Array(12).fill(0);
+  for(const b of BIKES){
+    if(!b.country) continue;
+    if(inWindow(b)) bikeWin[b.country]=(bikeWin[b.country]||0)+b.qty;
+    if(b.year===CUR_YEAR&&b.month<CUR_MONTH) bikeYtd[b.country]=(bikeYtd[b.country]||0)+b.qty;
+  }
+  for(const r of RECORDS){
+    if(inWindow(r)){(accWin[r.pid]=accWin[r.pid]||{});accWin[r.pid][r.country]=(accWin[r.pid][r.country]||0)+r.qty;
+      (prodCh[r.pid]=prodCh[r.pid]||{});prodCh[r.pid][r.channel]=(prodCh[r.pid][r.channel]||0)+r.qty;}
+    if(r.year===CUR_YEAR&&r.month<CUR_MONTH) elapsedAcc[r.pid]=(elapsedAcc[r.pid]||0)+r.qty;
+    if(HIST_YEARS.includes(r.year)){(chRaw[r.channel]=chRaw[r.channel]||Array(12).fill(0))[r.month]+=r.qty;allRaw[r.month]+=r.qty;}
+  }
+  // per-channel seasonal curve (normalised to sum 1); dealers who anticipate show an earlier/flatter shape
+  const chSeason={};
+  for(const ch in chRaw){const a=chRaw[ch].map(x=>Math.max(0,x));const t=a.reduce((x,y)=>x+y,0);if(t>0)chSeason[ch]=a.map(x=>x/t);}
+  const allT=allRaw.reduce((x,y)=>x+y,0);
+  const allSeason=allT>0?allRaw.map(x=>Math.max(0,x)/allT):SEASON_FALLBACK.map(x=>x/SEASON_FALLBACK.reduce((a,b)=>a+b,0));
+  IDX={bikeWin,bikeYtd,accWin,elapsedAcc,chSeason,prodCh,allSeason};
+}
+// product timing curve = its channel mix × each channel's seasonality (normalised, sum 1)
+function blendedSeasonForProduct(pid){
+  const mix=IDX.prodCh[pid]||{};let tot=0;for(const ch in mix)tot+=mix[ch];
+  const curve=Array(12).fill(0);
+  if(tot>0){for(const ch in mix){const w=mix[ch]/tot;const cs=IDX.chSeason[ch]||IDX.allSeason;for(let m=0;m<12;m++)curve[m]+=w*cs[m];}}
+  else curve.forEach((_,m)=>curve[m]=IDX.allSeason[m]);
+  const s=curve.reduce((a,b)=>a+b,0);return s>0?curve.map(x=>x/s):IDX.allSeason;
+}
+function seasonalTiming(){const e=document.getElementById('f-stime');return e?e.checked:true;}
+function bikeRunRate(c){return (IDX.bikeYtd[c]||0)/(CUR_MONTH||1);}      // bikes/month, current-year pace
+function attachRate(pid,c){const b=IDX.bikeWin[c]||0;return b>0?((IDX.accWin[pid]||{})[c]||0)/b:0;}
+function productForecastAttach(pid){
+  // annual quantities anchored to attach-rate × bike volume (NOT inflated by seasonality)
+  let base2026=0,base2027=0;                 // monthly-equivalent run-rate units
+  for(const cy of COUNTRIES){
+    const ar=attachRate(pid,cy); if(!ar)continue;
+    const rr=bikeRunRate(cy);    if(!rr)continue;
+    const g=(growthByCountry[cy]||0)/100;
+    base2026+=ar*rr; base2027+=ar*rr*(1+g);
+  }
+  const fwdN=12-CUR_MONTH;                    // remaining months of current year (Jun→Dec = 7)
+  const total2026=base2026*fwdN, total2027=base2027*12;
+  const curve=blendedSeasonForProduct(pid);
+  const useS=seasonalTiming();
+  let s26=0;for(let m=CUR_MONTH;m<12;m++)s26+=curve[m];
+  const months=fwdMonths().map(c=>{
+    let v;
+    if(c.y===CUR_YEAR) v=useS?(s26>0?total2026*curve[c.m]/s26:total2026/fwdN):base2026;
+    else               v=useS?total2027*curve[c.m]:base2027;
+    return {y:c.y,m:c.m,v:Math.max(0,v)};
+  });
+  const elapsedAcc=(IDX.elapsedAcc[pid]||0);
+  return {cur:elapsedAcc+total2026, next:total2027, months};
+}
+
+function productForecast(pid){
+  const method=projMethod();
+  if(method==='attach') return productForecastAttach(pid);
+  const cur=projectCurrentYear(r=>r.pid===pid);  // forward months already method-distributed
+  const season=seasonality(null);                // global curve for next-year shaping
+  const next=cur.full*blendedGrowthForProduct(pid);
+  const months=[];
+  for(let m=CUR_MONTH;m<12;m++) months.push({y:CUR_YEAR,m,v:Math.max(0,cur.months[m])});
+  for(let m=0;m<12;m++){const v=(method==='run')?next/12:next*season[m];months.push({y:NEXT_YEAR,m,v:Math.max(0,v)});}
+  return {cur:cur.full,next,months};
+}
+
+// cached product forecasts (invalidated each recompute)
+let _fcCache=null;
+function allFc(){if(_fcCache)return _fcCache;const m={};for(const p of PRODUCTS)m[p.pid]=productForecast(p.pid);_fcCache=m;return m;}
+// aggregate forward forecast over products matching prodFilter
+function aggForecast(prodFilter){
+  const ml=fwdMonths();const months=ml.map(()=>0);let cur=0,next=0;const fc=allFc();
+  for(const p of PRODUCTS){if(prodFilter&&!prodFilter(p))continue;const f=fc[p.pid];cur+=f.cur;next+=f.next;f.months.forEach((mm,i)=>months[i]+=mm.v);}
+  return {cur,next,months};
+}
+// current-year accessories in a country (attach model): real H1 + attach×bikes for the rest
+function attachCountry(country){
+  const rr=bikeRunRate(country);let aSum=0;for(const p of PRODUCTS)aSum+=attachRate(p.pid,country);
+  let elapsed=0;for(const r of RECORDS){if(r.country===country&&r.year===CUR_YEAR&&r.month<CUR_MONTH)elapsed+=r.qty;}
+  const g=(growthByCountry[country]||0)/100;const fwdN=12-CUR_MONTH;
+  return {cur:elapsed+aSum*rr*fwdN, next:aSum*rr*(1+g)*12};
+}
+const ATTACH=()=>projMethod()==='attach';
+function curProjTotal(){return ATTACH()?aggForecast(null).cur:projectCurrentYear(null).full;}
+function nextProjTotal(){return ATTACH()?aggForecast(null).next:projectNextYear().total;}
+
+// helper: current-year full total filtered, summed across countries with their growth (for type/channel next-year)
+function nextYearFor(pred){
+  // distribute next-year country totals by that predicate's share within each country (recent mix)
+  let total=0;
+  for(const c of COUNTRIES){
+    const g=(growthByCountry[c]||0)/100;
+    const cyCountryFull=projectCurrentYear(r=>r.country===c).full;
+    // share of pred within this country over recent actual (CUR_YEAR + last hist year)
+    const recent=r=>r.country===c&&(r.year===CUR_YEAR||r.year===HIST_YEARS[1]);
+    const denom=sumWhere(recent);
+    const num=sumWhere(r=>recent(r)&&pred(r));
+    const share=denom>0?num/denom:0;
+    total+=cyCountryFull*(1+g)*share;
+  }
+  return total;
+}
+
+// ── RECOMPUTE / RENDER ───────────────────────────────────────
+function recompute(){
+  if(!RECORDS.length) return;
+  buildIdx(); _fcCache=null;        // rebuild attach indexes + invalidate forecast cache
+  const mh=document.getElementById('method-hint');
+  if(mh) mh.textContent={attach:'accessories per bike × bike volume',run:'year-to-date pace × remaining months',blend:'run-rate averaged with seasonality',season:'history-shaped (can spike in summer)'}[projMethod()]||'';
+  document.getElementById('cy-1').textContent=CUR_YEAR;
+  document.getElementById('cy-2').textContent=NEXT_YEAR;
+  document.getElementById('cy-3').textContent=CUR_YEAR;
+  renderKPIs();
+  renderYearTable();
+  renderTrend();
+  renderDim('type',TYPES,r=>r.type,'t-type','bars-type');
+  renderDim('channel',CHANNELS,r=>r.channel,'t-channel','bars-channel');
+  renderCountryTable();
+  renderForecast();
+  document.getElementById('po-y0').textContent=CUR_YEAR;
+  document.getElementById('po-y1').textContent=NEXT_YEAR;
+  renderPO();
+  renderReorder();
+}
+
+// canonical forward month list Jun CUR_YEAR → Dec NEXT_YEAR
+function fwdMonths(){const a=[];for(let m=CUR_MONTH;m<12;m++)a.push({y:CUR_YEAR,m});for(let m=0;m<12;m++)a.push({y:NEXT_YEAR,m});return a;}
+
+// actual elapsed months of the current year: Jan … current month (e.g. Jan–Jun 2026)
+function actMonths(){const a=[];for(let m=0;m<=CUR_MONTH;m++)a.push({y:CUR_YEAR,m});return a;}
+
+function renderPO(){
+  if(!RECORDS.length) return;
+  FORCE_QTY=true;
+  const filter=(document.getElementById('po-search').value||'').toLowerCase();
+  const minU=parseFloat(document.getElementById('po-min').value)||0;
+  const am=actMonths(), ml=fwdMonths();
+  let rows=PRODUCTS.map(p=>{
+    const fc=productForecast(p.pid);
+    const total=fc.months.reduce((a,b)=>a+b.v,0);
+    const act=monthly(CUR_YEAR,r=>r.pid===p.pid);          // real invoiced units this year
+    const actVals=am.map(c=>act[c.m]);
+    const actTot=actVals.reduce((a,b)=>a+b,0);
+    return {...p,vals:fc.months.map(x=>x.v),total,actVals,actTot};
+  }).filter(r=>(r.total>=minU||r.actTot>0))
+    .filter(r=>r.total>0||r.actTot>0)
+    .filter(r=>!filter||((r.sku+' '+r.name+' '+r.cat).toLowerCase().includes(filter)))
+    .filter(r=>r.total>=minU)
+    .sort((a,b)=>b.total-a.total);
+  const actColTot=am.map(()=>0), colTot=ml.map(()=>0);let grand=0,actGrand=0;
+  const yy=y=>String(y).slice(2);
+  let h=`<table class="grid po"><thead><tr><th class="lbl">Product (SKU)</th><th class="cat">Type</th>`+
+    am.map(c=>`<th class="act">${MONTHS[c.m]} '${yy(c.y)}</th>`).join('')+
+    `<th class="act sep">Act&nbsp;Σ</th>`+
+    ml.map(c=>`<th class="${c.y===CUR_YEAR&&c.m===CUR_MONTH?'sep':''}">${MONTHS[c.m]} '${yy(c.y)}</th>`).join('')+
+    `<th>Fc&nbsp;Σ</th></tr></thead><tbody>`;
+  for(const r of rows){
+    let actCells='';
+    r.actVals.forEach((v,i)=>{actCells+=`<td class="act ${v?'':'zero'}">${fmt(v)}</td>`;actColTot[i]+=v;});
+    let cells='';
+    r.vals.forEach((v,i)=>{const sep=(ml[i].y===CUR_YEAR&&ml[i].m===CUR_MONTH)?' sep':'';cells+=`<td class="fc${sep} ${v?'':'zero'}">${fmt(v)}</td>`;colTot[i]+=v;});
+    grand+=r.total;actGrand+=r.actTot;
+    const lbl=(r.sku?('['+r.sku+'] '):'')+(r.name||'—');
+    h+=`<tr><td class="lbl" title="${lbl}">${lbl}</td><td class="cat">${r.cat}</td>${actCells}<td class="act sep">${fmt(r.actTot)}</td>${cells}<td>${fmt(r.total)}</td></tr>`;
+  }
+  h+=`</tbody><tfoot><tr><td class="lbl">Total · ${rows.length} products</td><td class="cat"></td>`+
+    actColTot.map(c=>`<td class="act">${fmt(c)}</td>`).join('')+
+    `<td class="act sep">${fmt(actGrand)}</td>`+
+    colTot.map((c,i)=>`<td class="${ml[i].y===CUR_YEAR&&ml[i].m===CUR_MONTH?'sep':''}">${fmt(c)}</td>`).join('')+
+    `<td>${fmt(grand)}</td></tr></tfoot></table>`;
+  document.getElementById('t-po').innerHTML=h;
+  document.getElementById('po-count').textContent=`${rows.length} products · ${fmt(actGrand)} units actual Jan–${MONTHS[CUR_MONTH]} ${CUR_YEAR} · ${fmt(grand)} units forecast Jun ${CUR_YEAR} → Dec ${NEXT_YEAR}`;
+  FORCE_QTY=false;
+}
+
+function exportPO(){
+  if(!RECORDS.length){alert_('Load data first.','danger');return;}
+  FORCE_QTY=true;
+  const am=actMonths(), ml=fwdMonths();
+  const head=['SKU','Product','Type',
+    ...am.map(c=>MONTHS[c.m]+' '+c.y+' (actual)'),'Actual Jan-'+MONTHS[CUR_MONTH]+' '+CUR_YEAR,
+    ...ml.map(c=>MONTHS[c.m]+' '+c.y+' (forecast)'),'Forecast total'];
+  const rows=PRODUCTS.map(p=>{
+    const fc=productForecast(p.pid);
+    const vals=fc.months.map(x=>Math.round(x.v));
+    const act=monthly(CUR_YEAR,r=>r.pid===p.pid);
+    const actVals=am.map(c=>Math.round(act[c.m]));
+    const actTot=actVals.reduce((a,b)=>a+b,0);
+    return {p,vals,actVals,actTot,tot:vals.reduce((a,b)=>a+b,0)};
+  }).filter(r=>r.tot>0||r.actTot>0).sort((a,b)=>b.tot-a.tot);
+  const esc=s=>{s=String(s==null?'':s);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  const lines=[head.map(esc).join(',')];
+  for(const r of rows){lines.push([esc(r.p.sku),esc(r.p.name),esc(r.p.cat),...r.actVals,r.actTot,...r.vals,r.tot].join(','));}
+  FORCE_QTY=false;
+  const blob=new Blob([lines.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`accessory_po_plan_${CUR_YEAR}-${NEXT_YEAR}.csv`;a.click();
+}
+
+function renderKPIs(){
+  const y0=HIST_YEARS[0],y1=HIST_YEARS[1];
+  const a0=sumWhere(r=>r.year===y0);
+  const a1=sumWhere(r=>r.year===y1);
+  const curFull=curProjTotal();
+  const ytd=monthly(CUR_YEAR,null).reduce((a,b,m)=>a+(m<CUR_MONTH?b:0),0);
+  const next=nextProjTotal();
+  const yoy=(a,b)=>{if(!b)return '';const d=(a/b-1)*100;return `<span class="${d>=0?'pos':'neg'}">${d>=0?'+':''}${d.toFixed(0)}%</span>`;}
+  const K=[
+    {l:y0+' actual',v:fmtM(a0),s:'full year'},
+    {l:y1+' actual',v:fmtM(a1),s:'full year · '+yoy(a1,a0)+' YoY'},
+    {l:CUR_YEAR+' projected',v:fmtM(curFull),s:fmtM(ytd)+' YTD · '+yoy(curFull,a1)+' YoY'},
+    {l:NEXT_YEAR+' projected',v:fmtM(next),s:'with country growth · '+yoy(next,curFull)+' YoY'},
+    {l:'Forward to Dec '+NEXT_YEAR,v:fmtM(forwardTotal()),s:'not yet invoiced'},
+  ];
+  document.getElementById('kpis').innerHTML=K.map(k=>`<div class="kpi"><div class="kpi-label">${k.l}</div><div class="kpi-value">${k.v}</div><div class="kpi-sub">${k.s}</div></div>`).join('');
+}
+
+// sum of all forward months: CUR_YEAR remaining (>=CUR_MONTH) + all NEXT_YEAR
+function forwardTotal(){
+  if(ATTACH()) return aggForecast(null).months.reduce((a,b)=>a+b,0);
+  const cur=projectCurrentYear(null);
+  let s=0;for(let m=CUR_MONTH;m<12;m++)s+=cur.months[m];
+  s+=projectNextYear().total;
+  return s;
+}
+// per-method monthly grids (12 each) for current and next year, used by charts/tables
+function forecastMonthGrids(){
+  if(ATTACH()){
+    const ag=aggForecast(null);const cm=monthly(CUR_YEAR,null).slice();const nm=Array(12).fill(0);
+    ag.months.forEach(mm=>{if(mm.y===CUR_YEAR)cm[mm.m]=mm.v;else nm[mm.m]=mm.v;});
+    return {cur:cm,next:nm};
+  }
+  const cur=projectCurrentYear(null);const ny=projectNextYear();
+  return {cur:cur.months,next:ny.season.map(s=>s*ny.total)};
+}
+function sumU(pred){let s=0;for(const r of RECORDS)if(pred(r))s+=r.qty;return Math.max(0,s);}
+
+function renderYearTable(){
+  const y0=HIST_YEARS[0],y1=HIST_YEARS[1];
+  const a0=sumWhere(r=>r.year===y0), a1=sumWhere(r=>r.year===y1);
+  const cur=curProjTotal();
+  const next=nextProjTotal();
+  let h=`<table class="grid"><thead><tr><th class="lbl">Year</th><th>${y0}</th><th>${y1}</th><th>${CUR_YEAR}</th><th>${NEXT_YEAR}</th></tr></thead><tbody>`;
+  h+=`<tr><td class="lbl">${measure()==='rev'?'Revenue':'Units'}</td><td>${fmtM(a0)}</td><td>${fmtM(a1)}</td><td class="fc">${fmtM(cur)}</td><td class="fc">${fmtM(next)}</td></tr>`;
+  const yoy=(a,b)=>!b?'·':`${a/b-1>=0?'+':''}${((a/b-1)*100).toFixed(0)}%`;
+  h+=`<tr><td class="lbl">YoY</td><td>·</td><td>${yoy(a1,a0)}</td><td class="fc">${yoy(cur,a1)}</td><td class="fc">${yoy(next,cur)}</td></tr>`;
+  h+=`</tbody></table>`;
+  document.getElementById('t-year').innerHTML=h;
+}
+
+function renderTrend(){
+  // 12*4 months across y0,y1,cur(proj),next(proj)
+  const y0=HIST_YEARS[0],y1=HIST_YEARS[1];
+  const m0=monthly(y0,null), m1=monthly(y1,null);
+  const grids=forecastMonthGrids();
+  const series=[
+    {y:y0,vals:m0,fc:false},{y:y1,vals:m1,fc:false},
+    {y:CUR_YEAR,vals:grids.cur,fc:true,fromM:CUR_MONTH},
+    {y:NEXT_YEAR,vals:grids.next,fc:true,fromM:0},
+  ];
+  const all=series.flatMap(s=>s.vals);
+  const max=Math.max(1,...all);
+  const W=Math.max(720, series.length*12*16), H=200, pad=24, bw=(W-pad*2)/(series.length*12);
+  let bars='';let x=pad;let labels='';
+  for(const s of series){
+    for(let m=0;m<12;m++){
+      const val=s.vals[m]||0;const bh=val/max*(H-pad*2);
+      const isFc=s.fc&&m>=(s.fromM||0);
+      bars+=`<rect x="${x.toFixed(1)}" y="${(H-pad-bh).toFixed(1)}" width="${(bw*0.8).toFixed(1)}" height="${bh.toFixed(1)}" rx="1.5" fill="${isFc?'url(#fc)':'var(--accent)'}"><title>${s.y} ${MONTHS[m]}: ${fmtM(val)}</title></rect>`;
+      x+=bw;
+    }
+    labels+=`<text x="${(x-bw*6).toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text2)">${s.y}${s.fc?' (fc)':''}</text>`;
+  }
+  document.getElementById('trend-chart').innerHTML=
+    `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="max-width:none">
+      <defs><pattern id="fc" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="var(--purple-bg)"/><line x1="0" y1="0" x2="0" y2="5" stroke="var(--purple)" stroke-width="2.2"/></pattern></defs>
+      ${bars}
+      <line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="var(--border2)"/>
+      ${labels}
+    </svg>
+    <div class="legend"><div class="li"><span class="sw" style="background:var(--accent)"></span>Actual invoiced</div><div class="li"><span class="sw" style="background:var(--purple)"></span>Forecast</div></div>`;
+}
+
+// generic dimension table (type / channel): rows = members, cols = years + forecast
+function renderDim(kind,members,keyFn,tableId,barsId){
+  const y0=HIST_YEARS[0],y1=HIST_YEARS[1];
+  const attach=ATTACH();
+  const recent=r=>(r.year===CUR_YEAR||r.year===HIST_YEARS[1]);
+  const recentTot=attach?sumU(recent):0;
+  const totCur=attach?curProjTotal():0, totNext=attach?nextProjTotal():0;
+  const rows=members.map(mem=>{
+    const a0=sumWhere(r=>r.year===y0&&keyFn(r)===mem);
+    const a1=sumWhere(r=>r.year===y1&&keyFn(r)===mem);
+    let cur,next;
+    if(attach){
+      if(kind==='type'){const ag=aggForecast(p=>p.cat===mem);cur=ag.cur;next=ag.next;}
+      else {const sh=recentTot>0?sumU(r=>recent(r)&&keyFn(r)===mem)/recentTot:0;cur=totCur*sh;next=totNext*sh;}
+    } else {cur=projectCurrentYear(r=>keyFn(r)===mem).full;next=nextYearFor(r=>keyFn(r)===mem);}
+    return {mem,a0,a1,cur,next};
+  }).sort((a,b)=>b.next-a.next);
+  const tot=k=>rows.reduce((s,r)=>s+r[k],0);
+  let h=`<table class="grid"><thead><tr><th class="lbl">${kind==='type'?'Type':'Channel'}</th><th>${y0}</th><th>${y1}</th><th>${CUR_YEAR} proj</th><th>${NEXT_YEAR} proj</th></tr></thead><tbody>`;
+  for(const r of rows){
+    h+=`<tr><td class="lbl">${r.mem}</td><td class="${r.a0?'':'zero'}">${fmtM(r.a0)}</td><td class="${r.a1?'':'zero'}">${fmtM(r.a1)}</td><td class="fc">${fmtM(r.cur)}</td><td class="fc">${fmtM(r.next)}</td></tr>`;
+  }
+  h+=`</tbody><tfoot><tr><td class="lbl">Total</td><td>${fmtM(tot('a0'))}</td><td>${fmtM(tot('a1'))}</td><td>${fmtM(tot('cur'))}</td><td>${fmtM(tot('next'))}</td></tr></tfoot></table>`;
+  document.getElementById(tableId).innerHTML=h;
+  // bars for next year
+  const max=Math.max(1,...rows.map(r=>r.next));
+  document.getElementById(barsId).innerHTML=rows.slice(0,12).map((r,i)=>
+    `<div class="bar-row"><div class="bn" title="${r.mem}">${r.mem}</div><div class="bar-track"><div class="bar-fill" style="width:${(r.next/max*100).toFixed(1)}%;background:${PALETTE[i%PALETTE.length]}"></div></div><div class="bv">${fmtM(r.next)}</div></div>`
+  ).join('');
+}
+
+function renderCountryTable(){
+  const y0=HIST_YEARS[0],y1=HIST_YEARS[1];
+  const attach=ATTACH();
+  const rows=COUNTRIES.map(c=>{
+    const a0=sumWhere(r=>r.year===y0&&r.country===c);
+    const a1=sumWhere(r=>r.year===y1&&r.country===c);
+    const g=growthByCountry[c]||0;
+    let cur,next;
+    if(attach){const ac=attachCountry(c);cur=ac.cur;next=ac.next;}
+    else {cur=projectCurrentYear(r=>r.country===c).full;next=cur*(1+g/100);}
+    return {c,a0,a1,cur,g,next};
+  }).sort((a,b)=>b.next-a.next);
+  const tot=k=>rows.reduce((s,r)=>s+r[k],0);
+  let h=`<table class="grid"><thead><tr><th class="lbl">Country</th><th>${y0}</th><th>${y1}</th><th>${CUR_YEAR} proj</th><th>Growth</th><th>${NEXT_YEAR} proj</th></tr></thead><tbody>`;
+  for(const r of rows){
+    h+=`<tr><td class="lbl">${r.c}</td><td class="${r.a0?'':'zero'}">${fmtM(r.a0)}</td><td class="${r.a1?'':'zero'}">${fmtM(r.a1)}</td><td class="fc">${fmtM(r.cur)}</td><td>${r.g>=0?'+':''}${r.g}%</td><td class="fc">${fmtM(r.next)}</td></tr>`;
+  }
+  h+=`</tbody><tfoot><tr><td class="lbl">Total</td><td>${fmtM(tot('a0'))}</td><td>${fmtM(tot('a1'))}</td><td>${fmtM(tot('cur'))}</td><td>·</td><td>${fmtM(tot('next'))}</td></tr></tfoot></table>`;
+  document.getElementById('t-country').innerHTML=h;
+}
+
+function renderGrowthBox(){
+  const box=document.getElementById('growth-box');
+  // sort: countries with biggest current-year volume first
+  const ranked=[...COUNTRIES].sort((a,b)=>projectCurrentYear(r=>r.country===b).full-projectCurrentYear(r=>r.country===a).full);
+  box.innerHTML=ranked.map(c=>
+    `<div class="growth-row"><span class="cn">${c}</span><input type="number" step="5" value="${growthByCountry[c]||0}" oninput="setGrowth('${c.replace(/'/g,"\\'")}',this.value)"/><span class="pct">%</span></div>`
+  ).join('');
+}
+function setGrowth(c,val){growthByCountry[c]=parseFloat(val)||0;recompute();}
+
+function renderForecast(){
+  const ml=fwdMonths();
+  const totals=aggForecast(null).months;
+  const typeAgg=TYPES.map(t=>{const m=aggForecast(p=>p.cat===t).months;return {t,m,tot:m.reduce((a,b)=>a+b,0)};}).sort((a,b)=>b.tot-a.tot);
+  const top=typeAgg.slice(0,6);
+  const colTot=top.map(()=>0);let otherTot=0,grand=0;
+  let h=`<table class="grid"><thead><tr><th class="lbl">Month</th>${top.map(x=>`<th>${x.t}</th>`).join('')}<th>Other</th><th>Total</th></tr></thead><tbody>`;
+  ml.forEach((c,i)=>{
+    let other=totals[i];const cells=[];
+    top.forEach((x,j)=>{const val=x.m[i];cells.push(val);other-=val;colTot[j]+=val;});
+    other=Math.max(0,other);otherTot+=other;grand+=totals[i];
+    h+=`<tr><td class="lbl">${MONTHS[c.m]} ${c.y}</td>${cells.map(v=>`<td class="fc ${v?'':'zero'}">${fmtM(v)}</td>`).join('')}<td class="fc ${other?'':'zero'}">${fmtM(other)}</td><td>${fmtM(totals[i])}</td></tr>`;
+  });
+  h+=`</tbody><tfoot><tr><td class="lbl">Forward total</td>${top.map((x,j)=>`<td>${fmtM(colTot[j])}</td>`).join('')}<td>${fmtM(otherTot)}</td><td>${fmtM(grand)}</td></tr></tfoot></table>`;
+  document.getElementById('t-forecast').innerHTML=h;
+  const max=Math.max(1,...typeAgg.map(x=>x.tot));
+  document.getElementById('bars-fwd').innerHTML=typeAgg.slice(0,12).map((x,i)=>
+    `<div class="bar-row"><div class="bn" title="${x.t}">${x.t}</div><div class="bar-track"><div class="bar-fill" style="width:${(x.tot/max*100).toFixed(1)}%;background:${PALETTE[i%PALETTE.length]}"></div></div><div class="bv">${fmtM(x.tot)}</div></div>`
+  ).join('');
+}
+
+// ── REORDER PLANNING ─────────────────────────────────────────
+function roParams(){
+  return {
+    safetyD:(parseFloat(document.getElementById('ro-safety').value)||0)*7,
+    coverD:(parseFloat(document.getElementById('ro-cover').value)||0)*7,
+    useInc:document.getElementById('ro-incoming').checked,
+    ltFallback:parseFloat(document.getElementById('ro-lt').value)||GLOBAL_LT
+  };
+}
+function reorderRows(){
+  const {safetyD,coverD,useInc,ltFallback}=roParams();
+  const fc=allFc();const today=new Date();today.setHours(0,0,0,0);
+  return PRODUCTS.map(p=>{
+    const f=fc[p.pid];
+    const n=Math.min(6,f.months.length);          // near-term demand pace = next ~6 forward months
+    const monthlyDemand=n?f.months.slice(0,n).reduce((a,b)=>a+b.v,0)/n:0;
+    const dailyDemand=monthlyDemand/30.4;
+    const st=STOCK[p.pid]||{onhand:0,incoming:0};
+    const onhand=st.onhand||0, incoming=useInc?(st.incoming||0):0, position=onhand+incoming;
+    const ltInfo=LEADTIME[p.pid];
+    // use measured lead time only if it's based on real history and not implausibly short; else the user fallback
+    const lt=(ltInfo&&ltInfo.days>=7)?ltInfo.days:ltFallback;
+    const reorderPoint=dailyDemand*(lt+safetyD);
+    // run-out (≈ when on-hand+incoming reaches zero at current pace) then order lead-time + safety earlier
+    const runoutDays=dailyDemand>0?position/dailyDemand:Infinity;
+    const runoutDate=isFinite(runoutDays)?new Date(today.getTime()+runoutDays*86400000):null;
+    const orderInDays=dailyDemand>0?(position-reorderPoint)/dailyDemand:Infinity;  // = runoutDays − lt − safety
+    const orderDate=isFinite(orderInDays)?new Date(today.getTime()+orderInDays*86400000):null;
+    const orderUpTo=dailyDemand*(lt+coverD);
+    const suggestQty=Math.max(0,Math.ceil(orderUpTo-position));
+    let status;
+    if(dailyDemand<=0) status='none';
+    else if(orderInDays<=0) status='now';
+    else if(orderInDays<=21) status='soon';
+    else status='ok';
+    return {p,onhand,incoming,position,lt,ltN:ltInfo?ltInfo.n:0,ltEst:!(ltInfo&&ltInfo.days>=7),monthlyDemand,dailyDemand,reorderPoint,runoutDays,runoutDate,orderInDays,orderDate,suggestQty,status};
+  });
+}
+const RO_RANK={now:0,soon:1,ok:2,none:3};
+function fdate(d){return d?d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'2-digit'}):'—';}
+async function kvSetStore(key,value){ try{ await storeFetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)}); }catch(e){} }
+let _accPubTimer=null;
+function publishAccessoryDeadlines(rows){
+  clearTimeout(_accPubTimer);
+  _accPubTimer=setTimeout(()=>{
+    const items=[];
+    for(const r of rows){ if((r.status==='now'||r.status==='soon') && r.suggestQty>0){
+      const od=r.orderDate?r.orderDate.toISOString().slice(0,10):new Date().toISOString().slice(0,10);
+      items.push({type:'order', id:'aorder:'+r.p.pid, pid:r.p.pid, name:(r.p.sku?('['+r.p.sku+'] '):'')+(r.p.name||''), partNo:r.p.sku||'', category:r.p.cat||'Accessory', neededDate:od, qty:r.suggestQty, status:r.status}); } }
+    kvSetStore('accessory_deadlines',{updated:new Date().toISOString(), source:'accessory-sales', items});
+    try{ if((location.hash+location.search).match(/embed=rebuild/)) parent.postMessage({ahoogaPublished:'accessory_deadlines'},'*'); }catch(e){}
+  },800);
+}
+function renderReorder(){
+  if(!RECORDS.length)return;
+  const filter=(document.getElementById('ro-search').value||'').toLowerCase();
+  const hideNone=document.getElementById('ro-hide').checked;
+  let rows=reorderRows()
+    .filter(r=>!hideNone||r.status!=='none')
+    .filter(r=>!filter||((r.p.sku+' '+r.p.name+' '+r.p.cat).toLowerCase().includes(filter)))
+    .sort((a,b)=>RO_RANK[a.status]-RO_RANK[b.status]||a.orderInDays-b.orderInDays);
+  const nNow=rows.filter(r=>r.status==='now').length, nSoon=rows.filter(r=>r.status==='soon').length;
+  const badge={now:'<span class="ro-b now">ORDER NOW</span>',soon:'<span class="ro-b soon">soon</span>',ok:'<span class="ro-b ok">ok</span>',none:'<span class="ro-b none">no demand</span>'};
+  const runTxt=r=>{if(r.status==='none'||!isFinite(r.runoutDays))return '—';if(r.runoutDays<=0)return `<b style="color:var(--danger)">out</b>`;return `${fdate(r.runoutDate)} <span style="color:var(--text3)">(${Math.round(r.runoutDays)}d)</span>`;};
+  const whenTxt=r=>{if(r.status==='none')return '—';if(!isFinite(r.orderInDays))return '—';if(r.orderInDays<=0)return `<b style="color:var(--danger)">now</b> <span style="color:var(--text3)">(${Math.round(-r.orderInDays)}d late · −${Math.round(r.lt)}d lead)</span>`;return `<b>${fdate(r.orderDate)}</b> <span style="color:var(--text3)">(in ${Math.round(r.orderInDays)}d · −${Math.round(r.lt)}d lead)</span>`;};
+  let h=`<table class="grid po"><thead><tr><th class="lbl">Product (SKU)</th><th class="cat">Type</th><th>On hand</th><th>Incoming</th><th>Lead time</th><th>Demand/mo</th><th>Reorder pt</th><th>Runs out</th><th>Order by</th><th>Order qty</th><th>Status</th></tr></thead><tbody>`;
+  for(const r of rows){
+    const lbl=(r.p.sku?('['+r.p.sku+'] '):'')+(r.p.name||'—');
+    h+=`<tr><td class="lbl" title="${lbl}">${lbl}</td><td class="cat">${r.p.cat}</td>`+
+       `<td>${fmt(r.onhand)}</td><td class="${r.incoming?'':'zero'}">${fmt(r.incoming)}</td>`+
+       `<td>${Math.round(r.lt)}d ${r.ltEst?'<span style="color:var(--text3);font-size:10px">est</span>':`<span style="color:var(--text3);font-size:10px">n=${r.ltN}</span>`}</td>`+
+       `<td>${fmt(r.monthlyDemand)}</td><td>${fmt(r.reorderPoint)}</td>`+
+       `<td style="text-align:left">${runTxt(r)}</td>`+
+       `<td style="text-align:left">${whenTxt(r)}</td>`+
+       `<td class="fc"><b>${r.status==='now'||r.status==='soon'?fmt(r.suggestQty):'·'}</b></td>`+
+       `<td style="text-align:left">${badge[r.status]}</td></tr>`;
+  }
+  h+=`</tbody></table>`;
+  document.getElementById('t-reorder').innerHTML=h;
+  document.getElementById('ro-count').innerHTML=`<b style="color:var(--danger)">${nNow}</b> to order now · <b style="color:var(--warn)">${nSoon}</b> coming up (≤3 wk) · ${rows.length} components shown · lead times from PO history, fallback ${document.getElementById('ro-lt').value}d`;
+  try{ publishAccessoryDeadlines(reorderRows()); }catch(e){}
+}
+function exportReorder(){
+  if(!RECORDS.length){alert_('Load data first.','danger');return;}
+  const rows=reorderRows().sort((a,b)=>RO_RANK[a.status]-RO_RANK[b.status]||a.orderInDays-b.orderInDays);
+  const head=['SKU','Product','Type','On hand','Incoming','Lead time (days)','Lead time source','Monthly demand','Reorder point','Runs out date','Order by date','Days until order','Suggested order qty','Status'];
+  const esc=s=>{s=String(s==null?'':s);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
+  const lines=[head.map(esc).join(',')];
+  for(const r of rows){lines.push([esc(r.p.sku),esc(r.p.name),esc(r.p.cat),Math.round(r.onhand),Math.round(r.incoming),Math.round(r.lt),r.ltEst?'estimate':('PO history n='+r.ltN),Math.round(r.monthlyDemand),Math.round(r.reorderPoint),r.runoutDate?r.runoutDate.toISOString().slice(0,10):'',r.orderDate?r.orderDate.toISOString().slice(0,10):'',isFinite(r.orderInDays)?Math.round(r.orderInDays):'',r.suggestQty,r.status].join(','));}
+  const blob=new Blob([lines.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`accessory_reorder_plan.csv`;a.click();
+}
+
+// ── CSV EXPORT ───────────────────────────────────────────────
+function exportCSV(){
+  if(!RECORDS.length){alert_('Load data first.','danger');return;}
+  const meas=measure()==='rev'?'revenue_eur':'units';
+  const lines=[['section','label','year','value'].join(',')];
+  const y0=HIST_YEARS[0],y1=HIST_YEARS[1];
+  const attach=ATTACH();
+  const recent=r=>(r.year===CUR_YEAR||r.year===HIST_YEARS[1]);const recentTot=attach?sumU(recent):0;
+  // by type
+  for(const t of TYPES){
+    let cur,next;
+    if(attach){const ag=aggForecast(p=>p.cat===t);cur=ag.cur;next=ag.next;}
+    else {cur=projectCurrentYear(r=>r.type===t).full;next=nextYearFor(r=>r.type===t);}
+    lines.push(['type',t,y0,Math.round(sumWhere(r=>r.year===y0&&r.type===t))].join(','));
+    lines.push(['type',t,y1,Math.round(sumWhere(r=>r.year===y1&&r.type===t))].join(','));
+    lines.push(['type',t,CUR_YEAR+'_proj',Math.round(cur)].join(','));
+    lines.push(['type',t,NEXT_YEAR+'_proj',Math.round(next)].join(','));
+  }
+  for(const c of CHANNELS){
+    let cur,next;
+    if(attach){const sh=recentTot>0?sumU(r=>recent(r)&&r.channel===c)/recentTot:0;cur=curProjTotal()*sh;next=nextProjTotal()*sh;}
+    else {cur=projectCurrentYear(r=>r.channel===c).full;next=nextYearFor(r=>r.channel===c);}
+    lines.push(['channel',c,CUR_YEAR+'_proj',Math.round(cur)].join(','));
+    lines.push(['channel',c,NEXT_YEAR+'_proj',Math.round(next)].join(','));
+  }
+  for(const c of COUNTRIES){
+    let cur,next;
+    if(attach){const ac=attachCountry(c);cur=ac.cur;next=ac.next;}
+    else {cur=projectCurrentYear(r=>r.country===c).full;next=cur*(1+(growthByCountry[c]||0)/100);}
+    lines.push(['country',c,CUR_YEAR+'_proj',Math.round(cur)].join(','));
+    lines.push(['country',c,NEXT_YEAR+'_proj',Math.round(next)].join(','));
+  }
+  // monthly forecast (total)
+  const grids=forecastMonthGrids();
+  for(let m=CUR_MONTH;m<12;m++) lines.push(['forecast_month',MONTHS[m]+' '+CUR_YEAR,CUR_YEAR,Math.round(grids.cur[m])].join(','));
+  for(let m=0;m<12;m++) lines.push(['forecast_month',MONTHS[m]+' '+NEXT_YEAR,NEXT_YEAR,Math.round(grids.next[m])].join(','));
+  const blob=new Blob([lines.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`accessory_sales_${meas}_${CUR_YEAR}.csv`;a.click();
+}
+
+// ── BOOT ─────────────────────────────────────────────────────
+loadCfg();
+// auto-load if creds present (mxp-auth feeds them in)
+setTimeout(()=>{const u=document.getElementById('cfg-user').value,k=document.getElementById('cfg-key').value;if(u&&k)loadData();else document.getElementById('conn-panel').classList.add('open');},600);
+</script>
+<script>/* AHOOGA_EMBED_HOOK_V1 */
+(function(){
+  var m=(location.hash+location.search).match(/embed=([\w-]+)/);if(!m)return;
+  var sc=m[1];document.documentElement.classList.add('ahooga-embed');
+  var st=document.createElement('style');st.textContent='.ahooga-embed header{display:none!important}.ahooga-embed .ahooga-home{display:none!important}.ahooga-embed .explain,.ahooga-embed .kpis,.ahooga-embed .kpi,.ahooga-embed .toolbar,.ahooga-embed .controls{display:none!important}.ahooga-embed main{padding:14px}.ahooga-embed .data-table td,.ahooga-embed .data-table th,.ahooga-embed table.grid td,.ahooga-embed table.grid th{padding:6px 10px!important;font-size:12.5px}.ahooga-embed .table-wrap{border-radius:8px}';document.head.appendChild(st);
+  function apply(){
+    if(sc==='acc'){if(typeof showTab==='function')showTab('reorder');}
+  }
+  var n=0,iv=setInterval(function(){try{apply()}catch(e){}if(++n>25)clearInterval(iv)},400);
+  if(document.readyState!=='loading')setTimeout(apply,60);
+  else document.addEventListener('DOMContentLoaded',function(){setTimeout(apply,60)});
+})();
+<\/script>
+</body>
+</html>

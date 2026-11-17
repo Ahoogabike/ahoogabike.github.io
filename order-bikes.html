@@ -1,0 +1,775 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ahooga — Order bikes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+ :root{--bg:#fff;--bg2:#f5f4f1;--ink:#16160f;--dim:#6f6d63;--line:#e6e3da;--gold:#f2b705;--gold-d:#caa006}
+ *{box-sizing:border-box}html,body{margin:0;height:100%}
+ body{background:var(--bg);color:var(--ink);font-family:'Archivo',system-ui,Segoe UI,sans-serif}
+ a{color:inherit;text-decoration:none}
+ header{display:flex;align-items:center;gap:16px;padding:14px 24px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(255,255,255,.93);backdrop-filter:blur(8px);z-index:20}
+ .brand img{height:22px;display:block}
+ .back{font-size:13px;color:var(--dim);border:1px solid var(--line);border-radius:18px;padding:6px 12px}
+ .back:hover{border-color:var(--gold);color:var(--ink)}
+ .htag{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+ .spacer{flex:1}
+ .who{display:flex;align-items:center;gap:12px;font-weight:600;font-size:13px;white-space:nowrap}
+ select{background:#fff;color:var(--ink);border:1px solid var(--line);border-radius:18px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+ .logout{color:var(--dim);font-size:13px;cursor:pointer}.logout:hover{color:var(--ink)}
+ .wrap{max-width:1180px;margin:0 auto;padding:24px;display:grid;grid-template-columns:1fr 320px;gap:24px}
+ @media(max-width:840px){.wrap{grid-template-columns:1fr}}
+ h1{font-size:26px;font-weight:900;letter-spacing:-.02em;margin:0 0 4px}
+ .sub{color:var(--dim);font-size:14px;margin:0 0 16px}
+ .search{width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px;font-size:14px;font-family:inherit;margin-bottom:18px}
+ .search:focus{outline:none;border-color:var(--gold)}
+ .bikes{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
+ .bike{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff;display:flex;flex-direction:column}
+ .bimg{aspect-ratio:4/3;background:var(--bg2);display:flex;align-items:center;justify-content:center;overflow:hidden}
+ .bimg img{width:100%;height:100%;object-fit:contain}
+ .bimg .ph{color:#cfccc2;font-size:11px}
+ .binfo{padding:12px 13px;display:flex;flex-direction:column;gap:8px;flex:1}
+ .bname{font-weight:700;font-size:13.5px;line-height:1.3}
+ .bcode{font-size:11px;color:var(--dim);font-family:'Space Mono',monospace}
+ .bprice{font-size:14px;font-weight:800;color:#16160f}
+ .ptoggle{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:16px}
+ .ptoggle button{border:0;background:#fff;color:var(--dim);font-weight:700;font-size:12.5px;padding:8px 16px;cursor:pointer;font-family:inherit}
+ .ptoggle button.on{background:var(--gold);color:#16160f}
+ .ptoggle button+button{border-left:1px solid var(--line)}
+ .filterbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+ .fseg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+ .fseg button{border:0;background:#fff;color:var(--dim);font-weight:700;font-size:12.5px;padding:7px 13px;cursor:pointer;font-family:inherit}
+ .fseg button.on{background:#16160f;color:#fff}
+ .fseg button+button{border-left:1px solid var(--line)}
+ #cart-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+ .ctab{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:8px;padding:4px 5px 4px 9px;font-size:12px;cursor:pointer;background:#fff;max-width:100%}
+ .ctab.on{border-color:#16160f;background:#fbf7ea}
+ .ctab .cn{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+ .ctab .cc{background:#f2b705;color:#16160f;border-radius:6px;padding:0 5px;font-weight:700;font-size:10px}
+ .ctab .cren,.ctab .cdel{border:0;background:none;cursor:pointer;color:#9a9384;font-size:11px;padding:0 1px;line-height:1}
+ .ctab .cren:hover,.ctab .cdel:hover{color:#16160f}
+ .cnew{border:1px dashed var(--line);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;background:none;color:#16160f;font-family:inherit;font-weight:700}
+ .cu-lab{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#6f6d63;margin:16px 0 8px;font-weight:600}
+ .sw-grid{display:flex;flex-wrap:wrap;gap:9px}
+ .sw{width:30px;height:30px;border-radius:50%;border:2px solid #e6e3da;cursor:pointer;padding:0}
+ .sw.on{border-color:#16160f;box-shadow:0 0 0 2px #fff,0 0 0 4px #f2b705}
+ .sw-name{font-size:12.5px;color:#16160f;font-weight:700;margin-top:7px;min-height:16px}
+ .cu-pills{display:inline-flex;border:1px solid #e6e3da;border-radius:9px;overflow:hidden}
+ .cu-pill{border:0;background:#fff;color:#6f6d63;font-weight:700;font-size:13px;padding:8px 16px;cursor:pointer;font-family:inherit}
+ .cu-pill.on{background:#16160f;color:#fff}
+ .cu-pill+.cu-pill{border-left:1px solid #e6e3da}
+ .stk{font-size:12px;font-weight:700}.stk.in{color:#2d6e2d}.stk.soon{color:#9a6a00}.stk.out{color:#b3261e}
+ .badd{margin-top:auto;display:flex;align-items:center;gap:8px}
+ .stepper{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+ .stepper button{border:0;background:#fff;width:28px;height:30px;cursor:pointer;font-size:16px;color:var(--ink)}
+ .stepper span{width:30px;text-align:center;font-weight:700;font-size:13px}
+ .addb{flex:1;border:0;border-radius:8px;background:var(--gold);color:#16160f;font-weight:800;font-size:13px;padding:7px;cursor:pointer;font-family:inherit}
+ .addb:hover{background:var(--gold-d)}
+ .panel{align-self:start;position:sticky;top:80px;border:1px solid var(--line);border-radius:16px;padding:18px;background:#fff}
+ .panel h3{margin:0 0 4px;font-size:16px}.panel .note{color:var(--dim);font-size:12px;margin:0 0 12px;line-height:1.5}
+ .cart .row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+ .cart .row b{font-weight:700}.cart .row .q{color:var(--dim)}
+ .cart .rm{border:0;background:none;color:var(--dim);cursor:pointer;font-size:15px}
+ .empty{color:var(--dim);font-size:13px}
+ .submit{margin-top:14px;width:100%;padding:12px;border:0;border-radius:10px;background:var(--gold);color:#16160f;font-weight:800;font-size:14px;cursor:pointer}
+ .submit:hover{background:var(--gold-d)}.submit:disabled{opacity:.5;cursor:default}
+ #omsg{margin-top:10px;font-size:13px;line-height:1.5;min-height:18px}
+ .state{padding:40px 0;color:var(--dim);text-align:center}
+ /* login */
+ #login{position:fixed;inset:0;z-index:100;background:var(--bg2);display:flex;align-items:center;justify-content:center;padding:18px}
+ .lbox{width:min(410px,94vw);background:#fff;border:1px solid var(--line);border-radius:20px;padding:34px;box-shadow:0 20px 60px rgba(20,20,10,.10)}
+ .lbox img{height:26px;display:block;margin-bottom:14px}
+ .lsub{color:var(--dim);font-size:13.5px;margin:0 0 22px;line-height:1.5}
+ label{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin:14px 0 6px;font-weight:600}
+ input.f{width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid var(--line);border-radius:10px;color:var(--ink);font-size:14px;font-family:inherit}
+ input.f:focus{outline:none;border-color:var(--gold)}
+ #go{margin-top:24px;width:100%;padding:14px;border:0;border-radius:10px;background:var(--gold);color:#16160f;font-weight:800;font-size:14px;cursor:pointer}
+ #msg{margin-top:12px;font-size:13px;color:#b3261e;min-height:18px}
+ .llang{display:flex;justify-content:flex-end;margin-bottom:6px}
+</style></head>
+<body>
+<div id="app" style="display:none">
+ <header>
+  <span class="brand"><img src="https://cdn.shopify.com/s/files/1/0278/5909/1527/files/AHOOGA_Logo.png?height=120&v=1642062559" alt="Ahooga"></span>
+  <a class="back" href="dealer-portal.html">← <span data-i="back"></span></a>
+  <span class="spacer"></span>
+  <span class="who"><span id="who-name"></span>
+   <select id="langsel" onchange="langSet(this.value)"></select>
+   <span class="logout" data-i="logout" onclick="logout()"></span>
+  </span>
+ </header>
+ <div class="wrap">
+  <div>
+   <h1 data-i="title"></h1><p class="sub" data-i="sub"></p>
+   <div class="ptoggle" style="margin-bottom:10px"><button id="tab-bikes" class="on" onclick="setView('bikes')" data-i="tab_bikes"></button><button id="tab-acc" onclick="setView('acc')" data-i="tab_acc"></button></div>
+   <div class="ptoggle"><button id="pm-dealer" class="on" onclick="setPriceMode('dealer')" data-i="your_price"></button><button id="pm-list" onclick="setPriceMode('list')" data-i="sales_price"></button><span id="vatnote" data-i="vat_note" style="font-size:11px;color:#9a9384;margin-left:12px"></span></div>
+   <div id="pricediag" style="font-size:11px;color:#9a9384;margin:-8px 0 14px"></div>
+   <div class="filterbar" id="bikefilters">
+     <div class="fseg">
+       <button data-g="type" data-v="all" class="on" data-i="all"></button>
+       <button data-g="type" data-v="emax">E‑Max</button>
+       <button data-g="type" data-v="amax">A‑Max</button>
+     </div>
+     <div class="fseg">
+       <button data-g="trans" data-v="all" class="on" data-i="all"></button>
+       <button data-g="trans" data-v="alfine">Alfine</button>
+       <button data-g="trans" data-v="derailleur">Derailleur</button>
+       <button data-g="trans" data-v="nexus">Nexus</button>
+     </div>
+   </div>
+   <input class="search" id="search" data-iph="search_ph" oninput="render()">
+   <div id="bikes" class="bikes"></div>
+   <div id="state" class="state"></div>
+  </div>
+  <aside class="panel">
+   <h3 data-i="cart"></h3>
+   <div id="cart-tabs"></div>
+   <p class="note" data-i="note"></p>
+   <div class="cart" id="cart"></div>
+   <button class="submit" id="submit" onclick="submit()"></button>
+   <div id="omsg"></div>
+  </aside>
+ </div>
+</div>
+<div id="login">
+ <div class="lbox">
+  <div class="llang"><select id="loginlang" onchange="langSet(this.value)"></select></div>
+  <img src="https://cdn.shopify.com/s/files/1/0278/5909/1527/files/AHOOGA_Logo.png?height=120&v=1642062559" alt="Ahooga">
+  <div class="lsub" data-i="login_sub"></div>
+  <label data-i="email"></label><input class="f" id="email" autocomplete="username">
+  <label data-i="password"></label><input class="f" id="pass" type="password" autocomplete="current-password">
+  <button id="go" data-i="login_btn"></button><div id="msg"></div>
+ </div>
+</div>
+<script>
+/* /store/ key (Nov 2026): once the proxy's STORE_KEY secret is set, every save (and every read of a private key)
+   needs the header X-Store-Key. The key is kept only in this browser (localStorage 'ahooga_store_key') and is
+   asked once, the first time the server answers 401. Never write the key itself into this file. */
+async function storeFetch(url,opts){
+  opts=opts||{};
+  var getK=function(){var k='';try{k=localStorage.getItem('ahooga_store_key')||'';}catch(e){}return k||storeFetch._k||'';};
+  var send=function(k){var h=Object.assign({},opts.headers||{});if(k)h['X-Store-Key']=k;return fetch(url,Object.assign({},opts,{headers:h}));};
+  var k=getK(),r=await send(k);
+  /* Nov 17 fix: before, the typed key was saved even when the server refused it, so one typo meant the
+     prompt came back on every visit. Now a refused saved key is wiped, and a typed key is saved only
+     after the server accepts it (2 tries, then give up for this page load). */
+  if(r.status===401||r.status===403){
+    var n=getK();
+    if(n&&n!==k)return send(n);                    // another call already got a working key
+    if(storeFetch._asked)return r;
+    storeFetch._asked=true;
+    if(k){storeFetch._k='';try{localStorage.removeItem('ahooga_store_key');}catch(e){}}
+    var msg=k?'The saved Ahooga store key was refused (wrong or changed). Please enter the current key:'
+             :'This tool needs the Ahooga store key to load and save shared data (asked once on this computer):';
+    for(var t=0;t<2;t++){
+      n=String(window.prompt(msg)||'').trim();
+      if(!n)break;
+      var r2=await send(n);
+      if(r2.status!==401&&r2.status!==403){storeFetch._k=n;try{localStorage.setItem('ahooga_store_key',n);}catch(e){}return r2;}
+      msg='That key was not accepted. Check it and try again:';
+    }
+  }
+  return r;
+}
+</script>
+<script>
+const CF_WORKER_URL="https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev";
+const LANG_NAMES={en:"English",fr:"Français",nl:"Nederlands",de:"Deutsch",sv:"Svenska",pl:"Polski",it:"Italiano",hu:"Magyar",lt:"Lietuvių",es:"Español",pt:"Português"};
+const I18N={
+ en:{title:"Order bikes",sub:"Choose MAX bikes to order for your shop.",back:"Portal",search_ph:"Search bikes…",loading:"Loading bikes…",none:"No bikes found.",add:"Add",cart:"Your order",note:"Your dealer price is confirmed on the quotation.",empty:"Nothing selected yet.",submit:"Submit order",submitting:"Submitting…",ok:"Order received — quotation {n} created.",will:"Ahooga will confirm pricing & availability.",welcome:"Welcome",logout:"Log out",login_sub:"Log in with your Ahooga B2B portal account.",email:"Email",password:"Password",login_btn:"Log in",verifying:"Verifying…",enter_creds:"Enter your email and password.",failed:"Login failed"},
+ fr:{title:"Commander des vélos",sub:"Choisissez les vélos MAX à commander pour votre magasin.",back:"Portail",search_ph:"Rechercher des vélos…",loading:"Chargement des vélos…",none:"Aucun vélo trouvé.",add:"Ajouter",cart:"Votre commande",note:"Votre prix revendeur est confirmé sur le devis.",empty:"Rien de sélectionné.",submit:"Envoyer la commande",submitting:"Envoi…",ok:"Commande reçue — devis {n} créé.",will:"Ahooga confirmera le prix et la disponibilité.",welcome:"Bienvenue",logout:"Déconnexion",login_sub:"Connectez-vous avec votre compte du portail B2B Ahooga.",email:"E-mail",password:"Mot de passe",login_btn:"Se connecter",verifying:"Vérification…",enter_creds:"Saisissez votre e-mail et votre mot de passe.",failed:"Échec de connexion"},
+ nl:{title:"Fietsen bestellen",sub:"Kies MAX-fietsen om voor uw winkel te bestellen.",back:"Portaal",search_ph:"Fietsen zoeken…",loading:"Fietsen laden…",none:"Geen fietsen gevonden.",add:"Toevoegen",cart:"Uw bestelling",note:"Uw dealerprijs wordt op de offerte bevestigd.",empty:"Nog niets geselecteerd.",submit:"Bestelling verzenden",submitting:"Verzenden…",ok:"Bestelling ontvangen — offerte {n} aangemaakt.",will:"Ahooga bevestigt prijs & beschikbaarheid.",welcome:"Welkom",logout:"Uitloggen",login_sub:"Log in met uw Ahooga B2B-portaalaccount.",email:"E-mail",password:"Wachtwoord",login_btn:"Inloggen",verifying:"Controleren…",enter_creds:"Voer uw e-mail en wachtwoord in.",failed:"Inloggen mislukt"},
+ de:{title:"Räder bestellen",sub:"Wählen Sie MAX-Räder für Ihren Laden.",back:"Portal",search_ph:"Räder suchen…",loading:"Räder werden geladen…",none:"Keine Räder gefunden.",add:"Hinzufügen",cart:"Ihre Bestellung",note:"Ihr Händlerpreis wird im Angebot bestätigt.",empty:"Noch nichts ausgewählt.",submit:"Bestellung senden",submitting:"Senden…",ok:"Bestellung erhalten — Angebot {n} erstellt.",will:"Ahooga bestätigt Preis & Verfügbarkeit.",welcome:"Willkommen",logout:"Abmelden",login_sub:"Melden Sie sich mit Ihrem Ahooga B2B-Portalkonto an.",email:"E-Mail",password:"Passwort",login_btn:"Anmelden",verifying:"Überprüfung…",enter_creds:"Geben Sie E-Mail und Passwort ein.",failed:"Anmeldung fehlgeschlagen"},
+ sv:{title:"Beställ cyklar",sub:"Välj MAX-cyklar att beställa till din butik.",back:"Portal",search_ph:"Sök cyklar…",loading:"Laddar cyklar…",none:"Inga cyklar hittades.",add:"Lägg till",cart:"Din beställning",note:"Ditt återförsäljarpris bekräftas på offerten.",empty:"Inget valt än.",submit:"Skicka beställning",submitting:"Skickar…",ok:"Beställning mottagen — offert {n} skapad.",will:"Ahooga bekräftar pris & tillgänglighet.",welcome:"Välkommen",logout:"Logga ut",login_sub:"Logga in med ditt Ahooga B2B-portalkonto.",email:"E-post",password:"Lösenord",login_btn:"Logga in",verifying:"Verifierar…",enter_creds:"Ange din e-post och ditt lösenord.",failed:"Inloggning misslyckades"},
+ pl:{title:"Zamów rowery",sub:"Wybierz rowery MAX do zamówienia dla swojego sklepu.",back:"Portal",search_ph:"Szukaj rowerów…",loading:"Ładowanie rowerów…",none:"Nie znaleziono rowerów.",add:"Dodaj",cart:"Twoje zamówienie",note:"Twoja cena dealerska jest potwierdzana na ofercie.",empty:"Nic nie wybrano.",submit:"Wyślij zamówienie",submitting:"Wysyłanie…",ok:"Zamówienie przyjęte — utworzono ofertę {n}.",will:"Ahooga potwierdzi cenę i dostępność.",welcome:"Witamy",logout:"Wyloguj",login_sub:"Zaloguj się kontem w portalu B2B Ahooga.",email:"E-mail",password:"Hasło",login_btn:"Zaloguj się",verifying:"Weryfikacja…",enter_creds:"Podaj e-mail i hasło.",failed:"Logowanie nie powiodło się"},
+ it:{title:"Ordina bici",sub:"Scegli le bici MAX da ordinare per il tuo negozio.",back:"Portale",search_ph:"Cerca bici…",loading:"Caricamento bici…",none:"Nessuna bici trovata.",add:"Aggiungi",cart:"Il tuo ordine",note:"Il tuo prezzo rivenditore è confermato nel preventivo.",empty:"Niente selezionato.",submit:"Invia ordine",submitting:"Invio…",ok:"Ordine ricevuto — preventivo {n} creato.",will:"Ahooga confermerà prezzo e disponibilità.",welcome:"Benvenuto",logout:"Esci",login_sub:"Accedi con il tuo account del portale B2B Ahooga.",email:"E-mail",password:"Password",login_btn:"Accedi",verifying:"Verifica…",enter_creds:"Inserisci e-mail e password.",failed:"Accesso non riuscito"},
+ hu:{title:"Kerékpárok rendelése",sub:"Válasszon MAX kerékpárokat üzlete számára.",back:"Portál",search_ph:"Kerékpárok keresése…",loading:"Kerékpárok betöltése…",none:"Nincs találat.",add:"Hozzáadás",cart:"Az Ön rendelése",note:"A kereskedői árat az árajánlat erősíti meg.",empty:"Még nincs kiválasztva semmi.",submit:"Rendelés elküldése",submitting:"Küldés…",ok:"Rendelés fogadva — {n} árajánlat létrehozva.",will:"Az Ahooga megerősíti az árat és elérhetőséget.",welcome:"Üdvözöljük",logout:"Kijelentkezés",login_sub:"Jelentkezzen be az Ahooga B2B portál fiókjával.",email:"E-mail",password:"Jelszó",login_btn:"Bejelentkezés",verifying:"Ellenőrzés…",enter_creds:"Adja meg e-mail címét és jelszavát.",failed:"A bejelentkezés sikertelen"},
+ lt:{title:"Užsakyti dviračius",sub:"Pasirinkite MAX dviračius savo parduotuvei.",back:"Portalas",search_ph:"Ieškoti dviračių…",loading:"Įkeliami dviračiai…",none:"Dviračių nerasta.",add:"Pridėti",cart:"Jūsų užsakymas",note:"Jūsų atstovo kaina patvirtinama pasiūlyme.",empty:"Nieko nepasirinkta.",submit:"Pateikti užsakymą",submitting:"Siunčiama…",ok:"Užsakymas gautas — sukurtas pasiūlymas {n}.",will:"Ahooga patvirtins kainą ir prieinamumą.",welcome:"Sveiki",logout:"Atsijungti",login_sub:"Prisijunkite su savo Ahooga B2B portalo paskyra.",email:"El. paštas",password:"Slaptažodis",login_btn:"Prisijungti",verifying:"Tikrinama…",enter_creds:"Įveskite el. paštą ir slaptažodį.",failed:"Prisijungti nepavyko"},
+ es:{title:"Pedir bicis",sub:"Elija las bicis MAX para pedir para su tienda.",back:"Portal",search_ph:"Buscar bicis…",loading:"Cargando bicis…",none:"No se encontraron bicis.",add:"Añadir",cart:"Su pedido",note:"Su precio de distribuidor se confirma en el presupuesto.",empty:"Nada seleccionado.",submit:"Enviar pedido",submitting:"Enviando…",ok:"Pedido recibido — presupuesto {n} creado.",will:"Ahooga confirmará precio y disponibilidad.",welcome:"Bienvenido",logout:"Cerrar sesión",login_sub:"Inicie sesión con su cuenta del portal B2B de Ahooga.",email:"Correo electrónico",password:"Contraseña",login_btn:"Iniciar sesión",verifying:"Verificando…",enter_creds:"Introduzca su correo y contraseña.",failed:"Error de inicio de sesión"},
+ pt:{title:"Encomendar bicicletas",sub:"Escolha as bicicletas MAX para encomendar para a sua loja.",back:"Portal",search_ph:"Procurar bicicletas…",loading:"A carregar bicicletas…",none:"Nenhuma bicicleta encontrada.",add:"Adicionar",cart:"A sua encomenda",note:"O seu preço de revendedor é confirmado no orçamento.",empty:"Nada selecionado.",submit:"Enviar encomenda",submitting:"A enviar…",ok:"Encomenda recebida — orçamento {n} criado.",will:"A Ahooga confirmará preço e disponibilidade.",welcome:"Bem-vindo",logout:"Terminar sessão",login_sub:"Inicie sessão com a sua conta do portal B2B Ahooga.",email:"E-mail",password:"Palavra-passe",login_btn:"Iniciar sessão",verifying:"A verificar…",enter_creds:"Introduza o seu e-mail e palavra-passe.",failed:"Falha no início de sessão"}
+};
+// stock-status labels merged into I18N
+var STK={en:{instock:"In stock",outstock:"Out of stock",arriving:"arriving",lead:"Lead time",weeks:"weeks"},fr:{instock:"En stock",outstock:"Rupture de stock",arriving:"arrivée le",lead:"Délai",weeks:"semaines"},nl:{instock:"Op voorraad",outstock:"Niet op voorraad",arriving:"levering",lead:"Levertijd",weeks:"weken"},de:{instock:"Auf Lager",outstock:"Nicht auf Lager",arriving:"Ankunft",lead:"Lieferzeit",weeks:"Wochen"},sv:{instock:"I lager",outstock:"Slut i lager",arriving:"ankommer",lead:"Leveranstid",weeks:"veckor"},pl:{instock:"Na stanie",outstock:"Brak na stanie",arriving:"dostawa",lead:"Czas realizacji",weeks:"tygodni"},it:{instock:"Disponibile",outstock:"Esaurito",arriving:"in arrivo",lead:"Tempi di consegna",weeks:"settimane"},hu:{instock:"Raktáron",outstock:"Nincs raktáron",arriving:"érkezik",lead:"Szállítási idő",weeks:"hét"},lt:{instock:"Sandėlyje",outstock:"Nėra sandėlyje",arriving:"atvyksta",lead:"Pristatymo laikas",weeks:"savaitės"},es:{instock:"En stock",outstock:"Agotado",arriving:"llegada",lead:"Plazo de entrega",weeks:"semanas"},pt:{instock:"Em stock",outstock:"Esgotado",arriving:"chegada",lead:"Prazo de entrega",weeks:"semanas"}};
+Object.keys(STK).forEach(function(l){if(I18N[l])Object.assign(I18N[l],STK[l]);});
+var WARN={en:{norack:"Are you sure you want to order this bike without a rack? 80% of our bikes are sold with a rack."},fr:{norack:"Êtes-vous sûr de vouloir commander ce vélo sans porte-bagages ? 80 % de nos vélos sont vendus avec porte-bagages."},nl:{norack:"Weet u zeker dat u deze fiets zonder drager wilt bestellen? 80% van onze fietsen wordt met drager verkocht."},de:{norack:"Sind Sie sicher, dass Sie dieses Rad ohne Gepäckträger bestellen möchten? 80 % unserer Räder werden mit Gepäckträger verkauft."},sv:{norack:"Är du säker på att du vill beställa denna cykel utan pakethållare? 80 % av våra cyklar säljs med pakethållare."},pl:{norack:"Czy na pewno chcesz zamówić ten rower bez bagażnika? 80% naszych rowerów sprzedaje się z bagażnikiem."},it:{norack:"Sei sicuro di voler ordinare questa bici senza portapacchi? L'80% delle nostre bici è venduto con portapacchi."},hu:{norack:"Biztosan csomagtartó nélkül szeretné megrendelni ezt a kerékpárt? Kerékpárjaink 80%-át csomagtartóval értékesítjük."},lt:{norack:"Ar tikrai norite užsakyti šį dviratį be bagažinės? 80 % mūsų dviračių parduodama su bagažine."},es:{norack:"¿Seguro que quiere pedir esta bici sin portaequipajes? El 80% de nuestras bicis se venden con portaequipajes."},pt:{norack:"Tem a certeza de que quer encomendar esta bicicleta sem porta-bagagens? 80% das nossas bicicletas são vendidas com porta-bagagens."}};
+Object.keys(WARN).forEach(function(l){if(I18N[l])Object.assign(I18N[l],WARN[l]);});
+var WBTN={en:{warn_yes:"Add anyway",warn_no:"Cancel"},fr:{warn_yes:"Ajouter quand même",warn_no:"Annuler"},nl:{warn_yes:"Toch toevoegen",warn_no:"Annuleren"},de:{warn_yes:"Trotzdem hinzufügen",warn_no:"Abbrechen"},sv:{warn_yes:"Lägg till ändå",warn_no:"Avbryt"},pl:{warn_yes:"Dodaj mimo to",warn_no:"Anuluj"},it:{warn_yes:"Aggiungi comunque",warn_no:"Annulla"},hu:{warn_yes:"Hozzáadás mégis",warn_no:"Mégse"},lt:{warn_yes:"Vis tiek pridėti",warn_no:"Atšaukti"},es:{warn_yes:"Añadir igualmente",warn_no:"Cancelar"},pt:{warn_yes:"Adicionar mesmo assim",warn_no:"Cancelar"}};
+Object.keys(WBTN).forEach(function(l){if(I18N[l])Object.assign(I18N[l],WBTN[l]);});
+var WACC={en:{acc_title:"Suggested accessories",acc_sub:"Popular add-ons for the MAX — add any to your order.",done:"Done"},fr:{acc_title:"Accessoires suggérés",acc_sub:"Accessoires populaires pour le MAX — ajoutez-les à votre commande.",done:"Terminé"},nl:{acc_title:"Aanbevolen accessoires",acc_sub:"Populaire accessoires voor de MAX — voeg toe aan uw bestelling.",done:"Klaar"},de:{acc_title:"Empfohlenes Zubehör",acc_sub:"Beliebtes Zubehör für den MAX — fügen Sie es Ihrer Bestellung hinzu.",done:"Fertig"},sv:{acc_title:"Föreslagna tillbehör",acc_sub:"Populära tillbehör för MAX — lägg till i din beställning.",done:"Klar"},pl:{acc_title:"Sugerowane akcesoria",acc_sub:"Popularne dodatki do MAX — dodaj do zamówienia.",done:"Gotowe"},it:{acc_title:"Accessori consigliati",acc_sub:"Accessori popolari per la MAX — aggiungili al tuo ordine.",done:"Fatto"},hu:{acc_title:"Javasolt tartozékok",acc_sub:"Népszerű kiegészítők a MAX-hoz — adja a rendeléséhez.",done:"Kész"},lt:{acc_title:"Siūlomi priedai",acc_sub:"Populiarūs MAX priedai — pridėkite prie užsakymo.",done:"Atlikta"},es:{acc_title:"Accesorios sugeridos",acc_sub:"Complementos populares para la MAX — añádelos a tu pedido.",done:"Hecho"},pt:{acc_title:"Acessórios sugeridos",acc_sub:"Acessórios populares para a MAX — adicione à sua encomenda.",done:"Concluído"}};
+Object.keys(WACC).forEach(function(l){if(I18N[l])Object.assign(I18N[l],WACC[l]);});
+// --- planner's exact config detection (verbatim from MAX_planner) ---
+function detectColor(n){var l=n.toLowerCase();if(l.includes('yellow')||l.includes('bumblebee'))return'yellow';if(l.includes('black')||l.includes('cosmic'))return'black';if(l.includes('red')||l.includes('ruby'))return'red';return'custom';}
+function detectTransmission(n){var l=n.toLowerCase();if(l.includes('alfine')||l.includes('alf'))return'alfine';if(l.includes('derailleur')||l.includes('der'))return'derailleur';if(l.includes('nexus')||l.includes('nex'))return'nexus';return'unknown';}
+function detectBikeType(n){var l=n.toLowerCase();if(l.includes('e-max')||l.includes('emax'))return'emax';if(l.includes('a-max')||l.includes('amax'))return'amax';if(l.includes('modular')||l.includes('ahmun'))return'modular';if(l.includes('folding')||l.includes('ahfan')||l.includes('analog'))return'folding';return'other';}
+function detectRack(n){var l=n.toLowerCase();return(l.includes('rack')&&!l.includes('no rack'))?'rack':'no rack';}
+function stockKey(name){return [detectBikeType(name),detectTransmission(name),detectColor(name),detectRack(name)].join('|');}
+var freeIdx={},etaIdx={};
+async function loadStockMirror(){
+ freeIdx={};etaIdx={};
+ // primary: the planner's published production basis (same free-stock + incoming-PO dates)
+ try{var r=await storeFetch(CF_WORKER_URL+"/store/production_basis");var pb=await r.json();
+  if(pb&&pb.freeStockBySku)freeIdx=pb.freeStockBySku;
+  if(pb&&pb.incomingEtaBySku)etaIdx=pb.incomingEtaBySku;}catch(e){}
+ // fallback: stock mirror, if the planner hasn't published a basis yet
+ if(!Object.keys(freeIdx).length&&!Object.keys(etaIdx).length){
+  try{var r2=await storeFetch(CF_WORKER_URL+"/store/shared_stock_mirror");var d=await r2.json();
+   (d&&d.stock||[]).forEach(function(s){var key=[s.bikeType,s.transmission,s.color,s.rack].join('|');if(!s.reserved&&!s.inTransit)freeIdx[key]=(freeIdx[key]||0)+1;else if(s.inTransit&&!s.reserved&&s.expectedArrival){if(!etaIdx[key]||s.expectedArrival<etaIdx[key])etaIdx[key]=s.expectedArrival;}});}catch(e){}
+ }
+}
+let curLang="en",token=null,dealerName="",bikes=[],cart={};
+var carts={},activeId=null;
+(function loadCarts(){
+ try{var s=JSON.parse(localStorage.getItem("ahg_bikecarts")||"null");if(s&&s.carts&&Object.keys(s.carts).length){carts=s.carts;activeId=(s.activeId&&carts[s.activeId])?s.activeId:Object.keys(carts)[0];}}catch(e){}
+ if(!activeId){var id="c"+Date.now();carts[id]={name:"",items:{}};activeId=id;}
+ cart=carts[activeId].items||(carts[activeId].items={});
+})();
+function saveCart(){try{if(activeId&&carts[activeId])carts[activeId].items=cart;localStorage.setItem("ahg_bikecarts",JSON.stringify({carts:carts,activeId:activeId}));}catch(e){}}
+function renderTabs(){
+ var el=document.getElementById("cart-tabs");if(!el)return;
+ var ids=Object.keys(carts);
+ var html=ids.map(function(id){
+  var c=carts[id],n=Object.values(c.items||{}).length,on=id===activeId;
+  return '<span class="ctab'+(on?' on':'')+'" onclick="switchCart(\''+id+'\')" title="'+(c.oname?esc(c.oname):'')+'">'+
+   '<span class="cn">'+esc(c.name||t("untitled_cart"))+'</span>'+(n?'<span class="cc">'+n+'</span>':'')+(c.oname?'<span class="cc" style="background:#e6e3da;color:#16160f">'+esc(c.oname)+'</span>':'')+
+   '<button class="cren" title="'+t("rename_cart")+'" onclick="event.stopPropagation();renameCart(\''+id+'\')">✎</button>'+
+   (ids.length>1?'<button class="cdel" title="'+t("close_cart")+'" onclick="event.stopPropagation();deleteCart(\''+id+'\')">✕</button>':'')+
+   '</span>';
+ }).join("");
+ html+='<button class="cnew" onclick="newCart()">+ '+t("new_cart")+'</button>';
+ el.innerHTML=html;
+}
+function newCart(){saveCart();var id="c"+Date.now();carts[id]={name:"",items:{}};activeId=id;cart=carts[id].items;renderTabs();render();renderCart();}
+function switchCart(id){if(!carts[id])return;saveCart();activeId=id;cart=carts[id].items||(carts[id].items={});renderTabs();render();renderCart();}
+function renameCart(id){if(!carts[id])return;var n=prompt(t("rename_prompt"),carts[id].name||"");if(n!==null){carts[id].name=String(n).slice(0,40);carts[id]._sig="";saveCart();renderTabs();if(id===activeId)scheduleSync();}}
+function deleteCart(id){if(!carts[id])return;
+ if(carts[id].oid&&token){try{fetch(CF_WORKER_URL+"/dealer/cart",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:token,orderId:carts[id].oid,cancel:true})});}catch(e){}}
+ if(Object.keys(carts).length<=1){for(var k in carts[id].items)delete carts[id].items[k];cart=carts[id].items;saveCart();renderTabs();render();renderCart();return;}
+ delete carts[id];if(activeId===id){activeId=Object.keys(carts)[0];cart=carts[activeId].items||(carts[activeId].items={});}saveCart();renderTabs();render();renderCart();}
+function clearCart(){for(var k in cart)delete cart[k];saveCart();renderTabs();renderCart();scheduleSync();}
+var _syncT=null;
+function scheduleSync(){clearTimeout(_syncT);_syncT=setTimeout(syncCart,1200);}
+function syncCart(){
+ if(!token||!activeId||!carts[activeId])return;
+ var c=carts[activeId],items=Object.values(c.items||{});
+ if(!items.length && !c.oid)return;            // don't create empty quotations
+ var lines=items.map(function(i){var o={qty:i.qty};if(/^\d+$/.test(String(i.id)))o.id=Number(i.id);else o.code=i.id;if(i.desc)o.desc=i.desc;return o;});
+ var sig=JSON.stringify({o:c.oid||0,n:c.name||"",l:lines});
+ if(sig===c._sig)return; c._sig=sig;
+ fetch(CF_WORKER_URL+"/dealer/cart",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:token,orderId:c.oid||null,name:c.name||"",lines:lines})})
+  .then(function(r){if(r.status===401)return null;return r.json();})
+  .then(function(d){if(d&&d.ok){c.oid=d.id;c.oname=d.name;saveCart();renderTabs();}})
+  .catch(function(){c._sig="";});
+}
+var priceMap={};   // dealer price (from /dealer/prices)
+var listMap={};    // public list price (from the bikes read — always available)
+var priceMode="dealer";   // 'dealer' (pricelist) or 'list' (retail)
+var filterType="all", filterTrans="all";
+var viewMode="bikes", accessories=[], accLoaded=false, accOrder=null, accEdit=false;
+var ADMIN=/[?&#]admin/i.test(location.href);
+async function loadAccOrder(){try{var r=await storeFetch(CF_WORKER_URL+"/store/acc_order");var d=await r.json();if(Array.isArray(d)&&d.length)accOrder=d;}catch(e){}}
+var ACC_CODES=["AC00000231","AC00000201","AC00000134","AC00000211","AC00000015","AC00000299","ELNEB00010","ELNEB00020","AC00000316A","AC00000316B","AC00000316C","AC00000221"];
+function priceOf(id){
+ if(priceMode==='list') return listMap[id]!=null?listMap[id]:(priceMap[id]!=null?priceMap[id]:null);
+ return priceMap[id]!=null?priceMap[id]:(listMap[id]!=null?listMap[id]:null);
+}
+function setPriceMode(m){priceMode=m;var pd=document.getElementById('pm-dealer'),pl=document.getElementById('pm-list');if(pd)pd.classList.toggle('on',m==='dealer');if(pl)pl.classList.toggle('on',m==='list');render();renderCart();}
+function fmtEur(n){if(n==null||isNaN(n))return"";return "€"+Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
+var pricesStatus="",pricesInfo="";
+async function loadPrices(ids){ids=(ids||[]).filter(function(id){return priceMap[id]===undefined;});if(!ids.length)return;
+ try{
+  var r=await fetch(CF_WORKER_URL+"/dealer/prices",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:token,ids:ids})});
+  if(r.status===404){pricesStatus="endpoint";pricesInfo="⚠ dealer-prices endpoint not deployed (HTTP 404) — the Worker needs the latest version.";return;}
+  var d=await r.json();
+  if(d&&d.error){pricesStatus="err";pricesInfo="⚠ price error: "+d.error;return;}
+  if(d&&d.prices){Object.keys(d.prices).forEach(function(k){priceMap[k]=d.prices[k].price;});pricesStatus="ok";pricesInfo=(d.pricelist?("✓ Pricelist: "+(d.pricelistName||("#"+d.pricelist))):"⚠ No pricelist set on this dealer in Odoo — showing list price")+" · "+Object.keys(d.prices).length+" prices";}
+ }catch(e){pricesStatus="neterr";pricesInfo="⚠ price request failed: "+(e&&e.message||e);}}
+var WTOT={en:{total:"Total"},fr:{total:"Total"},nl:{total:"Totaal"},de:{total:"Gesamt"},sv:{total:"Totalt"},pl:{total:"Razem"},it:{total:"Totale"},hu:{total:"Összesen"},lt:{total:"Iš viso"},es:{total:"Total"},pt:{total:"Total"}};
+Object.keys(WTOT).forEach(function(l){if(I18N[l])Object.assign(I18N[l],WTOT[l]);});
+var WPM={en:{your_price:"Your price",sales_price:"Retail price"},fr:{your_price:"Votre prix",sales_price:"Prix public"},nl:{your_price:"Uw prijs",sales_price:"Adviesprijs"},de:{your_price:"Ihr Preis",sales_price:"UVP"},sv:{your_price:"Ditt pris",sales_price:"Cirkapris"},pl:{your_price:"Twoja cena",sales_price:"Cena detaliczna"},it:{your_price:"Il tuo prezzo",sales_price:"Prezzo al pubblico"},hu:{your_price:"Az Ön ára",sales_price:"Listaár"},lt:{your_price:"Jūsų kaina",sales_price:"Mažmeninė kaina"},es:{your_price:"Su precio",sales_price:"Precio público"},pt:{your_price:"O seu preço",sales_price:"Preço público"}};
+Object.keys(WPM).forEach(function(l){if(I18N[l])Object.assign(I18N[l],WPM[l]);});
+var WVAT={en:{vat_note:"All prices net (excl. VAT)"},fr:{vat_note:"Tous les prix hors TVA (net)"},nl:{vat_note:"Alle prijzen excl. btw (netto)"},de:{vat_note:"Alle Preise netto (zzgl. MwSt.)"},sv:{vat_note:"Alla priser exkl. moms (netto)"},pl:{vat_note:"Wszystkie ceny netto (bez VAT)"},it:{vat_note:"Tutti i prezzi al netto (IVA esclusa)"},hu:{vat_note:"Minden ár nettó (áfa nélkül)"},lt:{vat_note:"Visos kainos be PVM (neto)"},es:{vat_note:"Precios netos (sin IVA)"},pt:{vat_note:"Preços líquidos (sem IVA)"}};
+Object.keys(WVAT).forEach(function(l){if(I18N[l])Object.assign(I18N[l],WVAT[l]);});
+var WTAB={en:{tab_bikes:"Bikes",tab_acc:"Accessories"},fr:{tab_bikes:"Vélos",tab_acc:"Accessoires"},nl:{tab_bikes:"Fietsen",tab_acc:"Accessoires"},de:{tab_bikes:"Räder",tab_acc:"Zubehör"},sv:{tab_bikes:"Cyklar",tab_acc:"Tillbehör"},pl:{tab_bikes:"Rowery",tab_acc:"Akcesoria"},it:{tab_bikes:"Bici",tab_acc:"Accessori"},hu:{tab_bikes:"Kerékpárok",tab_acc:"Tartozékok"},lt:{tab_bikes:"Dviračiai",tab_acc:"Priedai"},es:{tab_bikes:"Bicis",tab_acc:"Accesorios"},pt:{tab_bikes:"Bicicletas",tab_acc:"Acessórios"}};
+Object.keys(WTAB).forEach(function(l){if(I18N[l])Object.assign(I18N[l],WTAB[l]);});
+var WLAY={en:{edit_layout:"Edit layout",done_layout:"Done",save_layout:"Save layout",layout_saved:"Saved"},fr:{edit_layout:"Modifier la disposition",done_layout:"Terminé",save_layout:"Enregistrer",layout_saved:"Enregistré"},nl:{edit_layout:"Indeling bewerken",done_layout:"Klaar",save_layout:"Opslaan",layout_saved:"Opgeslagen"},de:{edit_layout:"Layout bearbeiten",done_layout:"Fertig",save_layout:"Speichern",layout_saved:"Gespeichert"},sv:{edit_layout:"Redigera layout",done_layout:"Klar",save_layout:"Spara",layout_saved:"Sparad"},pl:{edit_layout:"Edytuj układ",done_layout:"Gotowe",save_layout:"Zapisz",layout_saved:"Zapisano"},it:{edit_layout:"Modifica layout",done_layout:"Fatto",save_layout:"Salva",layout_saved:"Salvato"},hu:{edit_layout:"Elrendezés szerkesztése",done_layout:"Kész",save_layout:"Mentés",layout_saved:"Mentve"},lt:{edit_layout:"Redaguoti išdėstymą",done_layout:"Atlikta",save_layout:"Įrašyti",layout_saved:"Įrašyta"},es:{edit_layout:"Editar diseño",done_layout:"Hecho",save_layout:"Guardar",layout_saved:"Guardado"},pt:{edit_layout:"Editar disposição",done_layout:"Concluído",save_layout:"Guardar",layout_saved:"Guardado"}};
+Object.keys(WLAY).forEach(function(l){if(I18N[l])Object.assign(I18N[l],WLAY[l]);});
+var WCLR={en:{clear_cart:"Empty cart"},fr:{clear_cart:"Vider le panier"},nl:{clear_cart:"Mandje legen"},de:{clear_cart:"Warenkorb leeren"},sv:{clear_cart:"Töm varukorg"},pl:{clear_cart:"Opróżnij koszyk"},it:{clear_cart:"Svuota carrello"},hu:{clear_cart:"Kosár ürítése"},lt:{clear_cart:"Išvalyti krepšelį"},es:{clear_cart:"Vaciar cesta"},pt:{clear_cart:"Esvaziar carrinho"}};
+Object.keys(WCLR).forEach(function(l){if(I18N[l])Object.assign(I18N[l],WCLR[l]);});
+var WMC={
+ en:{new_cart:"New cart",untitled_cart:"Untitled",rename_cart:"Rename",close_cart:"Close cart",rename_prompt:"Name this cart (e.g. customer name):"},
+ fr:{new_cart:"Nouveau panier",untitled_cart:"Sans nom",rename_cart:"Renommer",close_cart:"Fermer le panier",rename_prompt:"Nommer ce panier (ex. nom du client) :"},
+ nl:{new_cart:"Nieuw mandje",untitled_cart:"Naamloos",rename_cart:"Hernoemen",close_cart:"Mandje sluiten",rename_prompt:"Geef dit mandje een naam (bijv. klantnaam):"},
+ de:{new_cart:"Neuer Warenkorb",untitled_cart:"Unbenannt",rename_cart:"Umbenennen",close_cart:"Warenkorb schließen",rename_prompt:"Diesen Warenkorb benennen (z. B. Kundenname):"},
+ sv:{new_cart:"Ny varukorg",untitled_cart:"Namnlös",rename_cart:"Byt namn",close_cart:"Stäng varukorg",rename_prompt:"Namnge denna varukorg (t.ex. kundnamn):"},
+ pl:{new_cart:"Nowy koszyk",untitled_cart:"Bez nazwy",rename_cart:"Zmień nazwę",close_cart:"Zamknij koszyk",rename_prompt:"Nazwij ten koszyk (np. nazwa klienta):"},
+ it:{new_cart:"Nuovo carrello",untitled_cart:"Senza nome",rename_cart:"Rinomina",close_cart:"Chiudi carrello",rename_prompt:"Assegna un nome a questo carrello (es. nome cliente):"},
+ hu:{new_cart:"Új kosár",untitled_cart:"Névtelen",rename_cart:"Átnevezés",close_cart:"Kosár bezárása",rename_prompt:"Nevezze el ezt a kosarat (pl. ügyfél neve):"},
+ lt:{new_cart:"Naujas krepšelis",untitled_cart:"Be pavadinimo",rename_cart:"Pervadinti",close_cart:"Uždaryti krepšelį",rename_prompt:"Pavadinkite šį krepšelį (pvz. kliento vardas):"},
+ es:{new_cart:"Nueva cesta",untitled_cart:"Sin nombre",rename_cart:"Renombrar",close_cart:"Cerrar cesta",rename_prompt:"Nombre esta cesta (p. ej. nombre del cliente):"},
+ pt:{new_cart:"Novo carrinho",untitled_cart:"Sem nome",rename_cart:"Renomear",close_cart:"Fechar carrinho",rename_prompt:"Dê um nome a este carrinho (ex. nome do cliente):"}
+};
+Object.keys(WMC).forEach(function(l){if(I18N[l])Object.assign(I18N[l],WMC[l]);});
+var WALL={en:{all:"All"},fr:{all:"Tous"},nl:{all:"Alle"},de:{all:"Alle"},sv:{all:"Alla"},pl:{all:"Wszystkie"},it:{all:"Tutti"},hu:{all:"Összes"},lt:{all:"Visi"},es:{all:"Todos"},pt:{all:"Todos"}};
+Object.keys(WALL).forEach(function(l){if(I18N[l])Object.assign(I18N[l],WALL[l]);});
+var WCHK={
+ en:{checkout_title:"Confirm your order",delivery_date:"Requested delivery date",your_ref:"Your reference (PO)",delivery_addr:"Delivery address",pay_terms:"Payment terms",agree:"I confirm and agree to the payment terms above",firm_warn:"By confirming, this becomes a firm order in Odoo — not a quotation. It can't be undone here.",confirm_btn:"Confirm order",confirming:"Confirming…",save_draft:"Save as quotation",confirmed:"Order confirmed",cancel:"Cancel"},
+ fr:{checkout_title:"Confirmez votre commande",delivery_date:"Date de livraison souhaitée",your_ref:"Votre référence (BC)",delivery_addr:"Adresse de livraison",pay_terms:"Conditions de paiement",agree:"Je confirme et accepte les conditions de paiement ci-dessus",firm_warn:"En confirmant, ceci devient une commande ferme dans Odoo — pas un devis. Irréversible ici.",confirm_btn:"Confirmer la commande",confirming:"Confirmation…",save_draft:"Enregistrer comme devis",confirmed:"Commande confirmée",cancel:"Annuler"},
+ nl:{checkout_title:"Bevestig uw bestelling",delivery_date:"Gewenste leverdatum",your_ref:"Uw referentie (PO)",delivery_addr:"Leveradres",pay_terms:"Betalingsvoorwaarden",agree:"Ik bevestig en ga akkoord met de bovenstaande betalingsvoorwaarden",firm_warn:"Door te bevestigen wordt dit een vaste bestelling in Odoo — geen offerte. Hier niet ongedaan te maken.",confirm_btn:"Bestelling bevestigen",confirming:"Bevestigen…",save_draft:"Opslaan als offerte",confirmed:"Bestelling bevestigd",cancel:"Annuleren"},
+ de:{checkout_title:"Bestellung bestätigen",delivery_date:"Gewünschtes Lieferdatum",your_ref:"Ihre Referenz (Bestellnr.)",delivery_addr:"Lieferadresse",pay_terms:"Zahlungsbedingungen",agree:"Ich bestätige und akzeptiere die obigen Zahlungsbedingungen",firm_warn:"Mit der Bestätigung wird dies eine verbindliche Bestellung in Odoo — kein Angebot. Hier nicht widerrufbar.",confirm_btn:"Bestellung bestätigen",confirming:"Bestätigen…",save_draft:"Als Angebot speichern",confirmed:"Bestellung bestätigt",cancel:"Abbrechen"},
+ sv:{checkout_title:"Bekräfta din beställning",delivery_date:"Önskat leveransdatum",your_ref:"Din referens (order)",delivery_addr:"Leveransadress",pay_terms:"Betalningsvillkor",agree:"Jag bekräftar och godkänner betalningsvillkoren ovan",firm_warn:"Genom att bekräfta blir detta en fast order i Odoo — inte en offert. Kan inte ångras här.",confirm_btn:"Bekräfta beställning",confirming:"Bekräftar…",save_draft:"Spara som offert",confirmed:"Beställning bekräftad",cancel:"Avbryt"},
+ pl:{checkout_title:"Potwierdź zamówienie",delivery_date:"Żądana data dostawy",your_ref:"Twój numer (zamówienia)",delivery_addr:"Adres dostawy",pay_terms:"Warunki płatności",agree:"Potwierdzam i akceptuję powyższe warunki płatności",firm_warn:"Po potwierdzeniu staje się to wiążącym zamówieniem w Odoo — nie ofertą. Nie można tu cofnąć.",confirm_btn:"Potwierdź zamówienie",confirming:"Potwierdzanie…",save_draft:"Zapisz jako ofertę",confirmed:"Zamówienie potwierdzone",cancel:"Anuluj"},
+ it:{checkout_title:"Conferma il tuo ordine",delivery_date:"Data di consegna richiesta",your_ref:"Il tuo riferimento (ordine)",delivery_addr:"Indirizzo di consegna",pay_terms:"Termini di pagamento",agree:"Confermo e accetto i termini di pagamento sopra indicati",firm_warn:"Confermando, questo diventa un ordine fermo in Odoo — non un preventivo. Non annullabile qui.",confirm_btn:"Conferma ordine",confirming:"Conferma…",save_draft:"Salva come preventivo",confirmed:"Ordine confermato",cancel:"Annulla"},
+ hu:{checkout_title:"Rendelés megerősítése",delivery_date:"Kért szállítási dátum",your_ref:"Az Ön hivatkozása (rendelés)",delivery_addr:"Szállítási cím",pay_terms:"Fizetési feltételek",agree:"Megerősítem és elfogadom a fenti fizetési feltételeket",firm_warn:"A megerősítéssel ez végleges rendeléssé válik az Odoo-ban — nem árajánlat. Itt nem vonható vissza.",confirm_btn:"Rendelés megerősítése",confirming:"Megerősítés…",save_draft:"Mentés árajánlatként",confirmed:"Rendelés megerősítve",cancel:"Mégse"},
+ lt:{checkout_title:"Patvirtinkite užsakymą",delivery_date:"Pageidaujama pristatymo data",your_ref:"Jūsų nuoroda (užsakymo)",delivery_addr:"Pristatymo adresas",pay_terms:"Mokėjimo sąlygos",agree:"Patvirtinu ir sutinku su aukščiau nurodytomis mokėjimo sąlygomis",firm_warn:"Patvirtinę, tai tampa galutiniu užsakymu Odoo — ne pasiūlymu. Čia negalima atšaukti.",confirm_btn:"Patvirtinti užsakymą",confirming:"Tvirtinama…",save_draft:"Išsaugoti kaip pasiūlymą",confirmed:"Užsakymas patvirtintas",cancel:"Atšaukti"},
+ es:{checkout_title:"Confirme su pedido",delivery_date:"Fecha de entrega solicitada",your_ref:"Su referencia (pedido)",delivery_addr:"Dirección de entrega",pay_terms:"Condiciones de pago",agree:"Confirmo y acepto las condiciones de pago anteriores",firm_warn:"Al confirmar, esto se convierte en un pedido en firme en Odoo — no un presupuesto. No se puede deshacer aquí.",confirm_btn:"Confirmar pedido",confirming:"Confirmando…",save_draft:"Guardar como presupuesto",confirmed:"Pedido confirmado",cancel:"Cancelar"},
+ pt:{checkout_title:"Confirme a sua encomenda",delivery_date:"Data de entrega pretendida",your_ref:"A sua referência (encomenda)",delivery_addr:"Endereço de entrega",pay_terms:"Condições de pagamento",agree:"Confirmo e aceito as condições de pagamento acima",firm_warn:"Ao confirmar, esta torna-se uma encomenda firme no Odoo — não um orçamento. Não pode ser anulada aqui.",confirm_btn:"Confirmar encomenda",confirming:"A confirmar…",save_draft:"Guardar como orçamento",confirmed:"Encomenda confirmada",cancel:"Cancelar"}
+};
+Object.keys(WCHK).forEach(function(l){if(I18N[l])Object.assign(I18N[l],WCHK[l]);});
+var WNOTE={
+ en:{price_notice:"If a pricing error is identified, Ahooga reserves the right to cancel this order and issue a new quotation with corrected prices."},
+ fr:{price_notice:"En cas d'erreur de prix constatée, Ahooga se réserve le droit d'annuler cette commande et d'émettre un nouveau devis avec les prix corrigés."},
+ nl:{price_notice:"Bij een vastgestelde prijsfout behoudt Ahooga zich het recht voor deze bestelling te annuleren en een nieuwe offerte met gecorrigeerde prijzen uit te brengen."},
+ de:{price_notice:"Bei einem festgestellten Preisfehler behält sich Ahooga das Recht vor, diese Bestellung zu stornieren und ein neues Angebot mit korrigierten Preisen zu erstellen."},
+ sv:{price_notice:"Om ett prisfel upptäcks förbehåller sig Ahooga rätten att annullera denna order och utfärda en ny offert med korrigerade priser."},
+ pl:{price_notice:"W przypadku wykrycia błędu cenowego Ahooga zastrzega sobie prawo do anulowania tego zamówienia i wystawienia nowej oferty ze skorygowanymi cenami."},
+ it:{price_notice:"In caso di errore di prezzo riscontrato, Ahooga si riserva il diritto di annullare l'ordine ed emettere un nuovo preventivo con i prezzi corretti."},
+ hu:{price_notice:"Árhiba észlelése esetén az Ahooga fenntartja a jogot, hogy törölje ezt a rendelést és új, javított árú árajánlatot adjon ki."},
+ lt:{price_notice:"Nustačius kainos klaidą, Ahooga pasilieka teisę atšaukti šį užsakymą ir pateikti naują pasiūlymą su pataisytomis kainomis."},
+ es:{price_notice:"Si se detecta un error de precio, Ahooga se reserva el derecho de cancelar este pedido y emitir un nuevo presupuesto con los precios corregidos."},
+ pt:{price_notice:"Caso seja identificado um erro de preço, a Ahooga reserva-se o direito de cancelar esta encomenda e emitir um novo orçamento com os preços corrigidos."}
+};
+Object.keys(WNOTE).forEach(function(l){if(I18N[l])Object.assign(I18N[l],WNOTE[l]);});
+var WCUST={
+ en:{custom_title:"Configure your custom MAX",custom_sub:"Build it visually on our configurator, then note your choices below.",custom_colour:"Frame colour(s)",custom_text:"Personalised text (DEV)",custom_hint:"e.g. RAL 3020 frame, black forks",configurator:"Open the visual configurator"},
+ fr:{custom_title:"Configurez votre MAX personnalisé",custom_sub:"Composez-le sur notre configurateur, puis indiquez vos choix ci-dessous.",custom_colour:"Couleur(s) du cadre",custom_text:"Texte personnalisé (DEV)",custom_hint:"ex. cadre RAL 3020, fourche noire",configurator:"Ouvrir le configurateur visuel"},
+ nl:{custom_title:"Stel uw custom MAX samen",custom_sub:"Stel hem samen op onze configurator en noteer hieronder uw keuzes.",custom_colour:"Framekleur(en)",custom_text:"Gepersonaliseerde tekst (DEV)",custom_hint:"bijv. RAL 3020 frame, zwarte vork",configurator:"Open de visuele configurator"},
+ de:{custom_title:"Konfigurieren Sie Ihren Custom MAX",custom_sub:"Gestalten Sie ihn im Konfigurator und notieren Sie unten Ihre Auswahl.",custom_colour:"Rahmenfarbe(n)",custom_text:"Personalisierter Text (DEV)",custom_hint:"z. B. Rahmen RAL 3020, schwarze Gabel",configurator:"Visuellen Konfigurator öffnen"},
+ sv:{custom_title:"Konfigurera din custom MAX",custom_sub:"Bygg den i vår konfigurator och ange dina val nedan.",custom_colour:"Ramfärg(er)",custom_text:"Personlig text (DEV)",custom_hint:"t.ex. ram RAL 3020, svart gaffel",configurator:"Öppna den visuella konfiguratorn"},
+ pl:{custom_title:"Skonfiguruj swój custom MAX",custom_sub:"Zbuduj go w naszym konfiguratorze i podaj wybory poniżej.",custom_colour:"Kolor(y) ramy",custom_text:"Tekst personalizowany (DEV)",custom_hint:"np. rama RAL 3020, czarny widelec",configurator:"Otwórz wizualny konfigurator"},
+ it:{custom_title:"Configura il tuo MAX personalizzato",custom_sub:"Componilo nel nostro configuratore e indica le tue scelte qui sotto.",custom_colour:"Colore/i telaio",custom_text:"Testo personalizzato (DEV)",custom_hint:"es. telaio RAL 3020, forcella nera",configurator:"Apri il configuratore visivo"},
+ hu:{custom_title:"Állítsa össze egyedi MAX-ját",custom_sub:"Tervezze meg konfigurátorunkban, majd jegyezze fel választásait alább.",custom_colour:"Vázszín(ek)",custom_text:"Személyre szabott szöveg (DEV)",custom_hint:"pl. RAL 3020 váz, fekete villa",configurator:"Vizuális konfigurátor megnyitása"},
+ lt:{custom_title:"Sukonfigūruokite savo custom MAX",custom_sub:"Sukurkite jį mūsų konfigūratoriuje ir žemiau nurodykite pasirinkimus.",custom_colour:"Rėmo spalva(-os)",custom_text:"Personalizuotas tekstas (DEV)",custom_hint:"pvz. rėmas RAL 3020, juoda šakė",configurator:"Atidaryti vaizdinį konfigūratorių"},
+ es:{custom_title:"Configure su MAX personalizado",custom_sub:"Diséñelo en nuestro configurador y anote sus opciones abajo.",custom_colour:"Color(es) del cuadro",custom_text:"Texto personalizado (DEV)",custom_hint:"p. ej. cuadro RAL 3020, horquilla negra",configurator:"Abrir el configurador visual"},
+ pt:{custom_title:"Configure o seu MAX personalizado",custom_sub:"Construa-o no nosso configurador e indique as suas escolhas abaixo.",custom_colour:"Cor(es) do quadro",custom_text:"Texto personalizado (DEV)",custom_hint:"ex. quadro RAL 3020, garfo preto",configurator:"Abrir o configurador visual"}
+};
+Object.keys(WCUST).forEach(function(l){if(I18N[l])Object.assign(I18N[l],WCUST[l]);});
+var CONFIGURATOR_URL="https://ahooga.bike/products/dev-max";
+var DEV_TEXT_CODE="DEVDEV010101";/* Odoo personalised-text product — priced from the dealer's pricelist */
+var FRAME_COLORS=[["Parisian White","#EDEDE6"],["Atomium Grey","#9b9b9b"],["Berlin Steel Grey","#595d60"],["Nightfall Blue","#28374f"],["Midnight Black","#1b1b1b"],["Cherry Red","#9e1b2f"],["Skyline Blue","#4a90d9"],["Electric Blue","#1e5bd6"],["Magma Red","#c8341f"],["Belgian Chocolate","#4b3327"],["Purple Pulse","#6b3fa0"],["Poppy Pink","#e5487e"],["Lemon Glow","#f2d74e"],["Taxi Yellow","#f2b705"],["Golden Hour","#c9912f"],["Bay Breeze Blue","#8fc7d6"],["Mint Vibe","#9fd9b5"],["Central Park Green","#2e6b3e"],["Street Olive","#6b6a3a"],["Urban Reef Blue","#2c6e7f"]];
+var LOGO_COLORS=[["Midnight Black","#1b1b1b"],["Atomium Grey","#9b9b9b"],["Taxi Yellow","#f2b705"],["Cherry Red","#9e1b2f"]];
+var WCFG={en:{main_colour:"Main frame colour",rear_colour:"Rear frame colour",finish:"Finish",logo_colour:"Logo colour",logo_size:"Logo size"},fr:{main_colour:"Couleur cadre principal",rear_colour:"Couleur cadre arrière",finish:"Finition",logo_colour:"Couleur du logo",logo_size:"Taille du logo"},nl:{main_colour:"Hoofdframekleur",rear_colour:"Achterframekleur",finish:"Afwerking",logo_colour:"Logokleur",logo_size:"Logogrootte"},de:{main_colour:"Hauptrahmenfarbe",rear_colour:"Hinterrahmenfarbe",finish:"Finish",logo_colour:"Logo-Farbe",logo_size:"Logo-Größe"},sv:{main_colour:"Huvudramfärg",rear_colour:"Bakre ramfärg",finish:"Finish",logo_colour:"Logotypfärg",logo_size:"Logotypstorlek"},pl:{main_colour:"Kolor ramy głównej",rear_colour:"Kolor ramy tylnej",finish:"Wykończenie",logo_colour:"Kolor logo",logo_size:"Rozmiar logo"},it:{main_colour:"Colore telaio principale",rear_colour:"Colore telaio posteriore",finish:"Finitura",logo_colour:"Colore logo",logo_size:"Dimensione logo"},hu:{main_colour:"Fő vázszín",rear_colour:"Hátsó vázszín",finish:"Felület",logo_colour:"Logó színe",logo_size:"Logó mérete"},lt:{main_colour:"Pagrindinė rėmo spalva",rear_colour:"Galinė rėmo spalva",finish:"Apdaila",logo_colour:"Logotipo spalva",logo_size:"Logotipo dydis"},es:{main_colour:"Color cuadro principal",rear_colour:"Color cuadro trasero",finish:"Acabado",logo_colour:"Color del logo",logo_size:"Tamaño del logo"},pt:{main_colour:"Cor do quadro principal",rear_colour:"Cor do quadro traseiro",finish:"Acabamento",logo_colour:"Cor do logótipo",logo_size:"Tamanho do logótipo"}};
+Object.keys(WCFG).forEach(function(l){if(I18N[l])Object.assign(I18N[l],WCFG[l]);});
+var WCFG2={
+ en:{front_colour:"Front frame colour",front_finish:"Front frame finish",rear_finish:"Rear frame finish",dev_note:"Adds +€139 (your dealer price applies) · max 15 characters"},
+ fr:{front_colour:"Couleur cadre avant",front_finish:"Finition cadre avant",rear_finish:"Finition cadre arrière",dev_note:"Coût +139 € (votre prix revendeur s'applique) · max 15 caractères"},
+ nl:{front_colour:"Voorframekleur",front_finish:"Voorframe-afwerking",rear_finish:"Achterframe-afwerking",dev_note:"Kost +€139 (uw dealerprijs geldt) · max 15 tekens"},
+ de:{front_colour:"Vorderrahmenfarbe",front_finish:"Finish Vorderrahmen",rear_finish:"Finish Hinterrahmen",dev_note:"Kostet +139 € (Ihr Händlerpreis gilt) · max. 15 Zeichen"},
+ sv:{front_colour:"Främre ramfärg",front_finish:"Främre ramfinish",rear_finish:"Bakre ramfinish",dev_note:"Tillägg +139 € (ditt återförsäljarpris gäller) · max 15 tecken"},
+ pl:{front_colour:"Kolor ramy przedniej",front_finish:"Wykończenie ramy przedniej",rear_finish:"Wykończenie ramy tylnej",dev_note:"Koszt +139 € (obowiązuje Twoja cena dealerska) · maks. 15 znaków"},
+ it:{front_colour:"Colore telaio anteriore",front_finish:"Finitura telaio anteriore",rear_finish:"Finitura telaio posteriore",dev_note:"Costo +139 € (si applica il tuo prezzo rivenditore) · max 15 caratteri"},
+ hu:{front_colour:"Első vázszín",front_finish:"Első váz felülete",rear_finish:"Hátsó váz felülete",dev_note:"+139 € (az Ön kereskedői ára érvényes) · max. 15 karakter"},
+ lt:{front_colour:"Priekinė rėmo spalva",front_finish:"Priekinio rėmo apdaila",rear_finish:"Galinio rėmo apdaila",dev_note:"Papildomai +139 € (taikoma jūsų atstovo kaina) · daugiausia 15 simbolių"},
+ es:{front_colour:"Color cuadro delantero",front_finish:"Acabado cuadro delantero",rear_finish:"Acabado cuadro trasero",dev_note:"Coste +139 € (se aplica su precio de distribuidor) · máx. 15 caracteres"},
+ pt:{front_colour:"Cor do quadro dianteiro",front_finish:"Acabamento quadro dianteiro",rear_finish:"Acabamento quadro traseiro",dev_note:"Custo +139 € (aplica-se o seu preço de revendedor) · máx. 15 caracteres"}
+};
+Object.keys(WCFG2).forEach(function(l){if(I18N[l])Object.assign(I18N[l],WCFG2[l]);});
+var WSHIP={
+ en:{shipping:"Shipping",ship_free:"Free shipping",ship_calc:"Calculating shipping…",ship_none:"Shipping confirmed by Ahooga",subtotal:"Subtotal",ship_warn:"Shipping can't be calculated automatically for this order. Save it as a draft — Ahooga will add delivery before confirming."},
+ fr:{shipping:"Livraison",ship_free:"Livraison gratuite",ship_calc:"Calcul de la livraison…",ship_none:"Livraison confirmée par Ahooga",subtotal:"Sous-total",ship_warn:"La livraison ne peut pas être calculée automatiquement pour cette commande. Enregistrez-la en brouillon — Ahooga ajoutera la livraison avant la confirmation."},
+ nl:{shipping:"Verzending",ship_free:"Gratis verzending",ship_calc:"Verzending berekenen…",ship_none:"Verzending bevestigd door Ahooga",subtotal:"Subtotaal",ship_warn:"Verzending kan voor deze bestelling niet automatisch worden berekend. Sla op als concept — Ahooga voegt de levering toe vóór bevestiging."},
+ de:{shipping:"Versand",ship_free:"Kostenloser Versand",ship_calc:"Versand wird berechnet…",ship_none:"Versand wird von Ahooga bestätigt",subtotal:"Zwischensumme",ship_warn:"Der Versand kann für diese Bestellung nicht automatisch berechnet werden. Als Entwurf speichern — Ahooga fügt die Lieferung vor der Bestätigung hinzu."},
+ sv:{shipping:"Frakt",ship_free:"Fri frakt",ship_calc:"Beräknar frakt…",ship_none:"Frakt bekräftas av Ahooga",subtotal:"Delsumma",ship_warn:"Frakten kan inte beräknas automatiskt för denna order. Spara som utkast — Ahooga lägger till leverans före bekräftelse."},
+ pl:{shipping:"Wysyłka",ship_free:"Darmowa wysyłka",ship_calc:"Obliczanie wysyłki…",ship_none:"Wysyłka potwierdzana przez Ahooga",subtotal:"Suma częściowa",ship_warn:"Wysyłki dla tego zamówienia nie można obliczyć automatycznie. Zapisz jako wersję roboczą — Ahooga doda dostawę przed potwierdzeniem."},
+ it:{shipping:"Spedizione",ship_free:"Spedizione gratuita",ship_calc:"Calcolo spedizione…",ship_none:"Spedizione confermata da Ahooga",subtotal:"Subtotale",ship_warn:"La spedizione non può essere calcolata automaticamente per questo ordine. Salvalo come bozza — Ahooga aggiungerà la consegna prima della conferma."},
+ hu:{shipping:"Szállítás",ship_free:"Ingyenes szállítás",ship_calc:"Szállítás számítása…",ship_none:"A szállítást az Ahooga erősíti meg",subtotal:"Részösszeg",ship_warn:"A szállítás ennél a rendelésnél nem számítható ki automatikusan. Mentse piszkozatként — az Ahooga a megerősítés előtt hozzáadja a szállítást."},
+ lt:{shipping:"Pristatymas",ship_free:"Nemokamas pristatymas",ship_calc:"Skaičiuojamas pristatymas…",ship_none:"Pristatymą patvirtina Ahooga",subtotal:"Tarpinė suma",ship_warn:"Šio užsakymo pristatymo negalima apskaičiuoti automatiškai. Išsaugokite kaip juodraštį — Ahooga pridės pristatymą prieš patvirtindama."},
+ es:{shipping:"Envío",ship_free:"Envío gratis",ship_calc:"Calculando envío…",ship_none:"Envío confirmado por Ahooga",subtotal:"Subtotal",ship_warn:"El envío no se puede calcular automáticamente para este pedido. Guárdelo como borrador: Ahooga añadirá la entrega antes de confirmar."},
+ pt:{shipping:"Envio",ship_free:"Envio grátis",ship_calc:"A calcular o envio…",ship_none:"Envio confirmado pela Ahooga",subtotal:"Subtotal",ship_warn:"O envio não pode ser calculado automaticamente para esta encomenda. Guarde como rascunho — a Ahooga adicionará a entrega antes de confirmar."}
+};
+Object.keys(WSHIP).forEach(function(l){if(I18N[l])Object.assign(I18N[l],WSHIP[l]);});
+function normLang(c){c=String(c||"").slice(0,2).toLowerCase();return I18N[c]?c:"en";}
+function t(k,v){var s=(I18N[curLang]&&I18N[curLang][k])||I18N.en[k]||k;if(v)for(var x in v)s=s.replace("{"+x+"}",v[x]);return s;}
+function applyI(){
+ document.documentElement.lang=curLang;
+ document.querySelectorAll("[data-i]").forEach(e=>e.textContent=t(e.dataset.i));
+ document.querySelectorAll("[data-iph]").forEach(e=>e.placeholder=t(e.dataset.iph));
+ var opts=Object.keys(LANG_NAMES).map(c=>'<option value="'+c+'"'+(c===curLang?' selected':'')+'>'+LANG_NAMES[c]+'</option>').join('');
+ var a=document.getElementById("langsel"),b=document.getElementById("loginlang");if(a)a.innerHTML=opts;if(b)b.innerHTML=opts;
+ var sb=document.getElementById("submit");if(sb)sb.textContent=t("submit");
+ renderCart();
+}
+function langSet(c){curLang=normLang(c);try{localStorage.setItem("ahg_lang",c);}catch(e){}applyI();render();}
+async function rpc(model,method,args,kwargs){
+ var r=await fetch(CF_WORKER_URL+"/dealer/rpc",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:token,model:model,method:method,args:args||[],kwargs:kwargs||{}})});
+ var d=await r.json(); if(d.error){if(r.status===401){logout();} throw new Error(d.error);} return d.result;
+}
+async function loadBikes(){
+ var st=document.getElementById("state");st.textContent=t("loading");document.getElementById("bikes").innerHTML="";
+ try{
+  var cats=await rpc("product.category","search_read",[[["complete_name","ilike","MAX"],["complete_name","not ilike","accessor"],["complete_name","not ilike","MOD"]]],{fields:["id","complete_name"]});
+  var ids=cats.map(c=>c.id);
+  console.log("MAX bike categories used:",cats.map(c=>c.complete_name));
+  if(!ids.length){st.textContent=t("none");return;}
+  var prods=await rpc("product.product","search_read",[[["sale_ok","=",true],["categ_id","in",ids]]],{fields:["id","display_name","default_code","image_512","product_tmpl_id","list_price"],limit:300});
+  bikes=prods.sort((a,b)=>String(a.display_name).localeCompare(b.display_name));
+  bikes.forEach(function(b){if(b.list_price!=null)listMap[b.id]=b.list_price;});
+  await loadStockMirror();
+  st.textContent=bikes.length?"":t("none");render();
+  loadPrices(bikes.map(function(b){return b.id;})).then(function(){render();var s=document.getElementById("state");if(s)s.textContent="";var pd=document.getElementById("pricediag");if(pd){pd.textContent=pricesInfo;pd.style.color=(pricesStatus==="ok"&&pricesInfo.indexOf("⚠")<0)?"#2d6e2d":"#9a6a00";}});
+ }catch(e){st.textContent="⚠ "+(e&&e.message||e);}
+}
+function setView(m){
+ viewMode=m;
+ document.getElementById("tab-bikes").classList.toggle("on",m==="bikes");
+ document.getElementById("tab-acc").classList.toggle("on",m==="acc");
+ var bf=document.getElementById("bikefilters");if(bf)bf.style.display=(m==="bikes")?"":"none";
+ if(m==="acc"&&!accLoaded){accLoaded=true;loadAccessories();}
+ render();
+}
+async function loadAccessories(){
+ var st=document.getElementById("state");st.textContent=t("loading");
+ try{
+  await loadAccOrder();
+  var prods=await rpc("product.product","search_read",[[["default_code","in",ACC_CODES]]],{fields:["id","display_name","default_code","image_variant_512","image_512","product_tmpl_id","list_price"]});
+  prods.forEach(function(b){if(b.image_variant_512)b.image_512=b.image_variant_512;});
+  var ord=(accOrder&&accOrder.length)?accOrder:ACC_CODES;
+  prods.sort(function(a,b){var ia=ord.indexOf(a.default_code),ib=ord.indexOf(b.default_code);if(ia<0)ia=999;if(ib<0)ib=999;return ia-ib;});
+  accessories=prods;
+  accessories.forEach(function(b){if(b.list_price!=null)listMap[b.id]=b.list_price;});
+  if(viewMode==="acc"){st.textContent=accessories.length?"":t("none");render();}
+  loadPrices(accessories.map(function(b){return b.id;})).then(function(){if(viewMode==="acc")render();});
+ }catch(e){st.textContent="⚠ "+(e&&e.message||e);}
+}
+function addAcc(id){var b=accessories.find(x=>x.id===id);if(!b)return;var qy=pend[id]||1;var nm=String(b.display_name||"").replace(/^\[[^\]]*\]\s*/,'');cart[id]=cart[id]?{id:id,name:nm,qty:cart[id].qty+qy}:{id:id,name:nm,qty:qy};renderCart();}
+function renderAcc(){
+ var q=(document.getElementById("search").value||"").toLowerCase();
+ var src=accEdit?accessories.slice():accessories.filter(function(b){var nm=String(b.display_name||"");return !q||nm.toLowerCase().includes(q)||String(b.default_code||"").toLowerCase().includes(q);});
+ var bar="";
+ if(ADMIN){
+  bar='<div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:2px">'+
+   '<button onclick="toggleAccEdit()" style="padding:8px 13px;border:1px solid #e6e3da;background:'+(accEdit?'#16160f':'#fff')+';color:'+(accEdit?'#fff':'#16160f')+';border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">'+(accEdit?('✓ '+t("done_layout")):('✎ '+t("edit_layout")))+'</button>'+
+   (accEdit?'<button onclick="saveAccOrder()" style="padding:8px 14px;border:0;background:#f2b705;color:#16160f;border-radius:9px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">'+t("save_layout")+'</button><span id="acc-savemsg" style="font-size:12px;color:#6f6d63"></span>':'')+
+   '</div>';
+ }
+ document.getElementById("bikes").innerHTML=bar+src.map(function(b){
+  var img=b.image_512?'<img src="data:image/png;base64,'+b.image_512+'">':'<span class="ph">—</span>';
+  var nm=String(b.display_name||"").replace(/^\[[^\]]*\]\s*/,'');
+  var qy=(cart[b.id]&&cart[b.id].qty)||1;
+  var ctrl;
+  if(accEdit){
+   var idx=accessories.indexOf(b);
+   ctrl='<div class="badd"><button class="addb" style="background:#fff;border:1px solid #e6e3da;color:#16160f;flex:1" onclick="moveAcc('+idx+',-1)">↑</button><button class="addb" style="background:#fff;border:1px solid #e6e3da;color:#16160f;flex:1" onclick="moveAcc('+idx+',1)">↓</button></div>';
+  } else {
+   ctrl='<div class="badd"><div class="stepper"><button onclick="step('+b.id+',-1)">−</button><span id="q'+b.id+'">'+qy+'</span><button onclick="step('+b.id+',1)">+</button></div><button class="addb" onclick="addAcc('+b.id+')">'+t("add")+'</button></div>';
+  }
+  return '<div class="bike"><div class="bimg">'+img+'</div><div class="binfo">'+
+   '<div class="bname">'+esc(nm)+'</div>'+(b.default_code?'<div class="bcode">'+esc(b.default_code)+'</div>':'')+(priceOf(b.id)!=null?'<div class="bprice">'+fmtEur(priceOf(b.id))+'</div>':'')+ctrl+'</div></div>';
+ }).join("");
+ var st=document.getElementById("state");if(st)st.textContent=src.length?"":(accLoaded?t("none"):t("loading"));
+}
+function moveAcc(i,d){var j=i+d;if(j<0||j>=accessories.length)return;var tmp=accessories[i];accessories[i]=accessories[j];accessories[j]=tmp;renderAcc();}
+function toggleAccEdit(){accEdit=!accEdit;render();}
+function saveAccOrder(){
+ var codes=accessories.map(function(b){return b.default_code;}).filter(Boolean);
+ var m=document.getElementById("acc-savemsg");if(m)m.textContent="…";
+ storeFetch(CF_WORKER_URL+"/store/acc_order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(codes)})
+  .then(function(){accOrder=codes;if(m)m.textContent="✓ "+t("layout_saved");})
+  .catch(function(){if(m)m.textContent="⚠";});
+}
+function render(){
+ if(viewMode==="acc")return renderAcc();
+ var q=(document.getElementById("search").value||"").toLowerCase();
+ var list=bikes.filter(function(b){
+  var nm=String(b.display_name||"");
+  if(q && !(nm.toLowerCase().includes(q)||String(b.default_code||"").toLowerCase().includes(q)))return false;
+  if(filterType!=="all" && detectBikeType(nm)!==filterType)return false;
+  if(filterTrans!=="all" && detectTransmission(nm)!==filterTrans)return false;
+  return true;
+ });
+ document.getElementById("bikes").innerHTML=list.map(b=>{
+  var img=b.image_512?'<img src="data:image/png;base64,'+b.image_512+'">':'<span class="ph">—</span>';
+  var nm=String(b.display_name||"").replace(/^\[[^\]]*\]\s*/,'');
+  var qy=(cart[b.id]&&cart[b.id].qty)||1;
+  var skey=stockKey(String(b.display_name||"")),free=freeIdx[skey]||0,eta=etaIdx[skey];
+  var col=detectColor(String(b.display_name||""));
+  var stk;
+  if(free>0) stk='<div class="stk in">✓ '+t("instock")+': '+free+'</div>';
+  else if(col==='custom') stk='<div class="stk soon">'+t("outstock")+' · '+t("lead")+': 6–8 '+t("weeks")+'</div>';
+  else if(eta) stk='<div class="stk soon">'+t("outstock")+' · '+t("arriving")+' '+eta+'</div>';
+  else stk='<div class="stk out">'+t("outstock")+'</div>';
+  return '<div class="bike"><div class="bimg">'+img+'</div><div class="binfo">'+
+   '<div class="bname">'+esc(nm)+'</div>'+(b.default_code?'<div class="bcode">'+esc(b.default_code)+'</div>':'')+(priceOf(b.id)!=null?'<div class="bprice">'+fmtEur(priceOf(b.id))+'</div>':'')+stk+
+   '<div class="badd"><div class="stepper"><button onclick="step('+b.id+',-1)">−</button><span id="q'+b.id+'">'+qy+'</span><button onclick="step('+b.id+',1)">+</button></div>'+
+   '<button class="addb" onclick="add('+b.id+')">'+t("add")+'</button></div></div></div>';
+ }).join("");
+}
+function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");}
+var pend={};
+function step(id,d){pend[id]=Math.max(1,((pend[id]||1)+d));var el=document.getElementById("q"+id);if(el)el.textContent=pend[id];}
+function add(id){var b=bikes.find(x=>x.id===id);if(!b)return;
+ var nm=String(b.display_name||"");
+ var go=function(){ if(detectColor(nm)==='custom') openCustom(id); else doAdd(id); };
+ if(detectRack(nm)==='no rack'){askConfirm(t("norack"),go);return;}
+ go();
+}
+function doAdd(id){var b=bikes.find(x=>x.id===id);if(!b)return;var qy=pend[id]||1;var nm=String(b.display_name||"").replace(/^\[[^\]]*\]\s*/,'');cart[id]=cart[id]?{id:id,name:nm,qty:cart[id].qty+qy}:{id:id,name:nm,qty:qy};renderCart();suggestAccessories(id);}
+function doAddCustom(id,desc,devText){var b=bikes.find(x=>x.id===id);if(!b)return;var qy=pend[id]||1;var nm=String(b.display_name||"").replace(/^\[[^\]]*\]\s*/,'');cart[id]={id:id,name:nm,qty:((cart[id]&&cart[id].qty)||0)+qy,desc:desc,devText:devText||""};renderCart();suggestAccessories(id);}
+var cust={};
+function swatchHtml(opts,group,sel){return '<div class="sw-grid">'+opts.map(function(o){var on=(sel===o[0])?' on':'';return '<button type="button" class="sw'+on+'" data-g="'+group+'" data-v="'+esc(o[0])+'" title="'+esc(o[0])+'" style="background:'+o[1]+'"></button>';}).join('')+'</div><div class="sw-name" data-for="'+group+'">'+(sel?esc(sel):'')+'</div>';}
+function pillHtml(opts,group,sel){return '<div class="cu-pills">'+opts.map(function(v){var on=(sel===v)?' on':'';return '<button type="button" class="cu-pill'+on+'" data-g="'+group+'" data-v="'+v+'">'+v+'</button>';}).join('')+'</div>';}
+function updateCustSel(){var el=document.getElementById('cu-sel');if(!el)return;var p=[];if(cust.frontColor)p.push(cust.frontColor);if(cust.rearColor&&cust.rearColor!==cust.frontColor)p.push(cust.rearColor);el.textContent=p.join(' / ');}
+function openCustom(id){
+ var b=bikes.find(x=>x.id===id);if(!b)return;
+ var nm=String(b.display_name||"").replace(/^\[[^\]]*\]\s*/,'');
+ cust={frontColor:null,frontFinish:"Glossy",rearColor:null,rearFinish:"Glossy",logoColor:null,logoSize:"Large",text:""};
+ var ov=document.getElementById('cu-ov');
+ if(!ov){ov=document.createElement('div');ov.id='cu-ov';ov.style.cssText='position:fixed;inset:0;z-index:215;background:rgba(20,20,10,.5);display:flex;align-items:center;justify-content:center;padding:18px;font-family:Archivo,system-ui,sans-serif';document.body.appendChild(ov);ov.addEventListener('click',function(e){if(e.target===ov)ov.style.display='none';});}
+ ov.innerHTML='<div style="width:min(560px,95vw);max-height:90vh;overflow:auto;background:#fff;border:1px solid #e6e3da;border-radius:18px;padding:24px;color:#16160f;box-shadow:0 24px 60px rgba(20,20,10,.2)">'+
+   '<div style="font-size:18px;font-weight:800">'+esc(t("custom_title"))+'</div>'+
+   '<div style="font-size:13px;color:#6f6d63;margin:2px 0 8px">'+esc(nm)+'</div>'+
+   '<div style="font-size:12.5px;color:#6f6d63;margin-bottom:10px">'+esc(t("custom_sub"))+'</div>'+
+   '<a target="_blank" rel="noopener" href="'+CONFIGURATOR_URL+'" style="display:inline-block;margin-bottom:6px;font-size:13px;font-weight:700;color:#16160f;border:1px solid #e6e3da;border-radius:9px;padding:9px 13px;text-decoration:none">🎨 '+esc(t("configurator"))+' ↗</a>'+
+   '<div class="cu-lab">'+esc(t("front_colour"))+'</div>'+swatchHtml(FRAME_COLORS,"frontColor",cust.frontColor)+
+   '<div class="cu-lab">'+esc(t("front_finish"))+'</div>'+pillHtml(["Glossy","Matte"],"frontFinish",cust.frontFinish)+
+   '<div class="cu-lab">'+esc(t("rear_colour"))+'</div>'+swatchHtml(FRAME_COLORS,"rearColor",cust.rearColor)+
+   '<div class="cu-lab">'+esc(t("rear_finish"))+'</div>'+pillHtml(["Glossy","Matte"],"rearFinish",cust.rearFinish)+
+   '<div class="cu-lab">'+esc(t("logo_colour"))+'</div>'+swatchHtml(LOGO_COLORS,"logoColor",cust.logoColor)+
+   '<div class="cu-lab">'+esc(t("logo_size"))+'</div>'+pillHtml(["Small","Large"],"logoSize",cust.logoSize)+
+   '<div class="cu-lab">'+esc(t("custom_text"))+'</div><input id="cu-text" maxlength="15" placeholder="'+esc(t("custom_hint"))+'" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #e6e3da;border-radius:9px;font-family:inherit;font-size:14px"><div style="font-size:11px;color:#9a6a00;margin-top:5px">'+esc(t("dev_note"))+'</div>'+
+   '<div id="cu-sel" style="font-size:12px;color:#6f6d63;margin-top:12px"></div>'+
+   '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px">'+
+     '<button id="cu-cancel" style="padding:10px 16px;border:1px solid #e6e3da;background:#fff;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit">'+esc(t("cancel"))+'</button>'+
+     '<button id="cu-add" style="padding:10px 18px;border:0;background:#f2b705;color:#16160f;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit">'+esc(t("add"))+'</button>'+
+   '</div></div>';
+ ov.querySelectorAll('.sw,.cu-pill').forEach(function(btn){btn.onclick=function(){var g=btn.dataset.g;cust[g]=btn.dataset.v;btn.parentNode.querySelectorAll('button').forEach(function(x){x.classList.remove('on');});btn.classList.add('on');var nm=ov.querySelector('.sw-name[data-for="'+g+'"]');if(nm)nm.textContent=btn.dataset.v;updateCustSel();};});
+ ov.querySelector('#cu-cancel').onclick=function(){ov.style.display='none';};
+ ov.querySelector('#cu-add').onclick=function(){
+   cust.text=ov.querySelector('#cu-text').value.trim().slice(0,15);
+   var parts=[];
+   if(cust.frontColor)parts.push(t("front_colour")+": "+cust.frontColor+(cust.frontFinish?(" ("+cust.frontFinish+")"):""));
+   if(cust.rearColor)parts.push(t("rear_colour")+": "+cust.rearColor+(cust.rearFinish?(" ("+cust.rearFinish+")"):""));
+   if(cust.logoColor)parts.push(t("logo_colour")+": "+cust.logoColor);
+   if(cust.logoSize)parts.push(t("logo_size")+": "+cust.logoSize);
+   if(cust.text)parts.push(t("custom_text")+": \""+cust.text+"\" (+€139)");
+   ov.style.display='none'; doAddCustom(id, nm+(parts.length?(" — "+parts.join(" · ")):""), cust.text);
+ };
+ updateCustSel(); ov.style.display='flex';
+}
+/* ---- suggested accessories (Odoo accessory/optional products) ---- */
+var accCache={},accById={};
+async function suggestAccessories(bikeId){
+ var b=bikes.find(x=>x.id===bikeId); if(!b||!b.product_tmpl_id)return;
+ var tid=Array.isArray(b.product_tmpl_id)?b.product_tmpl_id[0]:b.product_tmpl_id;
+ try{
+  var accProds=accCache[tid];
+  if(!accProds){
+   var tm=await rpc('product.template','read',[[tid]],{fields:['accessory_product_ids','optional_product_ids']});
+   var accVar=(tm&&tm[0]&&tm[0].accessory_product_ids)||[];  // these are product.product (variant) ids
+   var optTpl=(tm&&tm[0]&&tm[0].optional_product_ids)||[];   // these are product.template ids
+   accProds=[];
+   if(accVar.length){var p1=await rpc('product.product','read',[accVar],{fields:['id','display_name','default_code','image_128','list_price']});accProds=accProds.concat(p1||[]);}
+   if(optTpl.length){var p2=await rpc('product.product','search_read',[[['product_tmpl_id','in',optTpl],['sale_ok','=',true]]],{fields:['id','display_name','default_code','image_128','list_price']});accProds=accProds.concat(p2||[]);}
+   var seen={};accProds=accProds.filter(function(p){if(seen[p.id])return false;seen[p.id]=1;return true;});
+   accProds.forEach(function(p){if(p.list_price!=null)listMap[p.id]=p.list_price;});
+   accCache[tid]=accProds;
+  }
+  if(!accProds.length)return;
+  await loadPrices(accProds.map(function(p){return p.id;}));
+  openAccModal(accProds);
+ }catch(e){/* accessories are optional — fail quietly */}
+}
+function openAccModal(list){
+ list.forEach(function(a){accById[a.id]={id:a.id,name:String(a.display_name||"").replace(/^\[[^\]]*\]\s*/,'')};});
+ var ov=document.getElementById('acc-ov');
+ if(!ov){ov=document.createElement('div');ov.id='acc-ov';
+  ov.style.cssText='position:fixed;inset:0;z-index:210;background:rgba(20,20,10,.45);display:flex;align-items:center;justify-content:center;padding:18px;font-family:Archivo,system-ui,sans-serif';
+  ov.innerHTML='<div style="width:min(580px,94vw);max-height:88vh;overflow:auto;background:#fff;border:1px solid #e6e3da;border-radius:18px;padding:24px;box-shadow:0 24px 60px rgba(20,20,10,.18)">'+
+   '<div id="acc-t" style="font-size:18px;font-weight:800"></div><div id="acc-s" style="color:#6f6d63;font-size:13px;margin:4px 0 16px"></div>'+
+   '<div id="acc-list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px"></div>'+
+   '<div style="display:flex;justify-content:flex-end;margin-top:18px"><button id="acc-done" style="padding:10px 18px;border:0;background:#f2b705;color:#16160f;border-radius:10px;font-weight:800;cursor:pointer;font-family:inherit"></button></div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.style.display='none';});
+ }
+ document.getElementById('acc-t').textContent=t("acc_title");
+ document.getElementById('acc-s').textContent=t("acc_sub");
+ document.getElementById('acc-done').textContent=t("done");
+ document.getElementById('acc-done').onclick=function(){ov.style.display='none';};
+ document.getElementById('acc-list').innerHTML=list.map(function(a){
+  var nm=accById[a.id].name;
+  var img=a.image_128?'<div style="aspect-ratio:1;background:#f5f4f1;border-radius:8px;overflow:hidden;display:flex"><img src="data:image/png;base64,'+a.image_128+'" style="width:100%;height:100%;object-fit:contain"></div>':'';
+  return '<div style="border:1px solid #e6e3da;border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px">'+img+'<div style="font-size:12.5px;font-weight:600;line-height:1.3;flex:1">'+esc(nm)+'</div>'+(priceOf(a.id)!=null?'<div style="font-weight:800;font-size:12px">'+fmtEur(priceOf(a.id))+'</div>':'')+'<button onclick="addAccessory('+a.id+')" style="border:0;background:#f2b705;color:#16160f;border-radius:8px;font-weight:800;font-size:12px;padding:7px;cursor:pointer;font-family:inherit">'+t("add")+'</button></div>';
+ }).join('');
+ ov.style.display='flex';
+}
+function addAccessory(id){var a=accById[id];if(!a)return;if(!cart[id])cart[id]={id:id,name:a.name,qty:1};else cart[id].qty++;renderCart();}
+function askConfirm(msg,onYes){
+ var ov=document.getElementById('cf-ov');
+ if(!ov){ov=document.createElement('div');ov.id='cf-ov';
+  ov.style.cssText='position:fixed;inset:0;z-index:200;background:rgba(20,20,10,.45);display:flex;align-items:center;justify-content:center;padding:18px;font-family:Archivo,system-ui,sans-serif';
+  ov.innerHTML='<div style="width:min(420px,94vw);background:#fff;border:1px solid #e6e3da;border-radius:18px;padding:26px;box-shadow:0 24px 60px rgba(20,20,10,.18)">'+
+   '<div id="cf-msg" style="font-size:15px;line-height:1.55;color:#16160f;font-weight:600"></div>'+
+   '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:22px">'+
+   '<button id="cf-no" style="padding:10px 16px;border:1px solid #e6e3da;background:#fff;color:#16160f;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit"></button>'+
+   '<button id="cf-yes" style="padding:10px 16px;border:0;background:#f2b705;color:#16160f;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit"></button>'+
+   '</div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.style.display='none';});
+ }
+ document.getElementById('cf-msg').textContent=msg;
+ document.getElementById('cf-no').textContent=t("warn_no");
+ document.getElementById('cf-yes').textContent=t("warn_yes");
+ document.getElementById('cf-no').onclick=function(){ov.style.display='none';};
+ document.getElementById('cf-yes').onclick=function(){ov.style.display='none';onYes&&onYes();};
+ ov.style.display='flex';
+}
+function renderCart(){
+ var items=Object.values(cart),c=document.getElementById("cart");if(!c)return;
+ renderTabs();
+ if(!items.length){c.innerHTML='<div class="empty">'+t("empty")+'</div>';document.getElementById("submit").disabled=true;saveCart();scheduleSync();return;}
+ document.getElementById("submit").disabled=false;
+ var total=0;
+ var rows=items.map(function(i){var pr=priceOf(i.id);var line=(pr!=null)?pr*i.qty:null;if(line!=null)total+=line;
+  var sp=i.desc?i.desc.split(' — ').slice(1).join(' — '):'';
+  return '<div class="row"><span><b>'+esc(i.name)+'</b> <span class="q">×'+i.qty+'</span>'+(sp?'<div style="font-size:11px;color:#6f6d63;margin-top:2px">'+esc(sp)+'</div>':'')+'</span><span style="white-space:nowrap">'+(line!=null?'<span style="font-weight:700">'+fmtEur(line)+'</span> ':'')+'<button class="rm" onclick="rm('+i.id+')">✕</button></span></div>';}).join("");
+ if(total>0)rows+='<div class="row" style="border-bottom:0;font-weight:800;padding-top:12px"><span>'+t("total")+'</span><span>'+fmtEur(total)+'</span></div>';
+ rows+='<button onclick="clearCart()" style="margin-top:12px;width:100%;background:none;border:0;color:#9a9384;font-size:12px;cursor:pointer;text-decoration:underline;font-family:inherit">'+t("clear_cart")+'</button>';
+ c.innerHTML=rows;
+ saveCart();scheduleSync();
+}
+function rm(id){delete cart[id];renderCart();}
+var account=null;
+async function loadAccount(){if(account)return account;try{var r=await fetch(CF_WORKER_URL+"/dealer/account",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:token})});var d=await r.json();if(!d.error)account=d;}catch(e){}return account;}
+// "Submit order" now opens the checkout/confirmation step
+function submit(){var items=Object.values(cart);if(!items.length)return;openCheckout(items);}
+async function openCheckout(items){
+ await loadAccount();
+ var ov=document.getElementById('co-ov');
+ if(!ov){
+  ov=document.createElement('div');ov.id='co-ov';
+  ov.style.cssText='position:fixed;inset:0;z-index:220;background:rgba(20,20,10,.5);display:flex;align-items:center;justify-content:center;padding:18px;font-family:Archivo,system-ui,sans-serif';
+  ov.innerHTML='<div style="width:min(560px,95vw);max-height:90vh;overflow:auto;background:#fff;border:1px solid #e6e3da;border-radius:18px;padding:26px;box-shadow:0 24px 60px rgba(20,20,10,.2);color:#16160f">'+
+   '<div id="co-title" style="font-size:20px;font-weight:900;margin-bottom:14px"></div>'+
+   '<div id="co-lines" style="font-size:13px;border:1px solid #e6e3da;border-radius:10px;overflow:hidden;margin-bottom:10px"></div>'+
+   '<div id="co-extra" style="font-size:13px;border:1px solid #e6e3da;border-radius:10px;overflow:hidden;margin-bottom:16px"></div>'+
+   '<label style="display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#6f6d63;margin-bottom:5px" id="co-l-date"></label>'+
+   '<input type="date" id="co-date" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #e6e3da;border-radius:9px;font-family:inherit;font-size:14px">'+
+   '<label style="display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#6f6d63;margin:14px 0 5px" id="co-l-ref"></label>'+
+   '<input id="co-ref" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #e6e3da;border-radius:9px;font-family:inherit;font-size:14px">'+
+   '<label style="display:block;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#6f6d63;margin:14px 0 5px" id="co-l-addr"></label>'+
+   '<select id="co-addr" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #e6e3da;border-radius:9px;font-family:inherit;font-size:14px;background:#fff"></select>'+
+   '<div style="margin:18px 0 0;padding:14px;background:#f5f4f1;border-radius:10px">'+
+     '<div style="font-size:13px"><b id="co-l-pay"></b>: <span id="co-payterm"></span></div>'+
+     '<label style="display:flex;gap:10px;align-items:flex-start;margin-top:10px;font-size:13px;cursor:pointer"><input type="checkbox" id="co-agree" style="margin-top:3px"><span id="co-agree-l"></span></label>'+
+   '</div>'+
+   '<div id="co-ship-warn" style="display:none;margin-top:14px;font-size:12.5px;color:#9a6a00;background:#fff7e0;border:1px solid #f3e3a8;border-radius:10px;padding:10px 12px"></div>'+
+   '<div id="co-warn" style="margin-top:14px;font-size:12.5px;color:#9a6a00;background:#fff7e0;border:1px solid #f3e3a8;border-radius:10px;padding:10px 12px"></div>'+
+   '<div id="co-notice" style="margin-top:8px;font-size:11.5px;color:#9a9384;line-height:1.5"></div>'+
+   '<div id="co-msg" style="margin-top:12px;font-size:13px;min-height:18px"></div>'+
+   '<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap">'+
+     '<button id="co-cancel" style="padding:11px 16px;border:1px solid #e6e3da;background:#fff;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit"></button>'+
+     '<button id="co-draft" style="padding:11px 16px;border:1px solid #e6e3da;background:#fff;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit"></button>'+
+     '<button id="co-confirm" disabled style="padding:11px 18px;border:0;background:#f2b705;color:#16160f;border-radius:10px;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;opacity:.5"></button>'+
+   '</div></div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(e){if(e.target===ov)ov.style.display='none';});
+  document.getElementById('co-cancel').onclick=function(){ov.style.display='none';};
+  document.getElementById('co-agree').onchange=function(){syncConfirm();};
+  document.getElementById('co-addr').onchange=function(){loadShipping();};
+  document.getElementById('co-confirm').onclick=function(){doPlaceOrder(true);};
+  document.getElementById('co-draft').onclick=function(){doPlaceOrder(false);};
+ }
+ // labels
+ document.getElementById('co-title').textContent=t("checkout_title");
+ document.getElementById('co-l-date').textContent=t("delivery_date");
+ document.getElementById('co-l-ref').textContent=t("your_ref");
+ document.getElementById('co-l-addr').textContent=t("delivery_addr");
+ document.getElementById('co-l-pay').textContent=t("pay_terms");
+ document.getElementById('co-agree-l').textContent=t("agree");
+ document.getElementById('co-warn').textContent=t("firm_warn");
+ document.getElementById('co-ship-warn').textContent=t("ship_warn");
+ document.getElementById('co-notice').textContent=t("price_notice");
+ document.getElementById('co-cancel').textContent=t("cancel");
+ document.getElementById('co-draft').textContent=t("save_draft");
+ document.getElementById('co-confirm').textContent=t("confirm_btn");
+ document.getElementById('co-payterm').textContent=(account&&account.paymentTerm)||"—";
+ // addresses
+ var sel=document.getElementById('co-addr');sel.innerHTML=((account&&account.addresses)||[]).map(function(a){return '<option value="'+a.id+'">'+esc(a.label)+'</option>';}).join('');
+ // lines summary (items only; shipping + total filled by loadShipping)
+ var total=0;var rows=items.map(function(i){var pr=priceOf(i.id);var line=(pr!=null)?pr*i.qty:null;if(line!=null)total+=line;return '<div style="display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #eee">'+'<span>'+esc(i.name)+' <span style="color:#6f6d63">×'+i.qty+'</span></span><span style="font-weight:700">'+(line!=null?fmtEur(line):'')+'</span></div>';}).join("");
+ if(total>0)rows+='<div style="display:flex;justify-content:space-between;padding:8px 12px"><span style="color:#6f6d63">'+t("subtotal")+'</span><span style="font-weight:700">'+fmtEur(total)+'</span></div>';
+ document.getElementById('co-lines').innerHTML=rows;
+ coItems=items;coSubtotal=total;shipCost=null;
+ document.getElementById('co-extra').innerHTML='';
+ document.getElementById('co-ship-warn').style.display='none';
+ var rf=document.getElementById('co-ref');if(rf&&!rf.value&&carts[activeId]&&carts[activeId].name)rf.value=carts[activeId].name;
+ document.getElementById('co-msg').textContent="";document.getElementById('co-agree').checked=false;var cb=document.getElementById('co-confirm');cb.disabled=true;cb.style.opacity='.5';
+ ov.style.display='flex';
+ loadShipping();
+}
+var coItems=[],coSubtotal=0,shipCost=null;
+function syncConfirm(){var cb=document.getElementById('co-confirm'),agree=document.getElementById('co-agree');if(!cb||!agree)return;var ok=agree.checked;cb.disabled=!ok;cb.style.opacity=ok?'1':'.5';}
+function loadShipping(){
+ var ex=document.getElementById('co-extra');if(ex)ex.innerHTML='<div style="padding:10px 12px;color:#6f6d63">'+t("ship_calc")+'</div>';
+ shipCost=null;syncConfirm();
+ var addr=(document.getElementById('co-addr')||{}).value||"";
+ var lines=coItems.map(function(i){return {id:i.id,qty:i.qty};});
+ fetch(CF_WORKER_URL+"/dealer/shipping",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({token:token,lines:lines,amount:coSubtotal,shippingId:addr})})
+  .then(function(r){if(r.status===401){logout();return null;}return r.json();})
+  .then(function(d){if(d)renderShip(d);}).catch(function(){renderShip({cost:null});});
+}
+function renderShip(d){
+ var ex=document.getElementById('co-extra');if(!ex)return;
+ var warn=document.getElementById('co-ship-warn');var html='';
+ if(d&&d.cost!=null){
+  shipCost=d.cost;
+  var lab=d.free?t("ship_free"):(t("shipping")+(d.carrier?(' — '+esc(d.carrier)):''));
+  html+='<div style="display:flex;justify-content:space-between;padding:8px 12px;border-bottom:1px solid #eee"><span>'+lab+'</span><span style="font-weight:700">'+fmtEur(d.cost)+'</span></div>';
+  if(coSubtotal>0)html+='<div style="display:flex;justify-content:space-between;padding:10px 12px;font-weight:800"><span>'+t("total")+'</span><span>'+fmtEur(coSubtotal+d.cost)+'</span></div>';
+  if(warn)warn.style.display='none';
+ } else {
+  shipCost=null;
+  html+='<div style="display:flex;justify-content:space-between;padding:10px 12px"><span style="color:#9a6a00">'+t("ship_none")+'</span><span></span></div>';
+  if(warn)warn.style.display='none';
+ }
+ ex.innerHTML=html;syncConfirm();
+}
+function doPlaceOrder(confirm){
+ var items=Object.values(cart);if(!items.length)return;
+ var msg=document.getElementById('co-msg'),cb=document.getElementById('co-confirm'),db=document.getElementById('co-draft');
+ cb.disabled=true;db.disabled=true;cb.textContent=t("confirming");msg.style.color="#6f6d63";msg.textContent="";
+ var lines=[];items.forEach(function(i){lines.push({id:i.id,qty:i.qty,desc:i.desc||""});if(i.devText&&DEV_TEXT_CODE)lines.push({code:DEV_TEXT_CODE,qty:i.qty,desc:t("custom_text")+': "'+i.devText+'"'});});
+ var payload={token:token,orderId:(carts[activeId]&&carts[activeId].oid)||null,lines:lines,ref:document.getElementById('co-ref').value||"",deliveryDate:document.getElementById('co-date').value||"",shippingId:document.getElementById('co-addr').value||"",confirm:!!confirm};
+ fetch(CF_WORKER_URL+"/dealer/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)})
+ .then(function(r){if(r.status===401){logout();return;}return r.json().then(function(d){
+   if(d&&d.ok){
+     var label=(confirm&&d.confirmed)?("✓ "+t("confirmed")+" — "+d.name):("✓ "+t("ok",{n:d.name})+" "+t("will"));
+     if(confirm&&!d.confirmed&&d.confirmError)label="⚠ "+d.name+" — "+(d.confirmError==='SHIPPING_UNRESOLVED'?t("ship_warn"):d.confirmError);
+     if(d.shipping){if(d.shipping.cost!=null)label+=' · '+t("shipping")+': '+fmtEur(d.shipping.cost)+(d.shipping.carrier?(' ('+esc(d.shipping.carrier)+')'):'');else label+=' · '+t("ship_none")+((d.shipping.error||d.shipping.reason)?(' ['+esc(d.shipping.error||d.shipping.reason)+']'):'');}
+     msg.style.color="#2d6e2d";msg.innerHTML="<b>"+label+"</b>";
+     for(var _k in cart)delete cart[_k];if(carts[activeId]){carts[activeId].oid=null;carts[activeId].oname="";carts[activeId]._sig="";}saveCart();renderCart();
+     setTimeout(function(){var ov=document.getElementById('co-ov');if(ov)ov.style.display='none';},2200);
+   } else {cb.disabled=false;db.disabled=false;cb.textContent=t("confirm_btn");msg.style.color="#b3261e";msg.textContent=(d&&d.error)||t("failed");}
+ });}).catch(function(e){cb.disabled=false;db.disabled=false;cb.textContent=t("confirm_btn");msg.style.color="#b3261e";msg.textContent=String(e&&e.message||e);});
+}
+function showName(){var el=document.getElementById("who-name");if(el)el.textContent=dealerName;}
+function loadSession(){try{var s=JSON.parse(localStorage.getItem("ahg_dealer")||"null");if(s&&s.t&&s.exp>Date.now()){token=s.t;dealerName=s.n||"";if(s.l)curLang=normLang(s.l);return true;}}catch(e){}return false;}
+function logout(){try{localStorage.removeItem("ahg_dealer");localStorage.removeItem("ahg_bikecart");}catch(e){}location.reload();}
+function showApp(){document.getElementById("login").style.display="none";document.getElementById("app").style.display="block";showName();applyI();loadBikes();}
+async function doLogin(){
+ var msg=document.getElementById("msg"),go=document.getElementById("go");
+ var email=(document.getElementById("email").value||"").trim(),pass=document.getElementById("pass").value||"";
+ if(!email||!pass){msg.textContent=t("enter_creds");return;}
+ go.disabled=true;go.textContent=t("verifying");msg.style.color="#6f6d63";msg.textContent=t("verifying");
+ try{
+  var r=await fetch(CF_WORKER_URL+"/dealer/login",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:email,password:pass})});
+  var d=await r.json();
+  if(d.token){var m=null;try{m=localStorage.getItem("ahg_lang");}catch(e){}if(!m&&d.lang)curLang=normLang(d.lang);token=d.token;dealerName=d.name||"";
+   try{localStorage.setItem("ahg_dealer",JSON.stringify({t:d.token,n:d.name,l:curLang,exp:Date.now()+12*3600*1000}));}catch(e){}showApp();}
+  else{msg.style.color="#b3261e";msg.textContent=d.error||t("failed");go.disabled=false;go.textContent=t("login_btn");}
+ }catch(e){msg.style.color="#b3261e";msg.textContent=t("failed")+": "+(e&&e.message||e);go.disabled=false;go.textContent=t("login_btn");}
+}
+(function(){try{var sl=localStorage.getItem("ahg_lang");if(sl)curLang=normLang(sl);}catch(e){}
+ document.getElementById("go").onclick=doLogin;document.getElementById("pass").addEventListener("keydown",e=>{if(e.key==="Enter")doLogin();});
+ document.querySelectorAll(".fseg button").forEach(function(b){b.onclick=function(){var g=b.dataset.g,v=b.dataset.v;if(g==="type")filterType=v;else filterTrans=v;b.parentNode.querySelectorAll("button").forEach(function(x){x.classList.remove("on");});b.classList.add("on");render();};});
+ applyI(); if(loadSession())showApp(); else {document.getElementById("login").style.display="flex";applyI();}
+})();
+</script></body></html>

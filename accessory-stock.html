@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ahooga Accessory Stock — MAX</title>
+<style>
+:root{--bg:#f2f1ed;--surface:#fff;--surface2:#f0efe9;--border:rgba(0,0,0,0.09);--border2:rgba(0,0,0,0.16);--text:#1a1a18;--text2:#6b6b66;--text3:#9a9a94;--accent:#1a4fa0;--accent-bg:#e6f0fb;--success:#2d6e2d;--success-bg:#eaf3de;--warn:#7a4e0a;--warn-bg:#faeeda;--danger:#8b1f1f;--danger-bg:#fcebeb;--purple:#3c3489;--purple-bg:#eeedfe;--radius:10px;--radius-sm:6px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Georgia,serif;background:var(--bg);color:var(--text);font-size:14px}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:52px;gap:12px;position:sticky;top:0;z-index:100}
+.logo{font-size:17px;font-weight:bold}.logo span{color:var(--accent)}
+.header-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font-size:11px;padding:3px 10px;border-radius:20px;background:var(--surface2);color:var(--text3);border:1px solid var(--border2)}
+.pill.ok{background:var(--success-bg);color:var(--success)}
+.pill.err{background:var(--danger-bg);color:var(--danger)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;font-weight:600;cursor:pointer;border:none}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border2)}
+main{padding:20px;max-width:1600px;margin:0 auto}
+.controls{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--text2);font-weight:600}
+.field input,.field select{padding:7px 9px;border:1px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;outline:none;background:var(--surface)}
+.field input:focus{border-color:var(--accent)}
+.field .hint{font-size:10px;color:var(--text3)}
+.field input[type=number]{width:92px;text-align:right}
+.conn-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px;max-width:520px;display:none}
+.conn-panel.open{display:block}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px}
+.kpi-label{font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:4px}
+.kpi-value{font-size:21px;font-weight:700}
+.kpi-sub{font-size:11px;color:var(--text3);margin-top:3px;line-height:1.4}
+.kpi.bad .kpi-value{color:var(--danger)}
+.kpi.warn .kpi-value{color:var(--warn)}
+.kpi.good .kpi-value{color:var(--success)}
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.tab{padding:9px 18px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;border:none;background:none;color:var(--text2);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.view{display:none}.view.active{display:block}
+.section{margin-bottom:22px}
+.section-title{font-size:15px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.section-note{font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.5;max-width:100ch}
+.table-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);background:var(--surface)}
+table.grid{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+table.grid th,table.grid td{border-bottom:1px solid var(--border);border-right:1px solid var(--border);padding:5px 8px;font-size:12px;text-align:right;white-space:nowrap}
+table.grid thead th{background:var(--surface2);color:var(--text2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:0.03em;position:sticky;top:0;z-index:5}
+table.grid th.sku,table.grid td.sku{text-align:left;position:sticky;left:0;background:var(--surface);z-index:4;min-width:240px;font-weight:600;border-right:2px solid var(--border2)}
+table.grid thead th.sku{z-index:6;background:var(--surface2)}
+table.grid tr:hover td{background:var(--surface2)}
+table.grid tr:hover td.sku{background:var(--surface2)}
+table.grid td.zero{color:var(--text3)}
+table.grid td.l{text-align:left}
+table.grid tfoot td{background:var(--surface2);font-weight:700;border-top:1px solid var(--border2)}
+table.grid tr.poolhead td{background:var(--accent-bg);font-weight:700;color:var(--accent);font-size:11px;text-transform:uppercase;letter-spacing:0.05em}
+table.grid tr.poolhead td.sku{background:var(--accent-bg);color:var(--accent)}
+.sku small{display:block;font-weight:400;font-size:10.5px;color:var(--text3);margin-top:1px}
+.tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:0.04em;white-space:nowrap}
+.tag.over{background:var(--danger-bg);color:var(--danger)}
+.tag.rich{background:var(--warn-bg);color:var(--warn)}
+.tag.ok{background:var(--success-bg);color:var(--success)}
+.tag.short{background:var(--purple-bg);color:var(--purple)}
+.tag.new{background:var(--accent-bg);color:var(--accent)}
+.bar{height:7px;border-radius:4px;background:var(--surface2);overflow:hidden;min-width:70px;display:inline-block;vertical-align:middle;border:1px solid var(--border)}
+.bar i{display:block;height:100%}
+.alert{padding:9px 13px;border-radius:var(--radius-sm);font-size:12.5px;margin-bottom:12px;line-height:1.5}
+.alert-info{background:var(--accent-bg);color:var(--accent)}
+.alert-success{background:var(--success-bg);color:var(--success)}
+.alert-danger{background:var(--danger-bg);color:var(--danger)}
+.alert-warn{background:var(--warn-bg);color:var(--warn)}
+.spinner{display:inline-block;width:11px;height:11px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-1px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pool-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px}
+.pool-card h3{font-size:14px;margin-bottom:2px}
+.pool-card .pnote{font-size:11px;color:var(--text3);margin-bottom:12px;line-height:1.5}
+.pool-grid{display:grid;grid-template-columns:1fr auto auto auto;gap:8px 12px;align-items:center}
+.pool-grid .nm{font-size:12.5px}
+.pool-grid .nm small{display:block;color:var(--text3);font-size:10.5px}
+.pool-grid input[type=range]{width:150px;accent-color:var(--accent)}
+.pool-grid .pct{font-size:12.5px;font-weight:700;min-width:52px;text-align:right;font-variant-numeric:tabular-nums}
+.pool-grid .att{font-size:11.5px;color:var(--text2);min-width:92px;text-align:right;font-variant-numeric:tabular-nums}
+.warnbox{background:var(--danger-bg);border:1px solid rgba(139,31,31,.25);border-radius:var(--radius);padding:12px 15px;margin-bottom:14px}
+.warnbox h4{font-size:13px;color:var(--danger);margin-bottom:5px}
+.warnbox p{font-size:12px;line-height:1.55;color:var(--text)}
+.warnbox ul{margin:6px 0 0 18px;font-size:12px;line-height:1.6}
+@media(max-width:700px){main{padding:12px}input{font-size:16px!important}.pool-grid{grid-template-columns:1fr auto}}
+</style>
+<script>
+/* /store/ key (Nov 2026): once the proxy's STORE_KEY secret is set, every save (and every read of a private key)
+   needs the header X-Store-Key. The key is kept only in this browser (localStorage 'ahooga_store_key') and is
+   asked once, the first time the server answers 401. Never write the key itself into this file. */
+async function storeFetch(url,opts){
+  opts=opts||{};
+  var getK=function(){var k='';try{k=localStorage.getItem('ahooga_store_key')||'';}catch(e){}return k||storeFetch._k||'';};
+  var send=function(k){var h=Object.assign({},opts.headers||{});if(k)h['X-Store-Key']=k;return fetch(url,Object.assign({},opts,{headers:h}));};
+  var k=getK(),r=await send(k);
+  /* Nov 17 fix: before, the typed key was saved even when the server refused it, so one typo meant the
+     prompt came back on every visit. Now a refused saved key is wiped, and a typed key is saved only
+     after the server accepts it (2 tries, then give up for this page load). */
+  if(r.status===401||r.status===403){
+    var n=getK();
+    if(n&&n!==k)return send(n);                    // another call already got a working key
+    if(storeFetch._asked)return r;
+    storeFetch._asked=true;
+    if(k){storeFetch._k='';try{localStorage.removeItem('ahooga_store_key');}catch(e){}}
+    var msg=k?'The saved Ahooga store key was refused (wrong or changed). Please enter the current key:'
+             :'This tool needs the Ahooga store key to load and save shared data (asked once on this computer):';
+    for(var t=0;t<2;t++){
+      n=String(window.prompt(msg)||'').trim();
+      if(!n)break;
+      var r2=await send(n);
+      if(r2.status!==401&&r2.status!==403){storeFetch._k=n;try{localStorage.setItem('ahooga_store_key',n);}catch(e){}return r2;}
+      msg='That key was not accepted. Check it and try again:';
+    }
+  }
+  return r;
+}
+</script>
+<script src="mxp-auth.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style id="ahooga-brand">
+body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+:root{--accent:#14259b;--pink:#14259b}
+.ahooga-home{position:fixed;left:14px;bottom:14px;z-index:2147483600;display:inline-flex;align-items:center;gap:6px;font-family:'Inter',system-ui,sans-serif;font-weight:700;font-size:12.5px;line-height:1;padding:9px 14px;border-radius:999px;text-decoration:none;background:#14259b;color:#fff;border:1px solid rgba(255,255,255,.25);box-shadow:0 6px 18px rgba(20,37,155,.4);opacity:.9;transition:opacity .15s,transform .15s}
+.ahooga-home:hover{opacity:1;transform:translateY(-1px)}
+@media print{.ahooga-home{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Ahooga <span>Accessory Stock — MAX</span></div>
+  <div class="header-right">
+    <span class="pill" id="conn-pill">Not connected</span>
+    <span class="pill" id="basis-pill" title="Attach denominator: MAX bikes that reached a rider">Basis: —</span>
+    <span class="pill" id="save-pill" title="Assumptions shared with the team">Assumptions: local</span>
+    <button class="btn btn-secondary" onclick="toggleConn()">⚙ Connection</button>
+    <button class="btn btn-secondary" onclick="exportCSV()">⬇ CSV</button>
+    <button class="btn btn-primary" onclick="loadData()">↻ Refresh</button>
+  </div>
+</header>
+<a class="ahooga-home" href="index.html">← Tools</a>
+<main>
+  <div id="alert-box"></div>
+
+  <div class="conn-panel" id="conn-panel">
+    <h2 style="font-size:15px;font-weight:700;margin-bottom:12px">Odoo Connection</h2>
+    <div class="field" style="margin-bottom:10px"><label>Email</label><input id="cfg-user" type="email" placeholder="you@ahooga.bike" style="width:100%"></div>
+    <div class="field" style="margin-bottom:12px"><label>API key</label><input id="cfg-key" type="password" placeholder="Odoo API key" style="width:100%"><span class="hint">Preferences → Account Security → API Keys</span></div>
+    <button class="btn btn-primary" onclick="loadData()">Connect &amp; load</button>
+  </div>
+
+  <div class="controls">
+    <div class="field"><label>Bike plan 2027</label><input id="a-bikes" type="number" step="50" value="4365"><span class="hint">Base 4,365 · Best 6,070</span></div>
+    <div class="field"><label>Sell-in share YTD</label><input id="a-sellin" type="number" step="1" value="80"><span class="hint">% of the 2026 bike year invoiced</span></div>
+    <div class="field"><label>Sell-through YTD</label><input id="a-sellthru" type="number" step="1" value="70"><span class="hint">% actually under a rider</span></div>
+    <div class="field"><label>Pipeline fill 2027</label><input id="a-fill" type="number" step="1" value="6"><span class="hint">% left on dealer floors</span></div>
+    <div class="field"><label>New doors 2027</label><input id="a-doors" type="number" step="5" value="100"><span class="hint">starter sets, ×1.1 per door</span></div>
+    <div class="field"><label>Dealers to retrofit</label><input id="a-retro" type="number" step="1" value="157"><span class="hint">new SKUs only, one each</span></div>
+    <div class="field"><label>Lead time (months)</label><input id="a-lead" type="number" step="1" value="6"><span class="hint">fallback — Odoo's per-supplier terms win</span></div>
+    <div class="field"><label>Overstock above</label><input id="a-over" type="number" step="1" value="9"><span class="hint">months of cover</span></div>
+    <div class="field"><label>Short below</label><input id="a-short" type="number" step="0.5" value="2"><span class="hint">months of cover</span></div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="tabs">
+    <button class="tab active" data-v="stock" onclick="showTab('stock')">Stock &amp; cover</button>
+    <button class="tab" data-v="pools" onclick="showTab('pools')">Demand pools</button>
+    <button class="tab" data-v="fc" onclick="showTab('fc')">Forecast</button>
+    <button class="tab" data-v="po" onclick="showTab('po')">Order plan</button>
+  </div>
+
+  <div class="view active" id="v-stock">
+    <div id="overcommit"></div>
+    <div class="section">
+      <div class="section-title">Stock coverage</div>
+      <div class="section-note">Cover = (on hand + on order − customer backlog) ÷ forecast monthly demand for 2027. <b>Overstock</b> means you are holding more than the threshold above; <b>short</b> means less than the lead time allows you to replace. Demand is after substitution, so a SKU losing share to a new one shows its coverage getting worse without anyone touching the stock.</div>
+      <div class="table-wrap"><table class="grid" id="t-stock"></table></div>
+    </div>
+  </div>
+
+  <div class="view" id="v-pools">
+    <div class="section">
+      <div class="section-title">Demand pools &amp; substitution</div>
+      <div class="section-note">Accessories that do the same job compete for the same customer. Each pool gets one attach rate — the share of riders who buy <em>something</em> from it — and the members split that demand between them. Shares are weights: they are normalised to 100%, so pushing one up automatically pulls the others down. That is what stops the plan from buying a rear bag and a front bag for the same rider.</div>
+      <div id="pool-cards"></div>
+    </div>
+    <div class="section">
+      <div class="section-title">Standalone accessories</div>
+      <div class="section-note">No substitute — attach rate measured from 2026 shipments, excluding dealer starter sets. Override if you expect it to move.</div>
+      <div id="solo-cards"></div>
+    </div>
+  </div>
+
+  <div class="view" id="v-fc">
+    <div class="section">
+      <div class="section-title">Demand build 2027</div>
+      <div class="section-note">Rider demand = attach × bikes reaching a rider. Starter sets go to new doors, retrofit is a one-off for the existing dealer base on the new SKUs only.</div>
+      <div class="table-wrap"><table class="grid" id="t-fc"></table></div>
+    </div>
+    <div class="section">
+      <div class="section-title">Monthly, to December 2027</div>
+      <div class="section-note">Rider demand follows the accessory season curve measured from your own history — it peaks later than bike shipments because it follows dealer sell-through. Starter sets and the retrofit land in Q1.</div>
+      <div class="table-wrap"><table class="grid" id="t-month"></table></div>
+    </div>
+  </div>
+
+  <div class="view" id="v-po">
+    <div class="section">
+      <div class="section-title">When to order</div>
+      <div class="section-note">Rolls stock forward month by month and raises an order when cover would fall below the safety level, sized to carry the next six months less anything already on its way. Nothing is allowed to arrive sooner than the lead time from today.</div>
+      <div class="table-wrap"><table class="grid" id="t-po"></table></div>
+    </div>
+  </div>
+</main>
+
+<script>
+"use strict";
+const ODOO_URL='https://ahooga.odoo.com';
+const ODOO_DB ='logicasoft-aho-18-0-21599177';
+const CF_WORKER='https://ahooga-odoo-proxy.ahoogahouse-1050-be.workers.dev';
+const LS_CFG='ahooga_accstock_cfg';
+const KV_KEY='accessory_stock_assumptions';
+let odooUid=null;
+
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const NOW=new Date();
+const CUR_YEAR=NOW.getFullYear();
+const CUR_MONTH=NOW.getMonth();
+const NEXT_YEAR=CUR_YEAR+1;
+const KIT_TMPL=6496;              // "Full Accessories MAX set" — phantom kit, dealer onboarding
+const SETS_PER_DOOR=1.1;
+
+/* ── the MAX accessory range ──────────────────────────────────────────
+   pool: competing SKUs share one demand pool and split it by weight.
+   enabler: not a substitute — it is required by the front-mounted luggage.
+   inKit: part of the dealer starter set.  isNew: launches in 2027.        */
+const SKUS=[
+ {code:'AC00000211',pid:6172,name:'HEBIE rear kickstand "AX"',sup:'Hebie GmbH',pool:null,inKit:true,isNew:false,cost:8.50,asp:24.35},
+ {code:'AC00000299',pid:6472,name:'Carrying Handle (MAX)',sup:'FAHRER Berlin',pool:null,inKit:true,isNew:false,cost:16.96,asp:26.31},
+ {code:'ELNEB00020',pid:7149,name:'Range extender (Mivice)',sup:'Keelgoal Energy',pool:null,inKit:true,isNew:false,cost:146.00,asp:220.87,alsoPids:[6474]},
+
+ {code:'AC00000201',pid:6369,name:'Vincita Nash rear bag',sup:'Vincita',pool:'luggage',inKit:true,isNew:false,cost:42.27,asp:80.19,w:42,front:false},
+ {code:'EXACC00010',pid:7496,name:'Ahooga front bag (L)',sup:'Vincita',pool:'luggage',inKit:true,isNew:true,cost:38.57,asp:85.47,w:24,front:true},
+ {code:'EXACC00020',pid:7497,name:'Ahooga front bag (S)',sup:'Vincita',pool:'luggage',inKit:true,isNew:true,cost:21.55,asp:51.27,w:14,front:true},
+ {code:'EXACC00050',pid:7605,name:'Front basket (MAX)',sup:'FAHRER Berlin',pool:'luggage',inKit:true,isNew:true,cost:22.00,asp:45.00,w:20,front:true,costEstimated:true},
+
+ {code:'AC00000015',pid:3737,name:'Ahooga Transport Bag',sup:'Radical Design',pool:'transport',inKit:true,isNew:false,cost:63.65,asp:82.73,w:45},
+ {code:'EXACC00040',pid:7499,name:'Storage box (MAX)',sup:'Vincita',pool:'transport',inKit:true,isNew:true,cost:33.94,asp:68.37,w:25},
+ {code:'EXACC00030',pid:7498,name:'Transport cover (light)',sup:'Vincita',pool:'transport',inKit:true,isNew:true,cost:20.41,asp:39.87,w:25},
+ {code:'AC00000016',pid:3736,name:'Ahooga Transport Cover (old)',sup:'—',pool:'transport',inKit:false,isNew:false,cost:33.19,asp:37.85,w:5},
+
+ {code:'EXFRA00040',pid:7493,name:'Front rack adapter MY27',sup:'to be sourced',pool:null,enabler:true,inKit:true,isNew:true,cost:6.60,asp:22.77}
+];
+const POOLS={
+  luggage :{label:'Luggage — what the rider carries things in',
+            note:'A rider buys one luggage solution, not four. Front bags and a basket need the front rack; the Nash bag goes on the rear rack. Growing the pool means more riders buy luggage at all; moving the shares decides which one they pick.',
+            attach:35},
+  transport:{label:'Transport &amp; protection — how the bike itself travels',
+            note:'The transport bag, the storage box and the covers all answer "how do I move or protect the folded bike". The old cover is being replaced by the light one, so leave it a small share unless you intend to keep selling both.',
+            attach:16}
+};
+// tuneable, persisted
+let A={poolAttach:{luggage:35,transport:16}, w:{}, solo:{}, rackOnly:25};
+SKUS.forEach(s=>{ if(s.pool) A.w[s.code]=s.w; });
+
+// live data
+let BIKES_YTD=0, KITS_YTD=0, LOADED=false;
+let SHIP={}, STOCK={}, BACKLOG={}, INCOMING={}, SEASON=null, SUPPLY={};
+let MEASURED={};   // code -> attach fraction, ex-kit
+
+/* ── PROXY / XML-RPC (verbatim pattern from the other apps) ─── */
+function proxyUrl(path){
+  return (location.hostname==='localhost'||location.hostname==='127.0.0.1')
+    ? `/odoo/${encodeURIComponent(ODOO_URL+path)}`
+    : `${CF_WORKER}/odoo/${encodeURIComponent(ODOO_URL+path)}`;
+}
+function v(x){
+  if(x===null||x===undefined) return '<value><boolean>0</boolean></value>';
+  if(typeof x==='boolean') return `<value><boolean>${x?1:0}</boolean></value>`;
+  if(typeof x==='number'&&Number.isInteger(x)) return `<value><int>${x}</int></value>`;
+  if(typeof x==='number') return `<value><double>${x}</double></value>`;
+  if(Array.isArray(x)) return `<value><array><data>${x.map(v).join('')}</data></array></value>`;
+  if(typeof x==='object'){const m=Object.entries(x).map(([k,vv])=>`<member><name>${k}</name>${v(vv)}</member>`).join('');return `<value><struct>${m}</struct></value>`;}
+  return `<value><string>${String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</string></value>`;
+}
+function parseXml(xml){
+  const doc=new DOMParser().parseFromString(xml,'text/xml');
+  if(doc.querySelector('fault')) throw new Error('Odoo error: '+(doc.querySelector('faultString')?.textContent?.substring(0,160)||'fault'));
+  function pv(n){
+    if(!n) return null;
+    const c=n.firstElementChild;
+    if(!c) return n.textContent;
+    switch(c.tagName){
+      case 'int':case 'i4':case 'i8': return parseInt(c.textContent);
+      case 'double': return parseFloat(c.textContent);
+      case 'boolean': return c.textContent==='1';
+      case 'string': return c.textContent;
+      case 'nil': return null;
+      case 'array': return Array.from(c.querySelector('data')?.children||[]).map(pv);
+      case 'struct':{const o={};c.querySelectorAll(':scope>member').forEach(m=>{o[m.querySelector('name').textContent]=pv(m.querySelector('value'))});return o;}
+      default: return c.textContent;
+    }
+  }
+  return pv(doc.querySelector('methodResponse>params>param>value'));
+}
+function arr(x){return Array.isArray(x)?x:[null,x?String(x):''];}
+function toArr(x){return Array.isArray(x)?x:(x?[x]:[]);}
+async function odoo(model,method,args,kwargs={}){
+  const user=document.getElementById('cfg-user').value.trim();
+  const key=document.getElementById('cfg-key').value.trim();
+  if(!user||!key) throw new Error('Enter your Odoo email and API key (⚙ Connection).');
+  if(!odooUid){
+    const b=`<?xml version="1.0"?><methodCall><methodName>authenticate</methodName><params>${[v(ODOO_DB),v(user),v(key),v({})].map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+    const r=await fetch(proxyUrl('/xmlrpc/2/common'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+    odooUid=parseXml(await r.text());
+    if(!odooUid||typeof odooUid!=='number') throw new Error('Authentication failed — check email and API key');
+  }
+  // COMPANY LOCK: exclude Ahooga Paris (company 2, closed/unreliable). Force company 1 (Belgium).
+  kwargs=Object.assign({},kwargs); kwargs.context=Object.assign({},kwargs.context,{allowed_company_ids:[1],company_id:1});
+  const params=[v(ODOO_DB),v(odooUid),v(key),v(model),v(method),v(args),v(kwargs)];
+  const b=`<?xml version="1.0"?><methodCall><methodName>execute_kw</methodName><params>${params.map(x=>`<param>${x}</param>`).join('')}</params></methodCall>`;
+  const r=await fetch(proxyUrl('/xmlrpc/2/object'),{method:'POST',headers:{'Content-Type':'application/xml'},body:b});
+  return parseXml(await r.text());
+}
+async function kvGetStore(key){ try{const r=await storeFetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`);if(!r.ok)return null;return await r.json();}catch(e){return null;} }
+async function kvSetStore(key,value){ try{ await storeFetch(`${CF_WORKER}/store/${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value)}); }catch(e){} }
+
+/* ── helpers ─────────────────────────────────────────────── */
+const $=id=>document.getElementById(id);
+const num=id=>parseFloat($(id).value)||0;
+function fmt(n){if(n===null||n===undefined||!isFinite(n))return '—';const x=Math.round(n);return x.toLocaleString('en-GB');}
+function eur(n){if(!isFinite(n))return '—';return '€'+Math.round(n).toLocaleString('en-GB');}
+function pc(n){return (n*100).toFixed(1)+'%';}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function alert_(msg,type){$('alert-box').innerHTML=`<div class="alert alert-${type}">${msg}</div>`;if(type==='success')setTimeout(()=>{const b=$('alert-box');if(b&&b.querySelector('.alert-success'))b.innerHTML='';},5000);}
+function setPill(t,c){const e=$('conn-pill');e.textContent=t;e.className='pill'+(c?' '+c:'');}
+function toggleConn(){$('conn-panel').classList.toggle('open');}
+function showTab(v){document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.v===v));document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));$('v-'+v).classList.add('active');}
+function saveCfg(){try{localStorage.setItem(LS_CFG,JSON.stringify({user:$('cfg-user').value,key:$('cfg-key').value}))}catch(e){}}
+function loadCfg(){
+  try{const c=JSON.parse(localStorage.getItem(LS_CFG)||'{}');if(c.user)$('cfg-user').value=c.user;if(c.key)$('cfg-key').value=c.key;}catch(e){}
+  try{const g=JSON.parse(localStorage.getItem('mxp_cfg')||'null');if(g&&g.user&&!$('cfg-user').value){$('cfg-user').value=g.user;$('cfg-key').value=g.key;}}catch(e){}
+}
+
+/* ── LOAD ────────────────────────────────────────────────── */
+async function loadData(){
+  saveCfg();
+  try{
+    odooUid=null; setPill('Connecting…');
+    const pids=SKUS.filter(s=>s.pid).map(s=>s.pid);
+    SKUS.forEach(s=>{ if(s.alsoPids) s.alsoPids.forEach(p=>pids.push(p)); });
+    const YSTART=`${CUR_YEAR-1}-01-01`, CSTART=`${CUR_YEAR}-01-01`;
+
+    alert_('<span class="spinner"></span> Reading shipments…','info');
+    // 1 — real outgoing movements to customers (this is demand; invoice lines miss kit explosions)
+    const mv=toArr(await odoo('stock.move','read_group',
+      [[['product_id','in',pids],['state','=','done'],['date','>=',YSTART],['location_dest_id.usage','=','customer']],
+       ['quantity:sum'],['product_id','date:month']],{lazy:false}));
+    SHIP={}; const monthAgg=Array(12).fill(0);
+    for(const g of mv){
+      const pid=arr(g.product_id)[0], q=g.quantity||0;
+      SHIP[pid]=(SHIP[pid]||0)+ (String(g['date:month']||'').includes(String(CUR_YEAR))? q:0);
+      const d=new Date(g['date:month']+' 1'); if(!isNaN(d)) monthAgg[d.getMonth()]+=q;
+    }
+    SEASON=monthAgg.reduce((a,b)=>a+b,0)>0 ? monthAgg.map(x=>Math.max(0,x)/monthAgg.reduce((a,b)=>a+b,0)) : null;
+
+    alert_('<span class="spinner"></span> Reading MAX bikes…','info');
+    const bg=toArr(await odoo('stock.move','read_group',
+      [[['product_id.categ_id.complete_name','ilike','Bikes'],['product_id.name','ilike','MAX'],
+        ['state','=','done'],['date','>=',CSTART],['location_dest_id.usage','=','customer']],['quantity:sum'],[]],{lazy:false}));
+    BIKES_YTD=(bg[0]&&bg[0].quantity)||0;
+
+    alert_('<span class="spinner"></span> Reading dealer starter sets…','info');
+    const kg=toArr(await odoo('account.move.line','read_group',
+      [[['parent_state','=','posted'],['date','>=',CSTART],['move_id.move_type','in',['out_invoice','out_refund']],
+        ['product_id.product_tmpl_id','=',KIT_TMPL]],['quantity:sum'],[]],{lazy:false}));
+    KITS_YTD=(kg[0]&&kg[0].quantity)||0;
+
+    alert_('<span class="spinner"></span> Reading stock…','info');
+    const ps=toArr(await odoo('product.product','read',[pids,['qty_available','free_qty','incoming_qty','product_tmpl_id']]));
+    STOCK={}; INCOMING={}; const tmplOf={};
+    for(const p of ps){ STOCK[p.id]=p.qty_available||0; INCOMING[p.id]=p.incoming_qty||0; tmplOf[arr(p.product_tmpl_id)[0]]=p.id; }
+
+    // Supplier terms straight from Odoo: MOQ and lead time differ per supplier
+    // (FAHRER 500 @ 150 days, Vincita 180 days, Hebie far shorter) and a single
+    // global figure quietly mis-sizes every order. Where a product has several
+    // seller lines we take the largest MOQ — that is the real volume tier; the
+    // qty-1 lines are usually sample or correction entries.
+    alert_('<span class="spinner"></span> Reading supplier terms…','info');
+    SUPPLY={};
+    try{
+      const si=toArr(await odoo('product.supplierinfo','search_read',
+        [[['product_tmpl_id','in',Object.keys(tmplOf).map(Number)]]],
+        {fields:['product_tmpl_id','partner_id','min_qty','delay','price'],limit:400}));
+      for(const r of si){
+        const pid=tmplOf[arr(r.product_tmpl_id)[0]]; if(!pid) continue;
+        const cur=SUPPLY[pid];
+        if(!cur || (r.min_qty||0)>cur.moq || ((r.min_qty||0)===cur.moq && (r.delay||0)>cur.days))
+          SUPPLY[pid]={moq:r.min_qty||0,days:r.delay||0,price:r.price||0,partner:arr(r.partner_id)[1]||''};
+      }
+    }catch(e){ console.warn('supplier terms',e.message); }
+
+    alert_('<span class="spinner"></span> Reading open orders…','info');
+    const so=toArr(await odoo('sale.order.line','read_group',
+      [[['product_id','in',pids],['state','in',['sale','done']],['display_type','=',false]],
+       ['product_uom_qty:sum','qty_delivered:sum'],['product_id']],{lazy:false}));
+    BACKLOG={};
+    for(const g of so){ const pid=arr(g.product_id)[0]; BACKLOG[pid]=Math.max(0,(g.product_uom_qty||0)-(g.qty_delivered||0)); }
+
+    LOADED=true;
+    setPill('Connected · '+new Date().toLocaleTimeString(),'ok');
+    $('conn-panel').classList.remove('open');
+    await loadAssumptions();
+    computeMeasured(); render();
+    alert_(`✓ Loaded. ${fmt(BIKES_YTD)} MAX bikes and ${fmt(KITS_YTD)} dealer starter sets shipped so far in ${CUR_YEAR}.`,'success');
+  }catch(e){
+    setPill('Error','err'); alert_('Error: '+esc(e.message),'danger'); console.error(e);
+  }
+}
+
+async function loadAssumptions(){
+  const remote=await kvGetStore(KV_KEY);
+  let src=remote&&remote.A?remote.A:null;
+  if(!src){ try{src=JSON.parse(localStorage.getItem(KV_KEY)||'null');}catch(e){} }
+  if(src){ A=Object.assign(A,src); $('save-pill').textContent='Assumptions: shared'; }
+}
+let _saveT=null;
+function saveAssumptions(){
+  try{localStorage.setItem(KV_KEY,JSON.stringify(A));}catch(e){}
+  clearTimeout(_saveT);
+  _saveT=setTimeout(()=>{kvSetStore(KV_KEY,{A,updated:new Date().toISOString()});$('save-pill').textContent='Assumptions: shared';},900);
+}
+
+/* ── measured attach, excluding dealer starter sets ───────── */
+function shipOf(s){
+  let q=SHIP[s.pid]||0;
+  if(s.alsoPids) s.alsoPids.forEach(p=>q+=SHIP[p]||0);
+  return q;
+}
+function denom(){
+  const sellin=Math.max(1,num('a-sellin'))/100, thru=Math.max(0,num('a-sellthru'))/100;
+  return (BIKES_YTD/sellin)*thru;     // MAX bikes that actually reached a rider this year
+}
+function computeMeasured(){
+  const d=denom();
+  MEASURED={};
+  for(const s of SKUS){
+    const exKit=Math.max(0, shipOf(s) - (s.inKit?KITS_YTD:0));
+    MEASURED[s.code]= d>0 ? exKit/d : 0;
+  }
+  // seed pool attach and standalone rates from what was actually measured, first load only
+  if(!A._seeded){
+    for(const k in POOLS){
+      const sum=SKUS.filter(s=>s.pool===k).reduce((a,s)=>a+MEASURED[s.code],0);
+      if(sum>0) POOLS[k].measured=sum;
+    }
+    SKUS.filter(s=>!s.pool&&!s.enabler).forEach(s=>{ if(A.solo[s.code]===undefined) A.solo[s.code]=+(MEASURED[s.code]*100).toFixed(2); });
+    A._seeded=true;
+  } else {
+    for(const k in POOLS){ POOLS[k].measured=SKUS.filter(s=>s.pool===k).reduce((a,s)=>a+MEASURED[s.code],0); }
+  }
+}
+
+/* ── the model ───────────────────────────────────────────── */
+function shareOf(code){
+  const s=SKUS.find(x=>x.code===code); if(!s||!s.pool) return 0;
+  const members=SKUS.filter(x=>x.pool===s.pool);
+  const tot=members.reduce((a,x)=>a+(+A.w[x.code]||0),0);
+  return tot>0 ? (+A.w[code]||0)/tot : 0;
+}
+function moqOf(s){ const t=s.pid&&SUPPLY[s.pid]; return (t&&t.moq>=1)?t.moq:300; }
+function leadOf(s){ const t=s.pid&&SUPPLY[s.pid]; return (t&&t.days>=15)?Math.round(t.days/30.4):Math.max(0,Math.round(num('a-lead'))); }
+function ridersNext(){ return num('a-bikes')*(1-num('a-fill')/100); }
+function attachOf(s){
+  if(s.pool) return (A.poolAttach[s.pool]/100)*shareOf(s.code);
+  if(s.enabler){
+    const lug=A.poolAttach.luggage/100;
+    const frontShare=SKUS.filter(x=>x.pool==='luggage'&&x.front).reduce((a,x)=>a+shareOf(x.code),0);
+    return lug*frontShare*(1+A.rackOnly/100);
+  }
+  return (A.solo[s.code]||0)/100;
+}
+function model(){
+  const riders=ridersNext(), sets=num('a-doors')*SETS_PER_DOOR, retro=num('a-retro');
+  return SKUS.map(s=>{
+    const att=attachOf(s);
+    const rider=att*riders;
+    const kit=s.inKit?sets:0;
+    const rf=s.isNew?retro:0;
+    const demand=rider+kit+rf;
+    const onhand=s.pid?(STOCK[s.pid]||0):0;
+    const inc=s.pid?(INCOMING[s.pid]||0):0;
+    const back=s.pid?(BACKLOG[s.pid]||0):0;
+    const pos=onhand+inc-back;
+    const perMonth=demand/12;
+    const cover=perMonth>0?pos/perMonth:(pos>0?99:0);
+    return {s,att,rider,kit,rf,demand,onhand,inc,back,pos,perMonth,cover,
+            value:Math.max(0,pos)*s.cost, revenue:demand*s.asp, cogs:demand*s.cost};
+  });
+}
+function statusOf(r){
+  const over=num('a-over'), short=num('a-short');
+  if(r.s.notInOdoo) return ['new','Not in Odoo'];
+  if(r.demand<=0) return ['ok','No demand'];
+  if(r.pos<=0) return ['short','Out of stock'];
+  if(r.cover<short) return ['short','Short'];
+  if(r.cover>over*1.5) return ['over','Overstocked'];
+  if(r.cover>over) return ['rich','Stock-rich'];
+  return ['ok','Healthy'];
+}
+
+/* ── render ──────────────────────────────────────────────── */
+function render(){
+  if(!LOADED) return;
+  computeMeasured();
+  const rows=model();
+  $('basis-pill').textContent=`Basis: ${fmt(denom())} riders`;
+  renderKpis(rows); renderOvercommit(rows); renderStock(rows);
+  renderPools(); renderFc(rows); renderMonthly(rows); renderPo(rows);
+  publishSupply(rows);
+}
+function renderKpis(rows){
+  const over=rows.filter(r=>statusOf(r)[0]==='over'||statusOf(r)[0]==='rich');
+  const short=rows.filter(r=>statusOf(r)[0]==='short');
+  const val=rows.reduce((a,r)=>a+r.value,0);
+  const rev=rows.reduce((a,r)=>a+r.revenue,0), cogs=rows.reduce((a,r)=>a+r.cogs,0);
+  const excess=over.reduce((a,r)=>a+Math.max(0,(r.pos-r.perMonth*num('a-over')))*r.s.cost,0);
+  const nm=r=>r.s.name.replace(/^Ahooga /,'').replace(/ \(MAX\)/,'').replace(/ \(old\)/,'');
+  const K=[
+    ['Stock + on order',eur(val),`${fmt(rows.reduce((a,r)=>a+r.pos,0))} units across ${rows.length} accessories`,''],
+    ['Excess stock',eur(excess),over.length?over.map(nm).join(' · '):'nothing above the line',excess>15000?'bad':(excess>5000?'warn':'good')],
+    ['Short',short.length,short.length?short.map(nm).join(' · '):'nothing below the line','' + (short.length?'bad':'good')],
+    ['2027 demand',fmt(rows.reduce((a,r)=>a+r.demand,0)),`${eur(rev)} revenue · ${Math.round((1-cogs/rev)*100)}% margin`,''],
+  ];
+  $('kpis').innerHTML=K.map(([l,v_,s,c])=>`<div class="kpi ${c}"><div class="kpi-label">${l}</div><div class="kpi-value">${v_}</div><div class="kpi-sub">${s}</div></div>`).join('');
+}
+function renderOvercommit(rows){
+  // the guard a per-SKU view cannot give you: is the whole competing family over-bought?
+  let cards='', warns='';
+  for(const k in POOLS){
+    const mem=rows.filter(r=>r.s.pool===k);
+    const pos=mem.reduce((a,r)=>a+Math.max(0,r.pos),0), dem=mem.reduce((a,r)=>a+r.demand,0);
+    const months=dem>0?pos/(dem/12):0;
+    const over=num('a-over');
+    const cls=months>over*1.5?'over':months>over?'rich':months<num('a-short')?'short':'ok';
+    const col=cls==='over'?'var(--danger)':cls==='rich'?'var(--warn)':cls==='short'?'var(--purple)':'var(--success)';
+    const avgCost=mem.reduce((a,r)=>a+r.s.cost,0)/mem.length;
+    cards+=`<div class="kpi" style="border-left:3px solid ${col}">
+      <div class="kpi-label">${POOLS[k].label.split('—')[0].trim()} — family cover</div>
+      <div class="kpi-value" style="color:${col}">${months.toFixed(1)} mo</div>
+      <div class="kpi-sub">${fmt(pos)} units held across ${mem.length} competing SKUs vs ${fmt(dem)} of 2027 demand</div></div>`;
+    if(months>over){
+      const excess=Math.max(0,pos-dem/12*over);
+      const worst=mem.slice().sort((a,b)=>b.cover-a.cover)[0];
+      warns+=`<div class="warnbox"><h4>⚠ ${POOLS[k].label.split('—')[0].trim()} is over-bought as a family</h4>
+        <p>Across the ${mem.length} competing SKUs you hold <b>${fmt(pos)} units</b> against <b>${fmt(dem)}</b> of 2027 demand — <b>${months.toFixed(1)} months</b> of cover for the whole family. Each SKU can look acceptable on its own and still add up to this, because they all sell to the same rider.</p>
+        <ul><li>Roughly <b>${fmt(excess)} units / ${eur(excess*avgCost)}</b> more than the family needs.</li>
+        <li>Heaviest line: <b>${esc(worst.s.name)}</b> at ${worst.cover>90?'no demand':worst.cover.toFixed(1)+' months'}.</li>
+        <li>Shift share on the Demand pools tab before adding volume to any member.</li></ul></div>`;
+    }
+  }
+  $('overcommit').innerHTML=warns+`<div class="kpis" style="margin-bottom:16px">${cards}</div>`;
+}
+function renderStock(rows){
+  const order=['luggage','transport',null];
+  let h=`<thead><tr><th class="sku">Accessory</th><th>Attach<br>2026</th><th>Attach<br>2027</th><th>On hand</th><th>On order</th><th>Backlog</th><th>Position</th>
+    <th>Demand<br>2027</th><th>Per month</th><th>Cover</th><th style="min-width:110px">&nbsp;</th><th>Value</th><th class="l">Status</th></tr></thead><tbody>`;
+  const seen=new Set();
+  for(const grp of order){
+    const mem=rows.filter(r=>(r.s.pool||null)===grp&&!r.s.enabler);
+    if(!mem.length) continue;
+    if(grp) h+=`<tr class="poolhead"><td class="sku">${POOLS[grp].label}</td><td colspan="12"></td></tr>`;
+    else h+=`<tr class="poolhead"><td class="sku">Standalone — no substitute</td><td colspan="12"></td></tr>`;
+    for(const r of mem){ h+=stockRow(r); seen.add(r.s.code); }
+  }
+  const en=rows.filter(r=>r.s.enabler);
+  if(en.length){ h+=`<tr class="poolhead"><td class="sku">Enabler — required by the front luggage</td><td colspan="12"></td></tr>`; en.forEach(r=>h+=stockRow(r)); }
+  const tot=rows.reduce((a,r)=>({pos:a.pos+r.pos,dem:a.dem+r.demand,val:a.val+r.value}),{pos:0,dem:0,val:0});
+  h+=`</tbody><tfoot><tr><td class="sku">Total</td><td></td><td></td><td></td><td></td><td></td><td>${fmt(tot.pos)}</td><td>${fmt(tot.dem)}</td><td></td><td></td><td></td><td>${eur(tot.val)}</td><td></td></tr></tfoot>`;
+  $('t-stock').innerHTML=h;
+}
+function stockRow(r){
+  const [cls,label]=statusOf(r);
+  const col=cls==='over'?'var(--danger)':cls==='rich'?'var(--warn)':cls==='short'?'var(--purple)':'var(--success)';
+  const pctBar=Math.max(0,Math.min(100,(r.cover/(num('a-over')*1.5))*100));
+  return `<tr>
+    <td class="sku">${esc(r.s.name)}<small>${esc(r.s.code)} · ${esc(r.s.sup)}</small></td>
+    <td class="${MEASURED[r.s.code]?'':'zero'}">${MEASURED[r.s.code]?pc(MEASURED[r.s.code]):'—'}</td>
+    <td>${pc(r.att)}</td>
+    <td class="${r.onhand?'':'zero'}">${fmt(r.onhand)}</td>
+    <td class="${r.inc?'':'zero'}">${fmt(r.inc)}</td>
+    <td class="${r.back?'':'zero'}">${r.back?'−'+fmt(r.back):'—'}</td>
+    <td><b>${fmt(r.pos)}</b></td>
+    <td>${fmt(r.demand)}</td>
+    <td>${fmt(r.perMonth)}</td>
+    <td style="color:${col};font-weight:700">${r.cover>90?'∞':r.cover.toFixed(1)}</td>
+    <td><span class="bar"><i style="width:${pctBar}%;background:${col}"></i></span></td>
+    <td>${eur(r.value)}</td>
+    <td class="l"><span class="tag ${cls}">${label}</span></td></tr>`;
+}
+function renderPools(){
+  let h='';
+  for(const k in POOLS){
+    const mem=SKUS.filter(s=>s.pool===k);
+    const meas=POOLS[k].measured||0;
+    h+=`<div class="pool-card"><h3>${POOLS[k].label}</h3><div class="pnote">${POOLS[k].note}</div>
+      <div class="field" style="flex-direction:row;align-items:center;gap:10px;margin-bottom:12px">
+        <label style="margin:0">Pool attach 2027</label>
+        <input type="range" min="0" max="80" step="1" value="${A.poolAttach[k]}" oninput="setPoolAttach('${k}',this.value)" style="width:200px;accent-color:var(--accent)">
+        <b style="font-variant-numeric:tabular-nums">${A.poolAttach[k].toFixed(0)}%</b>
+        <span class="hint" style="color:var(--text3)">measured in ${CUR_YEAR}: ${pc(meas)} of riders bought one of these</span>
+      </div>
+      <div class="pool-grid">`;
+    for(const s of mem){
+      const sh=shareOf(s.code);
+      h+=`<div class="nm">${esc(s.name)}<small>${esc(s.code)}${s.front?' · needs the front rack':''}${s.isNew?' · new for 2027':''}</small></div>
+        <input type="range" min="0" max="100" step="1" value="${A.w[s.code]}" oninput="setW('${s.code}',this.value)">
+        <div class="pct">${(sh*100).toFixed(0)}%</div>
+        <div class="att">${pc((A.poolAttach[k]/100)*sh)} attach</div>`;
+    }
+    h+=`</div></div>`;
+  }
+  // enabler
+  h+=`<div class="pool-card"><h3>Front rack adapter — the enabler</h3>
+    <div class="pnote">Not a substitute for anything: it is what the front bags and the basket mount to, so its demand follows their combined share. The uplift covers riders who buy the rack on its own, or fit a Brompton-compatible bag to it.</div>
+    <div class="field" style="flex-direction:row;align-items:center;gap:10px">
+      <label style="margin:0">Rack-only uplift</label>
+      <input type="range" min="0" max="100" step="5" value="${A.rackOnly}" oninput="setRackOnly(this.value)" style="width:200px;accent-color:var(--accent)">
+      <b style="font-variant-numeric:tabular-nums">+${A.rackOnly}%</b>
+      <span class="hint" style="color:var(--text3)">→ ${pc(attachOf(SKUS.find(s=>s.enabler)))} of riders</span>
+    </div></div>`;
+  $('pool-cards').innerHTML=h;
+
+  let s2='<div class="pool-card"><div class="pool-grid">';
+  SKUS.filter(s=>!s.pool&&!s.enabler).forEach(s=>{
+    s2+=`<div class="nm">${esc(s.name)}<small>${esc(s.code)} · measured ${pc(MEASURED[s.code]||0)} in ${CUR_YEAR}</small></div>
+      <input type="range" min="0" max="60" step="0.5" value="${A.solo[s.code]||0}" oninput="setSolo('${s.code}',this.value)">
+      <div class="pct">${(A.solo[s.code]||0).toFixed(1)}%</div>
+      <div class="att">${fmt((A.solo[s.code]||0)/100*ridersNext())} units</div>`;
+  });
+  $('solo-cards').innerHTML=s2+'</div></div>';
+}
+function setPoolAttach(k,v){A.poolAttach[k]=+v;saveAssumptions();render();}
+function setW(c,v){A.w[c]=+v;saveAssumptions();render();}
+function setSolo(c,v){A.solo[c]=+v;saveAssumptions();render();}
+function setRackOnly(v){A.rackOnly=+v;saveAssumptions();render();}
+
+function renderFc(rows){
+  let h=`<thead><tr><th class="sku">Accessory</th><th>Attach</th><th>Sold with bikes</th><th>Starter sets</th><th>Retrofit</th><th>Demand 2027</th><th>Price</th><th>Revenue</th><th>Margin</th></tr></thead><tbody>`;
+  for(const r of rows){
+    h+=`<tr><td class="sku">${esc(r.s.name)}<small>${esc(r.s.code)}</small></td>
+      <td>${pc(r.att)}</td><td>${fmt(r.rider)}</td><td class="${r.kit?'':'zero'}">${r.kit?fmt(r.kit):'—'}</td>
+      <td class="${r.rf?'':'zero'}">${r.rf?fmt(r.rf):'—'}</td><td><b>${fmt(r.demand)}</b></td>
+      <td>${eur(r.s.asp)}</td><td>${eur(r.revenue)}</td><td>${Math.round((1-r.s.cost/r.s.asp)*100)}%</td></tr>`;
+  }
+  const d=rows.reduce((a,r)=>a+r.demand,0), rev=rows.reduce((a,r)=>a+r.revenue,0), cg=rows.reduce((a,r)=>a+r.cogs,0);
+  h+=`</tbody><tfoot><tr><td class="sku">Total</td><td></td><td>${fmt(rows.reduce((a,r)=>a+r.rider,0))}</td><td>${fmt(rows.reduce((a,r)=>a+r.kit,0))}</td><td>${fmt(rows.reduce((a,r)=>a+r.rf,0))}</td><td>${fmt(d)}</td><td></td><td>${eur(rev)}</td><td>${Math.round((1-cg/rev)*100)}%</td></tr></tfoot>`;
+  $('t-fc').innerHTML=h;
+}
+function fwd(){ const a=[]; for(let m=CUR_MONTH+1;m<12;m++)a.push({y:CUR_YEAR,m}); for(let m=0;m<12;m++)a.push({y:NEXT_YEAR,m}); return a; }
+function seasonCurve(){
+  if(SEASON&&SEASON.reduce((a,b)=>a+b,0)>0) return SEASON;
+  const fb=[3,7,11,15,15,15,11,7,11,7,3,3], s=fb.reduce((a,b)=>a+b,0); return fb.map(x=>x/s);
+}
+function monthlyRows(rows){
+  const cur=seasonCurve(), ml=fwd();
+  const restShare=cur.slice(CUR_MONTH+1).reduce((a,b)=>a+b,0);
+  return rows.map(r=>{
+    const vals=ml.map(c=>{
+      if(c.y===CUR_YEAR){
+        // remainder of this year: current-year run-rate shaped by the season curve, no sets
+        const yearRider=r.att*denom()/Math.max(0.05,cur.slice(0,CUR_MONTH+1).reduce((a,b)=>a+b,0));
+        return r.s.isNew?0:yearRider*cur[c.m];
+      }
+      let v=r.rider*cur[c.m];
+      if(c.m===0) v+=r.kit+r.rf;          // starter sets and the retrofit land in January
+      return v;
+    });
+    return {r,vals};
+  });
+}
+function renderMonthly(rows){
+  const ml=fwd(), MR=monthlyRows(rows);
+  let h=`<thead><tr><th class="sku">Accessory</th>${ml.map(c=>`<th>${MONTHS[c.m]} ${String(c.y).slice(2)}</th>`).join('')}<th>Total</th></tr></thead><tbody>`;
+  const colT=ml.map(()=>0);
+  for(const {r,vals} of MR){
+    vals.forEach((v,i)=>colT[i]+=v);
+    h+=`<tr><td class="sku">${esc(r.s.name)}<small>${esc(r.s.code)}</small></td>${vals.map(v=>`<td class="${v<0.5?'zero':''}">${v<0.5?'·':fmt(v)}</td>`).join('')}<td><b>${fmt(vals.reduce((a,b)=>a+b,0))}</b></td></tr>`;
+  }
+  h+=`</tbody><tfoot><tr><td class="sku">Total</td>${colT.map(v=>`<td>${fmt(v)}</td>`).join('')}<td>${fmt(colT.reduce((a,b)=>a+b,0))}</td></tr></tfoot>`;
+  $('t-month').innerHTML=h;
+}
+function renderPo(rows){
+  const ml=fwd(), MR=monthlyRows(rows);
+  const PACK=50, SAFE=1.5, COV=6;
+  let h=`<thead><tr><th class="sku">Accessory</th><th>MOQ</th><th>Lead</th><th>Position</th><th>Order by</th><th>Units</th><th>Cash</th><th class="l">Then</th><th class="l">Note</th></tr></thead><tbody>`;
+  let totCash=0, totUnits=0;
+  for(const {r,vals} of MR){
+    if(r.demand<=0){ continue; }
+    const MOQ=moqOf(r.s), LT=leadOf(r.s);
+    let stock=r.pos; const orders=[]; let shortfall=0;
+    const ann=vals.slice(ml.findIndex(c=>c.y===NEXT_YEAR)).reduce((a,b)=>a+b,0);
+    for(let k=0;k<vals.length;k++){
+      const minst=(k===vals.length-1?2.5:SAFE)*ann/12;
+      const avail=stock-vals[k];
+      let neu=0;
+      if(k>=LT && avail<minst){
+        const win=vals.slice(k,k+COV).reduce((a,b)=>a+b,0)+Math.max(0,k+COV-vals.length)*ann/12;
+        const raw=win+SAFE*ann/12-avail;
+        if(raw>0) neu=Math.max(MOQ,Math.ceil(raw/PACK)*PACK);
+      }
+      if(avail<0 && k<LT) shortfall=Math.min(shortfall,avail);
+      stock=avail+neu;
+      if(neu) orders.push({k,q:neu});
+    }
+    const first=orders[0];
+    const when=first? ml[Math.max(0,first.k-LT)] : null;
+    const whenTxt=when? `${MONTHS[when.m]} ${when.y}` : '—';
+    const later=orders.slice(1).map(o=>{const w=ml[Math.max(0,o.k-LT)];return `${MONTHS[w.m]} ${String(w.y).slice(2)} · ${fmt(o.q)}`;}).join(' · ')||'—';
+    if(first){ totCash+=first.q*r.s.cost; totUnits+=first.q; }
+    const note = r.s.notInOdoo ? 'Create the SKU in Odoo before this can be ordered'
+               : (r.s.costEstimated && first) ? 'Cash is an estimate — supplier price not agreed'
+               : shortfall<0 ? `Runs ${fmt(-shortfall)} short before a new order can land`
+               : r.cover>num('a-over') ? 'Stock-rich — delay rather than reorder' : '';
+    h+=`<tr><td class="sku">${esc(r.s.name)}<small>${esc(r.s.code)}${r.s.costEstimated?' · cost estimated':''}</small></td>
+      <td>${fmt(MOQ)}</td><td>${LT} mo</td>
+      <td>${fmt(r.pos)}</td><td><b>${whenTxt}</b></td><td>${first?fmt(first.q):'—'}</td>
+      <td>${first?eur(first.q*r.s.cost):'—'}</td><td class="l" style="font-size:11px;color:var(--text2)">${later}</td>
+      <td class="l" style="font-size:11px;color:${shortfall<0?'var(--danger)':'var(--text3)'}">${esc(note)}</td></tr>`;
+  }
+  h+=`</tbody><tfoot><tr><td class="sku">First wave</td><td></td><td></td><td></td><td></td><td>${fmt(totUnits)}</td><td>${eur(totCash)}</td><td></td><td></td></tr></tfoot>`;
+  $('t-po').innerHTML=h;
+}
+
+/* ── publish to the shared store, for accessory-watch (the weekly mail) ──
+   Same contract the other supply apps use: the browser app is the only thing
+   that knows the assumptions, so it publishes the finished list and the Worker
+   only formats and sends it. */
+let _pubT=null;
+function publishSupply(rows){
+  clearTimeout(_pubT);
+  _pubT=setTimeout(()=>{
+    const ml=fwd(), MR=monthlyRows(rows);
+    const PACK=50,SAFE=1.5,COV=6;
+    const iso=c=>`${c.y}-${String(c.m+1).padStart(2,'0')}-01`;
+    const items=[];
+    for(const {r,vals} of MR){
+      if(r.demand<=0) continue;
+      const MOQ=moqOf(r.s), LT=leadOf(r.s);
+      let stock=r.pos; const orders=[]; let shortfall=0;
+      const ann=vals.slice(ml.findIndex(c=>c.y===NEXT_YEAR)).reduce((a,b)=>a+b,0);
+      for(let k=0;k<vals.length;k++){
+        const minst=(k===vals.length-1?2.5:SAFE)*ann/12;
+        const avail=stock-vals[k]; let neu=0;
+        if(k>=LT&&avail<minst){
+          const win=vals.slice(k,k+COV).reduce((a,b)=>a+b,0)+Math.max(0,k+COV-vals.length)*ann/12;
+          const raw=win+SAFE*ann/12-avail;
+          if(raw>0) neu=Math.max(MOQ,Math.ceil(raw/PACK)*PACK);
+        }
+        if(avail<0&&k<LT) shortfall=Math.min(shortfall,avail);
+        stock=avail+neu;
+        if(neu) orders.push({k,q:neu});
+      }
+      const [st,label]=statusOf(r);
+      items.push({
+        code:r.s.code,name:r.s.name,supplier:r.s.sup,pid:r.s.pid||null,
+        onhand:Math.round(r.onhand),incoming:Math.round(r.inc),backlog:Math.round(r.back),
+        position:Math.round(r.pos),demand:Math.round(r.demand),perMonth:+r.perMonth.toFixed(1),
+        cover:+r.cover.toFixed(1),status:st,statusLabel:label,
+        pool:r.s.pool||(r.s.enabler?'enabler':'standalone'),
+        cost:r.s.cost,costEstimated:!!r.s.costEstimated,notInOdoo:!!r.s.notInOdoo,
+        moq:MOQ,leadMonths:LT,shortfall:Math.round(shortfall),
+        orders:orders.map(o=>({by:iso(ml[Math.max(0,o.k-LT)]),arrives:iso(ml[o.k]),
+                               qty:o.q,cash:Math.round(o.q*r.s.cost)}))
+      });
+    }
+    const families=Object.keys(POOLS).map(k=>{
+      const mem=rows.filter(r=>r.s.pool===k);
+      const pos=mem.reduce((a,r)=>a+Math.max(0,r.pos),0), dem=mem.reduce((a,r)=>a+r.demand,0);
+      return {key:k,label:POOLS[k].label.split('—')[0].trim(),position:Math.round(pos),
+              demand:Math.round(dem),months:dem>0?+(pos/(dem/12)).toFixed(1):0};
+    });
+    kvSetStore('accessory_supply',{
+      updated:new Date().toISOString(), source:'accessory-stock',
+      basis:{bikesYtd:Math.round(BIKES_YTD),riders:Math.round(denom()),kits:Math.round(KITS_YTD),
+             bikePlan:num('a-bikes'),leadMonths:Math.max(0,Math.round(num('a-lead'))),
+             overstockMonths:num('a-over'),shortMonths:num('a-short')},
+      families, items
+    });
+  },1200);
+}
+
+function exportCSV(){
+  if(!LOADED){alert_('Load data first.','danger');return;}
+  const rows=model();
+  const head=['SKU','Accessory','Pool','Attach 2026','Attach 2027','On hand','On order','Backlog','Position','Demand 2027','Per month','Months cover','Status','Stock value EUR'];
+  const lines=[head.join(',')];
+  for(const r of rows){
+    const [,label]=statusOf(r);
+    lines.push([r.s.code,`"${r.s.name}"`,r.s.pool||(r.s.enabler?'enabler':'standalone'),
+      (MEASURED[r.s.code]*100).toFixed(2),(r.att*100).toFixed(2),Math.round(r.onhand),Math.round(r.inc),Math.round(r.back),
+      Math.round(r.pos),Math.round(r.demand),r.perMonth.toFixed(1),r.cover.toFixed(1),label,Math.round(r.value)].join(','));
+  }
+  const b=new Blob([lines.join('\n')],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`accessory_stock_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+}
+
+['a-bikes','a-sellin','a-sellthru','a-fill','a-doors','a-retro','a-lead','a-over','a-short']
+  .forEach(id=>document.addEventListener('input',e=>{if(e.target.id===id)render();}));
+
+loadCfg();
+if($('cfg-user').value && $('cfg-key').value) loadData();
+else alert_('Enter your Odoo email and API key under ⚙ Connection, then Refresh.','info');
+</script>
+</body>
+</html>
