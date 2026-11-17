@@ -1,24 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>
-/* /store/ key (Nov 2026): once the proxy's STORE_KEY secret is set, every save (and every read of a private key)
-   needs the header X-Store-Key. The key is kept only in this browser (localStorage 'ahooga_store_key') and is
-   asked once, the first time the server answers 401. Never write the key itself into this file. */
-async function storeFetch(url,opts){
-  opts=opts||{};
-  var getK=function(){var k='';try{k=localStorage.getItem('ahooga_store_key')||'';}catch(e){}return k||storeFetch._k||'';};
-  var send=function(k){var h=Object.assign({},opts.headers||{});if(k)h['X-Store-Key']=k;return fetch(url,Object.assign({},opts,{headers:h}));};
-  var k=getK(),r=await send(k);
-  if(r.status===401||r.status===403){
-    var n=getK();
-    if(n===k&&!storeFetch._asked){storeFetch._asked=true;n=String(window.prompt('This tool needs the Ahooga store key to load and save shared data (asked once on this computer):')||'').trim();
-      if(n){storeFetch._k=n;try{localStorage.setItem('ahooga_store_key',n);}catch(e){}}}
-    if(n&&n!==k)r=await send(n);
-  }
-  return r;
-}
-</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Ahooga Parts Stock</title>
@@ -124,7 +106,25 @@ img,svg,canvas,video{max-width:100%;height:auto}
   input,select,textarea{font-size:16px !important}
 }
 </style>
-  <script src="mxp-auth.js"></script>
+  <script>
+/* /store/ key (Nov 2026): once the proxy's STORE_KEY secret is set, every save (and every read of a private key)
+   needs the header X-Store-Key. The key is kept only in this browser (localStorage 'ahooga_store_key') and is
+   asked once, the first time the server answers 401. Never write the key itself into this file. */
+async function storeFetch(url,opts){
+  opts=opts||{};
+  var getK=function(){var k='';try{k=localStorage.getItem('ahooga_store_key')||'';}catch(e){}return k||storeFetch._k||'';};
+  var send=function(k){var h=Object.assign({},opts.headers||{});if(k)h['X-Store-Key']=k;return fetch(url,Object.assign({},opts,{headers:h}));};
+  var k=getK(),r=await send(k);
+  if(r.status===401||r.status===403){
+    var n=getK();
+    if(n===k&&!storeFetch._asked){storeFetch._asked=true;n=String(window.prompt('This tool needs the Ahooga store key to load and save shared data (asked once on this computer):')||'').trim();
+      if(n){storeFetch._k=n;try{localStorage.setItem('ahooga_store_key',n);}catch(e){}}}
+    if(n&&n!==k)r=await send(n);
+  }
+  return r;
+}
+</script>
+<script src="mxp-auth.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style id="ahooga-brand">
 body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
@@ -727,6 +727,9 @@ async function publishPartsDeadlines(){
     if(!rows.length || !productionPlan || !productionPlan.weeks || !productionPlan.weeks.length) return;
     const wks=productionPlan.weeks, byFam=productionPlan.byFam||{};
     const incForWeek=(pid,wi)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[wi].monday, end=wks[wi+1]?wks[wi+1].monday:null; let s=0; for(const d of list){ if(!d.date){ if(wi===0) s+=d.qty; continue; } if(d.date>=start && (!end||d.date<end)) s+=d.qty; } return s; };
+    /* 17 Nov 2026: the part of a week's arrivals that the supplier delivers STRAIGHT to the line. It goes into the
+       line pool, not the Brain Log pool — otherwise the plan asks for a Brain Log transfer of goods that never go there. */
+    const incDirect=(pid,wi,flag)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[wi].monday, end=wks[wi+1]?wks[wi+1].monday:null; let s=0; for(const d of list){ if(!d[flag]) continue; if(!d.date){ if(wi===0) s+=d.qty; continue; } if(d.date>=start && (!end||d.date<end)) s+=d.qty; } return s; };
     const incBeforeFirst=(pid)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[0].monday; let s=0; for(const d of list){ if(d.date && d.date<start) s+=d.qty; } return s; };
     const items=[]; const demand={}; const wheelVV={};
     const rowById=new Map(rows.map(x=>[String(x.id),x]));
@@ -780,7 +783,8 @@ async function publishPartsDeadlines(){
       for(let wi=0; wi<wks.length; wi++){
         const cons=consArr[wi]; totCons+=cons;
         let arrv=incForWeek(pid,wi); if(wi===0) arrv+=overdue;
-        andP+=arrv; vv-=cons;
+        const dirV=incDirect(pid,wi,'atVV');
+        andP+=arrv-dirV; vv+=dirV; vv-=cons;
         let xfer=0; if(vv<0 && andP>0){ let future=0; for(let j=wi+1;j<=wi+MOVE_COVER_WEEKS&&j<consArr.length;j++) future+=consArr[j]; xfer=Math.min(-vv+future, andP); vv+=xfer; andP-=xfer; }
         if(xfer>0) moves.push({wi, qty:Math.ceil(xfer)});
         const combined=vv+andP;
@@ -1065,6 +1069,9 @@ async function publishWheelDeadlines(){
           const sh=bfShareByMonday[''+wks[wi].monday]||0;   // BikeFun builds its own wheels in the bike week; only Okazi's go through MTB
           for(const comp in bom){ ensure(comp)[awi]+= wheels*(1-sh)*bom[comp]; if(sh>0) ensureB(comp)[wi]+= wheels*sh*bom[comp]; } } } }
     const incForWeek=(pid,wi)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[wi].monday, end=wks[wi+1]?wks[wi+1].monday:null; let s=0; for(const d of list){ if(!d.date){ if(wi===0) s+=d.qty; continue; } if(d.date>=start && (!end||d.date<end)) s+=d.qty; } return s; };
+    /* 17 Nov 2026: the part of a week's arrivals that the supplier delivers STRAIGHT to the line. It goes into the
+       line pool, not the Brain Log pool — otherwise the plan asks for a Brain Log transfer of goods that never go there. */
+    const incDirect=(pid,wi,flag)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[wi].monday, end=wks[wi+1]?wks[wi+1].monday:null; let s=0; for(const d of list){ if(!d[flag]) continue; if(!d.date){ if(wi===0) s+=d.qty; continue; } if(d.date>=start && (!end||d.date<end)) s+=d.qty; } return s; };
     const incBeforeFirst=(pid)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[0].monday; let s=0; for(const d of list){ if(d.date && d.date<start) s+=d.qty; } return s; };
     for(const r of rows){
       if(!wheelComponentIds.has(r.id)) continue;            // only wheel sub-parts
@@ -1086,7 +1093,8 @@ async function publishWheelDeadlines(){
       if(skipWhy) continue;
       for(let wi=0; wi<wks.length; wi++){
         let arrv=incForWeek(r.id,wi); if(wi===0) arrv+=overdue;
-        andP+=arrv; mtb-=cons[wi];
+        const dirM=incDirect(r.id,wi,'atMTB');
+        andP+=arrv-dirM; mtb+=dirM; mtb-=cons[wi];
         let xfer=0; if(mtb<0 && andP>0){ let future=0; for(let j=wi+1;j<=wi+MOVE_COVER_WEEKS&&j<cons.length;j++) future+=cons[j]; xfer=Math.min(-mtb+future, andP); mtb+=xfer; andP-=xfer; }
         if(xfer>0) moves.push({wi, qty:Math.ceil(xfer)});
         const combined=mtb+andP;
@@ -1797,7 +1805,7 @@ async function loadData(){
           pickInfo[q.id]={ name:q.name,
                            date: eta || (toTransit ? null : ((q.scheduled_date||'').split(' ')[0]||null)),
                            etaUsed: !!eta,
-                           atVV:/velovisie|(^|\/)VV\//i.test(dest), dest };
+                           atVV:/velovisie|(^|\/)VV\//i.test(dest), atMTB:/(^|[\s\/])MTB(\b|\/)/i.test(dest), dest };
         }
       }
       for(const pl in pickOfPol){
@@ -1805,7 +1813,7 @@ async function loadData(){
           const inf=pickInfo[e.pk]; if(!inf) continue;
           /* an undated receipt (two-step, no x_eta) keeps its share of the quantity, dated on the PO line below */
           (rcptSplit[pl]=rcptSplit[pl]||[]).push(
-            { date:inf.date, qty:e.qty, ref:inf.name||'', atVV:!!inf.atVV });
+            { date:inf.date, qty:e.qty, ref:inf.name||'', atVV:!!inf.atVV, atMTB:!!inf.atMTB });
           /* kept for the fallback path and the drill-down's "earliest" label */
           if(inf.date && (!rcptDate[pl] || inf.date<rcptDate[pl])){ rcptDate[pl]=inf.date; rcptRef[pl]=inf.name||''; }
         }
@@ -1821,13 +1829,13 @@ async function loadData(){
       const tot = parts.reduce((a,b)=>a+(b.qty||0),0);
       const spread = (parts.length && tot>0)
         ? parts.map(pt=>({ date:pt.date||x.poDate, qty:x.rem*(pt.qty/tot), ref:pt.ref,
-                           src:pt.date?'receipt':'po-line', srcRef:pt.ref, atVV:pt.atVV }))
+                           src:pt.date?'receipt':'po-line', srcRef:pt.ref, atVV:pt.atVV, atMTB:pt.atMTB }))
         : [{ date:(rcptDate[x.polId]||x.poDate), qty:x.rem, ref:x.ref,
              src:(rcptDate[x.polId]?'receipt':(x.poDate?'po-line':'none')),
              srcRef:(rcptDate[x.polId]?(rcptRef[x.polId]||''):x.ref), atVV:false }];
       for(const rec0 of spread){
       const d   = rec0.date;
-      const rec = {date:d, qty:rec0.qty, ref:x.ref, src:rec0.src, srcRef:rec0.srcRef, atVV:!!rec0.atVV};
+      const rec = {date:d, qty:rec0.qty, ref:x.ref, src:rec0.src, srcRef:rec0.srcRef, atVV:!!rec0.atVV, atMTB:!!rec0.atMTB};
       /* A date that has already passed with nothing received is not an arrival date, and a
          line with no date anywhere is a data error rather than supply. Neither is counted.
          Until somebody agrees a new date and writes it on the transfer or the PO line in
@@ -1895,9 +1903,12 @@ async function loadData(){
              needs the AND→Velovisie move; one that goes straight to Velovisie is already there. */
           const mdest=(arr(m.location_dest_id)[1])||'';
           const landsAtVV=/velovisie|(^|\/)VV\//i.test(mdest);
-          if(d && d>=TODAY_YMD){
+          const landsAtMTB=/(^|[\s\/])MTB(\b|\/)/i.test(mdest);
+          /* 17 Nov 2026: an overdue putaway that lands at Velovisie or MTB is NOT Brain Log stock —
+             counting it there made the plan ask for a Brain Log transfer of goods that never pass through it. */
+          if((d && d>=TODAY_YMD) || landsAtVV || landsAtMTB){
             (incLocal[pid]=incLocal[pid]||[]).push(
-              {date:d, qty:take, ref:ref, src:'in-transit', srcRef:ref, atVV:landsAtVV});
+              {date:(d && d>=TODAY_YMD)?d:TODAY_YMD, qty:take, ref:ref, src:'in-transit', srcRef:ref, atVV:landsAtVV, atMTB:landsAtMTB});
             future+=take;
           } else { andMap[pid]=(andMap[pid]||0)+take; now+=take; }
         }
