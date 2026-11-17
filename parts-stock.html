@@ -115,11 +115,24 @@ async function storeFetch(url,opts){
   var getK=function(){var k='';try{k=localStorage.getItem('ahooga_store_key')||'';}catch(e){}return k||storeFetch._k||'';};
   var send=function(k){var h=Object.assign({},opts.headers||{});if(k)h['X-Store-Key']=k;return fetch(url,Object.assign({},opts,{headers:h}));};
   var k=getK(),r=await send(k);
+  /* Nov 17 fix: before, the typed key was saved even when the server refused it, so one typo meant the
+     prompt came back on every visit. Now a refused saved key is wiped, and a typed key is saved only
+     after the server accepts it (2 tries, then give up for this page load). */
   if(r.status===401||r.status===403){
     var n=getK();
-    if(n===k&&!storeFetch._asked){storeFetch._asked=true;n=String(window.prompt('This tool needs the Ahooga store key to load and save shared data (asked once on this computer):')||'').trim();
-      if(n){storeFetch._k=n;try{localStorage.setItem('ahooga_store_key',n);}catch(e){}}}
-    if(n&&n!==k)r=await send(n);
+    if(n&&n!==k)return send(n);                    // another call already got a working key
+    if(storeFetch._asked)return r;
+    storeFetch._asked=true;
+    if(k){storeFetch._k='';try{localStorage.removeItem('ahooga_store_key');}catch(e){}}
+    var msg=k?'The saved Ahooga store key was refused (wrong or changed). Please enter the current key:'
+             :'This tool needs the Ahooga store key to load and save shared data (asked once on this computer):';
+    for(var t=0;t<2;t++){
+      n=String(window.prompt(msg)||'').trim();
+      if(!n)break;
+      var r2=await send(n);
+      if(r2.status!==401&&r2.status!==403){storeFetch._k=n;try{localStorage.setItem('ahooga_store_key',n);}catch(e){}return r2;}
+      msg='That key was not accepted. Check it and try again:';
+    }
   }
   return r;
 }
@@ -614,7 +627,7 @@ function fcInspect(pid){
   }).join('');
   /* Show what is NOT being counted, and why. Without this a part simply looks
      short and nobody can tell whether the supply is missing or merely late. */
-  const held=(heldIncoming[pid]||[]).slice().sort((a,b)=>((a.date||'\uffff')<(b.date||'\uffff')?-1:1));
+  const held=(heldIncoming[pid]||[]).filter(d=>!d.counted).slice().sort((a,b)=>((a.date||'\uffff')<(b.date||'\uffff')?-1:1));
   if(held.length){
     const heldQty=held.reduce((a,d)=>a+(d.qty||0),0);
     lines += `<tr><td colspan="3" style="padding:8px 6px 2px;color:#b26a00;font-weight:600">`
@@ -1039,7 +1052,7 @@ async function publishWheelComponentSupply(){
   try{
     const usageByWheel={}, stock={}, incoming={}, names={};
     for(const r of rows){ if(!r.isWheel) continue; const code=r.partNo||('#'+r.id); usageByWheel[code]=explodeUsageOf(r.id,bomByTmpl,prodToTmpl,true); }
-    for(const r of rows){ if(!wheelComponentIds.has(r.id)) continue; if(skipForecast(r)) continue; stock[r.id]=(r.mtbQty||0)+(r.andQty||0); names[r.id]=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`; const inc=incomingByPart[r.id]; if(inc&&inc.length) incoming[r.id]=inc.map(d=>({date:d.date||null, qty:d.qty})); }
+    for(const r of rows){ if(!wheelComponentIds.has(r.id)) continue; if(skipForecast(r)) continue; stock[r.id]=(r.mtbQty||0)+(r.vvReal||0)+(r.andQty||0); names[r.id]=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`; const inc=incomingByPart[r.id]; if(inc&&inc.length) incoming[r.id]=inc.map(d=>({date:d.date||null, qty:d.qty})); }
     await kvSetStore('wheel_component_supply', {updated:new Date().toISOString(), usageByWheel, stock, incoming, names});
     console.log('[PartStock] wheel_component_supply published — wheels', Object.keys(usageByWheel).length, '· components', Object.keys(stock).length);
   }catch(e){ console.warn('[PartStock] publishWheelComponentSupply failed:', e.message); }
@@ -1063,11 +1076,22 @@ async function publishWheelDeadlines(){
     const mtbCons={}, bfCons={};
     const ensure=(pid)=>{ if(!mtbCons[pid]) mtbCons[pid]=Array(wks.length).fill(0); return mtbCons[pid]; };
     const ensureB=(pid)=>{ if(!bfCons[pid]) bfCons[pid]=Array(wks.length).fill(0); return bfCons[pid]; };
-    for(const fam in byFam){
-      for(const wp of wheelPids){ const bom=wheelBom[wp]||{}; if(!Object.keys(bom).length) continue;
-        for(let wi=0; wi<wks.length; wi++){ const perBike=(usageForWeekMonday(wks[wi].monday)[fam]||{})[wp]||0; if(!perBike) continue; const wheels=perBike*(byFam[fam][wi]||0); if(!wheels) continue; const awi=Math.max(0, wi-WHEEL_LEAD_WEEKS);
+    /* 17 Nov 2026 (audit A4): wheels that are already BUILT (at Velovisie, MTB or Brain Log) do not
+       need components again. Per wheel SKU, the Okazi wheels needed each bike week are summed over all
+       families first, finished stock is used up against the earliest weeks, and only the rest is
+       exploded into rims/spokes/hubs/motors. BikeFun builds its own wheels, so its share is untouched. */
+    const rowByIdW=new Map(rows.map(x=>[Number(x.id),x]));
+    for(const wp of wheelPids){ const bom=wheelBom[wp]||{}; if(!Object.keys(bom).length) continue;
+      const okz=Array(wks.length).fill(0), bfw=Array(wks.length).fill(0);
+      for(const fam in byFam){
+        for(let wi=0; wi<wks.length; wi++){ const perBike=(usageForWeekMonday(wks[wi].monday)[fam]||{})[wp]||0; if(!perBike) continue; const wheels=perBike*(byFam[fam][wi]||0); if(!wheels) continue;
           const sh=bfShareByMonday[''+wks[wi].monday]||0;   // BikeFun builds its own wheels in the bike week; only Okazi's go through MTB
-          for(const comp in bom){ ensure(comp)[awi]+= wheels*(1-sh)*bom[comp]; if(sh>0) ensureB(comp)[wi]+= wheels*sh*bom[comp]; } } } }
+          okz[wi]+=wheels*(1-sh); bfw[wi]+=wheels*sh; } }
+      const wr=rowByIdW.get(Number(wp));
+      let built=Math.max(0, wr ? (wr.vvReal||0)+(wr.mtbQty||0)+(wr.andQty||0) : 0);
+      for(let wi=0; wi<wks.length && built>0; wi++){ const use=Math.min(built, okz[wi]); okz[wi]-=use; built-=use; }
+      for(let wi=0; wi<wks.length; wi++){ const awi=Math.max(0, wi-WHEEL_LEAD_WEEKS);
+        for(const comp in bom){ if(okz[wi]) ensure(comp)[awi]+= okz[wi]*bom[comp]; if(bfw[wi]) ensureB(comp)[wi]+= bfw[wi]*bom[comp]; } } }
     const incForWeek=(pid,wi)=>{ const list=incomingByPart[pid]; if(!list) return 0; const start=wks[wi].monday, end=wks[wi+1]?wks[wi+1].monday:null; let s=0; for(const d of list){ if(!d.date){ if(wi===0) s+=d.qty; continue; } if(d.date>=start && (!end||d.date<end)) s+=d.qty; } return s; };
     /* 17 Nov 2026: the part of a week's arrivals that the supplier delivers STRAIGHT to the line. It goes into the
        line pool, not the Brain Log pool — otherwise the plan asks for a Brain Log transfer of goods that never go there. */
@@ -1080,9 +1104,11 @@ async function publishWheelDeadlines(){
       /* one pool orders for both: MTB (Okazi wheels) + BikeFun (its own wheels) */
       const cons=wks.map((_,wi)=>((consM&&consM[wi])||0)+((consB&&consB[wi])||0));
       if(cons.reduce((a,b)=>a+b,0)<=0.0001) continue;
-      let mtb=(r.mtbQty||0), andP=(r.andQty||0);
+      /* 17 Nov 2026: wheel parts (Mivice motors, rotors…) are consolidated at Velovisie and MTB takes
+         them back when it delivers wheels — so stock at Velovisie belongs to the MTB pool. */
+      let mtb=(r.mtbQty||0)+(r.vvReal||0), andP=(r.andQty||0);
       const overdue=incBeforeFirst(r.id);
-      let shortWi=-1, minLevel=mtb+andP; const moves=[];
+      let shortWi=-1, minLevel=mtb+andP, levelAtShortW=null; const moves=[];
       /* Same question for the wheel pool: how far does what is at MTB
          today carry us, counting nothing on its way. */
       let coverLeft=mtb+andP, coverWi=-1;
@@ -1093,19 +1119,23 @@ async function publishWheelDeadlines(){
       if(skipWhy) continue;
       for(let wi=0; wi<wks.length; wi++){
         let arrv=incForWeek(r.id,wi); if(wi===0) arrv+=overdue;
-        const dirM=incDirect(r.id,wi,'atMTB');
+        const dirM=incDirect(r.id,wi,'atMTB')+incDirect(r.id,wi,'atVV');   // landing at VV = MTB pool (wheel truck)
         andP+=arrv-dirM; mtb+=dirM; mtb-=cons[wi];
         let xfer=0; if(mtb<0 && andP>0){ let future=0; for(let j=wi+1;j<=wi+MOVE_COVER_WEEKS&&j<cons.length;j++) future+=cons[j]; xfer=Math.min(-mtb+future, andP); mtb+=xfer; andP-=xfer; }
         if(xfer>0) moves.push({wi, qty:Math.ceil(xfer)});
         const combined=mtb+andP;
         if(combined<minLevel) minLevel=combined;
-        if(combined<0 && shortWi<0) shortWi=wi;
+        if(combined<0 && shortWi<0){ shortWi=wi; levelAtShortW=combined; }
         coverLeft-=cons[wi];
         if(coverLeft<0 && coverWi<0) coverWi=wi;
       }
       const nm=`${r.partNo?('['+r.partNo+'] '):''}${r.partName}`;
       const wrate=cons.length?(cons.reduce((a,b)=>a+b,0)/cons.length):0;
-      if(shortWi>=0) out.items.push({type:'order', id:'worder:'+r.id, pid:r.id, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[shortWi].monday, qty:Math.max(1,Math.ceil(-minLevel)), tier:'MTB', rate:Math.round(wrate*100)/100,
+      /* 17 Nov 2026 (audit A5): size at the week it first goes short — shortfall there plus
+         ORDER_COVER_WEEKS of wheel-line consumption, rounded to cartons — not the plan's deepest point. */
+      const wCover=wrate*ORDER_COVER_WEEKS, wRaw=Math.max(0,-(levelAtShortW===null?minLevel:levelAtShortW));
+      let wWant=Math.max(wCover, wRaw+wCover); const wPack=Number(packByPart[r.id])||0; if(wPack>1) wWant=Math.ceil(wWant/wPack)*wPack;
+      if(shortWi>=0) out.items.push({type:'order', id:'worder:'+r.id, pid:r.id, name:nm, partNo:r.partNo||'', category:r.category||'—', neededDate:wks[shortWi].monday, qty:Math.max(1,Math.ceil(wWant)), raw:Math.ceil(wRaw), cover:Math.ceil(wCover), pack:wPack, planTotal:Math.ceil(cons.reduce((a,b)=>a+b,0)), tier:'MTB', rate:Math.round(wrate*100)/100,
         coverUntil: coverWi >= 0 && wks[coverWi] ? wks[coverWi].monday : null,
         onHand:Math.round(onHand0), cons:cons.map(c=>Math.round(c*100)/100)});
       else out.items.push({type:'cover', id:'wcover:'+r.id, pid:r.id, name:nm, partNo:r.partNo||'', tier:'MTB',
@@ -1504,9 +1534,12 @@ async function loadData(){
     for(const c of idChunks){
       const recvG=await odoo('purchase.order.line','read_group',
         [[['product_id','in',c],['order_id.state','in',['purchase','done','cancel']],['company_id.name','not ilike','ahooga paris'],['order_id.partner_id.name','not ilike','ahooga paris']],
-         ['qty_received','product_qty'],['product_id']],{lazy:false});
+         ['qty_received','product_qty','product_uom_qty'],['product_id']],{lazy:false});
+      /* 17 Nov 2026 (audit A2): product_qty / qty_received are in the PURCHASE unit (bundles of
+         1000 nipples, rolls of chain). product_uom_qty is the same line in stock units — scale by it. */
       for(const g of recvG){const p=arr(g.product_id);if(!p[0])continue;remember(p);
-        recvMap[p[0]]={received:gNum(g,'qty_received'),ordered:gNum(g,'product_qty')};}
+        const pq=gNum(g,'product_qty'), f=pq>0?(gNum(g,'product_uom_qty')/pq):1;
+        recvMap[p[0]]={received:gNum(g,'qty_received')*f,ordered:gNum(g,'product_uom_qty')};}
     }
 
     // 3 ── CONSUMED IN PRODUCTION  (Traceability logic: MO raw-material moves, done)
@@ -1732,6 +1765,7 @@ async function loadData(){
        makes a second run harmless: last one to finish wins, whole. */
     const incLocal={}, heldLocal={};
     incomingByPart={}; heldIncoming={};
+    const addDaysYmd=(ymd,n)=>{ const t=new Date(ymd+'T00:00:00Z'); t.setUTCDate(t.getUTCDate()+n); return t.toISOString().slice(0,10); };
     const TODAY_YMD=(()=>{ const t=new Date();
       return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`; })();
     const seenPolIds=new Set();   // guard against any overlap across chunks
@@ -1739,14 +1773,15 @@ async function loadData(){
     for(const c of idChunks){
       let pols=await odoo('purchase.order.line','search_read',
         [[['product_id','in',c],['state','in',['purchase','done']],['product_qty','>',0],['company_id.name','not ilike','ahooga paris'],['order_id.partner_id.name','not ilike','ahooga paris']]],
-        {fields:['id','product_id','product_qty','qty_received','date_planned','order_id','partner_id','company_id']});
+        {fields:['id','product_id','product_qty','product_uom_qty','qty_received','date_planned','order_id','partner_id','company_id']});
       pols=Array.isArray(pols)?pols:(pols?[pols]:[]);
       for(const pl of pols){
         if(seenPolIds.has(pl.id)) continue; seenPolIds.add(pl.id);
         if(/ahooga\s*paris/i.test(arr(pl.company_id)[1]||'')) continue;   // closed Ahooga Paris company — never count its POs
         if(/ahooga\s*paris/i.test(arr(pl.partner_id)[1]||'')) continue;   // intercompany vendor variant
         const p=arr(pl.product_id); if(!p[0]) continue;
-        const rem=(parseFloat(pl.product_qty)||0)-(parseFloat(pl.qty_received)||0);   // outstanding to receive
+        const pq=parseFloat(pl.product_qty)||0, uf=pq>0?((parseFloat(pl.product_uom_qty)||pq)/pq):1;   // purchase unit -> stock unit (audit A2)
+        const rem=(pq-(parseFloat(pl.qty_received)||0))*uf;   // outstanding to receive, in stock units
         if(rem<=0.0001) continue;
         const d=(pl.date_planned||'').split(' ')[0]||null;                            // buyer's expected date
         const ref=arr(pl.order_id)[1]||'PO';
@@ -1841,6 +1876,13 @@ async function loadData(){
          Until somebody agrees a new date and writes it on the transfer or the PO line in
          Odoo, these sit in heldIncoming and show in the overdue list. Before this change
          they were folded into week 1, so the forward stock showed goods nobody had. */
+      /* 17 Nov 2026 (audit A7): a line a few weeks late is still coming — dropping it made the plan
+         ask for a second PO. Up to 120 days late it counts as arriving NEXT WEEK and stays on the
+         overdue/chase list; older than that, or undated, it is not counted (same rule as the email). */
+      if(d && d < TODAY_YMD && d >= addDaysYmd(TODAY_YMD,-120)){
+        (heldLocal[x.pid]=heldLocal[x.pid]||[]).push({...rec, counted:true});
+        (incLocal[x.pid]=incLocal[x.pid]||[]).push({...rec, date:addDaysYmd(TODAY_YMD,7), overdueFrom:d});
+        continue; }
       if(!d || d < TODAY_YMD){ (heldLocal[x.pid]=heldLocal[x.pid]||[]).push(rec); continue; }
       (incLocal[x.pid]=incLocal[x.pid]||[]).push(rec);
       }
@@ -1902,6 +1944,8 @@ async function loadData(){
           /* Where the putaway LANDS decides the lead. A second step into Anderlecht still
              needs the AND→Velovisie move; one that goes straight to Velovisie is already there. */
           const mdest=(arr(m.location_dest_id)[1])||'';
+          /* 17 Nov 2026 (audit A6): leaving transit to a vendor/customer = a return, not an arrival */
+          if(/partner locations|vendors|customers/i.test(mdest)) continue;
           const landsAtVV=/velovisie|(^|\/)VV\//i.test(mdest);
           const landsAtMTB=/(^|[\s\/])MTB(\b|\/)/i.test(mdest);
           /* 17 Nov 2026: an overdue putaway that lands at Velovisie or MTB is NOT Brain Log stock —
@@ -1926,6 +1970,31 @@ async function loadData(){
       for(const k in transitMap) andMap[k]=(andMap[k]||0)+transitMap[k];
       transitHeldOut=false;   /* it IS on the shelf now, so Received may keep it */
     }
+
+    /* 17 Nov 2026 (audit A8): open transfers out of Brain Log that a person has CONFIRMED
+       (not drafts — the email worker nets those) are goods already promised to the line.
+       Take them off Brain Log and land them at Velovisie / MTB on their scheduled date, so
+       the plan does not ask for the same move again next week. */
+    try{
+      let om=await odoo('stock.move','search_read',
+        [[['location_id','child_of',60],['state','in',['confirmed','waiting','partially_available','assigned']],
+          ['picking_id','!=',false],['product_uom_qty','>',0]]],
+        {fields:['product_id','product_qty','date','location_dest_id','picking_id'],limit:4000});
+      om=Array.isArray(om)?om:(om?[om]:[]);
+      let netted=0;
+      for(const m of om){
+        const pid=arr(m.product_id)[0]; if(!pid) continue;
+        const dn=(arr(m.location_dest_id)[1])||'';
+        const toVV=/velovisie/i.test(dn), toMTB=/(^|[\s\/])MTB(\b|\/)/i.test(dn);
+        if(!toVV && !toMTB) continue;
+        const q=parseFloat(m.product_qty)||0; if(q<=0) continue;   // product_qty = stock units
+        const d0=(m.date||'').split(' ')[0]||TODAY_YMD, d=d0<TODAY_YMD?TODAY_YMD:d0;
+        andMap[pid]=(andMap[pid]||0)-q;
+        (incLocal[pid]=incLocal[pid]||[]).push({date:d, qty:q, ref:arr(m.picking_id)[1]||'transfer', src:'transfer', srcRef:arr(m.picking_id)[1]||'', atVV:toVV, atMTB:toMTB, internal:true});
+        netted+=q;
+      }
+      console.log('[PartStock] confirmed Brain Log transfers netted:',Math.round(netted),'units');
+    }catch(e){ console.warn('[PartStock] open Brain Log transfers unavailable:',e.message); }
 
     /* The swap. Nothing above this line is visible to the rest of the app. */
     incomingByPart=incLocal; heldIncoming=heldLocal;
