@@ -125,6 +125,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   .bikeinfo.show{display:block}
   .bikeinfo .mdl{font-weight:700;font-size:15px}
   .bikeinfo .loc{display:inline-block;margin-top:6px;font-size:12px;font-weight:800;border-radius:999px;padding:3px 10px}
+  .bikeinfo .spec{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .bikeinfo .spec span{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:4px 9px;font-size:13px}
+  .bikeinfo .spec span small{color:var(--muted);font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-right:5px}
   .bikeinfo .loc.ok{background:#10331e;color:var(--ok)} .bikeinfo .loc.hold{background:#3a3010;color:var(--hold)} .bikeinfo .loc.warn{background:#3a1c12;color:#f4a08a}
   .bikeinfo ul{list-style:none;margin-top:8px}
   .bikeinfo li{color:var(--muted);font-size:12.5px;padding:2px 0}
@@ -133,7 +136,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   .btn-ok small,.btn-ghost small{display:block;font-size:11.5px;font-weight:600;opacity:.75;margin-top:2px}
   .finding{background:#0e0d0a;border:1px solid var(--line);border-left:3px solid var(--warn);border-radius:12px;padding:10px 12px;margin-top:8px;display:flex;gap:10px;align-items:flex-start}
   .finding.o-fixed,.finding.o-accepted{border-left-color:var(--ok)}
-  .finding.o-vv_repair,.finding.o-quarantine{border-left-color:var(--hold)}
+  .finding.o-vv_repair,.finding.o-ahooga_repair,.finding.o-quarantine{border-left-color:var(--hold)}
   .finding .n{font-family:ui-monospace,monospace;color:var(--muted);font-size:12px;flex:none;padding-top:2px}
   .finding .t{flex:1;min-width:0}
   .finding .t b{display:block;font-size:14px}
@@ -253,7 +256,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
 
   <div class="card"><div class="lab">Bike number</div>
     <div class="row"><input id="ibike" class="mono" type="text" placeholder="MAYA0000658" autocomplete="off" maxlength="11"><button class="scanbtn" onclick="scan('ibike')" title="Scan"><svg viewBox="0 0 24 24"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M7 9v6M11 9v6M14 9v6M17 9v6"/></svg></button></div>
-    <div class="hint" id="ibikehint">Scan the sticker on the frame, or tap a bike in the list below.</div>
+    <div class="hint" id="ibikehint">Scan the sticker on the frame.</div>
     <div class="bikeinfo" id="ibikeinfo"></div></div>
 
   <div class="bigrow" id="okrow"><button class="btn btn-ok" id="okbtn" onclick="saveInspection(true)">✓ OK<small>no finding, save</small></button><button class="btn btn-ghost" onclick="openEditor()">+ Finding<small>something to record</small></button></div>
@@ -279,8 +282,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
 
   <button class="btn btn-primary" id="isave" style="display:none" onclick="saveInspection(false)">Save inspection</button>
 
-  <div class="card" style="margin-top:12px"><div class="lab">To inspect <span class="opt" id="ipolicy"></span></div><div id="iqueue"><div class="empty">Loading…</div></div></div>
-  <div class="card"><div class="lab">Inspected, last 7 days <span class="opt"><button class="chip" style="padding:4px 10px;font-size:12px" onclick="loadQueue()" title="Refresh">↻</button></span></div><div id="irecent"></div></div>
+  <div class="card"><div class="lab">Inspected, last 7 days <span class="opt"><span id="ipolicy"></span> <button class="chip" style="padding:4px 10px;font-size:12px" onclick="loadQueue()" title="Refresh">↻</button></span></div><div id="irecent"></div></div>
   <div class="footer">Final inspection · each bike gets a quality check in Odoo; each finding a case.</div>
 </section>
 
@@ -311,7 +313,7 @@ const OUTCOMES   = [['On the red shelf — Ahooga decides','red tag on it, wait 
 const CONDITIONS = ['To be assessed by Ahooga','Repairable','Damaged – not repairable'];
 /* the final inspection (Ahooga product team) */
 const I_PROBLEMS = ['Assembly error','Damaged during assembly','Defective','Cosmetic','Missing in kit','Wrong part','Damaged on arrival'];
-const I_OUTCOMES = [['Fixed on the spot','by Ahooga — Velovisie is informed','fixed'],['Velovisie must repair','the bike is on hold until Velovisie releases it','vv_repair'],['Accepted — recorded','e.g. a little play in the hinge, within tolerance','accepted'],['Not repairable → B-grade','sold with a discount; the bike moves to Yellow Bikes','bgrade'],['Not repairable → quarantine','the bike is on hold, Ahooga assesses it','quarantine']];
+const I_OUTCOMES = [['Fixed on the spot','by Ahooga — Velovisie is informed','fixed'],['Velovisie must repair','the bike is on hold until Velovisie releases it','vv_repair'],['To be repaired by Ahooga','the bike is on hold until Ahooga releases it','ahooga_repair'],['Accepted — recorded','e.g. a little play in the hinge, within tolerance','accepted'],['Not repairable → B-grade','sold with a discount; the bike moves to Yellow Bikes','bgrade'],['Not repairable → quarantine','the bike is on hold, Ahooga assesses it','quarantine']];
 const I_OUT_LABEL = Object.fromEntries(I_OUTCOMES.map(o => [o[2], o[0]]));
 const TAG_RE  = /^VV-\d{4}$/, BIKE_RE = /^MA[A-Z]{2}\d{7}$/, CODE_RE = /^[A-Z]{5}\d{5}$/;
 
@@ -408,9 +410,9 @@ async function lookupBike(){
 
 /* ── components ── */
 async function loadComponents(force){
-  try { const c = JSON.parse(localStorage.getItem('vvq_components')||'null'); if (c && c.list && c.list.length && Date.now()-c.at < 24*3600e3 && !force){ state.components = c.list; } } catch(e){}
+  try { const c = JSON.parse(localStorage.getItem('vvq_components2')||'null'); if (c && c.list && c.list.length && Date.now()-c.at < 24*3600e3 && !force){ state.components = c.list; } } catch(e){}
   if (!state.components.length || force){
-    try { const r = await api('/components'); state.components = r.components; localStorage.setItem('vvq_components', JSON.stringify({ at: Date.now(), list: r.components })); }
+    try { const r = await api('/components'); state.components = r.components; localStorage.setItem('vvq_components2', JSON.stringify({ at: Date.now(), list: r.components })); }
     catch(e){ $('comphint').className='hint warn'; $('comphint').textContent = 'Component list unavailable — scan or type the Ahooga code instead.'; }
   }
   if (state.components.length) $('comphint').textContent = state.components.length + ' components stocked at Velovisie, from Odoo.';
@@ -486,7 +488,7 @@ async function submitReport(){
     const res = $('result');
     res.innerHTML = '<div class="ref">'+r.ref+'</div>' + (r.tag ? '<div class="tag">tag '+r.tag+'</div>' : '') +
       '<div class="act">'+r.action+'</div>' +
-      '<div class="sub">'+r.product+(r.recognised ? '' : ' · Ahooga will match the product')+(up.sent ? ' · '+up.sent+' photo(s) attached' : '')+'. Nicolas has been notified; Jan and Sander follow this case by e-mail.</div>' +
+      '<div class="sub">'+r.product+(r.recognised ? '' : ' · Ahooga will match the product')+(up.sent ? ' · '+up.sent+' photo(s) attached' : '')+'. Nicolas, Elliot V. and Thomas get an e-mail; Velovisie follows it here in Cases.</div>' +
       (up.failed.length ? '<div class="sub" style="color:var(--warn)">'+up.failed.length+' photo(s) did not upload. They are waiting in the Photos tab — open it and press Send photos.</div>' : '') +
       '<button class="btn btn-ghost" style="margin-top:12px" onclick="resetForm()">New report</button>';
     res.classList.add('show'); window.scrollTo(0,0);
@@ -538,11 +540,11 @@ async function loadCases(scope, force, silent){
   } catch(e){ box.innerHTML = '<div class="empty">Could not load cases: '+esc(e.message)+'</div>'; }
 }
 function photoFor(key){ $('pkey').value = key; show('photo'); }
-/* the bike line of a case: blocked / released, separate from what happens to the part.
-   A bike in quarantine after Ahooga's inspection is released by Ahooga, not from the line (can_release). */
+/* the bike line of a case: blocked / released, separate from what happens to the part. */
 function bikeLine(c){
   if (!c.bike && !c.bike_status) return '';
-  const canRelease = c.can_release !== undefined ? c.can_release : c.bike_status === 'blocked';
+  /* Velovisie releases a bike it repaired; a bike Ahooga keeps on hold (quarantine, Ahooga repair) only Ahooga releases */
+  const canRelease = c.bike_status === 'blocked' && (c.can_release !== false || AHOOGA.includes(state.reporter));
   const pill = c.bike_status === 'blocked' ? '<span class="pill scrap">'+(c.source === 'inspection' ? 'ON HOLD' : 'BLOCKED')+'</span>' : c.bike_status === 'released' ? '<span class="pill ok">RELEASED</span>' : '';
   const btn = canRelease ? '<button id="rel-'+c.id+'" onclick="releaseBike('+c.id+',\''+(c.tag||c.ref)+'\')">Bike repaired → release</button>'
     : (c.bike_status === 'blocked' ? '<span class="who">Ahooga decides</span>' : '');
@@ -592,14 +594,14 @@ async function submitPhotos(){
 function enterInspect(){
   $('icodecard').style.display = state.inspectCode ? 'none' : 'block';
   if (state.inspectCode) loadQueue();
-  else { $('iqueue').innerHTML = '<div class="empty">Enter the inspector code first.</div>'; $('irecent').innerHTML = ''; }
+  else $('irecent').innerHTML = '<div class="empty">Enter the inspector code first.</div>';
   if (!state.components.length) loadComponents();
 }
 function saveInspectCode(){
   const c = $('icode').value.trim(); if (!c) return;
   state.inspectCode = c; $('icodehint').className = 'hint'; $('icodehint').textContent = 'Checking…';
   api('/inspect/queue').then(r => {
-    localStorage.setItem('vvq_inspect', c); $('icode').value = ''; $('icodecard').style.display = 'none'; updateInspectTab(); renderQueue(r);
+    localStorage.setItem('vvq_inspect', c); $('icode').value = ''; $('icodecard').style.display = 'none'; updateInspectTab(); renderRecent(r);
   }).catch(e => { state.inspectCode = ''; $('icodehint').className = 'hint warn'; $('icodehint').textContent = e.message; });
 }
 $('icode').addEventListener('keydown', e => { if (e.key === 'Enter') saveInspectCode(); });
@@ -610,17 +612,13 @@ function inspectDenied(e){
   return true;
 }
 async function loadQueue(){
-  try { renderQueue(await api('/inspect/queue')); }
-  catch(e){ if (!inspectDenied(e)) $('iqueue').innerHTML = '<div class="empty">Could not load the list: '+esc(e.message)+'</div>'; }
+  try { renderRecent(await api('/inspect/queue')); }
+  catch(e){ if (!inspectDenied(e)) $('irecent').innerHTML = '<div class="empty">Could not load the list: '+esc(e.message)+'</div>'; }
 }
-const RES_CLASS = { ok:'ok', fixed:'ok', accepted:'ok', repair:'hold', quarantine:'hold', bgrade:'scrap' };
-const RES_SHORT = { ok:'OK', fixed:'FIXED', accepted:'RECORDED', repair:'REPAIR', quarantine:'QUARANTINE', bgrade:'B-GRADE' };
-function renderQueue(r){
-  $('ipolicy').textContent = r.policy + (r.next_due ? ' · next ' + r.next_due : '');
-  const req = r.queue.filter(q => q.required), opt = r.queue.filter(q => !q.required);
-  const row = q => '<div class="q'+(q.required ? '' : ' opt')+'" onclick="pickBike(\''+q.sn+'\')"><span class="sn">'+q.sn+'</span><span class="pd">'+esc(q.product)+'</span><span class="dt">'+(q.received ? fmtD(q.received) : '')+'</span></div>';
-  $('iqueue').innerHTML = (req.length ? req.map(row).join('') : '<div class="empty">'+(r.in_stock ? 'Nothing required right now.' : 'No bike waiting in VV/Stock.')+'</div>') +
-    (opt.length ? '<details><summary>'+opt.length+' more bike(s) in VV/Stock not required by the sample</summary>'+opt.map(row).join('')+'</details>' : '');
+const RES_CLASS = { ok:'ok', fixed:'ok', accepted:'ok', repair:'hold', ahooga_repair:'hold', quarantine:'hold', bgrade:'scrap' };
+const RES_SHORT = { ok:'OK', fixed:'FIXED', accepted:'RECORDED', repair:'REPAIR', ahooga_repair:'AHOOGA REPAIR', quarantine:'QUARANTINE', bgrade:'B-GRADE' };
+function renderRecent(r){
+  $('ipolicy').textContent = r.policy ? 'check ' + r.policy + ' ·' : '';
   $('irecent').innerHTML = r.recent.length ? r.recent.map(c => '<div class="q" onclick="pickBike(\''+esc(c.sn)+'\')"><span class="sn">'+esc(c.sn)+'</span><span class="pd">'+esc(c.inspector)+(c.findings ? ' · '+c.findings+' finding(s)' : '')+'</span><span class="pill '+(RES_CLASS[c.result]||'done')+'">'+(RES_SHORT[c.result]||'—')+'</span><span class="dt">'+fmtD(c.date)+'</span></div>').join('') : '<div class="empty">No inspection in the last 7 days.</div>';
 }
 function pickBike(sn){ $('ibike').value = sn; lookupInspectBike(); $('ibike').scrollIntoView({ behavior:'smooth', block:'center' }); }
@@ -630,16 +628,21 @@ let lastLooked = '';
 async function lookupInspectBike(){
   const sn = $('ibike').value, h = $('ibikehint'), box = $('ibikeinfo');
   h.className = 'hint';
-  if (!sn){ box.classList.remove('show'); state.bikeInfo = null; h.textContent = 'Scan the sticker on the frame, or tap a bike in the list below.'; return; }
+  if (!sn){ box.classList.remove('show'); state.bikeInfo = null; h.textContent = 'Scan the sticker on the frame.'; return; }
   if (!BIKE_RE.test(sn)){ box.classList.remove('show'); h.className = 'hint warn'; h.textContent = 'Bike numbers look like MAYA0000658.'; return; }
   if (sn === lastLooked && state.bikeInfo) return;
   lastLooked = sn; h.textContent = 'Looking up…';
   try {
     const r = await api('/inspect/bike?sn='+encodeURIComponent(sn)); state.bikeInfo = r; h.textContent = '';
-    const loc = !r.found ? '<span class="loc warn">Not in Odoo yet — the inspection is still saved</span>'
+    /* where Odoo has the bike, only once it is in Odoo (the team usually inspects before VV/IN brings it in) */
+    const loc = !r.found ? ''
       : r.at_assembler ? '<span class="loc ok">In VV/Stock</span>' : r.held ? '<span class="loc hold">On hold (Awaiting Quality)</span>'
       : r.bgrade ? '<span class="loc warn">B-grade (Yellow Bikes)</span>' : '<span class="loc warn">'+esc(r.location || 'No stock in Odoo')+'</span>';
-    box.innerHTML = '<div class="mdl">'+esc(r.product || sn)+'</div>'+loc +
+    /* the spec from the montagelijst: type, with or without rack (the colour is in the bike number) */
+    const sp = r.spec, spec = sp ? '<div class="spec">'+[['Type', sp.type], ['', sp.rack]].filter(x => x[1]).map(x => '<span>'+(x[0] ? '<small>'+x[0]+'</small>' : '')+esc(x[1])+'</span>').join('')+'</div>' : '';
+    const title = r.product || (sp ? '' : sn);
+    box.innerHTML = (title ? '<div class="mdl">'+esc(title)+'</div>' : '') + spec + loc +
+      (!sp && !r.found && r.spec_error ? '<div class="hint">Spec not available: '+esc(r.spec_error)+'</div>' : '') +
       (r.checks.length || r.open.length ? '<ul>' + r.checks.map(c => '<li>Inspected '+fmtD(c.date)+' by '+esc(c.inspector)+': '+esc(c.result_text || c.result)+'</li>').join('') +
         r.open.map(o => '<li>Open case '+esc(o.ref)+' · '+esc(o.stage)+(o.blocked ? ' · bike blocked' : '')+'</li>').join('') + '</ul>' : '');
     box.classList.add('show');
@@ -722,7 +725,7 @@ async function saveInspection(okOnly){
     res.innerHTML = '<div class="ref '+cls+'">'+esc(r.result === 'ok' ? 'OK' : RES_SHORT[r.result])+'</div><div class="tag">'+esc(r.bike)+(r.product ? ' · '+esc(r.product) : '')+'</div>' +
       '<div class="act">'+esc(r.result_text)+'</div>' +
       '<div class="sub">Check '+esc(r.check.ref)+(r.alerts.length ? ' · cases '+r.alerts.map(a => esc(a.ref)).join(', ') : '')+(r.location ? ' · bike now in '+esc(r.location) : '')+(sent ? ' · '+sent+' photo(s)' : '')+'</div>' +
-      (r.alerts.length ? '<div class="sub">Velovisie (Jan, Sander) is told by e-mail and in the app; Nicolas follows the cases.</div>' : '') +
+      (r.alerts.length ? '<div class="sub">Velovisie sees it in the app (Cases); Nicolas, Elliot V. and Thomas get an e-mail.</div>' : '') +
       r.warnings.map(w => '<div class="sub" style="color:var(--warn)">'+esc(w)+'</div>').join('') +
       (failed.length ? '<div class="sub" style="color:var(--warn)">'+failed.length+' photo(s) did not upload. They wait in the Photos tab for '+esc(failedRef)+'.</div>' : '') +
       '<button class="btn btn-ghost" style="margin-top:12px" onclick="nextBike()">Next bike</button>';
