@@ -823,7 +823,10 @@ function normaliseCaps(o){
 function syncCapsForYear(){ const all=capsAllObj(); weekCaps=normaliseCaps(all[selectedYear()]); }
 function saveCaps(){ const all=capsAllObj(); all[selectedYear()]=weekCaps; try{ localStorage.setItem(LS_CAPS, JSON.stringify(all)); }catch(e){} kvSet('po_week_caps_my27', all); }
 // A site cannot build before it opens, whatever is typed into its boxes.
-function siteOpen(site, i){ const st=siteOf(site); return !st.start || weekKey(i)>=st.start; }
+function siteSeason(site, i){ const st=siteOf(site); return !st.start || weekKey(i)>=st.start; }
+// 18 Nov 2026 (Massimiliano): a capacity typed in for a week BEFORE the site opens is a planned one-off run
+// (e.g. BikeFun 150 bikes in the week of 18 Jan 2027): that week counts as open. Blank or 0 keeps it closed.
+function siteOpen(site, i){ if(siteSeason(site,i)) return true; const r=(weekCaps||{})[site]||{}; return r[weekKey(i)]>0; }
 function setWeekCap(site,i,val){ const k=weekKey(i); const n=parseInt(val);
   if(!weekCaps[site]) weekCaps[site]={};
   if(val===''||isNaN(n)||n<0) delete weekCaps[site][k]; else weekCaps[site][k]=n; saveCaps(); recompute(); }
@@ -1148,7 +1151,7 @@ function buildYearPlan(){
   const L=targetPerWeek();
   // Default capacities when no box has been filled in: BikeFun spreads its season target across
   // the weeks it is open, Okazi carries whatever is left of the year. Typed-in caps always win.
-  const openCount={}; for(const st of SITES) openCount[st.key]=av.filter(wi=>siteOpen(st.key,wi)).length;
+  const openCount={}; for(const st of SITES) openCount[st.key]=av.filter(wi=>siteSeason(st.key,wi)).length;   // one-off runs before the start do not spread the season target
   const bfTarget=Math.min(siteOf('bikefun').target, T);
   const defaultCap={};
   defaultCap.bikefun = openCount.bikefun>0 ? Math.ceil(bfTarget/openCount.bikefun) : 0;
