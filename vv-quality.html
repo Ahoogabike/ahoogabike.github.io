@@ -131,6 +131,16 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   .bikeinfo .loc.ok{background:#10331e;color:var(--ok)} .bikeinfo .loc.hold{background:#3a3010;color:var(--hold)} .bikeinfo .loc.warn{background:#3a1c12;color:#f4a08a}
   .bikeinfo ul{list-style:none;margin-top:8px}
   .bikeinfo li{color:var(--muted);font-size:12.5px;padding:2px 0}
+  /* a bike still held by an earlier case: release it here once it is repaired (20 Nov) */
+  .holds{margin-top:10px;border:1px solid #5a4a14;background:#2a2410;border-radius:10px;padding:10px 12px}
+  .holds .hd{font-size:12.5px;font-weight:800;color:var(--hold);margin-bottom:4px}
+  .holds .hc{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:6px 0;border-top:1px solid #3d3416}
+  .holds .hc:first-of-type{border-top:0}
+  .holds .hc .t{flex:1;min-width:16ch;font-size:12.5px;color:var(--ink)}
+  .holds .hc .t small{display:block;color:var(--muted);font-size:11.5px}
+  .holds .hc button{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:7px 11px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer}
+  .holds .hc button.confirm{background:var(--ok);color:#06210f;border-color:var(--ok)}
+  .holds .hc .done{font-size:12px;font-weight:800;color:var(--ok)}
   .bigrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
   .bigrow .btn{padding:18px 10px;font-size:17px}
   .btn-ok small,.btn-ghost small{display:block;font-size:11.5px;font-weight:600;opacity:.75;margin-top:2px}
@@ -643,10 +653,41 @@ async function lookupInspectBike(){
     const title = r.product || (sp ? '' : sn);
     box.innerHTML = (title ? '<div class="mdl">'+esc(title)+'</div>' : '') + spec + loc +
       (!sp && !r.found && r.spec_error ? '<div class="hint">Spec not available: '+esc(r.spec_error)+'</div>' : '') +
-      (r.checks.length || r.open.length ? '<ul>' + r.checks.map(c => '<li>Inspected '+fmtD(c.date)+' by '+esc(c.inspector)+': '+esc(c.result_text || c.result)+'</li>').join('') +
-        r.open.map(o => '<li>Open case '+esc(o.ref)+' · '+esc(o.stage)+(o.blocked ? ' · bike blocked' : '')+'</li>').join('') + '</ul>' : '');
+      (r.checks.length || r.open.some(o => !o.blocked) ? '<ul>' + r.checks.map(c => '<li>Inspected '+fmtD(c.date)+' by '+esc(c.inspector)+': '+esc(c.result_text || c.result)+'</li>').join('') +
+        r.open.filter(o => !o.blocked).map(o => '<li>Open case '+esc(o.ref)+' · '+esc(o.stage)+'</li>').join('') + '</ul>' : '') +
+      holdsHtml(r.open.filter(o => o.blocked), 'b', 'On hold by an earlier case. Repaired? Release the bike:');
     box.classList.add('show');
   } catch(e){ if (!inspectDenied(e)){ h.className = 'hint warn'; h.textContent = 'Could not look the bike up: ' + e.message; } }
+}
+/* The bike is still held by an earlier case (a repair or a quarantine). A new inspection does not release it: the inspector
+   releases it here, case by case, two taps (20 Nov: bikes stayed on hold after a re-inspection said OK). */
+function holdsHtml(holds, where, head){
+  if (!holds || !holds.length) return '';
+  return '<div class="holds"><div class="hd">'+esc(head)+'</div>' + holds.map(o => {
+    const id = 'hrel-'+where+'-'+o.ref;
+    return '<div class="hc"><span class="t">'+esc(o.ref)+' · '+esc(o.stage)+'<small>'+esc(String(o.title || '').split(' · ')[0])+'</small></span>' +
+      '<button id="'+id+'" onclick="releaseHold(\''+id+'\',\''+esc(o.ref)+'\')">'+HOLD_REL_LABEL+'</button></div>';
+  }).join('') + '</div>';
+}
+const HOLD_REL_LABEL = 'Repaired → release';
+async function releaseHold(id, ref){
+  const b = $(id); if (!b || b.disabled) return;
+  if (!AHOOGA.includes(state.reporter)){ $('imsg').className = 'msg err'; $('imsg').textContent = 'Choose the inspector first.'; window.scrollTo(0,0); return; }
+  if (!b.classList.contains('confirm')){
+    b.classList.add('confirm'); b.textContent = 'Tap again to confirm';
+    setTimeout(() => { if (b.isConnected && !b.disabled){ b.classList.remove('confirm'); b.textContent = HOLD_REL_LABEL; } }, 4000);
+    return;
+  }
+  b.disabled = true; b.textContent = 'Releasing…';
+  try {
+    await api('/bike-released', { method:'POST', body:{ key: ref, reporter: state.reporter } });
+    if (id.startsWith('hrel-b-') && $('ibikeinfo').classList.contains('show')){
+      /* look the bike up again: where it is now, and what still holds it */
+      lastLooked = ''; state.bikeInfo = null; await lookupInspectBike();
+      $('ibikehint').className = 'hint ok'; $('ibikehint').textContent = ref + ' released.';
+    } else b.outerHTML = '<span class="done">Released ✓</span>';
+    loadQueue();
+  } catch(e){ b.disabled = false; b.classList.remove('confirm'); b.textContent = HOLD_REL_LABEL; $('imsg').className = 'msg err'; $('imsg').textContent = 'Not released: ' + e.message; window.scrollTo(0,0); }
 }
 /* the finding editor */
 function renderEditorChips(){
@@ -708,6 +749,8 @@ async function saveInspection(okOnly){
   if (!okOnly && !state.findings.length) errs.push('add a finding, or tap OK');
   if (errs.length){ m.className = 'msg err'; m.textContent = 'Please ' + errs.join(', ') + '.'; window.scrollTo(0,0); return; }
   const findings = okOnly ? [] : state.findings.slice();
+  /* cases that still hold this bike, as the lookup showed them: the result offers to release them */
+  const holdsBefore = state.bikeInfo && state.bikeInfo.sn === bike ? state.bikeInfo.open.filter(o => o.blocked) : [];
   const btn = okOnly ? $('okbtn') : $('isave'); const label = btn.innerHTML;
   state.saving = true; btn.disabled = true; btn.textContent = 'Saving…';
   try {
@@ -727,6 +770,7 @@ async function saveInspection(okOnly){
       '<div class="sub">Check '+esc(r.check.ref)+(r.alerts.length ? ' · cases '+r.alerts.map(a => esc(a.ref)).join(', ') : '')+(r.location ? ' · bike now in '+esc(r.location) : '')+(sent ? ' · '+sent+' photo(s)' : '')+'</div>' +
       (r.alerts.length ? '<div class="sub">Velovisie sees it in the app (Cases); Nicolas, Elliot V. and Thomas get an e-mail.</div>' : '') +
       r.warnings.map(w => '<div class="sub" style="color:var(--warn)">'+esc(w)+'</div>').join('') +
+      (['ok','fixed','accepted'].includes(r.result) ? holdsHtml(holdsBefore, 'r', 'Still on hold by an earlier case. Repaired? Release the bike:') : '') +
       (failed.length ? '<div class="sub" style="color:var(--warn)">'+failed.length+' photo(s) did not upload. They wait in the Photos tab for '+esc(failedRef)+'.</div>' : '') +
       '<button class="btn btn-ghost" style="margin-top:12px" onclick="nextBike()">Next bike</button>';
     res.classList.add('show'); window.scrollTo(0,0);
