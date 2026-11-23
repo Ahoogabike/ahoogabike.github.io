@@ -202,9 +202,9 @@ function vvForget(){ try{ localStorage.removeItem(VV_KEY_STORE); }catch(e){} }
      newer than last season to read — it is the only screen that writes the
      pairing those screens depend on. -->
 <div class="tabs2">
-  <button id="t2-bikes" class="seg active" onclick="showView('bikes')">🚲 Finish a bike</button>
-  <button id="t2-reg" class="seg" onclick="showView('register')">🔗 Link serial to order</button>
-  <button id="t2-ship" class="seg" onclick="showView('ship')">🚀 Ship bikes &amp; parts</button>
+  <button id="t2-bikes" class="seg" style="display:none" onclick="showView('bikes')">🚲 Finish a bike</button>
+  <button id="t2-reg" class="seg" style="display:none" onclick="showView('register')">🔗 Link serial to order</button>
+  <button id="t2-ship" class="seg active" onclick="showView('ship')">🚀 Ship bikes &amp; parts</button>
 </div>
 
 <section id="view-register" style="display:none">
@@ -1443,7 +1443,11 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 
 /* ── start ── every declaration above is now in place. */
-render(); loadRecent(); showView('bikes');
+render(); loadRecent();
+/* 23 Nov 2026 (Massimiliano): 'Finish a bike' and 'Link serial to order' are hidden. Bikes are booked
+   automatically every hour from the montagelijst tab vv_pickup_raw. Open the page with ?all=1 to show them again. */
+if(/[?&]all=1/.test(location.search)){ ['t2-bikes','t2-reg'].forEach(function(i){ var e=$(i); if(e) e.style.display=''; }); }
+showView('ship');
 
 </script>
 <!-- Home link removed: VV Scan is a standalone end-point app; no navigation back to the portal -->
