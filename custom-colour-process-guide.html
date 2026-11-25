@@ -1,12 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-v3="guide">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Custom Colour Programme — Ordering Process</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Spline+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<title>Custom Colour Programme · Ordering Process</title>
 <style>
   :root{
     --ink:#16140f;--paper:#f7f4ec;--paper-2:#fffdf7;--line:#ddd6c4;
@@ -15,32 +12,32 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html{scroll-behavior:smooth}
-  body{background:var(--paper);color:var(--ink);font-family:'Spline Sans',sans-serif;line-height:1.6;
+  body{background:var(--paper);color:var(--ink);font-family:'Figtree',sans-serif;line-height:1.6;
     -webkit-font-smoothing:antialiased;background-image:radial-gradient(var(--line) 0.5px, transparent 0.5px);background-size:22px 22px}
   .wrap{max-width:980px;margin:0 auto;padding:0 24px 100px}
-  code,.mono{font-family:'JetBrains Mono',monospace;font-weight:500}
+  code,.mono{font-family:'Figtree',sans-serif;font-weight:500}
 
   header{padding:64px 0 30px;border-bottom:3px solid var(--ink)}
-  .kicker{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.28em;text-transform:uppercase;color:var(--muted);display:flex;gap:14px;align-items:center}
+  .kicker{font-family:'Figtree',sans-serif;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:flex;gap:14px;align-items:center}
   .kicker::after{content:"";height:1px;flex:1;background:var(--line)}
-  h1{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(2.4rem,6vw,4.2rem);line-height:.98;letter-spacing:-.02em;margin:18px 0 8px;max-width:14ch}
+  h1{font-family:'Figtree',sans-serif;font-weight:800;font-size:clamp(2.4rem,6vw,4.2rem);line-height:.98;letter-spacing:-.02em;margin:18px 0 8px;max-width:14ch}
   h1 .hl{background:linear-gradient(transparent 62%,var(--accent) 62%);padding:0 .08em}
   .sub{font-size:1.05rem;color:var(--muted);max-width:62ch}
   .meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
-  .chip{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.04em;background:var(--paper-2);border:1.5px solid var(--ink);border-radius:999px;padding:6px 13px;display:inline-flex;gap:7px;align-items:center}
+  .chip{font-family:'Figtree',sans-serif;font-size:.72rem;letter-spacing:.04em;background:var(--paper-2);border:1.5px solid var(--ink);border-radius:999px;padding:6px 13px;display:inline-flex;gap:7px;align-items:center}
   .chip b{font-weight:700}
 
   section{padding-top:54px}
   .s-head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}
-  .s-num{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.8rem;color:var(--accent-deep);border:1.5px solid var(--accent-deep);border-radius:6px;padding:2px 8px}
-  h2{font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:1.7rem;letter-spacing:-.01em}
+  .s-num{font-family:'Figtree',sans-serif;font-weight:700;font-size:.8rem;color:var(--accent-deep);border:1.5px solid var(--accent-deep);border-radius:6px;padding:2px 8px}
+  h2{font-family:'Figtree',sans-serif;font-weight:800;font-size:1.7rem;letter-spacing:-.01em}
   .s-lead{color:var(--muted);max-width:70ch;margin:4px 0 22px}
 
   .players{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
   .player{background:var(--paper-2);border:1.5px solid var(--line);border-radius:14px;padding:20px;border-left-width:6px}
   .player.ah{border-left-color:var(--ahooga)} .player.dc{border-left-color:var(--deco)} .player.vv{border-left-color:var(--velo)}
-  .player .role{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
-  .player h4{font-family:'Bricolage Grotesque',sans-serif;font-size:1.2rem;margin:2px 0 6px}
+  .player .role{font-family:'Figtree',sans-serif;font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .player h4{font-family:'Figtree',sans-serif;font-size:1.2rem;margin:2px 0 6px}
   .player p{font-size:.9rem;color:var(--muted)}
 
   .legend{display:flex;flex-wrap:wrap;gap:18px;margin:8px 0 8px;font-size:.85rem}
@@ -48,95 +45,104 @@
   .dot{width:13px;height:13px;border-radius:4px;display:inline-block}
   .dot.ah{background:var(--ahooga)} .dot.dc{background:var(--deco)} .dot.vv{background:var(--velo)}
   .raci-legend{display:flex;flex-wrap:wrap;gap:16px;margin:6px 0 24px;font-size:.82rem;color:var(--muted)}
-  .raci-legend b{font-family:'JetBrains Mono',monospace;color:var(--ink)}
+  .raci-legend b{font-family:'Figtree',sans-serif;color:var(--ink)}
 
   .flow{position:relative;margin-left:6px}
   .phase{margin-top:30px}
-  .phase-label{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .phase-label{font-family:'Figtree',sans-serif;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;gap:12px;margin-bottom:14px}
   .phase-label::after{content:"";height:1.5px;flex:1;background:var(--line)}
 
   .step{display:grid;grid-template-columns:74px 1fr;gap:18px;position:relative;padding-bottom:22px}
   .step:not(:last-child)::before{content:"";position:absolute;left:36px;top:46px;bottom:-4px;width:2px;background:repeating-linear-gradient(var(--line) 0 6px,transparent 6px 12px)}
-  .pid{grid-column:1;justify-self:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.78rem;background:var(--paper-2);border:2px solid var(--ink);border-radius:10px;height:42px;min-width:62px;display:flex;align-items:center;justify-content:center;z-index:2}
+  .pid{grid-column:1;justify-self:center;font-family:'Figtree',sans-serif;font-weight:700;font-size:.78rem;background:var(--paper-2);border:2px solid var(--ink);border-radius:10px;height:42px;min-width:62px;display:flex;align-items:center;justify-content:center;z-index:2}
   .pid.start{background:var(--accent);border-color:var(--accent-deep)} .pid.end{background:var(--ink);color:var(--paper)}
   .card{background:var(--paper-2);border:1.5px solid var(--line);border-radius:14px;padding:16px 18px;border-top:4px solid var(--line)}
   .card.ah{border-top-color:var(--ahooga)} .card.dc{border-top-color:var(--deco)} .card.vv{border-top-color:var(--velo)}
   .card .desc{font-weight:600;font-size:1.02rem;margin-bottom:10px}
 
   .target{display:flex;gap:9px;align-items:flex-start;font-size:.9rem;margin-bottom:11px;background:#fff8df;border:1px solid #f0e3a8;border-radius:9px;padding:8px 11px}
-  .target .tlab{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-deep);font-weight:700;background:var(--accent);border-radius:5px;padding:2px 7px;white-space:nowrap;margin-top:1px}
+  .target .tlab{font-family:'Figtree',sans-serif;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent-deep);font-weight:700;background:var(--accent);border-radius:5px;padding:2px 7px;white-space:nowrap;margin-top:1px}
   .target span.tx{color:var(--ink)}
 
   .raci{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-  .rlab{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-right:2px}
-  .rc{font-family:'JetBrains Mono',monospace;font-size:.66rem;border-radius:6px;padding:3px 8px;display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);color:var(--ink)}
+  .rlab{font-family:'Figtree',sans-serif;font-size:.62rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-right:2px}
+  .rc{font-family:'Figtree',sans-serif;font-size:.66rem;border-radius:6px;padding:3px 8px;display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);color:var(--ink)}
   .rc .who-ah{color:var(--ahooga)} .rc .who-dc{color:var(--deco)} .rc .who-vv{color:var(--velo)}
   .rc.r{background:#eef6f2;border-color:#bfe0d2} .rc.a{background:#fdeee9;border-color:#f3cdbf}
   .rc.c{background:var(--paper);border-style:dashed} .rc.i{background:var(--paper);border-style:dotted}
-  .rkey{font-weight:700;font-family:'JetBrains Mono',monospace}
+  .rkey{font-weight:700;font-family:'Figtree',sans-serif}
   .rkey.kr{color:var(--velo)} .rkey.ka{color:var(--deco)} .rkey.kc,.rkey.ki{color:var(--muted)}
-  .next{font-family:'JetBrains Mono',monospace;font-size:.66rem;color:var(--accent-deep);border:1px solid var(--accent-deep);border-radius:6px;padding:3px 8px;margin-left:auto}
+  .next{font-family:'Figtree',sans-serif;font-size:.66rem;color:var(--accent-deep);border:1px solid var(--accent-deep);border-radius:6px;padding:3px 8px;margin-left:auto}
 
-  .branch{margin:2px 0 4px 92px;font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--deco);display:flex;align-items:center;gap:8px}
+  .branch{margin:2px 0 4px 92px;font-family:'Figtree',sans-serif;font-size:.72rem;color:var(--deco);display:flex;align-items:center;gap:8px}
   .branch::before{content:"⑂";font-size:1rem}
 
   .howto{background:var(--paper-2);border:1.5px solid var(--line);border-radius:14px;padding:22px 24px;margin-top:18px}
-  .howto h4{font-family:'Bricolage Grotesque',sans-serif;font-size:1.15rem;display:flex;align-items:center;gap:10px;margin-bottom:6px}
-  .howto h4 .pill{font-family:'JetBrains Mono',monospace;font-size:.68rem;background:var(--accent);color:var(--ink);padding:3px 8px;border-radius:6px;font-weight:700;letter-spacing:.04em}
-  .howto .file{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--deco);margin-bottom:12px}
+  .howto h4{font-family:'Figtree',sans-serif;font-size:1.15rem;display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .howto h4 .pill{font-family:'Figtree',sans-serif;font-size:.68rem;background:var(--accent);color:var(--ink);padding:3px 8px;border-radius:6px;font-weight:700;letter-spacing:.04em}
+  .howto .file{font-family:'Figtree',sans-serif;font-size:.82rem;color:var(--deco);margin-bottom:12px}
   ol.steps-list{margin:6px 0 0 0;padding-left:0;counter-reset:s;list-style:none}
   ol.steps-list li{position:relative;padding:8px 0 8px 38px;border-bottom:1px dashed var(--line)}
   ol.steps-list li:last-child{border-bottom:none}
-  ol.steps-list li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:8px;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.72rem;width:24px;height:24px;border-radius:50%;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center}
-  .tabname{font-family:'JetBrains Mono',monospace;font-size:.82rem;background:#efe9d8;padding:1px 6px;border-radius:5px;border:1px solid var(--line)}
+  ol.steps-list li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:8px;font-family:'Figtree',sans-serif;font-weight:700;font-size:.72rem;width:24px;height:24px;border-radius:50%;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center}
+  .tabname{font-family:'Figtree',sans-serif;font-size:.82rem;background:#efe9d8;padding:1px 6px;border-radius:5px;border:1px solid var(--line)}
 
   .email{border:1.5px solid var(--ink);border-radius:14px;overflow:hidden;margin-top:18px}
   .email .ehead{background:var(--ink);color:var(--paper);padding:14px 20px;font-size:.85rem}
   .email .ehead .erow{display:flex;gap:8px}
-  .email .ehead .lab{font-family:'JetBrains Mono',monospace;color:var(--accent);min-width:62px;font-size:.74rem}
+  .email .ehead .lab{font-family:'Figtree',sans-serif;color:var(--accent);min-width:62px;font-size:.74rem}
   .email .ebody{padding:18px 20px;background:var(--paper-2)}
   .email .attlist{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-  .att{font-family:'JetBrains Mono',monospace;font-size:.74rem;background:#efe9d8;border:1px solid var(--line);border-radius:7px;padding:5px 10px;display:inline-flex;gap:7px;align-items:center}
+  .att{font-family:'Figtree',sans-serif;font-size:.74rem;background:#efe9d8;border:1px solid var(--line);border-radius:7px;padding:5px 10px;display:inline-flex;gap:7px;align-items:center}
   .att::before{content:"📎"}
 
   .issue{background:var(--flag-bg);border:1.5px solid #efc7bf;border-left:6px solid var(--flag);border-radius:12px;padding:18px 20px;margin-top:14px}
-  .issue h4{font-family:'Bricolage Grotesque',sans-serif;font-size:1.05rem;color:var(--flag);margin-bottom:6px;display:flex;gap:9px;align-items:center}
+  .issue h4{font-family:'Figtree',sans-serif;font-size:1.05rem;color:var(--flag);margin-bottom:6px;display:flex;gap:9px;align-items:center}
   .issue p{font-size:.93rem}
   .issue .ask{margin-top:8px;font-size:.88rem;color:var(--ink)} .issue .ask b{color:var(--flag)}
   .imp{background:var(--paper-2);border:1.5px dashed var(--velo);border-radius:12px;padding:16px 20px;margin-top:14px}
-  .imp h4{font-family:'Bricolage Grotesque',sans-serif;color:var(--velo);font-size:1.02rem;margin-bottom:5px}
+  .imp h4{font-family:'Figtree',sans-serif;color:var(--velo);font-size:1.02rem;margin-bottom:5px}
   .imp p{font-size:.92rem;color:var(--muted)}
   .done{background:rgba(47,111,94,.07);border:1.5px solid rgba(47,111,94,.3);border-left:6px solid var(--velo);border-radius:12px;padding:18px 20px;margin-top:14px}
-  .done h4{font-family:'Bricolage Grotesque',sans-serif;font-size:1.05rem;color:var(--velo);margin-bottom:6px;display:flex;gap:9px;align-items:center}
+  .done h4{font-family:'Figtree',sans-serif;font-size:1.05rem;color:var(--velo);margin-bottom:6px;display:flex;gap:9px;align-items:center}
   .done p{font-size:.93rem}
   .done .ask{margin-top:8px;font-size:.88rem;color:var(--ink)} .done .ask b{color:var(--velo)}
 
-  footer{margin-top:60px;padding-top:24px;border-top:2px solid var(--ink);font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
+  footer{margin-top:60px;padding-top:24px;border-top:2px solid var(--ink);font-family:'Figtree',sans-serif;font-size:.72rem;color:var(--muted);display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
 
   @media print{body{background:#fff}.step,.card,.howto,.player,.email{break-inside:avoid}}
   @media (max-width:560px){.step{grid-template-columns:56px 1fr;gap:12px}.step:not(:last-child)::before{left:27px}.branch{margin-left:68px}.next{margin-left:0}}
 </style>
   <script src="mxp-auth.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style id="ahooga-brand">
-body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
 :root{--accent:#14259b;--pink:#14259b}
-.ahooga-home{position:fixed;left:14px;bottom:14px;z-index:2147483600;display:inline-flex;align-items:center;gap:6px;font-family:'Inter',system-ui,sans-serif;font-weight:700;font-size:12.5px;line-height:1;padding:9px 14px;border-radius:999px;text-decoration:none;background:#14259b;color:#fff;border:1px solid rgba(255,255,255,.25);box-shadow:0 6px 18px rgba(20,37,155,.4);opacity:.9;transition:opacity .15s,transform .15s}
+.ahooga-home{position:fixed;left:14px;bottom:14px;z-index:2147483600;display:inline-flex;align-items:center;gap:6px;font-family:'Figtree',system-ui,sans-serif;font-weight:700;font-size:12.5px;line-height:1;padding:9px 14px;border-radius:999px;text-decoration:none;background:#14259b;color:#fff;border:1px solid rgba(255,255,255,.25);box-shadow:0 6px 18px rgba(20,37,155,.4);opacity:.9;transition:opacity .15s,transform .15s}
 .ahooga-home:hover{opacity:1;transform:translateY(-1px)}
 @media print{.ahooga-home{display:none}}
 </style>
+
+<!-- Ahooga V3 theme (see ahooga-v3.css) -->
+<link rel="stylesheet" href="ahooga-v3.css">
+<style id="v3-map">
+html[data-v3]{--ink:#151417;--paper:#f8f5f4;--paper-2:#fff;--line:#e5e1e0;--accent:#fec200;--accent-deep:#e9b000;--ahooga:#151417;--muted:#5f5a5d;--flag:#b0281e;--flag-bg:#fbe8e6;--pink:#14259b}
+html[data-v3] body{background-image:none}
+
+</style>
+<script>try{if(window.top!==window.self)document.documentElement.classList.add("v3-framed")}catch(e){document.documentElement.classList.add("v3-framed")}</script>
 </head>
 <body>
 <div class="wrap">
 
   <header>
-    <div class="kicker">Ahooga · Internal Operations Playbook</div>
-    <h1>Custom Colour Programme — <span class="hl">Ordering Process</span></h1>
-    <p class="sub">End-to-end workflow for ordering a custom-painted (MAX Custom Colour) frame — across Ahooga, Deco Coat and Velovisie. Each step lists its target and how responsibility is shared. Frames are scanned on the Deco Coat line, handed over to Velovisie with an automatic DSV label, scanned again on arrival, and paired to their serial at assembly — so stage, transfer and serial all stay live in the apps, and the production planner is told the moment a frame is ready to build.</p>
+    <div class="kicker">Ahooga · Internal Operations Playbook · updated 25 Nov 2026</div>
+    <h1>Custom Colour Programme · <span class="hl">Ordering Process</span></h1>
+    <p class="sub">End-to-end workflow for a custom-painted MAX, from the customer's design to delivery, across Ahooga, Deco Coat and Velovisie. Each step lists its target, who is responsible and what Odoo or the apps do automatically. Day-to-day owner of the custom colour checks and alert emails: <strong>Thao</strong>.</p>
     <div class="meta">
-      <span class="chip"><b>Programme</b> MAX Custom Colour Frames</span>
-      <span class="chip"><b>Steps</b> P100 → P800</span>
+      <span class="chip"><b>Programme</b> MAX Custom Colour</span>
+      <span class="chip"><b>Steps</b> P050 → P800</span>
       <span class="chip"><b>Partners</b> 3</span>
+      <span class="chip"><b>Lead time</b> 70 days</span>
       <span class="chip"><b>Serial format</b> <span class="mono">MACU·······</span></span>
     </div>
   </header>
@@ -144,66 +150,81 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   <section id="players">
     <div class="s-head"><span class="s-num">01</span><h2>Who's involved</h2></div>
     <div class="players">
-      <div class="player ah"><div class="role">Brand / Owner</div><h4>Ahooga</h4><p>Takes the sales order, processes it, plans production, and handles final delivery to the customer. Once a frame is painted, runs the <b>Custom Colour Handover</b> app to validate the purchase receipt, create the Anderlecht→Velovisie transfer and book the DSV label. HQ in Anderlecht (AH), Belgium.</p></div>
-      <div class="player dc"><div class="role">Painting partner</div><h4>Deco Coat</h4><p>Paints the frame in the custom colour, then ships the painted frame plus configuration stickers onward. Scans each frame's stage on the line (waiting to paint → in painting → waiting to ship → shipped) so Ahooga sees live status and an estimated ship date. Contact: Wietze Hoppe (NL).</p></div>
-      <div class="player vv"><div class="role">Assembly &amp; logistics</div><h4>Velovisie</h4><p>Assembles the bike from the painted frame and configuration sticker, scans the arriving painted frame to validate its transfer (telling the planner the order is ready to build), assembles the bike, applies and registers the <span class="mono">MACU·······</span> frame serial (scanning the SO + serial to pair them), labels the box, and ships the finished bike back to Anderlecht.</p></div>
+      <div class="player ah"><div class="role">Brand / Owner</div><h4>Ahooga</h4><p>Takes the sales order, checks the colour configuration, orders the paint from Deco Coat, books the frame transport to Velovisie and ships the finished bike to the customer. Custom colour checks and alerts: Thao.</p></div>
+      <div class="player dc"><div class="role">Painting partner</div><h4>Deco Coat</h4><p>Paints the frame in the custom colour and scans each frame's stage on the line (waiting to paint → in painting → waiting to ship → shipped), so Ahooga sees live status and an estimated ship date. Painted frames + configuration stickers go straight to Velovisie on a DSV label booked by Ahooga. Contact: Wietze Hoppe (NL).</p></div>
+      <div class="player vv"><div class="role">Assembly &amp; shipping</div><h4>Velovisie</h4><p>Receives the painted frame, assembles the bike, applies and registers the <span class="mono">MACU·······</span> serial (SO + serial scan), labels the box and ships the finished bike <strong>directly to the customer</strong>, together with the order's accessories.</p></div>
     </div>
   </section>
 
   <section id="flow">
     <div class="s-head"><span class="s-num">02</span><h2>The process, step by step</h2></div>
-    <p class="s-lead">Each card shows the action, its <strong>target</strong> (the outcome that means the step is done), the <strong>responsibility split</strong>, and the next step. After order processing the flow splits in parallel: production planning runs alongside painting, and both reconverge at assembly.</p>
+    <p class="s-lead">Each card shows the action, its <strong>target</strong>, the <strong>responsibility split</strong>, and the next step. Lines marked <strong>⚙ Auto</strong> happen by themselves in Odoo or in our apps; nobody needs to do them, but you should know they exist.</p>
     <div class="legend">
       <span><i class="dot ah"></i> Ahooga</span><span><i class="dot dc"></i> Deco Coat</span><span><i class="dot vv"></i> Velovisie</span>
     </div>
     <div class="raci-legend">
-      <span><b>R</b> Responsible — does the work</span>
-      <span><b>A</b> Accountable — owns the outcome</span>
-      <span><b>C</b> Consulted — input needed</span>
-      <span><b>I</b> Informed — kept in the loop</span>
+      <span><b>R</b> Responsible · does the work</span>
+      <span><b>A</b> Accountable · owns the outcome</span>
+      <span><b>C</b> Consulted · input needed</span>
+      <span><b>I</b> Informed · kept in the loop</span>
     </div>
 
     <div class="flow">
 
       <div class="phase">
-        <div class="phase-label">Order Intake</div>
+        <div class="phase-label">Design &amp; Order Intake</div>
         <div class="step">
-          <div class="pid start">P100</div>
+          <div class="pid start">P050</div>
           <div class="card ah">
-            <div class="desc">Receive Sales Order (SO) for custom colour</div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">Every custom-colour SO is logged with full configuration, customer and deadline.</span></div>
+            <div class="desc">Customer designs the bike in the online configurator and downloads it → receives a bike code <span class="mono">AH-XXXX-XX</span> by email</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Customer can take the code to any dealer; the dealer loads the exact design from it.</span></div>
+            <div class="target"><span class="tlab" style="background:#14259b;color:#fff">⚙ Auto</span><span class="tx">Code created by the config-codes service; email sent by Klaviyo flow "Configurator Code Created".</span></div>
+            <div class="raci"><span class="rlab">RACI</span>
+              <span class="rc r"><span class="rkey kr">R</span> Customer</span>
+              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Marketing</span></span>
+              <span class="next">→ P100</span>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="pid">P100</div>
+          <div class="card ah">
+            <div class="desc">Receive the custom colour sales order (SO) · from a dealer (portal → Order bikes → Custom colour, optionally with the customer's code) or from Shopify (one "Custom finish - …" note per bike)</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">SO on a custom colour bike product with the 6 colour lines (main/rear frame colour + finish, logo colour + size), customer and deadline.</span></div>
+            <div class="target"><span class="tlab" style="background:#14259b;color:#fff">⚙ Auto</span><span class="tx">Customer lead time fixed at <b>70 days</b>. The order is put on the <b>Velovisie</b> warehouse (bike + accessories). UK online orders follow the UK route instead (see section 03).</span></div>
             <div class="raci"><span class="rlab">RACI</span>
               <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Sales</span></span>
               <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Sales</span></span>
-              <span class="rc i"><span class="rkey ki">I</span> <span class="who-ah">Supply</span></span>
-              <span class="next">→ P200A · B</span>
+              <span class="rc i"><span class="rkey ki">I</span> <span class="who-ah">Supply · Thao</span></span>
+              <span class="next">→ P150</span>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="pid">P150</div>
+          <div class="card ah">
+            <div class="desc">Colour check · on confirmation Odoo checks the colour lines. If anything is off-standard (unknown colour, missing line, extra free note), the SO gets the tag <b>CC check</b> and Thao gets an Odoo activity + email. Thao checks the order, fixes it with sales if needed, then replaces <b>CC check</b> by <b>CC OK</b> and marks the activity done.</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">No order reaches Deco Coat with a wrong or unclear colour. While <b>CC check</b> is on the SO, Odoo refuses to save the Deco Coat PO.</span></div>
+            <div class="target"><span class="tlab" style="background:#14259b;color:#fff">⚙ Auto</span><span class="tx">Check runs on confirmation and again whenever a line of a confirmed order changes. A "New custom order" email (cc-watch) goes to Thao within ~30 min of confirmation.</span></div>
+            <div class="raci"><span class="rlab">RACI</span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Thao</span></span>
+              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc c"><span class="rkey kc">C</span> <span class="who-ah">Sales / dealer</span></span>
+              <span class="next">→ P200</span>
             </div>
           </div>
         </div>
       </div>
 
       <div class="phase">
-        <div class="phase-label">Order Processing — Ahooga / Supply</div>
+        <div class="phase-label">Order to Deco Coat · Ahooga / Supply</div>
         <div class="step">
-          <div class="pid">P200A</div>
+          <div class="pid">P200</div>
           <div class="card ah">
-            <div class="desc">Generate the Deco Coat order pack from the sales order — <strong>Custom Colors</strong> app</div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">The PO (created in Odoo), the order form and the print labels are generated straight from the live sales order — no Excel, no manual re-keying.</span></div>
+            <div class="desc">Daily batch · every weekday afternoon (13:00 UTC) an email "Custom colour — N orders to approve" lists the new orders. Click <b>Review and order</b> → Custom Colors app, tab "To order" → tick the frames → one press creates the Deco Coat PO in Odoo, the order form, the labels and the email to Deco Coat.</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">One PO per batch in Odoo (lines "SO# Sxxxxx · …"), order form + labels sent, Deco Coat confirms a painting week. Anything unticked is recorded with a reason.</span></div>
             <div class="raci"><span class="rlab">RACI</span>
-              <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Supply</span></span>
-              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
-              <span class="rc i"><span class="rkey ki">I</span> <span class="who-ah">Planning</span></span>
-              <span class="next">→ P200B</span>
-            </div>
-          </div>
-        </div>
-        <div class="step">
-          <div class="pid">P200B</div>
-          <div class="card ah">
-            <div class="desc">Send the order to Deco Coat — app-generated supplier email (PO + order form + labels attached)</div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">Order sent and acknowledged; Deco Coat confirms a painting week. The email is produced by the app — you just review and send.</span></div>
-            <div class="raci"><span class="rlab">RACI</span>
-              <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Supply</span></span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Thao / Supply</span></span>
               <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
               <span class="rc i"><span class="rkey ki">I</span> <span class="who-dc">Deco Coat</span></span>
               <span class="next">→ P300A · B</span>
@@ -211,15 +232,16 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
           </div>
         </div>
       </div>
-      <div class="branch">Flow splits: planning (P300A) runs alongside painting → handover → arrival (P300B · P350 · P400 · P420 · P450); both reconverge at assembly (P500)</div>
+      <div class="branch">Flow splits: planning (P300A) and painting (P300B) run in parallel, both feeding P500</div>
 
       <div class="phase">
         <div class="phase-label">Planning &amp; Painting (parallel)</div>
         <div class="step">
           <div class="pid">P300A</div>
           <div class="card ah">
-            <div class="desc">Plan the custom colour bike in the production plan</div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">Production slot / week assigned for the bike.</span></div>
+            <div class="desc">Plan the custom colour bike in the production plan; make sure the order's accessories reach Velovisie</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Production slot / week assigned; accessories at Velovisie before assembly.</span></div>
+            <div class="target"><span class="tlab" style="background:#14259b;color:#fff">⚙ Auto</span><span class="tx">Accessories not in stock at Velovisie get a Brain Log → Velovisie transfer ("Send to Velovisie stock (custom colour accessories)"), so they leave Velovisie in the same shipment as the bike.</span></div>
             <div class="raci"><span class="rlab">RACI</span>
               <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Planning</span></span>
               <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
@@ -232,7 +254,7 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
           <div class="pid">P300B</div>
           <div class="card dc">
             <div class="desc">Paint the frame in the custom colour</div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">Frame painted to the configuration spec; painting week confirmed.</span></div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Frame painted to the configuration spec in the confirmed week.</span></div>
             <div class="raci"><span class="rlab">RACI</span>
               <span class="rc r"><span class="rkey kr">R</span> <span class="who-dc">Deco Coat</span></span>
               <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
@@ -244,12 +266,13 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
         <div class="step">
           <div class="pid">P350</div>
           <div class="card dc">
-            <div class="desc">Scan the frame's stage on the line at each station — waiting to paint → in painting → waiting to ship → shipped (Deco Coat Scan app)</div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">Live stage visible to Ahooga in the Custom Colors app; ship-date estimate auto-learned from scan timings.</span></div>
+            <div class="desc">Scan the frame's stage at each station · waiting to paint → in painting → waiting to ship → shipped (Deco Coat board)</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Live stage visible in the Custom Colors app and the portal dashboard; ship-date estimate learned from scan timings.</span></div>
+            <div class="target"><span class="tlab" style="background:#14259b;color:#fff">⚙ Auto</span><span class="tx">When a frame reaches "waiting to ship", an email "Painted frames ready to ship" goes to supply@, Felix and Thao.</span></div>
             <div class="raci"><span class="rlab">RACI</span>
               <span class="rc r"><span class="rkey kr">R</span> <span class="who-dc">Deco Coat</span></span>
               <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
-              <span class="rc i"><span class="rkey ki">I</span> <span class="who-ah">Planning</span></span>
+              <span class="rc i"><span class="rkey ki">I</span> <span class="who-ah">Thao · Planning</span></span>
               <span class="next">→ P400</span>
             </div>
           </div>
@@ -257,51 +280,25 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
         <div class="step">
           <div class="pid">P400</div>
           <div class="card ah">
-            <div class="desc">Hand the frame over to Velovisie in Odoo — <strong>Custom Colour Handover</strong> app</div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">When the frame hits “waiting to ship”: the Deco Coat PO receipt is validated, the Anderlecht → Velovisie transfer is created, and the DSV label is booked &amp; auto-emailed to Deco Coat. Several frames can be batched into one pallet shipment.</span></div>
+            <div class="desc">Book the transport · in the Custom Colour Handover app pick the frames that can travel and book the DSV label (pickup Deco Coat → Velovisie). Deco Coat ships the painted frames + configuration stickers.</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Painted frames and matching stickers on their way to Velovisie with a DSV label.</span></div>
             <div class="raci"><span class="rlab">RACI</span>
-              <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Supply</span></span>
-              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
-              <span class="rc i"><span class="rkey ki">I</span> <span class="who-dc">Deco Coat</span></span>
-              <span class="next">→ P420</span>
-            </div>
-          </div>
-        </div>
-        <div class="step">
-          <div class="pid">P420</div>
-          <div class="card dc">
-            <div class="desc">Apply the DSV label and ship the painted frame + configuration stickers to Velovisie</div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">Label applied to the box/pallet; painted frame and matching config stickers dispatched to Velovisie.</span></div>
-            <div class="raci"><span class="rlab">RACI</span>
-              <span class="rc r"><span class="rkey kr">R</span> <span class="who-dc">Deco Coat</span></span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Supply</span> + <span class="who-dc">Deco Coat</span></span>
               <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
               <span class="rc i"><span class="rkey ki">I</span> <span class="who-vv">Velovisie</span></span>
-              <span class="next">→ P450</span>
+              <span class="next">→ P500</span>
             </div>
           </div>
         </div>
       </div>
 
       <div class="phase">
-        <div class="phase-label">Arrival &amp; Assembly — Velovisie</div>
-        <div class="step">
-          <div class="pid">P450</div>
-          <div class="card vv">
-            <div class="desc">Receive &amp; scan the arriving painted frame — <strong>VV app · Velovisie receipt</strong></div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">Scanning the frame validates the Anderlecht → Velovisie transfer in Odoo and flags the order as <strong>ready to build</strong> in the production planner.</span></div>
-            <div class="raci"><span class="rlab">RACI</span>
-              <span class="rc r"><span class="rkey kr">R</span> <span class="who-vv">Velovisie</span></span>
-              <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
-              <span class="rc i"><span class="rkey ki">I</span> <span class="who-ah">Planning</span></span>
-              <span class="next">→ P500</span>
-            </div>
-          </div>
-        </div>
+        <div class="phase-label">Assembly · Velovisie</div>
         <div class="step">
           <div class="pid">P500</div>
           <div class="card vv">
-            <div class="desc">Assemble the bike based on the configuration sticker and painted frame</div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">Bike assembled exactly per the configuration sticker.</span></div>
+            <div class="desc">Scan the frame on arrival, then assemble the bike from the configuration sticker and painted frame</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Arrival confirmed in the VV app; bike assembled exactly per the sticker.</span></div>
             <div class="raci"><span class="rlab">RACI</span>
               <span class="rc r"><span class="rkey kr">R</span> <span class="who-vv">Velovisie</span></span>
               <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
@@ -313,8 +310,8 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
         <div class="step">
           <div class="pid">P550</div>
           <div class="card vv">
-            <div class="desc">Apply the <span class="mono">MACU·······</span> frame-serial sticker, then scan the SO + serial to register the pairing (VV Serial Scan app)</div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">Every bike's SO ↔ MACU serial is recorded in the shared registry, so any frame is traceable to its order.</span></div>
+            <div class="desc">Apply the <span class="mono">MACU·······</span> serial sticker and register SO + serial (VV Serial Scan / assembly list column O)</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Every bike's SO ↔ serial is recorded and copied onto the Velovisie PO line "SO# …" in Odoo.</span></div>
             <div class="raci"><span class="rlab">RACI</span>
               <span class="rc r"><span class="rkey kr">R</span> <span class="who-vv">Velovisie</span></span>
               <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
@@ -326,8 +323,8 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
         <div class="step">
           <div class="pid">P600</div>
           <div class="card vv">
-            <div class="desc">Attach the SO sticker to the bike box</div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">Box labelled with the SO (and serial) so it is traceable.</span></div>
+            <div class="desc">Box the bike with its accessories and attach the SO sticker</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Box labelled with SO and serial; accessories packed with the bike.</span></div>
             <div class="raci"><span class="rlab">RACI</span>
               <span class="rc r"><span class="rkey kr">R</span> <span class="who-vv">Velovisie</span></span>
               <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
@@ -338,16 +335,17 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
       </div>
 
       <div class="phase">
-        <div class="phase-label">Distribution &amp; Delivery</div>
+        <div class="phase-label">Delivery &amp; Invoicing</div>
         <div class="step">
           <div class="pid">P700</div>
           <div class="card vv">
-            <div class="desc">Ship the finished bike to Anderlecht (AH)</div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">Bike received at the Anderlecht warehouse.</span></div>
+            <div class="desc">Ship the finished bike from Velovisie directly to the customer / dealer · "Ship a bike" in the Ahooga Office · Velovisie app (one tap: DSV booking, delivery validated, invoice, customer mail)</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Bike + accessories on their way; Odoo delivery done.</span></div>
+            <div class="target"><span class="tlab" style="background:#14259b;color:#fff">⚙ Auto</span><span class="tx">A personalised text decal on the order is marked delivered with the bike (so it is invoiced) and received when Deco Coat's goods arrive (so their bill matches).</span></div>
             <div class="raci"><span class="rlab">RACI</span>
-              <span class="rc r"><span class="rkey kr">R</span> <span class="who-vv">Velovisie</span></span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Supply</span> + <span class="who-vv">Velovisie</span></span>
               <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Supply</span></span>
-              <span class="rc i"><span class="rkey ki">I</span> <span class="who-ah">Sales</span></span>
+              <span class="rc i"><span class="rkey ki">I</span> <span class="who-ah">Sales</span> · Customer</span>
               <span class="next">→ P800</span>
             </div>
           </div>
@@ -355,10 +353,10 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
         <div class="step">
           <div class="pid">P800</div>
           <div class="card ah">
-            <div class="desc">Ship the bike to the customer</div>
-            <div class="target"><span class="tlab">Target</span><span class="tx">Bike delivered to the customer; order closed.</span></div>
+            <div class="desc">Bike delivered and invoiced · check it closes on the dashboard</div>
+            <div class="target"><span class="tlab">Target</span><span class="tx">Delivered + invoiced shown on the "Custom colour orders" dashboard; order closed.</span></div>
             <div class="raci"><span class="rlab">RACI</span>
-              <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Fulfillment</span></span>
+              <span class="rc r"><span class="rkey kr">R</span> <span class="who-ah">Ahooga · Supply</span></span>
               <span class="rc a"><span class="rkey ka">A</span> <span class="who-ah">Ahooga · Sales</span></span>
               <span class="rc i"><span class="rkey ki">I</span> Customer</span>
               <span class="next">→ END</span>
@@ -375,95 +373,87 @@ body,button,input,select,textarea,h1,h2,h3,h4,h5,h6{font-family:'Inter',system-u
   </section>
 
   <section id="docs">
-    <div class="s-head"><span class="s-num">03</span><h2>The apps that run the flow</h2></div>
-    <p class="s-lead">The programme runs on a set of linked apps that share one live registry and talk to Odoo — no more hand-filled spreadsheets. Each app maps to a step above.</p>
+    <div class="s-head"><span class="s-num">03</span><h2>Emails, tools &amp; special routes</h2></div>
+    <p class="s-lead">What lands in your inbox, where to look, and the cases that don't follow the standard route.</p>
     <div class="howto">
-      <h4><span class="pill">P200</span> Custom Colors</h4>
-      <div class="file">ahooga-custom-colors.html</div>
+      <h4><span class="pill">Emails</span> What arrives automatically (to Thao unless noted)</h4>
       <ol class="steps-list">
-        <li>Open the live <span class="tabname">Custom Color Orders</span> view — every custom-colour sales order, pulled from Odoo.</li>
-        <li>Generate the <strong>order pack</strong>: the Deco Coat PO (created in Odoo), the order form and the print labels — all from the order data, no Excel.</li>
-        <li>Generate the <strong>supplier email</strong> to Deco Coat with those attached; review and send, asking for the painting week.</li>
-        <li>The same app shows live line status (from the Deco Coat scans) and the SO ↔ serial registry.</li>
+        <li><b>Odoo activity "Custom colour: check manually before Deco Coat PO"</b> · an order is not in the standard format (P150).</li>
+        <li><b>"New custom order"</b> · within ~30 min of each confirmed custom colour order.</li>
+        <li><b>"Custom colour — morning check"</b> · every day ~07:00 Brussels: only orders stuck at a gate (no PO after 24 h, 10 days at the painter, not confirmed on arrival…). One line if nothing is stuck.</li>
+        <li><b>"Custom colour — N orders to approve"</b> · weekdays ~14:00 Brussels: the daily batch for the Deco Coat PO (P200).</li>
+        <li><b>"Painted frames ready to ship"</b> · to supply@, Felix and Thao when Deco Coat scans a frame as waiting to ship (P400).</li>
       </ol>
     </div>
     <div class="howto">
-      <h4><span class="pill">P400</span> Custom Colour Handover</h4>
-      <div class="file">cc-handover.html</div>
+      <h4><span class="pill">Tools</span> Where to look</h4>
       <ol class="steps-list">
-        <li>Open the app (Odoo login) — it lists the frames Deco Coat has marked <span class="tabname">waiting to ship</span>.</li>
-        <li>Tick one frame, or <strong>select all</strong> to send a pallet together, then <strong>Handover selected →</strong>.</li>
-        <li>It validates the Deco Coat PO receipt, creates the Anderlecht → Velovisie transfer, books the DSV label and emails it to <span class="mono">wietzehoppe@decocoat.nl</span> (cc you).</li>
-        <li>Grab the label yourself from the card or the <span class="tabname">History</span> tab if needed — every handover is logged.</li>
+        <li><b>Custom Colors app</b> (internal tool) · "To order" batch, PO, order forms, labels, serial tracking.</li>
+        <li><b>Custom Colour Handover</b> · book the DSV label Deco Coat → Velovisie.</li>
+        <li><b>Deco Coat board</b> · every frame by stage on the paint line.</li>
+        <li><b>Dealer portal → Rep overview → Supply → Custom colour orders</b> · per order: client, Deco Coat PO, Velovisie PO, stage, next-stage date, ETA, serial, delivered, invoiced.</li>
+        <li><b>Odoo tags on the SO</b> · <b>CC check</b> = blocked, waiting for Thao · <b>CC OK</b> = checked and approved.</li>
       </ol>
     </div>
     <div class="howto">
-      <h4><span class="pill">P450</span> Velovisie receipt &amp; the production planner</h4>
-      <div class="file">vv-scan.html → 📦 Velovisie receipt  ·  po-builder-bikes.html</div>
-      <ol class="steps-list">
-        <li>On arrival, open <span class="tabname">VV app → Velovisie receipt</span> and scan the painted frame (or type the SO / serial).</li>
-        <li>The app finds the matching transfer, <strong>validates it in Odoo</strong>, and posts the order to the shared registry as ready to build.</li>
-        <li>In the <strong>PO Builder</strong> the order then appears in the <span class="tabname">🎨 ready to build now</span> lane on <em>This week</em> — schedule it, then hit <strong>Mark built</strong>.</li>
-      </ol>
+      <h4><span class="pill">UK</span> UK online orders (Shopify, team Online)</h4>
+      <p style="font-size:.93rem;color:var(--muted)">Not shipped from Velovisie to the customer. Route: Velovisie → Brain Log (receipt "VVIN", the bike is locked to its own SO by serial) → next big Brain Log → UK shipment → Derby 3PL receipt → UK delivery to the customer. UK dealer orders follow the standard route.</p>
     </div>
   </section>
 
   <section id="example">
-    <div class="s-head"><span class="s-num">04</span><h2>What an actual order to Deco Coat looks like</h2></div>
-    <p class="s-lead">For reference — this email is generated by the Custom Colors app from the order; you review and send it.</p>
+    <div class="s-head"><span class="s-num">04</span><h2>What an order to Deco Coat looks like</h2></div>
+    <p class="s-lead">Generated by the Custom Colors app at P200, so you can see what Deco Coat receives.</p>
     <div class="email">
       <div class="ehead">
         <div class="erow"><span class="lab">To</span><span>Wietze Hoppe | Deco Coat &lt;wietzehoppe@decocoat.nl&gt;</span></div>
-        <div class="erow"><span class="lab">From</span><span>Ahooga — Purchasing &amp; Supply Chain</span></div>
-        <div class="erow"><span class="lab">Subject</span><span>New Orders – MAX Custom Colour Frames</span></div>
+        <div class="erow"><span class="lab">From</span><span>Ahooga · Purchasing &amp; Supply Chain</span></div>
+        <div class="erow"><span class="lab">Subject</span><span>New Orders · MAX Custom Colour Frames</span></div>
       </div>
       <div class="ebody">
-        <p style="font-size:.95rem">Short cover note: places the order (e.g. <em>1 order, 4 custom painted frames</em>), references the attached POs, labels and order forms, and asks Deco Coat to <strong>confirm which week the frames can be painted</strong>.</p>
+        <p style="font-size:.95rem">Short cover note: places the order (e.g. <em>1 order, 4 custom painted frames</em>), references the attached PO, labels and order form, and asks Deco Coat to <strong>confirm which week the frames can be painted</strong>.</p>
         <div class="attlist">
-          <span class="att">labels.pdf</span><span class="att">Order form — P0####.pdf</span><span class="att">Purchase Order — P0####.pdf</span>
+          <span class="att">labels.pdf</span><span class="att">Order form.xlsx</span><span class="att">Purchase Order · P0####.pdf</span>
         </div>
       </div>
     </div>
   </section>
 
   <section id="gaps">
-    <div class="s-head"><span class="s-num">05</span><h2>Status of past open points</h2></div>
-    <p class="s-lead">Where the programme's known gaps now stand.</p>
+    <div class="s-head"><span class="s-num">05</span><h2>Status of open points</h2></div>
+    <p class="s-lead">Where the programme's known gaps stand (25 Nov 2026).</p>
     <div class="done">
-      <h4>✓ Serial ↔ Sales Order is now linked</h4>
-      <p>At assembly, Velovisie scans the SO and the <span class="mono">MACU·······</span> serial (VV Serial Scan, step P550). The pairing is saved to a shared registry that the Custom Colors app reads, so any physical bike traces back to its SO — no manual sheet entry.</p>
-      <p class="ask"><b>Owner &amp; trigger:</b> Velovisie, at assembly, for every frame — backup manual entry available in the same app and on the dashboard.</p>
+      <h4>✓ Wrong colours blocked before painting</h4>
+      <p>The colour check (P150) stops any off-standard order from reaching Deco Coat until Thao has approved it with <b>CC OK</b>.</p>
+      <p class="ask"><b>Note:</b> deliberately strict · free notes such as "customer wants helmet…" also trigger a check.</p>
     </div>
     <div class="done">
-      <h4>✓ Live line status &amp; ship-date estimate</h4>
-      <p>Deco Coat scans each frame's stage on the line (step P350). The Custom Colors app shows the live stage and auto-learns average stage durations to estimate when each frame will ship.</p>
-      <p class="ask"><b>Note:</b> estimates sharpen as more frames flow through and build up timing history.</p>
+      <h4>✓ Serial ↔ Sales Order linked · live line status</h4>
+      <p>Velovisie registers SO + serial at assembly; Deco Coat scans each stage. Both are visible in the Custom Colors app and the portal dashboard.</p>
     </div>
     <div class="done">
-      <h4>✓ Handover &amp; DSV label automated</h4>
-      <p>When a frame is ready to ship, the Custom Colour Handover app validates the PO receipt, creates the Anderlecht → Velovisie transfer and books the DSV label — emailed straight to Deco Coat (and several frames can ride on one pallet). No manual transfer or label step.</p>
-      <p class="ask"><b>Owner &amp; trigger:</b> Ahooga · Supply, per frame or per pallet (step P400).</p>
-    </div>
-    <div class="done">
-      <h4>✓ Arrival tells the planner what to build</h4>
-      <p>Scanning the painted frame on arrival at Velovisie validates the transfer and surfaces that exact order in the PO Builder's “ready to build now” lane — production is scheduled from physically-present frames, not guesswork.</p>
-      <p class="ask"><b>Owner &amp; trigger:</b> Velovisie scan on arrival (P450); planner schedules &amp; marks built.</p>
+      <h4>✓ Decal invoiced · accessories ship with the bike · lead time fixed</h4>
+      <p>Personalised decal now follows the bike for invoicing; accessories are moved Brain Log → Velovisie automatically; custom colour lead time is fixed at 70 days (no longer overwritten by stock levels).</p>
     </div>
     <div class="issue">
-      <h4>⚠ Back-fill historic serials</h4>
-      <p>Frames produced before the scan system went live may still be missing their SO ↔ serial link.</p>
-      <p class="ask"><b>Action:</b> back-fill the older serials against their orders so the registry is complete from here on.</p>
+      <h4>⚠ Velovisie delivery can pick the wrong custom bike</h4>
+      <p>The Velovisie delivery takes whichever custom bike arrives first, not necessarily the one painted for that order. One likely swap was found (MACU0000157: S27741 vs S27133).</p>
+      <p class="ask"><b>Action:</b> before shipping, check the serial on the delivery matches the serial registered for that SO.</p>
     </div>
-    <div class="done">
-      <h4>✓ Ordering pack fully automated</h4>
-      <p>The Deco Coat PO, order form, print labels and supplier email are all generated by the Custom Colors app from the live Odoo sales order — the old Order Book (.xlsm) and Order Form (.xlsx) are no longer filled by hand.</p>
-      <p class="ask"><b>Owner &amp; trigger:</b> Ahooga · Supply, per order (step P200).</p>
+    <div class="issue">
+      <h4>⚠ Accessories transfer from Brain Log</h4>
+      <p>Once, Brain Log's warehouse system shipped accessories straight to the customer instead of to Velovisie (UK order S28134).</p>
+      <p class="ask"><b>Action:</b> if a customer gets accessories before the bike, tell Supply.</p>
+    </div>
+    <div class="issue">
+      <h4>⚠ Small known issues</h4>
+      <p>Colour names with brackets, e.g. "RAL 9002 (Grey White)", are misread as a finish in the Custom Colors app · older frames may still miss their SO ↔ serial link · 17 open orders still show the old 30–35 day lead time.</p>
     </div>
   </section>
 
   <footer>
-    <span>Ahooga · Custom Colour Programme — Ordering Process</span>
-    <span>Source: process handover · custom color process.csv</span>
+    <span>Ahooga · Custom Colour Programme · Ordering Process</span>
+    <span>Updated 25 Nov 2026 · owner of checks &amp; alerts: Thao</span>
   </footer>
 
 </div>
