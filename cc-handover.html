@@ -563,7 +563,8 @@ async function runHandover(soList){
   if(missing.length){ showMsg('Finish Settings first \u2014 missing: '+missing.join(', ')+'.','warn'); showTab('settings'); return; }
   soList=(soList||[]).filter(Boolean); if(!soList.length){ showMsg('Select at least one frame first.','warn'); return; }
   const dry=$('dryrun')&&$('dryrun').checked;
-  soList.forEach(so=>{ if(!RUN[so]) RUN[so]=newRun(so); RUN[so].busy=true; });
+  // a dry-run preview must never count as done for a real run (and vice versa) -> start that frame fresh
+  soList.forEach(so=>{ if(!RUN[so] || !!RUN[so].dry!==!!dry) RUN[so]=newRun(so); RUN[so].dry=!!dry; RUN[so].busy=true; });
   renderQueue();
   // phase 1 — per frame: validate the PO receipt, then create the Anderlecht→Velovisie transfer
   // Receipt validation + the frame move to Velovisie now happen when Velovisie
@@ -711,8 +712,8 @@ function renderHistory(){
 
 /* run a single step; returns true on success */
 async function runStep(so,key,chained){
-  if(!RUN[so]) RUN[so]=newRun(so);
   const dry = $('dryrun') && $('dryrun').checked;
+  if(!RUN[so] || !!RUN[so].dry!==!!dry) RUN[so]=newRun(so); RUN[so].dry=!!dry;
   setStep(so,key,'run','');
   try{
     let detail='';
