@@ -249,7 +249,7 @@ async function load(){
     var parts = (d.outbound||[]).filter(function(b){ return b.parts; }).length,
         n = (d.outbound||[]).length - parts;
     document.getElementById("out-cnt").textContent =
-      (parts ? parts + " parts parcel" + (parts===1?"":"s") + " for Brain Log · " : "") +
+      (parts ? parts + " parts parcel" + (parts===1?"":"s") + " · " : "") +
       n + " bike" + (n===1?"":"s") + " waiting to leave";
     document.getElementById("stamp").textContent =
       "updated " + new Date().toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"});

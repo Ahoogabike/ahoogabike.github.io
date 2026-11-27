@@ -337,10 +337,11 @@ function vvForget(){ try{ localStorage.removeItem(VV_KEY_STORE); }catch(e){} }
   </div>
   <div id="sp-list"><div class="card"><div class="sub">Loading…</div></div></div>
   <div class="card" style="border-left:6px solid #d9730d">
-    <h2>Parts to Brain Log</h2>
-    <div class="sub">Spare parts Ahooga asked for at Brain Log (after-sales). For each parcel:
-      1. print the barcode labels: one per part, put all pieces of that part in one bag and stick the label on the bag
-      (Brain Log scans it at arrival), 2. pack and weigh, 3. enter boxes and kg, book DPD, print the DPD label for each box.</div>
+    <h2>Parts to ship</h2>
+    <div class="sub"><b>To Brain Log</b> (after-sales): 1. print the barcode labels: one per part, put all pieces of that part in one bag and stick the label on the bag
+      (Brain Log scans it at arrival), 2. pack and weigh, 3. enter boxes and kg, book DPD, print the DPD label for each box.<br>
+      <b>To a shop or customer</b>: pack and weigh, enter boxes and kg, book DPD and print the label. That also closes the delivery in Odoo.
+      If the parts leave another way (in the box with a bike, picked up), tap <b>Sent another way</b>.</div>
     <div id="pp-msg"></div>
   </div>
   <div id="pp-list"></div>
@@ -906,28 +907,46 @@ var PP = { rows: [] };
 function ppSay(t, kind){ var b=document.getElementById('pp-msg'); if(b) b.innerHTML = t ? '<div class="sub" style="margin-top:8px;color:'+(kind==='err'?'#c62828':kind==='ok'?'#2e7d32':'inherit')+'">'+t+'</div>' : ''; }
 function ppCard(r){
   var lines = r.lines.map(function(l){ return '<div>'+l.qty+' × <b>'+esc(l.name||l.product)+'</b> <span class="sub">'+esc(l.code)+'</span></div>'; }).join('');
-  var foot;
+  var foot, nm=esc(r.name);
+  /* Brain Log scans a barcode per part at arrival; a shop or customer does not. */
+  var bc = r.customer ? '' : '<button class="btn" onclick="ppBarcodes(\''+nm+'\')">▦ '+(r.booked?'':'1. ')+'Barcode labels</button> ';
   if(r.booked){
     foot = '<div class="sub" style="margin-top:10px">✓ DPD '+esc(r.booked.bookingId)+' booked '+esc(String(r.booked.at||'').slice(0,10))+' by '+esc(r.booked.by||'')+'</div>'+
-      '<div class="row" style="margin-top:8px"><button class="btn" onclick="ppBarcodes(\''+esc(r.name)+'\')">▦ Barcode labels</button>'+
-      (r.booked.label ? ' <button class="btn" onclick="ppLabelAgain(\''+esc(r.name)+'\')">⬇ DPD label again</button>' : '')+
-      (r.booked.trackingUrl ? ' <a class="btn-ghost" target="_blank" rel="noopener" href="'+esc(r.booked.trackingUrl)+'">Track ↗</a>' : '')+'</div>';
+      '<div class="row" style="margin-top:8px">'+bc+
+      (r.booked.label ? ' <button class="btn" onclick="ppLabelAgain(\''+nm+'\')">⬇ DPD label again</button>' : '')+
+      (r.booked.trackingUrl ? ' <a class="btn-ghost" target="_blank" rel="noopener" href="'+esc(r.booked.trackingUrl)+'">Track ↗</a>' : '')+
+      (r.customer ? ' <button class="btn-ok" id="pp-close-'+nm+'" onclick="ppClose(\''+nm+'\', true)">✓ Close in Odoo</button>' : '')+'</div>';
   } else {
-    foot = '<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap;align-items:center">'+
-      '<button class="btn" onclick="ppBarcodes(\''+esc(r.name)+'\')">▦ 1. Barcode labels</button>'+
-      '<label class="sub">Parcels <input id="pp-n-'+esc(r.name)+'" type="number" min="1" max="20" value="1" style="width:60px"></label>'+
-      '<label class="sub">Total kg <input id="pp-kg-'+esc(r.name)+'" type="number" min="0.5" step="0.5" value="5" style="width:70px"></label>'+
-      '<button class="btn-ok" id="pp-go-'+esc(r.name)+'" onclick="ppShip(\''+esc(r.name)+'\')">✈ 2. Book DPD + label</button></div>';
+    foot = '<div class="row" style="margin-top:12px;gap:8px;flex-wrap:wrap;align-items:center">'+bc+
+      '<label class="sub">Parcels <input id="pp-n-'+nm+'" type="number" min="1" max="20" value="1" style="width:60px"></label>'+
+      '<label class="sub">Total kg <input id="pp-kg-'+nm+'" type="number" min="0.5" step="0.5" value="'+(r.customer?2:5)+'" style="width:70px"></label>'+
+      '<button class="btn-ok" id="pp-go-'+nm+'" onclick="ppShip(\''+nm+'\')">✈ '+(r.customer?'':'2. ')+'Book DPD + label</button>'+
+      (r.customer ? '<button class="btn-ghost" id="pp-close-'+nm+'" onclick="ppClose(\''+nm+'\')">Sent another way</button>' : '')+'</div>';
   }
-  return '<div class="card" style="border-left:6px solid #d9730d"><div style="font-size:1.1em;font-weight:700">'+esc(r.name)+' → Brain Log <span class="sub">'+esc(r.when||'')+'</span></div>'+
-    '<div style="margin-top:6px">'+lines+'</div>'+foot+'<div id="pp-out-'+esc(r.name)+'"></div></div>';
+  var dest = r.customer ? esc(r.to||'customer') : 'Brain Log';
+  var sub2 = r.customer ? '<div class="sub" style="margin-top:4px">'+(r.origin?esc(r.origin)+' · ':'')+esc(r.address||'no address in Odoo')+'</div>' : '';
+  return '<div class="card" style="border-left:6px solid '+(r.customer?'#2f6fd0':'#d9730d')+'"><div style="font-size:1.1em;font-weight:700">'+nm+' → '+dest+' <span class="sub">'+esc(r.when||'')+'</span></div>'+
+    sub2+'<div style="margin-top:6px">'+lines+'</div>'+foot+'<div id="pp-out-'+nm+'"></div></div>';
 }
 async function ppLoad(){
   var box=document.getElementById('pp-list'); if(!box) return;
   try{ PP.rows = await ibGet('/parts-out');
-    box.innerHTML = PP.rows.length ? PP.rows.map(ppCard).join('') : '<div class="card"><div class="sub">No parts parcel to send to Brain Log.</div></div>';
+    box.innerHTML = PP.rows.length ? PP.rows.map(ppCard).join('') : '<div class="card"><div class="sub">No parts to ship.</div></div>';
   }catch(e){ box.innerHTML='<div class="card"><div class="sub">'+esc(String(e.message||e))+'</div></div>'; }
 }
+/* Customer parts that left without our DPD booking (in a bike box, picked up),
+   or after a booking whose Odoo step failed: validate the delivery in Odoo. */
+async function ppClose(name, afterBooking){
+  var r = PP.rows.filter(function(x){ return x.name===name; })[0]; if(!r) return;
+  if(!confirm((afterBooking ? 'Close '+name+' in Odoo now?' :
+      'Did '+name+' for '+(r.to||'the customer')+' leave Velovisie another way (in a bike box, picked up)?')+
+      '\n\nThis marks the parts as delivered in Odoo.')) return;
+  var btn=document.getElementById('pp-close-'+name); if(btn){ btn.disabled=true; btn.textContent='Closing…'; }
+  try{ await ibPost('/parts-ship', { pick:name, mode:'close' });
+    ppSay('✓ '+esc(name)+' is closed in Odoo.', 'ok'); ppLoad();
+  }catch(e){ if(btn){ btn.disabled=false; btn.textContent= afterBooking ? '✓ Close in Odoo' : 'Sent another way'; } ppSay(esc(String(e.message||e)), 'err'); }
+}
+window.ppClose = ppClose;
 function ppPdf(name, b64){
   if(!b64) return '';
   try{ var bin=atob(b64), n=bin.length, buf=new Uint8Array(n); for(var i=0;i<n;i++) buf[i]=bin.charCodeAt(i);
@@ -938,14 +957,17 @@ function ppPdf(name, b64){
 async function ppShip(name){
   var r = PP.rows.filter(function(x){ return x.name===name; })[0]; if(!r) return;
   var n = Number((document.getElementById('pp-n-'+name)||{}).value)||1, kg = Number((document.getElementById('pp-kg-'+name)||{}).value)||5;
-  if(!confirm('Book DPD for '+name+' to Brain Log?\n\n'+n+' parcel(s), '+kg+' kg in total.\nThis books the shipment with DPD for real.')) return;
+  if(!confirm('Book DPD for '+name+' to '+(r.customer ? (r.to||'the customer')+'\n'+(r.address||'') : 'Brain Log')+'?\n\n'+n+' parcel(s), '+kg+' kg in total.\nThis books the shipment with DPD for real.')) return;
   var btn=document.getElementById('pp-go-'+name); if(btn){ btn.disabled=true; btn.textContent='Booking…'; }
   try{ var j = await ibPost('/parts-ship', { pick:name, parcels:n, kg:kg });
     var out=document.getElementById('pp-out-'+name);
     if(out) out.innerHTML = '<div class="sub" style="margin-top:10px"><b>✓ DPD '+esc(j.bookingId)+(j.draft?' (draft)':'')+'</b></div>'+ppPdf(name, j.labelBase64)+
       (j.trackingUrl?'<div class="row" style="margin-top:8px"><a class="btn-ghost" target="_blank" rel="noopener" href="'+esc(j.trackingUrl)+'">Track ↗</a></div>':'');
     if(btn) btn.remove();
-    ppSay('✓ '+esc(name)+' booked. Print the DPD label and put it on the box.', 'ok');
+    if(r.customer && j.closed){ var cb=document.getElementById('pp-close-'+name); if(cb) cb.remove(); }
+    ppSay('✓ '+esc(name)+' booked. Print the DPD label and put it on the box.'+
+      (r.customer ? (j.closed ? ' The delivery is closed in Odoo.' : ' <b>Not closed in Odoo:</b> '+esc(j.closeError||'')+' · fix it, then tap Close in Odoo.') : ''),
+      r.customer && !j.closed ? 'err' : 'ok');
   }catch(e){ if(btn){ btn.disabled=false; btn.textContent='✈ 2. Book DPD + label'; } ppSay(esc(String(e.message||e)), 'err'); }
 }
 async function ppLabelAgain(name){
