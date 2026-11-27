@@ -177,6 +177,19 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   .q .dt{font-size:11px;color:var(--muted);flex:none;font-family:ui-monospace,monospace}
   .q .pill{margin-top:0;flex:none;font-size:11px}
   .q.opt .sn{color:var(--muted)}
+  /* 27 Nov: bikes waiting for a repair or an assessment (Inspect tab) */
+  .wb{padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .wb:last-child{border-bottom:none}
+  .wb .h{display:flex;align-items:baseline;gap:8px}
+  .wb .sn{font-family:ui-monospace,monospace;font-weight:700;font-size:14px}
+  .wb .sn.none{color:var(--muted);font-family:inherit;font-weight:600;font-size:13px}
+  .wb .dt{margin-left:auto;font-size:11px;color:var(--muted);font-family:ui-monospace,monospace;flex:none}
+  .wb .dt.old{color:var(--warn);font-weight:700}
+  .wb .md{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .wb .wc{display:flex;align-items:center;gap:8px;margin-top:6px}
+  .wb .wc .pill{margin-top:0;flex:none;font-size:10.5px;padding:2px 8px}
+  .wb .wc .w{flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wb .wc .rf{font-size:11px;color:var(--muted);font-family:ui-monospace,monospace;flex:none}
   details summary{cursor:pointer;color:var(--muted);font-size:12.5px;padding:8px 0}
   .result .ref.res-ok{color:var(--ok)} .result .ref.res-hold{color:var(--hold)} .result .ref.res-bad{color:#f4a08a}
   /* scanner modal */
@@ -314,6 +327,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
 
   <button class="btn btn-primary" id="isave" style="display:none" onclick="saveInspection(false)">Save inspection</button>
 
+  <div class="card"><div class="lab">Bikes waiting <span class="opt" id="iwaitn"></span></div><div id="iwaiting"></div></div>
   <div class="card"><div class="lab">Inspected, last 7 days <span class="opt"><span id="ipolicy"></span> <button class="chip" style="padding:4px 10px;font-size:12px" onclick="loadQueue()" title="Refresh">↻</button></span></div><div id="irecent"></div></div>
   <div class="footer">Final inspection · each bike gets a quality check in Odoo; each finding a case.</div>
 </section>
@@ -641,8 +655,9 @@ async function loadCases(scope, force, silent){
     renderCases();
   } catch(e){ box.innerHTML = '<div class="empty">Could not load cases: '+esc(e.message)+'</div>'; }
 }
-/* 27 Nov: a case is about a bike (a finding of Ahooga's inspection on a finished bike) or a part (red tag, stock-out…) */
-const kindOf = c => c.kind || (c.source === 'inspection' && !c.tag ? 'bike' : 'part');
+/* 27 Nov: a case is about a bike (a finding of Ahooga's inspection on a finished bike, or any case whose bike is blocked)
+   or a part (red tag, stock-out… once the bike is released or when there is no bike) */
+const kindOf = c => c.kind || ((c.source === 'inspection' && !c.tag) || c.bike_status === 'blocked' ? 'bike' : 'part');
 function setKind(k){ state.caseKind = k; try { localStorage.setItem('vvq_kind', k); } catch(e){} renderCases(); }
 function renderCases(){
   const all = state.cases, n = { bike: all.filter(c => kindOf(c) === 'bike').length, part: all.filter(c => kindOf(c) === 'part').length };
@@ -665,10 +680,12 @@ function caseTail(c){
 }
 /* a bike case leads with the bike: number + model, then the finding, the bike's status and what to do */
 function bikeCard(c){
-  return '<div class="case kind-bike"><div class="top"><span class="bkn">'+esc(c.bike || '—')+'</span><span class="rf">'+c.ref+'</span>'+(c.source === 'inspection' ? '<span class="src">AHOOGA INSPECTION</span>' : '')+'<span class="dt">'+caseDate(c)+'</span></div>' +
-    '<div class="pr">'+esc(c.bike_model || 'Bike not in Odoo yet')+'</div>' +
+  const insp = c.source === 'inspection';
+  return '<div class="case kind-bike"><div class="top"><span class="bkn">'+esc(c.bike || 'Bike')+'</span>'+(c.tag ? '<span class="tg">'+c.tag+'</span>' : '')+'<span class="rf">'+c.ref+'</span>'+(insp ? '<span class="src">AHOOGA INSPECTION</span>' : '')+'<span class="dt">'+caseDate(c)+'</span></div>' +
+    '<div class="pr">'+esc(c.bike_model || (c.bike ? 'Bike not in Odoo yet' : 'Bike number not given'))+'</div>' +
     '<div class="line"><span class="k">Found</span><span class="fd">'+esc(c.finding || String(c.title || '').split(' · ')[0])+'</span></div>' + bikeLine(c, true) +
-    '<div class="line"><span class="k">Case</span><span class="pill '+c.tone+'">'+esc(c.status.toUpperCase())+'</span></div>' + (c.action ? '<div class="act">'+esc(c.action)+'</div>' : '') + caseTail(c);
+    /* a red-tag case: the status is the part's (on the red shelf…); an inspection finding: the case's */
+    '<div class="line"><span class="k">'+(insp ? 'Case' : 'Part')+'</span><span class="pill '+c.tone+'">'+esc(c.status.toUpperCase())+'</span></div>' + (c.action ? '<div class="act">'+esc(c.action)+'</div>' : '') + caseTail(c);
 }
 /* a part case leads with the part (and its red tag); the bike it was on, if any, below */
 function partCard(c){
@@ -733,7 +750,7 @@ async function submitPhotos(){
 function enterInspect(){
   $('icodecard').style.display = state.inspectCode ? 'none' : 'block';
   if (state.inspectCode) loadQueue();
-  else $('irecent').innerHTML = '<div class="empty">Enter the inspector code first.</div>';
+  else { $('irecent').innerHTML = '<div class="empty">Enter the inspector code first.</div>'; $('iwaiting').innerHTML = ''; $('iwaitn').textContent = ''; }
   if (!state.components.length) loadComponents();
 }
 function saveInspectCode(){
@@ -757,9 +774,27 @@ async function loadQueue(){
 const RES_CLASS = { ok:'ok', fixed:'ok', accepted:'ok', repair:'hold', ahooga_repair:'hold', quarantine:'hold', bgrade:'scrap' };
 const RES_SHORT = { ok:'OK', fixed:'FIXED', accepted:'RECORDED', repair:'REPAIR', ahooga_repair:'AHOOGA REPAIR', quarantine:'QUARANTINE', bgrade:'B-GRADE' };
 function renderRecent(r){
+  renderWaiting(r.waiting);
   $('ipolicy').textContent = r.policy ? 'check ' + r.policy + ' ·' : '';
   $('irecent').innerHTML = r.recent.length ? r.recent.map(c => '<div class="q" onclick="pickBike(\''+esc(c.sn)+'\')"><span class="sn">'+esc(c.sn)+'</span><span class="pd">'+esc(c.inspector)+(c.findings ? ' · '+c.findings+' finding(s)' : '')+'</span><span class="pill '+(RES_CLASS[c.result]||'done')+'">'+(RES_SHORT[c.result]||'—')+'</span><span class="dt">'+fmtD(c.date)+'</span></div>').join('') : '<div class="empty">No inspection in the last 7 days.</div>';
 }
+/* 27 Nov: the bikes on hold, one row per bike, oldest first: why it waits (per case), model, where. Tap → the bike above. */
+const WHY_CLASS = { 'waiting for a part':'new', 'Velovisie repairs':'hold', 'Ahooga repairs':'hold', 'Ahooga assesses':'scrap' };
+function renderWaiting(list){
+  list = list || [];
+  $('iwaitn').textContent = list.length ? list.length + ' · for a repair or an assessment' : 'for a repair or an assessment';
+  $('iwaiting').innerHTML = list.length ? list.map(b => {
+    const days = Math.floor((Date.now() - new Date(String(b.since).replace(' ','T')+'Z')) / 864e5);
+    const since = caseDate({ created: b.since }) + (days >= 1 ? ' · ' + days + ' d' : '');
+    const where = String(b.location || '').replace(/^Not for Sale - /, '');
+    const go = b.sn ? 'pickBike(\''+esc(b.sn)+'\')' : 'openBikeCases()';
+    return '<div class="wb" onclick="'+go+'"><div class="h">'+(b.sn ? '<span class="sn">'+esc(b.sn)+'</span>' : '<span class="sn none">Bike without number</span>') +
+      '<span class="dt'+(days > 7 ? ' old' : '')+'">'+esc(since)+'</span></div>' +
+      ((b.model || where) ? '<div class="md">'+esc([b.model, where].filter(Boolean).join(' · '))+'</div>' : '') +
+      b.cases.map(c => '<div class="wc"><span class="pill '+(WHY_CLASS[c.why] || 'done')+'">'+esc(String(c.why).toUpperCase())+'</span><span class="w">'+esc(c.what)+'</span><span class="rf">'+esc(c.ref)+'</span></div>').join('') + '</div>';
+  }).join('') : '<div class="empty">No bike on hold.</div>';
+}
+function openBikeCases(){ state.caseKind = 'bike'; try { localStorage.setItem('vvq_kind', 'bike'); } catch(e){} show('cases'); }
 function pickBike(sn){ $('ibike').value = sn; lookupInspectBike(); $('ibike').scrollIntoView({ behavior:'smooth', block:'center' }); }
 $('ibike').addEventListener('blur', lookupInspectBike);
 $('ibike').addEventListener('keydown', e => { if (e.key === 'Enter') lookupInspectBike(); });
