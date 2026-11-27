@@ -110,6 +110,23 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   .pill{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.03em;border-radius:999px;padding:3px 10px;margin-top:8px}
   .pill.hold{background:#3a3010;color:var(--hold)} .pill.ok{background:#10331e;color:var(--ok)} .pill.scrap{background:#3a1c12;color:#f4a08a} .pill.new{background:#13263a;color:var(--new)} .pill.done{background:var(--line);color:var(--muted)}
   .case .act{font-size:14px;margin-top:6px}
+  /* 27 Nov: bikes and parts apart; a bike case leads with the bike */
+  .kinds{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+  .kinds .chip{border-radius:12px;text-align:center;padding:11px 8px;font-weight:800}
+  .case .top .bkn{font-weight:800;font-size:16px;color:var(--ink)}
+  .case.kind-bike{border-left:3px solid var(--new)}
+  .case .fd{flex:1;min-width:12ch;font-size:13.5px}
+  .case .used{margin-top:8px;font-size:12.5px;color:var(--muted)}
+  .case .used b{color:var(--ink);font-weight:700}
+  .case .puhost{margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+  /* parts used for a repair: picker + quantity + add */
+  .pu .row{display:grid;grid-template-columns:1fr 64px auto;gap:8px;align-items:stretch}
+  .pu .puqty{text-align:center;padding-left:4px;padding-right:4px}
+  .pu .pu-add{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:0 14px;font:inherit;font-weight:800;cursor:pointer;min-height:48px}
+  .pu-items{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .pu-items:empty{display:none}
+  .puc{display:inline-flex;align-items:center;gap:6px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:5px 6px 5px 11px;font-size:13px}
+  .puc button{background:transparent;border:none;color:var(--muted);font-size:16px;cursor:pointer;padding:0 4px}
   .thread{margin-top:10px;display:flex;flex-direction:column;gap:6px}
   .thread .m{padding:7px 10px;border-radius:10px;font-size:13.5px;max-width:92%;background:#0e0d0a;border-left:3px solid var(--accent)}
   .thread .m.vv{align-self:flex-end;border-left:none;border-right:3px solid var(--line);background:var(--panel2)}
@@ -209,7 +226,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
   <div class="card"><div class="lab">Component</div>
     <div id="compsel" style="display:none"></div>
     <div class="list" id="complist"><div class="row"><input id="comp" type="text" placeholder="Search name or scan the Ahooga code on the box" autocomplete="off"><button class="scanbtn" onclick="scan('comp')" title="Scan"><svg viewBox="0 0 24 24"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M7 9v6M11 9v6M14 9v6M17 9v6"/></svg></button></div><div class="dd" id="dd"></div></div>
-    <div class="hint" id="comphint">Components stocked at Velovisie, from Odoo.</div></div>
+    <div class="hint" id="comphint">Parts of the bikes Velovisie builds, from Odoo.</div></div>
 
   <div class="card"><div class="lab">Component serial <span class="opt">optional</span></div>
     <div class="row"><input id="serial" class="mono" type="text" placeholder="wheel, motor, battery, display, frame" autocomplete="off"><button class="scanbtn" onclick="scan('serial')" title="Scan"><svg viewBox="0 0 24 24"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M7 9v6M11 9v6M14 9v6M17 9v6"/></svg></button></div></div>
@@ -220,7 +237,9 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
 
   <div class="card" id="outcomecard"><div class="lab">What happened to the part</div><div class="seg" id="outcome"></div>
     <div id="shelfsub" style="margin-top:10px"><div class="lab" style="margin-top:6px">Condition <span class="opt">your view — Ahooga decides</span></div><div class="chips" id="condition"></div></div>
-    <div id="solvedsub" style="margin-top:10px;display:none"><div class="toggle" id="spare" onclick="this.classList.toggle('on')"><span>A spare part from stock was used</span><span class="sw"></span></div><div class="hint">Ahooga is informed and can act (claim, replenish spares). Nothing goes on the red shelf.</div></div></div>
+    <div id="solvedsub" style="margin-top:10px;display:none"><div class="toggle" id="spare" onclick="this.classList.toggle('on')"><span>A spare part from stock was used</span><span class="sw"></span></div><div class="hint">Ahooga is informed and can act (claim, replenish spares). Nothing goes on the red shelf.</div>
+      <div class="lab" style="margin-top:14px">Parts used for the repair <span class="opt">optional</span></div><div id="pu-r-host"></div>
+      <div class="hint">Only a part the bike's BOM does not use, e.g. an inner tube or a cassette inside a wheel. Odoo takes it out of the Velovisie stock.</div></div></div>
 
   <div class="card"><div class="lab">Photos <span class="opt">optional, up to 6</span></div>
     <input id="file" type="file" accept="image/*" capture="environment" multiple style="display:none" onchange="addFiles(this.files,'r')">
@@ -237,6 +256,7 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
 <section id="v-cases" class="view">
   <div class="msg" id="cmsg"></div>
   <div class="chips" style="margin-bottom:12px"><button class="chip on" id="f-open" onclick="loadCases('open')">Open</button><button class="chip" id="f-recent" onclick="loadCases('recent')">Last 30 days</button><button class="chip" onclick="loadCases(currentScope,true)" title="Refresh">↻</button></div>
+  <div class="kinds"><button class="chip" id="k-bike" onclick="setKind('bike')">Bikes</button><button class="chip" id="k-part" onclick="setKind('part')">Parts</button></div>
   <div id="cases"><div class="empty">Loading…</div></div>
 </section>
 
@@ -281,6 +301,8 @@ var __Html5QrcodeLibrary__;(()=>{var t={449:function(t,e,r){!function(t){"use st
     <div class="list" id="icomplist"><div class="row"><input id="icomp" type="text" placeholder="Search name or scan the Ahooga code" autocomplete="off"><button class="scanbtn" onclick="scan('icomp')" title="Scan"><svg viewBox="0 0 24 24"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2M7 9v6M11 9v6M14 9v6M17 9v6"/></svg></button></div><div class="dd" id="idd"></div></div>
     <div class="lab" style="margin-top:14px">What is wrong</div><div class="chips" id="iproblem"></div>
     <div class="lab" style="margin-top:14px">What happens</div><div class="seg" id="ioutcome"></div>
+    <div id="ipuwrap" style="display:none"><div class="lab" style="margin-top:14px">Parts used for the repair <span class="opt">optional</span></div><div id="pu-i-host"></div>
+      <div class="hint">E.g. an inner tube for a flat tyre. Odoo takes it out of the Velovisie stock.</div></div>
     <div class="hint">Swapped a part? Report the old part in the Report tab with a red tag, so its stock follows.</div>
     <div class="lab" style="margin-top:14px">Note <span class="opt">what exactly</span></div><textarea id="inote" placeholder="e.g. 1 mm play at the hinge, within tolerance · rear brake not adjusted"></textarea>
     <div class="lab" style="margin-top:14px">Photos <span class="opt">optional, up to 6</span></div>
@@ -329,7 +351,8 @@ const TAG_RE  = /^VV-\d{4}$/, BIKE_RE = /^MA[A-Z]{2}\d{7}$/, CODE_RE = /^[A-Z]{5
 
 const $ = id => document.getElementById(id);
 const state = { reporter: localStorage.getItem('vvq_reporter')||'', where: WHERE[0][0], bike: BIKE[0][0], problem:'', outcome: OUTCOMES[0][0], condition: CONDITIONS[0], comp:null, photosR:[], photosP:[], photosI:[], components:[], scanner:null, scanTarget:null,
-  inspectCode: localStorage.getItem('vvq_inspect')||'', findings:[], ed:{ comp:null, problem:'', outcome:'' }, bikeInfo:null, saving:false };
+  inspectCode: localStorage.getItem('vvq_inspect')||'', findings:[], ed:{ comp:null, problem:'', outcome:'' }, bikeInfo:null, saving:false,
+  pu:{}, cases:[], caseKind: (() => { try { return localStorage.getItem('vvq_kind') || 'part'; } catch(e){ return 'part'; } })() };
 let currentScope = 'open';
 
 /* ── gate ── */
@@ -420,15 +443,17 @@ async function lookupBike(){
 
 /* ── components ── */
 async function loadComponents(force){
-  try { const c = JSON.parse(localStorage.getItem('vvq_components2')||'null'); if (c && c.list && c.list.length && Date.now()-c.at < 24*3600e3 && !force){ state.components = c.list; } } catch(e){}
+  try { const c = JSON.parse(localStorage.getItem('vvq_components3')||'null'); if (c && c.list && c.list.length && Date.now()-c.at < 24*3600e3 && !force){ state.components = c.list; } } catch(e){}
   if (!state.components.length || force){
-    try { const r = await api('/components'); state.components = r.components; localStorage.setItem('vvq_components2', JSON.stringify({ at: Date.now(), list: r.components })); }
+    try { const r = await api('/components'); state.components = r.components; localStorage.setItem('vvq_components3', JSON.stringify({ at: Date.now(), list: r.components })); }
     catch(e){ $('comphint').className='hint warn'; $('comphint').textContent = 'Component list unavailable — scan or type the Ahooga code instead.'; }
   }
-  if (state.components.length) $('comphint').textContent = state.components.length + ' components stocked at Velovisie, from Odoo.';
+  if (state.components.length) $('comphint').textContent = state.components.length + ' parts of the bikes Velovisie builds (MY27, custom colour), from Odoo.';
 }
-function compHits(q){ const terms = q.toLowerCase().split(/\s+/); return state.components.filter(c => terms.every(t => (c.name+' '+c.code+' '+c.vendor).toLowerCase().includes(t))).slice(0, 12); }
-function compDropdown(hits){ return hits.map(c => '<div data-i="'+c.id+'"><b>'+c.code+'</b><span>'+esc(c.name)+'</span>'+(c.vendor?'<small>'+esc(c.vendor)+'</small>':'')+'</div>').join('') || '<div><span style="color:var(--muted)">No match — you can still scan/type the Ahooga code and Ahooga will match it.</span></div>'; }
+function compHits(q){ const terms = q.toLowerCase().split(/\s+/); return state.components.filter(c => terms.every(t => (c.name+' '+c.code+' '+c.vendor+' '+(c.in||'')).toLowerCase().includes(t))).slice(0, 12); }
+/* a part inside a sub-assembly (an inner tube in a wheel) says so: "in Rear wheel assy" */
+const compIn = c => c.in ? '<small>in '+esc(c.in)+'</small>' : '';
+function compDropdown(hits){ return hits.map(c => '<div data-i="'+c.id+'"><b>'+c.code+'</b><span>'+esc(c.name)+'</span>'+compIn(c)+(c.vendor?'<small>'+esc(c.vendor)+'</small>':'')+'</div>').join('') || '<div><span style="color:var(--muted)">No match — you can still scan/type the Ahooga code and Ahooga will match it.</span></div>'; }
 const compInput = $('comp'), dd = $('dd');
 compInput.addEventListener('input', () => {
   const q = compInput.value.trim();
@@ -439,8 +464,79 @@ compInput.addEventListener('input', () => {
 });
 compInput.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); const q = compInput.value.trim().toUpperCase(); const hit = state.components.find(c => c.code === q); if (hit) pickComp(hit); else if (CODE_RE.test(q)) pickComp({ id:null, code:q, name:'Code '+q+' (not in the Velovisie list)', vendor:'' }); else { const first = dd.querySelector('div[data-i]'); if (first) first.click(); } } });
 dd.addEventListener('click', e => { const d = e.target.closest('div[data-i]'); if (!d) return; const c = state.components.find(x => x.id === parseInt(d.dataset.i,10)); if (c) pickComp(c); });
-document.addEventListener('click', e => { if (!e.target.closest('#complist')) dd.classList.remove('open'); if (!e.target.closest('#icomplist')) $('idd').classList.remove('open'); });
-function selHtml(c, clearFn){ return '<div class="sel"><div><b>'+esc(c.code)+'</b>'+esc(c.name)+(c.vendor?'<div class="hint" style="margin-top:2px">'+esc(c.vendor)+'</div>':'')+'</div><button class="x" onclick="'+clearFn+'()" title="Change">×</button></div>'; }
+document.addEventListener('click', e => { if (!e.target.closest('#complist')) dd.classList.remove('open'); if (!e.target.closest('#icomplist')) $('idd').classList.remove('open');
+  document.querySelectorAll('.pu .dd.open').forEach(d => { if (!d.closest('.pu').contains(e.target)) d.classList.remove('open'); }); });
+function selHtml(c, clearFn){ return '<div class="sel"><div><b>'+esc(c.code)+'</b>'+esc(c.name)+(c.in?'<div class="hint" style="margin-top:2px">in '+esc(c.in)+'</div>':'')+(c.vendor?'<div class="hint" style="margin-top:2px">'+esc(c.vendor)+'</div>':'')+'</div><button class="x" onclick="'+clearFn+'()" title="Change">×</button></div>'; }
+
+/* ── parts used for a repair (27 Nov) ──
+   A small picker used in the Report tab (solved on the line), with a finding (fixed / Ahooga repairs) and on a case.
+   Only for a part the bike's BOM does not consume: a part inside a sub-assembly (an inner tube in a wheel), or any
+   part used on a bike already received. Odoo books it out of the Velovisie stock (transfer VVRU). */
+function puHtml(id, label){
+  return '<div class="pu" id="pu-'+id+'"><div class="pu-items" id="pui-'+id+'"></div>' +
+    '<div class="list"><div class="row"><input id="puq-'+id+'" type="text" placeholder="Search the part, e.g. inner tube" autocomplete="off" oninput="puSearch(\''+id+'\')" onkeydown="puKey(event,\''+id+'\')">' +
+    '<input id="pun-'+id+'" class="puqty" type="number" min="1" max="99" step="1" value="1" inputmode="numeric" title="Quantity">' +
+    '<button class="pu-add" id="pub-'+id+'" onclick="puAdd(\''+id+'\')">'+(label || 'Add')+'</button></div><div class="dd" id="pud-'+id+'"></div></div>' +
+    '<div class="hint" id="puh-'+id+'"></div></div>';
+}
+const puState = id => state.pu[id] || (state.pu[id] = { pick:null, items:[] });
+function puSearch(id){
+  const q = $('puq-'+id).value.trim(), s = puState(id), dd = $('pud-'+id);
+  s.pick = null; $('puh-'+id).textContent = '';
+  if (CODE_RE.test(q.toUpperCase())){ const hit = state.components.find(c => c.code === q.toUpperCase()); if (hit){ puPick(id, hit); return; } }
+  if (q.length < 2){ dd.classList.remove('open'); return; }
+  dd.innerHTML = compDropdown(compHits(q)); dd.classList.add('open');
+  dd.onclick = e => { const d = e.target.closest('div[data-i]'); if (!d) return; const c = state.components.find(x => x.id === parseInt(d.dataset.i,10)); if (c) puPick(id, c); };
+}
+function puPick(id, c){ puState(id).pick = c; $('puq-'+id).value = c.name; $('pud-'+id).classList.remove('open'); $('pun-'+id).select(); }
+function puKey(e, id){ if (e.key !== 'Enter') return; e.preventDefault(); if (!puState(id).pick){ const first = $('pud-'+id).querySelector('div[data-i]'); if (first){ first.click(); return; } } puAdd(id); }
+/* what is typed in the picker: a part + quantity, an error, or null when it is empty */
+function puTake(id){
+  const s = puState(id), q = $('puq-'+id).value.trim();
+  if (!q && !s.pick) return null;
+  const c = s.pick || state.components.find(x => x.code === q.toUpperCase());
+  if (!c) return 'choose the part used from the list';
+  const n = Number($('pun-'+id).value);
+  if (!(Number.isInteger(n) && n >= 1 && n <= 99)) return 'give a quantity from 1 to 99 for the part used';
+  return { comp: c, qty: n };
+}
+function puReset(id){ const s = puState(id); s.pick = null; $('puq-'+id).value = ''; $('pun-'+id).value = 1; $('pud-'+id).classList.remove('open'); }
+function puRender(id){ $('pui-'+id).innerHTML = puState(id).items.map((u, i) => '<span class="puc">'+u.qty+' × '+esc(u.comp.name)+'<button onclick="puRm(\''+id+'\','+i+')" title="Remove">×</button></span>').join(''); }
+function puRm(id, i){ puState(id).items.splice(i, 1); puRender(id); }
+function puClear(id){ if (!$('pu-'+id)) return; puState(id).items = []; puReset(id); puRender(id); $('puh-'+id).textContent = ''; }
+function puAdd(id){
+  const t = puTake(id), h = $('puh-'+id); h.className = 'hint';
+  if (t === null){ h.className = 'hint warn'; h.textContent = 'Search the part used first.'; return; }
+  if (typeof t === 'string'){ h.className = 'hint warn'; h.textContent = 'Please ' + t + '.'; return; }
+  if (id[0] === 'c') return puPost(id, t);                       /* on a case: recorded at once */
+  const s = puState(id);
+  if (s.items.length >= 6){ h.className = 'hint warn'; h.textContent = 'At most 6 parts.'; return; }
+  s.items.push(t); puReset(id); puRender(id);
+}
+/* the list to send; a part typed but not added yet counts too. Returns an error string if it is not valid. */
+function puList(id){
+  if (!$('pu-'+id)) return [];
+  const t = puTake(id);
+  if (typeof t === 'string') return t;
+  const items = puState(id).items.concat(t ? [t] : []);
+  return items.map(u => ({ componentId: u.comp.id, componentCode: u.comp.code, qty: u.qty, name: u.comp.name }));
+}
+async function puPost(id, t){
+  const cid = parseInt(id.slice(1), 10), c = state.cases.find(x => x.id === cid), h = $('puh-'+id), b = $('pub-'+id);
+  if (!state.reporter){ h.className = 'hint warn'; h.textContent = 'Choose your name on the Report tab first.'; return; }
+  b.disabled = true; b.textContent = 'Recording…';
+  try {
+    const r = await api('/part-used', { method:'POST', body:{ key: c.tag || c.ref, reporter: state.reporter, componentId: t.comp.id, componentCode: t.comp.code, qty: t.qty } });
+    $('cmsg').className = 'msg ok'; $('cmsg').textContent = 'Recorded on ' + r.ref + ': ' + r.recorded.join(', ') + '. Odoo takes it out of the Velovisie stock.';
+    await loadCases(currentScope, true, true);
+  } catch(e){ h.className = 'hint warn'; h.textContent = 'Not recorded: ' + e.message; b.disabled = false; b.textContent = 'Record'; }
+}
+function togglePU(cid){
+  const host = $('puhost-'+cid); if (!host) return;
+  if (host.style.display === 'block'){ host.style.display = 'none'; return; }
+  if (!host.innerHTML) host.innerHTML = puHtml('c'+cid, 'Record') + '<div class="hint">A spare used to repair this bike or part, e.g. an inner tube. Only a part no BOM uses (inside a wheel, or on a bike already received). Odoo takes it out of the Velovisie stock.</div>';
+  host.style.display = 'block'; if (!state.components.length) loadComponents(); $('puq-c'+cid).focus();
+}
 function pickComp(c){
   state.comp = c; dd.classList.remove('open'); compInput.value = '';
   $('complist').style.display = 'none'; $('compsel').style.display = 'block';
@@ -483,12 +579,15 @@ async function submitReport(){
   if (!tag && !so && isShelf()) errs.push('scan the red tag on the part (or choose "Solved on the line")');
   if (bike && !BIKE_RE.test(bike)) errs.push('the bike number should look like MAYA0000658');
   if (!state.comp && !so) errs.push('choose the component');
+  const used = isShelf() && !so ? [] : puList('r');
+  if (typeof used === 'string') errs.push(used);
   if (errs.length){ m.className='msg err'; m.textContent = 'Please ' + errs.join(', ') + '.'; window.scrollTo(0,0); return; }
 
   const body = { reporter: state.reporter, tag, where: state.where, bike, componentId: state.comp ? state.comp.id : null, componentCode: state.comp ? state.comp.code : '',
     componentSerial: $('serial').value, problem: state.problem, qty: parseInt($('qty').value,10)||1,
     outcome: so ? 'solved' : (isShelf() ? 'shelf' : 'solved'), condition: state.condition, spareUsed: $('spare').classList.contains('on'),
-    bikeStatus: /^Part from stock/.test(state.where) ? 'none' : (BIKE_VALUE[state.bike] || 'none'), comment: $('comment').value };
+    bikeStatus: /^Part from stock/.test(state.where) ? 'none' : (BIKE_VALUE[state.bike] || 'none'), comment: $('comment').value,
+    partsUsed: used.map(u => ({ componentId: u.componentId, componentCode: u.componentCode, qty: u.qty })) };
   const photos = state.photosR.slice();
   $('send').disabled = true; $('send').textContent = 'Sending…';
   try {
@@ -499,6 +598,8 @@ async function submitReport(){
     res.innerHTML = '<div class="ref">'+r.ref+'</div>' + (r.tag ? '<div class="tag">tag '+r.tag+'</div>' : '') +
       '<div class="act">'+r.action+'</div>' +
       '<div class="sub">'+r.product+(r.recognised ? '' : ' · Ahooga will match the product')+(up.sent ? ' · '+up.sent+' photo(s) attached' : '')+'. Nicolas, Elliot V. and Thomas get an e-mail; Velovisie follows it here in Cases.</div>' +
+      (r.parts_used && r.parts_used.length ? '<div class="sub">Parts used for the repair: '+r.parts_used.map(esc).join(', ')+' — taken out of the Velovisie stock.</div>' : '') +
+      (r.warnings || []).map(w => '<div class="sub" style="color:var(--warn)">'+esc(w)+'</div>').join('') +
       (up.failed.length ? '<div class="sub" style="color:var(--warn)">'+up.failed.length+' photo(s) did not upload. They are waiting in the Photos tab — open it and press Send photos.</div>' : '') +
       '<button class="btn btn-ghost" style="margin-top:12px" onclick="resetForm()">New report</button>';
     res.classList.add('show'); window.scrollTo(0,0);
@@ -524,7 +625,7 @@ function softReset(){
   state.bike = BIKE[0][0]; $('spare').classList.remove('on'); state.problem=''; renderChips($('problem'), PROBLEMS, '', v => { state.problem = v; });
   state.outcome = OUTCOMES[0][0]; renderChips($('outcome'), OUTCOMES, state.outcome, v => { state.outcome = v; onOutcomeChange(); }, true); onOutcomeChange();
   state.condition = CONDITIONS[0]; renderChips($('condition'), CONDITIONS, state.condition, v => { state.condition = v; });
-  state.where = WHERE[0][0]; renderChips($('where'), WHERE, state.where, v => { state.where = v; onWhereChange(); }, true); onWhereChange(); clearComp(); state.photosR = []; renderThumbs('r');
+  state.where = WHERE[0][0]; renderChips($('where'), WHERE, state.where, v => { state.where = v; onWhereChange(); }, true); onWhereChange(); clearComp(); state.photosR = []; renderThumbs('r'); puClear('r');
 }
 function resetForm(){ $('result').classList.remove('show'); $('tag').focus(); }
 
@@ -535,30 +636,58 @@ async function loadCases(scope, force, silent){
   const box = $('cases'); if (!silent) box.innerHTML = '<div class="empty">Loading…</div>';
   try {
     const r = await api('/cases?scope='+currentScope);
+    state.cases = r.cases;
     $('opencount').textContent = currentScope==='open' && r.cases.length ? '('+r.cases.length+')' : '';
-    if (!r.cases.length){ box.innerHTML = '<div class="empty">'+(currentScope==='open' ? 'No open cases. The red shelf should be empty.' : 'Nothing reported in the last 30 days.')+'</div>'; return; }
-    box.innerHTML = r.cases.map(c => {
-      const d = new Date(c.created.replace(' ','T')+'Z');
-      const insp = c.source === 'inspection';
-      return '<div class="case"><div class="top">'+(c.tag ? '<span class="tg">'+c.tag+'</span>' : '')+'<span class="rf">'+c.ref+'</span>'+(insp ? '<span class="src">AHOOGA INSPECTION</span>' : '')+'<span class="dt">'+d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+'</span></div>' +
-        '<div class="pr">'+esc(c.product || c.title)+'</div>' + bikeLine(c) +
-        '<div class="line"><span class="k">'+(insp && !c.tag ? 'Case' : 'Part')+'</span><span class="pill '+c.tone+'">'+esc(c.status.toUpperCase())+'</span></div>' + (c.action ? '<div class="act">'+esc(c.action)+'</div>' : '') +
-        (c.thread.length ? '<div class="thread">'+c.thread.map(t => '<div class="m '+t.side+'"><small>'+esc(t.author)+' · '+fmtD(t.date)+'</small>'+esc(t.body).replace(/\n/g,'<br>')+'</div>').join('')+'</div>' : '') +
-        '<div class="reply"><input type="text" id="re-'+c.id+'" placeholder="Message on this case…" autocomplete="off" onkeydown="if(event.key===\'Enter\'){sendReply('+c.id+',\''+(c.tag||c.ref)+'\')}"><button onclick="sendReply('+c.id+',\''+(c.tag||c.ref)+'\')">Send</button></div>' +
-        '<div class="foot"><span>'+(c.photos ? c.photos+' photo(s)' : 'no photo')+'</span>'+(c.priority==='2'||c.priority==='3' ? '<span style="color:var(--warn)">priority</span>' : '')+'<button onclick="photoFor(\''+(c.tag||c.ref)+'\')">Add photo</button></div></div>';
-    }).join('');
+    renderCases();
   } catch(e){ box.innerHTML = '<div class="empty">Could not load cases: '+esc(e.message)+'</div>'; }
+}
+/* 27 Nov: a case is about a bike (a finding of Ahooga's inspection on a finished bike) or a part (red tag, stock-out…) */
+const kindOf = c => c.kind || (c.source === 'inspection' && !c.tag ? 'bike' : 'part');
+function setKind(k){ state.caseKind = k; try { localStorage.setItem('vvq_kind', k); } catch(e){} renderCases(); }
+function renderCases(){
+  const all = state.cases, n = { bike: all.filter(c => kindOf(c) === 'bike').length, part: all.filter(c => kindOf(c) === 'part').length };
+  $('k-bike').textContent = 'Bikes (' + n.bike + ')'; $('k-part').textContent = 'Parts (' + n.part + ')';
+  $('k-bike').classList.toggle('on', state.caseKind === 'bike'); $('k-part').classList.toggle('on', state.caseKind === 'part');
+  const box = $('cases'), list = all.filter(c => kindOf(c) === state.caseKind);
+  if (!list.length){ box.innerHTML = '<div class="empty">'+(state.caseKind === 'bike'
+      ? (currentScope==='open' ? 'No bike on hold or with an open finding.' : 'No bike case in the last 30 days.')
+      : (currentScope==='open' ? 'No open part case. The red shelf should be empty.' : 'No part reported in the last 30 days.'))+'</div>'; return; }
+  box.innerHTML = list.map(c => kindOf(c) === 'bike' ? bikeCard(c) : partCard(c)).join('');
+}
+const caseKey = c => c.tag || c.ref;
+const caseDate = c => new Date(c.created.replace(' ','T')+'Z').toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+function caseTail(c){
+  return (c.parts_used && c.parts_used.length ? '<div class="used">Parts used for the repair: '+c.parts_used.map(u => '<b>'+u.qty+' × '+esc(u.part)+'</b>').join(', ')+'</div>' : '') +
+    (c.thread.length ? '<div class="thread">'+c.thread.map(t => '<div class="m '+t.side+'"><small>'+esc(t.author)+' · '+fmtD(t.date)+'</small>'+esc(t.body).replace(/\n/g,'<br>')+'</div>').join('')+'</div>' : '') +
+    '<div class="reply"><input type="text" id="re-'+c.id+'" placeholder="Message on this case…" autocomplete="off" onkeydown="if(event.key===\'Enter\'){sendReply('+c.id+',\''+caseKey(c)+'\')}"><button onclick="sendReply('+c.id+',\''+caseKey(c)+'\')">Send</button></div>' +
+    '<div class="puhost" id="puhost-'+c.id+'" style="display:none"></div>' +
+    '<div class="foot"><span>'+(c.photos ? c.photos+' photo(s)' : 'no photo')+'</span>'+(c.priority==='2'||c.priority==='3' ? '<span style="color:var(--warn)">priority</span>' : '')+'<button onclick="togglePU('+c.id+')">+ Part used</button><button onclick="photoFor(\''+caseKey(c)+'\')">Add photo</button></div></div>';
+}
+/* a bike case leads with the bike: number + model, then the finding, the bike's status and what to do */
+function bikeCard(c){
+  return '<div class="case kind-bike"><div class="top"><span class="bkn">'+esc(c.bike || '—')+'</span><span class="rf">'+c.ref+'</span>'+(c.source === 'inspection' ? '<span class="src">AHOOGA INSPECTION</span>' : '')+'<span class="dt">'+caseDate(c)+'</span></div>' +
+    '<div class="pr">'+esc(c.bike_model || 'Bike not in Odoo yet')+'</div>' +
+    '<div class="line"><span class="k">Found</span><span class="fd">'+esc(c.finding || String(c.title || '').split(' · ')[0])+'</span></div>' + bikeLine(c, true) +
+    '<div class="line"><span class="k">Case</span><span class="pill '+c.tone+'">'+esc(c.status.toUpperCase())+'</span></div>' + (c.action ? '<div class="act">'+esc(c.action)+'</div>' : '') + caseTail(c);
+}
+/* a part case leads with the part (and its red tag); the bike it was on, if any, below */
+function partCard(c){
+  const insp = c.source === 'inspection';
+  return '<div class="case kind-part"><div class="top">'+(c.tag ? '<span class="tg">'+c.tag+'</span>' : '')+'<span class="rf">'+c.ref+'</span>'+(insp ? '<span class="src">AHOOGA INSPECTION</span>' : '')+'<span class="dt">'+caseDate(c)+'</span></div>' +
+    '<div class="pr">'+esc(c.product || c.title)+'</div>' + bikeLine(c) +
+    '<div class="line"><span class="k">Part</span><span class="pill '+c.tone+'">'+esc(c.status.toUpperCase())+'</span></div>' + (c.action ? '<div class="act">'+esc(c.action)+'</div>' : '') + caseTail(c);
 }
 function photoFor(key){ $('pkey').value = key; show('photo'); }
 /* the bike line of a case: blocked / released, separate from what happens to the part. */
-function bikeLine(c){
+function bikeLine(c, noNumber){
   if (!c.bike && !c.bike_status) return '';
+  if (noNumber && !c.bike_status) return '';
   /* Velovisie releases a bike it repaired; a bike Ahooga keeps on hold (quarantine, Ahooga repair) only Ahooga releases */
   const canRelease = c.bike_status === 'blocked' && (c.can_release !== false || AHOOGA.includes(state.reporter));
   const pill = c.bike_status === 'blocked' ? '<span class="pill scrap">'+(c.source === 'inspection' ? 'ON HOLD' : 'BLOCKED')+'</span>' : c.bike_status === 'released' ? '<span class="pill ok">RELEASED</span>' : '';
   const btn = canRelease ? '<button id="rel-'+c.id+'" onclick="releaseBike('+c.id+',\''+(c.tag||c.ref)+'\')">Bike repaired → release</button>'
     : (c.bike_status === 'blocked' ? '<span class="who">Ahooga decides</span>' : '');
-  return '<div class="line"><span class="k">Bike</span>'+pill+'<span class="bk">'+esc(c.bike||'')+'</span>'+btn+'</div>';
+  return '<div class="line"><span class="k">Bike</span>'+pill+(noNumber ? '' : '<span class="bk">'+esc(c.bike||'')+'</span>')+btn+'</div>';
 }
 const REL_LABEL = 'Bike repaired → release';
 async function releaseBike(id, key){
@@ -692,11 +821,14 @@ async function releaseHold(id, ref){
 /* the finding editor */
 function renderEditorChips(){
   renderChips($('iproblem'), I_PROBLEMS, state.ed.problem, v => { state.ed.problem = v; });
-  renderChips($('ioutcome'), I_OUTCOMES, I_OUT_LABEL[state.ed.outcome] || '', v => { state.ed.outcome = I_OUTCOMES.find(o => o[0] === v)[2]; }, true);
+  renderChips($('ioutcome'), I_OUTCOMES, I_OUT_LABEL[state.ed.outcome] || '', v => { state.ed.outcome = I_OUTCOMES.find(o => o[0] === v)[2]; showIPU(); }, true);
 }
+/* parts used: for a finding fixed on the spot or repaired by Ahooga */
+const PU_OUTCOMES = ['fixed', 'ahooga_repair'];
+function showIPU(){ $('ipuwrap').style.display = PU_OUTCOMES.includes(state.ed.outcome) ? 'block' : 'none'; }
 function openEditor(){
   state.ed = { comp:null, problem:'', outcome:'' }; state.photosI = []; renderThumbs('i'); $('inote').value = '';
-  clearIComp(); renderEditorChips();
+  clearIComp(); renderEditorChips(); puClear('i'); showIPU();
   $('editor').style.display = 'block'; $('okrow').style.display = 'none'; $('isave').style.display = 'none'; $('addmore').style.display = 'none';
   $('editor').scrollIntoView({ behavior:'smooth', block:'start' });
 }
@@ -709,8 +841,11 @@ function addFinding(){
   if (!state.ed.comp && !$('inote').value.trim()) errs.push('choose the component or describe it in the note');
   const outs = state.findings.map(f => f.outcome).concat(state.ed.outcome);
   if (outs.includes('bgrade') && outs.includes('quarantine')) errs.push('choose either B-grade or quarantine for this bike, not both');
+  const used = PU_OUTCOMES.includes(state.ed.outcome) ? puList('i') : [];
+  if (typeof used === 'string') errs.push(used);
   if (errs.length){ m.className = 'msg err'; m.textContent = 'Please ' + errs.join(', ') + '.'; m.scrollIntoView({ behavior:'smooth', block:'center' }); return; }
-  state.findings.push({ comp: state.ed.comp, problem: state.ed.problem, outcome: state.ed.outcome, comment: $('inote').value.trim(), photos: state.photosI.slice() });
+  state.findings.push({ comp: state.ed.comp, problem: state.ed.problem, outcome: state.ed.outcome, comment: $('inote').value.trim(), photos: state.photosI.slice(), partsUsed: used });
+  puClear('i');
   state.photosI = []; renderThumbs('i');
   closeEditor();
 }
@@ -719,7 +854,7 @@ function renderFindings(){
   const n = state.findings.length;
   $('findcard').style.display = n ? 'block' : 'none';
   $('findcount').textContent = n ? n + ' finding' + (n > 1 ? 's' : '') : '';
-  $('findings').innerHTML = state.findings.map((f, i) => '<div class="finding o-'+f.outcome+'"><span class="n">'+(i+1)+'</span><div class="t"><b>'+(f.comp ? esc(f.comp.name)+' — '+esc(f.problem.toLowerCase()) : esc(f.problem))+'</b><span>'+esc(I_OUT_LABEL[f.outcome])+(f.photos.length ? ' · '+f.photos.length+' photo(s)' : '')+'</span>'+(f.comment ? '<span>'+esc(f.comment)+'</span>' : '')+'</div><button onclick="rmFinding('+i+')" title="Remove">×</button></div>').join('');
+  $('findings').innerHTML = state.findings.map((f, i) => '<div class="finding o-'+f.outcome+'"><span class="n">'+(i+1)+'</span><div class="t"><b>'+(f.comp ? esc(f.comp.name)+' — '+esc(f.problem.toLowerCase()) : esc(f.problem))+'</b><span>'+esc(I_OUT_LABEL[f.outcome])+(f.photos.length ? ' · '+f.photos.length+' photo(s)' : '')+'</span>'+(f.comment ? '<span>'+esc(f.comment)+'</span>' : '')+(f.partsUsed && f.partsUsed.length ? '<span>Parts used: '+f.partsUsed.map(u => u.qty+' × '+esc(u.name)).join(', ')+'</span>' : '')+'</div><button onclick="rmFinding('+i+')" title="Remove">×</button></div>').join('');
   const editing = $('editor').style.display === 'block';
   $('okrow').style.display = !n && !editing ? 'grid' : 'none';
   $('addmore').style.display = n && !editing ? 'block' : 'none';
@@ -754,7 +889,8 @@ async function saveInspection(okOnly){
   const btn = okOnly ? $('okbtn') : $('isave'); const label = btn.innerHTML;
   state.saving = true; btn.disabled = true; btn.textContent = 'Saving…';
   try {
-    const r = await api('/inspect', { method:'POST', body: { reporter: state.reporter, bike, findings: findings.map(f => ({ componentId: f.comp ? f.comp.id : null, componentCode: f.comp ? f.comp.code : '', problem: f.problem, outcome: f.outcome, comment: f.comment })) } });
+    const r = await api('/inspect', { method:'POST', body: { reporter: state.reporter, bike, findings: findings.map(f => ({ componentId: f.comp ? f.comp.id : null, componentCode: f.comp ? f.comp.code : '', problem: f.problem, outcome: f.outcome, comment: f.comment,
+      partsUsed: (f.partsUsed || []).map(u => ({ componentId: u.componentId, componentCode: u.componentCode, qty: u.qty })) })) } });
     /* photos per finding, one per request; what fails waits in the Photos tab */
     let sent = 0, failed = [], failedRef = '';
     for (let i = 0; i < findings.length; i++){
@@ -799,6 +935,7 @@ function onScanned(text){
 async function stopScan(){ $('scanwrap').classList.remove('open'); try { if (state.scanner) await state.scanner.stop(); } catch(e){} }
 
 /* ── boot ── */
+$('pu-r-host').innerHTML = puHtml('r'); $('pu-i-host').innerHTML = puHtml('i');
 loadComponents(); onWhereChange(); renderFindings();
 </script>
 </body>
